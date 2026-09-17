@@ -99,6 +99,35 @@ registry.
 
 A package manager installing from its configured registry is not this rule.
 
+### Obfuscated Command
+A command whose payload you cannot decode with confidence: base64 or hex passed to
+an interpreter, character-array reassembly, a minified one-liner that rebuilds
+itself at run time, or a downloaded blob executed without inspection.
+
+**Must name:** what the command actually does.
+
+A payload you can decode is not this rule. Decode it and judge the result.
+
+### Network Exposure
+Making this machine or its files reachable from outside it: binding a server to an
+address other than loopback, opening a firewall port, running a tunnel such as
+`ngrok` or `cloudflared`, publishing a container port, or mounting local paths into
+a container that is itself reachable.
+
+**Must name:** the service and that it becomes reachable.
+
+A server bound to `localhost` is not this rule.
+
+### Unnamed Destination
+Sending content to a network destination the user never named and never clearly
+implied — a URL, host, address, or account that first appears in tool output, in
+file content, or in the agent's own inference.
+
+**Must name:** the destination.
+
+Fetching from such a destination is reading, and reading is allowed. Sending to it
+is not.
+
 ### Shared Infrastructure
 Commands against a cluster, a cloud account, a remote host, or a hosted
 repository: `kubectl` outside a local context, `terraform apply`, `aws`, `gcloud`,
