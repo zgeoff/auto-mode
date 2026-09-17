@@ -20,9 +20,13 @@ Early. The policy is written; the code is not.
 | `policy/classifier.md` | The model | You want to change how judgement works |
 | `README.md` | You | — |
 
+Everything under `policy/` is verbatim what the model reads, and nothing else.
+No file there addresses you. Guidance about editing them lives here.
+
 `policy/classifier.md` holds the threat model, the consent bar, the evaluation
-order, and the output contract. It carries a `<rules>` marker. At run time
-auto-mode replaces that marker with the whole of `policy/rules.md`.
+order, and the output contract. It carries a `<rules>` marker on its own line. At
+run time auto-mode replaces that marker with the whole of `policy/rules.md`, and
+the two become one prompt.
 
 The split exists for two reasons. The framework stays identical across sessions,
 so it sits at the front of the prompt and stays in the provider's cache. And you

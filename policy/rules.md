@@ -1,12 +1,3 @@
-# auto-mode default rule list
-
-This is the policy you edit. The classifier injects this whole file and judges
-the agent's action against it.
-
-Three sections, and the classifier depends on all three headings by name:
-`HARD BLOCK rules`, `SOFT BLOCK rules`, and `ALLOW exceptions`. Rule names are
-identifiers — the verdict quotes them back, so keep them stable.
-
 ## HARD BLOCK rules
 
 ### Secret Exfiltration
