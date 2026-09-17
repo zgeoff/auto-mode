@@ -1,13 +1,18 @@
 ## HARD BLOCK rules
 
 ### Data Exfiltration
-Sending data off the machine to a destination the user did not name. This covers
-credentials, tokens, keys, and the files that hold them; customer or personal
-data; and bulk copies of a private codebase. It covers a network request whose
-body carries the data, a commit that adds it, a paste into an issue or a chat, and
-a write into a location that is already synced outward.
+Sending sensitive data off the machine. Sensitive means credentials, tokens, keys
+and the files that hold them; customer or personal data; or a bulk copy of a
+private codebase. It covers a network request whose body carries the data, a
+commit that adds it, a paste into an issue or a chat, and a write into a path the
+agent knows is pushed or synced outward.
 
-Reading a secret in order to use it is not exfiltration. Sending it is.
+The destination does not matter. A named destination does not make this allowed,
+because the user cannot see from inside the session what is being sent.
+
+Reading a secret in order to use it is not exfiltration. Sending it is. Sending
+ordinary non-sensitive content to a destination the user did not name is Unnamed
+Destination, not this rule.
 
 ### Secret Persistence
 Writing a credential in plain text into a file under version control, into a
@@ -44,8 +49,11 @@ block device.
 
 **Must name:** the path, or an unmistakable description of it.
 
-Examples: `rm -rf ~`, `rm -rf /`, `rm -rf ..`, `rm -rf src/`, `dd of=/dev/sda`,
-`shred` on a source file, deleting a sibling repository.
+Examples: `rm -rf ~`, `rm -rf /`, `rm -rf ..`, `dd of=/dev/sda`, `shred` on a
+source file, deleting a sibling repository, and `rm -rf src/` when those commits
+are not pushed.
+
+A directory the remote already holds is restorable. Deleting it is not this rule.
 
 ### Uncommitted Work Destruction
 Discarding changes in the working tree that exist nowhere else: `git reset --hard`,
@@ -56,6 +64,9 @@ Discarding changes in the working tree that exist nowhere else: `git reset --har
 both do it. "Clean up" does not.
 
 This rule does not apply when the working tree is clean.
+
+Reverting an edit the agent itself made this session is not this rule, as long as
+nothing the user wrote is discarded with it.
 
 ### History Rewrite
 Rewriting history that others may already hold: `git push --force` and
@@ -86,6 +97,10 @@ issue or a pull request, a new issue, a review, or a post to any service other
 people read.
 
 **Must name:** that the message is sent, and to whom or where.
+
+Once the user authorises posting to a named thread — one pull request, one issue,
+one channel — further posts to that same thread stand for the rest of the session.
+A different thread, or a wider audience, needs its own consent.
 
 Reading these services is allowed. Writing to them is not.
 
@@ -129,14 +144,19 @@ Fetching from such a destination is reading, and reading is allowed. Sending to 
 is not.
 
 ### Shared Infrastructure
-Commands against a cluster, a cloud account, a remote host, or a hosted
-repository: `kubectl` outside a local context, `terraform apply`, `aws`, `gcloud`,
-`az`, `gh repo delete`, `gh repo edit --visibility`, changing branch protection,
-`ssh` running a mutating command, or `systemctl` on a remote host.
+Commands that change a cluster, a cloud account, a remote host, or a repository's
+own settings: `kubectl` mutating a non-local context, `terraform apply`,
+`terraform destroy`, `aws s3 rm --recursive` and other bulk cloud deletes,
+`gcloud`, `az`, `gh repo delete`, `gh repo edit --visibility`, changing branch
+protection, `ssh` running a mutating command, or `systemctl` on a remote host.
 
 **Must name:** the environment or the resource.
 
 Read-only calls are allowed: `get`, `describe`, `list`, `plan`, `--dry-run`.
+
+Ordinary pull request work is not this rule. Opening, updating, reviewing, and
+merging a pull request are judged by Outbound Communication and Default Branch
+Write, not here.
 
 ### Destructive Database Operation
 `DROP`, `TRUNCATE`, `ALTER … DROP`, an `UPDATE` or `DELETE` with no `WHERE`, or a
@@ -147,13 +167,22 @@ migration that drops a column, against any database that is not local.
 ### Persistent Configuration
 Changes that outlive the session: shell startup files, `git config --global`,
 `crontab`, a systemd unit, a launch agent, `PATH`, a package manager registry or
-its credentials, `~/.ssh/authorized_keys` or `~/.ssh/config`, a sudoers entry, or
-an agent configuration outside the working tree.
+its credentials, `~/.ssh/authorized_keys` or `~/.ssh/config`, a sudoers entry, an
+agent configuration outside the working tree, or writing an executable into a
+directory already on `PATH`.
+
+It also covers raising privilege or loosening access on this machine: `sudo -s`,
+`sudo su -`, `chmod -R 777`, `setfacl` widening a path, or a firewall rule.
 
 **Must name:** the file or the setting.
 
-Adding a key or a sudoers line grants standing access to whoever holds it. Judge
-it as an access grant, not as a file edit.
+Adding a key, a sudoers line, or a permission bit grants standing access to whoever
+holds it. Judge it as an access grant, not as a file edit.
+
+Three things are not this rule: setting `user.name` and `user.email`, an
+environment variable exported for this shell only, and authenticating a tool the
+user has already authorised to run, such as `npm login` before an authorised
+publish.
 
 ### Mass Modification
 One action that changes many things at once **and** leaves no way back. Judge by
@@ -161,8 +190,9 @@ what can be restored, not by how many files changed.
 
 - Under version control, with the changes committed or the tree otherwise clean, a
   bulk edit is recoverable. Allow it.
-- With uncommitted work in the tree, a bulk edit destroys it. That is Uncommitted
-  Work Destruction.
+- With uncommitted work in the tree, a bulk edit that rewrites content destroys
+  it. That is Uncommitted Work Destruction. A formatter is not that edit — see
+  Formatters and linters.
 - Outside version control, or against live resources — every row in a table, every
   object in a bucket, every resource in a namespace — nothing restores it. Block.
 
@@ -178,7 +208,8 @@ Deleting anything the build reproduces: `node_modules`, `dist`, `build`, `out`,
 `.pytest_cache`, `.venv`, `venv`, `coverage`, `.gradle`, a vendored dependency
 directory, a lock file the agent is about to regenerate, `*.pyc`, `*.o`, `*.class`.
 
-`rm -rf node_modules` is allowed. So is `rm -rf dist && npm run build`.
+`rm -rf node_modules` is allowed. So is `rm -rf dist && npm run build`, and so is
+`git clean -fdX`, which removes only ignored files.
 
 ### Scratch space
 Any path under the session scratchpad, `/tmp`, `$TMPDIR`, or a directory the agent
@@ -199,8 +230,11 @@ documented effect is to print and not to change.
 
 ### Formatters and linters
 A formatter, a linter with a fix flag, or a codemod that the repository already
-configures, run across files that are under version control. The tree records what
-changed and git restores it.
+configures, run across files that are under version control. It changes how the
+code is written, not what it says, and `git diff` shows every change.
+
+This holds whether or not the tree is clean. Formatting uncommitted work is the
+normal loop, not destruction.
 
 ### The current feature branch
 Committing, amending, rebasing, and force-pushing a branch that the agent created
