@@ -32,17 +32,16 @@
   ],
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "publint": "publint",
     "check": "npm run typecheck && npm run test && npm run build && npm run publint"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
-    "@typescript/native-preview": "^7.0.0-dev.20260910",
-    "publint": "^0.3.14",
-    "tsdown": "^0.16.5",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "@types/node": "^24.13.5",
+    "publint": "^0.3.24",
+    "tsdown": "^0.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
   }
 }

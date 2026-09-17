@@ -1,5 +1,6 @@
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, parse } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** The line in the classifier file that the rule list replaces. */
@@ -18,7 +19,7 @@ export interface PolicyPaths {
  * exactly what the classifier reads.
  */
 export async function loadPolicy(paths: PolicyPaths = {}): Promise<string> {
-  const shipped = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'policy');
+  const shipped = findShippedPolicyDir();
   const classifierPath = paths.classifierPath ?? join(shipped, 'classifier.md');
   const rulesPath = paths.rulesPath ?? join(shipped, 'rules.md');
 
@@ -32,4 +33,28 @@ export async function loadPolicy(paths: PolicyPaths = {}): Promise<string> {
   }
 
   return classifier.replace(RULES_MARKER, rules.trim());
+}
+
+/**
+ * Finds the `policy/` directory this package ships. It walks up from this
+ * module rather than counting directories, because the built bundle is flat
+ * while the source is nested, and a fixed `..` count is right for only one of
+ * them.
+ */
+function findShippedPolicyDir(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+
+  for (;;) {
+    if (existsSync(join(dir, 'policy', 'classifier.md'))) {
+      return join(dir, 'policy');
+    }
+
+    const parent = dirname(dir);
+
+    if (parent === dir || dir === parse(dir).root) {
+      throw new Error('auto-mode cannot find its shipped policy/ directory');
+    }
+
+    dir = parent;
+  }
 }

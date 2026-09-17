@@ -1,12 +1,16 @@
 {
   "compilerOptions": {
     "target": "es2024",
-    "lib": ["es2024"],
+    "lib": [
+      "es2024"
+    ],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "rootDir": "src",
     "outDir": "dist",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -17,7 +21,11 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }
