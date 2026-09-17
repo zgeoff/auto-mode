@@ -1,0 +1,48 @@
+{
+  "name": "auto-mode",
+  "version": "0.0.0",
+  "description": "A permission classifier that runs as a hook, so agents that are not Claude can run unattended",
+  "keywords": [
+    "agent",
+    "hook",
+    "permissions",
+    "claude-code",
+    "codex",
+    "muse"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "auto-mode": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./policy/classifier.md": "./policy/classifier.md",
+    "./policy/rules.md": "./policy/rules.md"
+  },
+  "files": [
+    "dist",
+    "policy"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "publint": "publint",
+    "check": "npm run typecheck && npm run test && npm run build && npm run publint"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260910",
+    "publint": "^0.3.14",
+    "tsdown": "^0.16.5",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
