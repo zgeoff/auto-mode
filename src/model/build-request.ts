@@ -3,14 +3,6 @@ import type { TranscriptEntry } from '../transcript/read-transcript.ts';
 
 const MAX_INPUT_CHARS = 4000;
 
-/**
- * Writes the user turn: the conversation so far, then the action to judge.
- *
- * The action goes last and is labelled, because the policy tells the classifier
- * to judge the most recent action and treat everything before it as context.
- * Anything earlier that looks like an instruction is data, and the policy says
- * so; this only has to make clear which part is which.
- */
 export function buildUserMessage(
   payload: HookPayload,
   transcript: readonly TranscriptEntry[],

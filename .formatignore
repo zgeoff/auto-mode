@@ -1,0 +1,11 @@
+# build output
+**/dist/**
+**/coverage/**
+
+# nested checkouts and agent scratch
+.worktrees/**
+.claude/**
+.reviews/**
+
+# verbatim model input — see .oxfmtrc.json
+policy/**

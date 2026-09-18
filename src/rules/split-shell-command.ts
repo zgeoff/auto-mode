@@ -1,24 +1,12 @@
-/** One command in a chain, with the operator that introduced it dropped. */
 export interface ShellSegment {
   readonly text: string;
 }
 
-/**
- * Splits a shell command on the operators that chain separate commands, so each
- * one can be judged on its own. Quoted text is left alone: `echo "a && b"` is
- * one command, not two.
- *
- * This is deliberately not a shell parser. It recognises enough to decide
- * whether every part of a command is plainly read-only; anything it cannot
- * account for is reported through `hasUnparsedConstruct`, and the caller then
- * declines to judge locally rather than guessing.
- */
 export function splitShellCommand(command: string): {
   readonly segments: readonly ShellSegment[];
   readonly hasUnparsedConstruct: boolean;
 } {
   const segments: ShellSegment[] = [];
-
   let current = '';
   let quote: "'" | '"' | null = null;
   let unparsed = false;
@@ -77,12 +65,14 @@ export function splitShellCommand(command: string): {
 
     if (command.startsWith('&&', i) || command.startsWith('||', i)) {
       push();
+
       i += 2;
       continue;
     }
 
     if (ch === ';' || ch === '|' || ch === '\n' || ch === '&') {
       push();
+
       i += 1;
       continue;
     }

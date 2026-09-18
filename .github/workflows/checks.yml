@@ -9,26 +9,83 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    # a hung step (a script that never exits, a wedged process) must fail the
+    # run, not burn runner hours
+    timeout-minutes: 10
+    env:
+      # CI never commits, but skip hook install and execution regardless
+      LEFTHOOK: 0
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      # the published artifact targets node, so the smoke step below runs it
+      # under the oldest node the package claims to support
+      - name: Set up node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Audit dependencies
+        run: bun run audit
+
+      - name: Dead code
+        run: bun run deadcode
+
+      - name: Format
+        run: bun run format:check
+
+      - name: Lint
+        run: bun run lint
+
       - name: Typecheck
-        run: npm run typecheck
+        run: bun run typecheck
+
       - name: Test
-        run: npm test
+        run: bun test
+
       - name: Build
-        run: npm run build
+        run: bun run build
+
       - name: Lint the published package
-        run: npm run publint
+        run: bun run publint
+
       # The policy files ship in the package and are the product, so a broken
       # splice is a release blocker, not a runtime surprise.
       - name: Check the policy assembles
         run: |
-          node dist/cli.js print-prompt > /tmp/prompt.txt
-          grep -q '^## HARD BLOCK rules$' /tmp/prompt.txt
-          grep -q '^## ALLOW exceptions$' /tmp/prompt.txt
-          ! grep -q '^<rules>$' /tmp/prompt.txt
+          node dist/cli.js print-prompt > prompt.txt
+          grep -q '^## HARD BLOCK rules$' prompt.txt
+          grep -q '^## ALLOW exceptions$' prompt.txt
+          ! grep -q '^<rules>$' prompt.txt
+          rm prompt.txt
+
+      # bun runs the suite, so nothing above proves the shipped bundle starts
+      # under node. This does, against a recorded payload from each harness.
+      - name: Run the built hook under node
+        run: |
+          set -eu
+
+          allow='{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+
+          verdict=$(node dist/cli.js run --local-only < fixtures/muse-pre-tool-use.json)
+          test "$verdict" = "$allow"
+
+          # an action the local tier will not judge writes nothing, which leaves
+          # the harness to decide for itself
+          for payload in claude codex; do
+            quiet=$(node dist/cli.js run --local-only < "fixtures/$payload-pre-tool-use.json")
+            test -z "$quiet"
+          done
+
+          # a hook that cannot read its input still exits 0: a non-zero exit
+          # would make the harness treat a broken hook as a refusal
+          printf 'not json' | node dist/cli.js run

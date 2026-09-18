@@ -1,17 +1,9 @@
 import type { Verdict } from '../harness/types.ts';
 
-const BLOCK = /<block>\s*(yes|no)\s*<\/block>/i;
-const RULE = /<rule>([^<]*)<\/rule>/i;
-const REASON = /<reason>([^<]*)<\/reason>/i;
+const BLOCK = /<block>\s*(?<answer>yes|no)\s*<\/block>/i;
+const RULE = /<rule>(?<rule>[^<]*)<\/rule>/i;
+const REASON = /<reason>(?<reason>[^<]*)<\/reason>/i;
 
-/**
- * Reads the classifier's answer.
- *
- * Every ambiguity resolves to allow, on the policy's own reasoning: a block
- * nobody can name is a false positive, and a false positive costs more than the
- * action it stopped. A model that says `yes` but names no rule has not made a
- * case, so there is nothing to show the user and nothing to appeal.
- */
 export function parseModelVerdict(text: string): Verdict {
   const block = BLOCK.exec(text);
 

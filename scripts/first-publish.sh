@@ -21,9 +21,12 @@ if npm view "$name" version >/dev/null 2>&1; then
   exit 1
 fi
 
-npm ci
-npm run check
-npm publish --access public
+bun install --frozen-lockfile
+bun run check
+# bun pm pack resolves any bun-specific manifest fields at pack time; npm
+# publishes the tarball it produced.
+bun pm pack
+npm publish ./*.tgz --access public
 
 cat <<MSG
 

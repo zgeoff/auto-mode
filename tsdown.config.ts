@@ -5,6 +5,7 @@ export default defineConfig({
   format: 'esm',
   platform: 'node',
   target: 'node24',
+
   // type:module makes .js unambiguously ESM; keep extensions plain (.js/.d.ts).
   fixedExtension: false,
   dts: true,

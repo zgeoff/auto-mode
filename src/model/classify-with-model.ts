@@ -12,10 +12,6 @@ export interface ModelOutcome {
   readonly note: string;
 }
 
-/**
- * Asks the model. A null verdict means auto-mode has no opinion, and the caller
- * writes nothing so the harness decides for itself.
- */
 export async function classifyWithModel(
   payload: HookPayload,
   config: Config,
@@ -38,6 +34,7 @@ export async function classifyWithModel(
   }
 
   const transcript = await readTranscript(payload.transcriptPath, config.transcriptEntries);
+
   const user = buildUserMessage(payload, transcript, config.provider.reasoning);
 
   try {
@@ -60,7 +57,10 @@ export async function classifyWithModel(
           : `${config.provider.model} allowed it (${cache})`,
     };
   } catch (error) {
-    const message = (error as Error).name === 'AbortError' ? `timed out after ${config.provider.timeoutMs}ms` : (error as Error).message;
+    const message =
+      (error as Error).name === 'AbortError'
+        ? `timed out after ${config.provider.timeoutMs}ms`
+        : (error as Error).message;
 
     return failure(config, `${config.provider.model} failed: ${message}`);
   }

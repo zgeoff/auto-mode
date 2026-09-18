@@ -4,25 +4,17 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+// @types/node declares execFile as returning a ChildProcess while promisify's
+// signature expects a void-returning callback form; the mismatch is in the
+// declaration, not the call.
+// oxlint-disable-next-line typescript/strict-void-return
 const run = promisify(execFile);
 
-/**
- * How to reach the judging model. Every supported provider speaks the Anthropic
- * Messages API, so one shape covers Claude, Muse, GLM and Kimi — only the base
- * URL, the model id and the key change.
- */
 export interface ProviderConfig {
   readonly baseURL: string;
   readonly model: string;
-  /** Environment variable holding the key. Tried first. */
   readonly apiKeyEnv?: string;
-  /** Command that prints the key. Tried when the variable is unset or empty. */
   readonly apiKeyCommand?: string;
-  /**
-   * Whether this model reasons before answering. It drives three things at once
-   * — how the prompt asks for the answer, how many tokens to allow, and how long
-   * to wait — because a reasoning model needs more of all three.
-   */
   readonly reasoning: boolean;
   readonly maxTokens: number;
   readonly timeoutMs: number;
@@ -32,22 +24,10 @@ export interface Config {
   readonly provider: ProviderConfig;
   readonly classifierPath?: string;
   readonly rulesPath?: string;
-  /** How many transcript entries to show the model, newest last. */
   readonly transcriptEntries: number;
-  /**
-   * What to do when the model cannot be reached or does not answer. `defer`
-   * writes nothing, so the harness asks the operator as it would without this
-   * hook. `deny` fails closed.
-   */
   readonly onFailure: 'defer' | 'deny';
 }
 
-/**
- * Muse Spark is the default because it reasons, it was correct on every case we
- * measured, and a contributor-tier call costs about a fortieth of the
- * alternatives. Its token budget is not a preference: below roughly 2000 it
- * returns nothing at all.
- */
 export const DEFAULT_CONFIG: Config = {
   provider: {
     baseURL: 'https://api.meta.ai',
@@ -65,7 +45,6 @@ export const DEFAULT_CONFIG: Config = {
   onFailure: 'defer',
 };
 
-/** Provider presets, so a config need only name one. */
 export const PRESETS: Readonly<Record<string, ProviderConfig>> = {
   spark: DEFAULT_CONFIG.provider,
   claude: {
@@ -95,11 +74,6 @@ export function configPath(): string {
   return join(base, 'auto-mode', 'config.json');
 }
 
-/**
- * Reads the config, falling back to the shipped defaults. A missing file is
- * normal. A malformed one is not, and it throws rather than silently running a
- * policy the user did not write.
- */
 export async function loadConfig(path = configPath()): Promise<Config> {
   let text: string;
 
@@ -114,7 +88,7 @@ export async function loadConfig(path = configPath()): Promise<Config> {
   try {
     parsed = JSON.parse(text);
   } catch (error) {
-    throw new Error(`${path} is not valid JSON: ${(error as Error).message}`);
+    throw new Error(`${path} is not valid JSON`, { cause: error });
   }
 
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -124,7 +98,7 @@ export async function loadConfig(path = configPath()): Promise<Config> {
   return merge(parsed as Record<string, unknown>, path);
 }
 
-function merge(raw: Record<string, unknown>, path: string): Config {
+function merge(raw: Readonly<Record<string, unknown>>, path: string): Config {
   const presetName = typeof raw['preset'] === 'string' ? raw['preset'] : undefined;
 
   if (presetName !== undefined && PRESETS[presetName] === undefined) {
@@ -133,7 +107,9 @@ function merge(raw: Record<string, unknown>, path: string): Config {
     );
   }
 
-  const base = presetName === undefined ? DEFAULT_CONFIG.provider : (PRESETS[presetName] as ProviderConfig);
+  const base =
+    presetName === undefined ? DEFAULT_CONFIG.provider : (PRESETS[presetName] as ProviderConfig);
+
   const override = isObject(raw['provider']) ? raw['provider'] : {};
 
   const provider: ProviderConfig = {
@@ -157,7 +133,6 @@ function merge(raw: Record<string, unknown>, path: string): Config {
   };
 }
 
-/** Reads the key from the environment, then from the helper command. */
 export async function resolveApiKey(provider: ProviderConfig): Promise<string | null> {
   const fromEnv = provider.apiKeyEnv === undefined ? undefined : process.env[provider.apiKeyEnv];
 
@@ -170,8 +145,9 @@ export async function resolveApiKey(provider: ProviderConfig): Promise<string | 
   }
 
   try {
-    const { stdout } = await run('/bin/sh', ['-c', provider.apiKeyCommand], { timeout: 5000 });
-    const key = stdout.trim();
+    const result = await run('/bin/sh', ['-c', provider.apiKeyCommand], { timeout: 5000 });
+
+    const key = result.stdout.trim();
 
     return key === '' ? null : key;
   } catch {

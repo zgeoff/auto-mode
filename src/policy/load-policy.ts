@@ -1,23 +1,14 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, parse } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-/** The line in the classifier file that the rule list replaces. */
 const RULES_MARKER = '<rules>';
 
 export interface PolicyPaths {
-  /** The framework: how to judge. Defaults to the shipped `policy/classifier.md`. */
   readonly classifierPath?: string;
-  /** The rule list: what to judge against. Defaults to the shipped `policy/rules.md`. */
   readonly rulesPath?: string;
 }
 
-/**
- * Reads the two policy files and splices them into the one system prompt the
- * model receives. Nothing else is added, so `auto-mode print-prompt` shows
- * exactly what the classifier reads.
- */
 export async function loadPolicy(paths: PolicyPaths = {}): Promise<string> {
   const shipped = findShippedPolicyDir();
   const classifierPath = paths.classifierPath ?? join(shipped, 'classifier.md');
@@ -35,14 +26,10 @@ export async function loadPolicy(paths: PolicyPaths = {}): Promise<string> {
   return classifier.replace(RULES_MARKER, rules.trim());
 }
 
-/**
- * Finds the `policy/` directory this package ships. It walks up from this
- * module rather than counting directories, because the built bundle is flat
- * while the source is nested, and a fixed `..` count is right for only one of
- * them.
- */
 function findShippedPolicyDir(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
+  // tsdown flattens dist/ while the source stays nested, so a fixed `..` count
+  // is right for only one of the two layouts. Walk up instead.
+  let dir = import.meta.dirname;
 
   for (;;) {
     if (existsSync(join(dir, 'policy', 'classifier.md'))) {

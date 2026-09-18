@@ -9,12 +9,6 @@ import {
 } from './local-allowlists.ts';
 import { splitShellCommand } from './split-shell-command.ts';
 
-/**
- * What the local tier decides. It allows or it declines to decide. It never
- * denies: a wrong local allow costs one unwatched action, while a wrong local
- * deny stops work the user asked for, and the rules that deny are prose that
- * needs a reader.
- */
 export type LocalVerdict =
   | { readonly kind: 'allow'; readonly exception: string }
   | { readonly kind: 'escalate' };
@@ -36,15 +30,15 @@ export function classifyLocally(payload: HookPayload): LocalVerdict {
     return ESCALATE;
   }
 
-  const { segments, hasUnparsedConstruct } = splitShellCommand(command);
+  const chain = splitShellCommand(command);
 
-  if (hasUnparsedConstruct || segments.length === 0) {
+  if (chain.hasUnparsedConstruct || chain.segments.length === 0) {
     return ESCALATE;
   }
 
   let exception = 'Read-only actions';
 
-  for (const segment of segments) {
+  for (const segment of chain.segments) {
     const verdict = classifySegment(segment.text, payload.cwd);
 
     if (verdict === null) {
@@ -61,7 +55,6 @@ export function classifyLocally(payload: HookPayload): LocalVerdict {
   return { kind: 'allow', exception };
 }
 
-/** Names the exception covering one command, or null to send it to the model. */
 function classifySegment(text: string, cwd: string): string | null {
   const words = tokenize(text);
   const start = words.findIndex((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word));
@@ -92,11 +85,6 @@ function classifySegment(text: string, cwd: string): string | null {
   return null;
 }
 
-/**
- * Allows a delete only when every path it names is a regenerable directory
- * inside the working tree. A single unrecognised path sends the whole command
- * to the model, because `rm` takes many and one of them may not be scratch.
- */
 function classifyRemove(args: readonly string[], cwd: string): string | null {
   const paths = args.filter((arg) => !arg.startsWith('-'));
 
@@ -134,7 +122,7 @@ function tokenize(text: string): readonly string[] {
 }
 
 function stripQuotes(word: string): string {
-  const first = word[0];
+  const [first] = word;
 
   return (first === "'" || first === '"') && word.at(-1) === first ? word.slice(1, -1) : word;
 }

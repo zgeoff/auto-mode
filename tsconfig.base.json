@@ -1,0 +1,19 @@
+{
+  "extends": "@tsconfig/strictest/tsconfig.json",
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "target": "ES2024",
+    "lib": ["ES2024"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "moduleDetection": "force",
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "skipDefaultLibCheck": true,
+    "noEmit": true
+  },
+  "exclude": ["node_modules", "dist", ".worktrees"]
+}

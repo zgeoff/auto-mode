@@ -27,6 +27,7 @@ jobs:
   release:
     needs: checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
@@ -35,8 +36,8 @@ jobs:
     steps:
       # A release takes two runs of this job:
       # - Run 1, after a releasable commit lands on main: release-please opens
-      #   or updates the release PR (version bump + changelog), the sync step
-      #   makes that PR pass checks, and auto-merge merges it.
+      #   or updates the release PR (version bump + changelog), and auto-merge
+      #   merges it once its checks pass.
       # - Run 2, triggered by that merge: release-please turns the merged bump
       #   into a tag and a GitHub release, and the publish step ships to npm.
       #
@@ -47,7 +48,7 @@ jobs:
       - name: Mint GitHub App token
         id: app-token
         if: github.event_name == 'push' && vars.RELEASE_APP_ID != ''
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -55,38 +56,16 @@ jobs:
       - name: Run release-please
         id: release
         if: github.event_name == 'push'
-        uses: googleapis/release-please-action@v5
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token || github.token }}
 
-      # release-please bumps package.json but not the version recorded in
-      # package-lock.json, so the release PR would fail `npm ci` on its own
-      # checks run. Repair it on the PR branch.
-      - name: Check out release PR
-        if: steps.release.outputs.prs_created == 'true'
-        uses: actions/checkout@v5
-        with:
-          ref: release-please--branches--main
-          token: ${{ steps.app-token.outputs.token || github.token }}
-      - name: Set up node
-        if: steps.release.outputs.prs_created == 'true'
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-      - name: Sync the lockfile on the release PR
-        if: steps.release.outputs.prs_created == 'true'
-        run: |
-          npm install --package-lock-only
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -am "chore: sync the lockfile for the release"
-            git push
-          fi
+      # No lockfile repair step: bun.lock records dependency versions but not
+      # the package's own version, so a release-please bump leaves it valid.
 
-      # Mergeability is recomputed asynchronously after the sync push, and a
-      # MERGEABLE read can be stale, so the merge attempt retries inside the
-      # same loop rather than trusting a single read.
+      # Mergeability is recomputed asynchronously after release-please pushes,
+      # and a MERGEABLE read can be stale, so the merge attempt retries inside
+      # the same loop rather than trusting a single read.
       - name: Auto-merge the release PR
         if: github.event_name == 'push' && steps.app-token.outputs.token != ''
         env:
@@ -114,21 +93,33 @@ jobs:
 
       - name: Check out the merged release
         if: steps.release.outputs.releases_created == 'true' || inputs.republish
-        uses: actions/checkout@v5
-      # Trusted publishing needs npm >= 11.5.1; node 24 bundles a newer one.
-      # Never upgrade the bundled npm in place: a cross-major overlay prunes
-      # transitive dependencies that libnpmpublish needs at publish time.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up bun for publish
+        if: steps.release.outputs.releases_created == 'true' || inputs.republish
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      # npm does the publishing, not bun: trusted publishing (OIDC) needs
+      # npm >= 11.5.1 — node 24 bundles at least 11.16 — and bun publish has no
+      # OIDC support (oven-sh/bun#15601). Never upgrade the bundled npm in
+      # place: a cross-major overlay prunes transitive dependencies that
+      # libnpmpublish needs at publish time (sigstore).
       - name: Set up node for publish
         if: steps.release.outputs.releases_created == 'true' || inputs.republish
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
+
       - name: Install dependencies
         if: steps.release.outputs.releases_created == 'true' || inputs.republish
-        run: npm ci
+        run: bun install --frozen-lockfile
+
       - name: Build
         if: steps.release.outputs.releases_created == 'true' || inputs.republish
-        run: npm run build
+        run: bun run build
+
       # The registry check makes this idempotent: a re-run after a failed
       # publish skips a version already on npm instead of erroring.
       - name: Publish
@@ -140,4 +131,7 @@ jobs:
             echo "skipping $name@$version: already published"
             exit 0
           fi
-          npm publish --provenance --access public
+          # bun pm pack resolves any bun-specific manifest fields at pack time;
+          # npm publishes the tarball it produced.
+          bun pm pack
+          npm publish ./*.tgz --provenance --access public

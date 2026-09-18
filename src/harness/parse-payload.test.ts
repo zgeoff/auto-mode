@@ -1,9 +1,10 @@
+import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
 import { detectHarness } from './detect-harness.ts';
 import { parsePayload } from './parse-payload.ts';
 import { renderVerdict } from './render-verdict.ts';
+import type { Harness } from './types.ts';
 
 function fixture(name: string): Record<string, unknown> {
   const path = join(import.meta.dirname, '..', '..', 'fixtures', `${name}-pre-tool-use.json`);
@@ -14,11 +15,13 @@ function fixture(name: string): Record<string, unknown> {
 // Captured from a live Muse 1.3.0 session, a real Claude payload, and a real
 // Codex payload. Muse and Codex both send turn_id, so only model_provider
 // separates them, and only a real capture proves that.
-test.each([
+const HARNESSES: readonly (readonly [string, Harness])[] = [
   ['claude', 'claude'],
   ['codex', 'codex'],
   ['muse', 'muse'],
-])('it names the %s harness from its own payload', (name, harness) => {
+];
+
+test.each(HARNESSES)('it names the %s harness from its own payload', (name, harness) => {
   expect(detectHarness(fixture(name))).toBe(harness);
 });
 
@@ -41,7 +44,6 @@ test('it normalises every harness to the same shape', () => {
   });
 
   expect(claude?.transcriptPath).toContain('.jsonl');
-
   expect(muse).toMatchObject({ harness: 'muse', event: 'PreToolUse', toolName: 'bash' });
 
   // Muse reports transcript_path as null on every event it sends.
