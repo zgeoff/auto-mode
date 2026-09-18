@@ -27,6 +27,27 @@ hook sees it, so auto-mode can only narrow what Claude Code would otherwise have
 
 `--dangerously-skip-permissions` skips hooks as well, so auto-mode does not run under it.
 
+### Which event
+
+`init` registers the hook on `PreToolUse`, where auto-mode judges every tool call, including the
+ones Claude Code would have run without asking.
+
+```sh
+auto-mode init claude --event permission-request
+```
+
+registers it on `PermissionRequest` instead. Claude Code sends that event only when it is about to
+ask you, so the hook answers those prompts and judges nothing Claude Code already allows. The
+verdicts are the same either way — the local tier allows the read-only tools Claude Code allows —
+and this way costs fewer model calls.
+
+Pick `PreToolUse` when you want auto-mode to narrow what Claude Code would have allowed on its own.
+
+Only Claude Code reports a permission request, so `init` refuses `--event permission-request` for
+the other two. The two events take different output shapes, and each harness drops the other one's
+spelling without reporting it; the [overview](../architecture/overview.md#the-verdict-contract) has
+both.
+
 ## Codex
 
 ```sh

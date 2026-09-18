@@ -1,7 +1,11 @@
 import { match } from 'ts-pattern';
-import type { Harness } from '../harness/types.ts';
+import type { Harness, HookEvent } from '../harness/types.ts';
 
-export function buildHookConfig(harness: Harness, command: string): string {
+export function buildHookConfig(
+  harness: Harness,
+  command: string,
+  event: HookEvent = 'PreToolUse',
+): string {
   const entry = match(harness)
     .with('claude', () => ({
       // the matcher is a regular expression tested against the tool name. `*`
@@ -21,13 +25,24 @@ export function buildHookConfig(harness: Harness, command: string): string {
     }))
     .exhaustive();
 
-  return JSON.stringify({ hooks: { PreToolUse: [entry] } }, null, 2);
+  return JSON.stringify({ hooks: { [event]: [entry] } }, null, 2);
 }
 
 export const SETTINGS_PATHS: Readonly<Record<Harness, string>> = {
   claude: '~/.claude/settings.json',
   codex: '~/.codex/hooks.json',
   muse: '~/.config/muse/settings.json',
+};
+
+export const EVENT_NOTES: Readonly<Record<HookEvent, readonly string[]>> = {
+  PreToolUse: [
+    'The hook judges every tool call, including the ones the harness would have run',
+    'without asking.',
+  ],
+  PermissionRequest: [
+    'Claude Code sends this event only when it is about to ask you, so the hook',
+    'answers those prompts and judges nothing the harness already allows.',
+  ],
 };
 
 export const SETUP_NOTES: Readonly<Record<Harness, readonly string[]>> = {

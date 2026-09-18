@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import * as z from 'zod';
 import type { Harness } from '../harness/types.ts';
-import { SETTINGS_PATHS, SETUP_NOTES, buildHookConfig } from './hook-config.ts';
+import { EVENT_NOTES, SETTINGS_PATHS, SETUP_NOTES, buildHookConfig } from './hook-config.ts';
 
 const handlerSchema = z.record(z.string(), z.unknown());
 const pluralSchema = z.object({ hooks: z.tuple([handlerSchema]) });
@@ -42,6 +42,25 @@ test('it gives Muse only type and command', () => {
     'command',
     'type',
   ]);
+});
+
+// The event is the key the entry registers under, and Claude Code refuses an
+// entry filed under a name it does not send.
+test('it registers the entry under the event it is given', () => {
+  expect(JSON.parse(buildHookConfig('claude', CMD, 'PermissionRequest'))).toStrictEqual({
+    hooks: {
+      PermissionRequest: [
+        { matcher: '.*', hooks: [{ type: 'command', command: CMD, timeout: 90 }] },
+      ],
+    },
+  });
+});
+
+// The two events differ in what the hook is shown, so `init` prints which one
+// the reader picked and what it changes.
+test('it says what each event changes about what the hook sees', () => {
+  expect(EVENT_NOTES.PreToolUse.join(' ')).toInclude('every tool call');
+  expect(EVENT_NOTES.PermissionRequest.join(' ')).toInclude('about to ask you');
 });
 
 const TIMED: Harness[] = ['claude', 'codex'];

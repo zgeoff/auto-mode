@@ -61,6 +61,52 @@ test.each(HARNESSES)('it prints a pasteable hook entry for %s', async (harness) 
   expect(entry).toMatchObject({ hooks: { PreToolUse: expect.toBeArray() } });
 });
 
+// Claude Code reports a permission request of its own, and the hook answers
+// only the calls that reach it; the other two harnesses never send the event.
+test('it prints a permission-request entry for Claude when asked for one', async () => {
+  const ctx = await setupTest();
+
+  const result = await Bun.$`bun ${CLI} init claude --event permission-request`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  const entry: unknown = JSON.parse(
+    result.stdout
+      .toString()
+      .split('\n')
+      .filter((line) => !line.startsWith('#'))
+      .join('\n'),
+  );
+
+  expect(result.exitCode).toBe(0);
+  expect(entry).toMatchObject({ hooks: { PermissionRequest: expect.toBeArray() } });
+});
+
+test('it exits 2 when asked for an event no harness sends', async () => {
+  const ctx = await setupTest();
+
+  const result = await Bun.$`bun ${CLI} init claude --event on-tuesday`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(result.exitCode).toBe(2);
+  expect(result.stderr.toString()).toInclude('pre-tool-use or permission-request');
+});
+
+test('it exits 2 when a harness that sends no permission request is asked for one', async () => {
+  const ctx = await setupTest();
+
+  const result = await Bun.$`bun ${CLI} init muse --event permission-request`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(result.exitCode).toBe(2);
+  expect(result.stderr.toString()).toInclude('only Claude Code');
+});
+
 test('it prints the assembled prompt with no marker left behind', async () => {
   const ctx = await setupTest();
   const result = await Bun.$`bun ${CLI} print-prompt`.env(ctx.env).quiet().nothrow();
@@ -109,6 +155,28 @@ test('it allows a read-only command from a real Muse payload', async () => {
 
   expect(verdict).toStrictEqual({
     hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' },
+  });
+});
+
+// Claude Code recorded this payload on a real permission request. The event
+// takes a nested decision, and the flat one the tool gate takes is dropped: an
+// allow spelled that way leaves the call waiting for the prompt.
+test('it allows a read-only command from a real Claude permission request', async () => {
+  const ctx = await setupTest();
+
+  const fixture = join(import.meta.dirname, '..', 'fixtures', 'claude-permission-request.json');
+
+  const result = await Bun.$`bun ${CLI} run --local-only < ${fixture}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  const verdict: unknown = JSON.parse(result.stdout.toString());
+
+  expect(result.exitCode).toBe(0);
+
+  expect(verdict).toStrictEqual({
+    hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
   });
 });
 

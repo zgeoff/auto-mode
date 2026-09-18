@@ -1,0 +1,29 @@
+{
+  "session_id": "b278c275-bb6f-4ef6-afef-0602af551b8c",
+  "transcript_path": "/home/user/.claude/projects/-repo/b278c275-bb6f-4ef6-afef-0602af551b8c.jsonl",
+  "cwd": "/repo",
+  "prompt_id": "a42b8f67-f6e2-4dde-926d-0a7dd949613e",
+  "permission_mode": "default",
+  "effort": {
+    "level": "high"
+  },
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "/bin/ls -a",
+    "description": "List the files in the working directory"
+  },
+  "permission_suggestions": [
+    {
+      "type": "addRules",
+      "rules": [
+        {
+          "toolName": "Bash",
+          "ruleContent": "/bin/ls:*"
+        }
+      ],
+      "behavior": "allow",
+      "destination": "localSettings"
+    }
+  ]
+}

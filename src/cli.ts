@@ -4,7 +4,13 @@ import { parseArgs } from 'node:util';
 import { loadConfig, resolveConfigPath } from './config/config.ts';
 import { parsePayload } from './harness/parse-payload.ts';
 import { renderVerdict } from './harness/render-verdict.ts';
-import { SETTINGS_PATHS, SETUP_NOTES, buildHookConfig } from './install/hook-config.ts';
+import type { HookEvent, Verdict } from './harness/types.ts';
+import {
+  EVENT_NOTES,
+  SETTINGS_PATHS,
+  SETUP_NOTES,
+  buildHookConfig,
+} from './install/hook-config.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
@@ -19,6 +25,7 @@ Usage:
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
   --rules <path>        Use this rule list instead of the shipped one
+  --event <event>       With init: pre-tool-use, the default, or permission-request
   --explain             With run: also write the reasoning to stderr
   --local-only          With run: skip the model tier
 `;
@@ -47,7 +54,7 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
   const local = classifyLocally(payload);
 
   if (local.kind === 'allow') {
-    process.stdout.write(renderVerdict(payload.event, { kind: 'allow' }));
+    writeVerdict(payload.event, { kind: 'allow' });
 
     return printNote(explain, `allowed by ${local.exception} (${payload.harness}, local)`);
   }
@@ -63,10 +70,20 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
   const outcome = await classifyWithModel(payload, config);
 
   if (outcome.verdict !== null) {
-    process.stdout.write(renderVerdict(payload.event, outcome.verdict));
+    writeVerdict(payload.event, outcome.verdict);
   }
 
   return printNote(explain, outcome.note);
+}
+
+// An event that cannot carry the verdict renders nothing, and writing nothing
+// is the answer: the harness falls back to asking.
+function writeVerdict(event: HookEvent, verdict: Verdict): void {
+  const rendered = renderVerdict(event, verdict);
+
+  if (rendered !== null) {
+    process.stdout.write(rendered);
+  }
 }
 
 function printNote(explain: boolean, message: string): number {
@@ -77,6 +94,13 @@ function printNote(explain: boolean, message: string): number {
   return 0;
 }
 
+// The names the operator types, kebab-cased, against the names the harnesses
+// send on the wire.
+const HOOK_EVENTS: Readonly<Record<string, HookEvent | undefined>> = {
+  'pre-tool-use': 'PreToolUse',
+  'permission-request': 'PermissionRequest',
+};
+
 async function main(argv: readonly string[]): Promise<number> {
   const args = parseArgs({
     args: [...argv],
@@ -84,6 +108,7 @@ async function main(argv: readonly string[]): Promise<number> {
     options: {
       classifier: { type: 'string' },
       rules: { type: 'string' },
+      event: { type: 'string' },
       explain: { type: 'boolean' },
       'local-only': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
@@ -111,14 +136,30 @@ async function main(argv: readonly string[]): Promise<number> {
       return 2;
     }
 
+    const event = HOOK_EVENTS[args.values.event ?? 'pre-tool-use'];
+
+    if (event === undefined) {
+      process.stderr.write('auto-mode init: --event takes pre-tool-use or permission-request\n');
+
+      return 2;
+    }
+
+    // Claude Code is the only harness that reports a permission request of its
+    // own, so the entry would install and never fire anywhere else.
+    if (event === 'PermissionRequest' && harness !== 'claude') {
+      process.stderr.write(`auto-mode init: only Claude Code sends PermissionRequest\n`);
+
+      return 2;
+    }
+
     process.stdout.write(`# Add this to ${SETTINGS_PATHS[harness]}\n`);
     process.stdout.write(`# Configuration lives at ${resolveConfigPath()}\n`);
 
     process.stdout.write(
-      `${buildHookConfig(harness, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`)}\n`,
+      `${buildHookConfig(harness, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`, event)}\n`,
     );
 
-    for (const line of SETUP_NOTES[harness]) {
+    for (const line of [...SETUP_NOTES[harness], ...EVENT_NOTES[event]]) {
       process.stdout.write(`# ${line}\n`);
     }
 
