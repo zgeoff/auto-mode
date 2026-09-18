@@ -124,8 +124,8 @@ async function main(argv: readonly string[]): Promise<number> {
 
   if (command === 'print-prompt') {
     const prompt = await loadPolicy({
-      ...(args.values.classifier === undefined ? {} : { classifierPath: args.values.classifier }),
-      ...(args.values.rules === undefined ? {} : { rulesPath: args.values.rules }),
+      classifierPath: args.values.classifier,
+      rulesPath: args.values.rules,
     });
 
     process.stdout.write(`${prompt}\n`);

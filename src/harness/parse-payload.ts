@@ -1,55 +1,52 @@
+// zod's .catch() is a schema fallback, not a promise handler; both rules below match the method name alone
+// oxlint-disable promise/prefer-await-to-then
+// oxlint-disable unicorn/prefer-top-level-await
+import * as z from 'zod';
 import { detectHarness } from './detect-harness.ts';
-import type { HookEvent, HookPayload } from './types.ts';
+import type { HookPayload } from './types.ts';
 
-const EVENTS = new Set<string>(['PreToolUse', 'PermissionRequest']);
-
-function readString(payload: Readonly<Record<string, unknown>>, key: string): string | undefined {
-  const value = payload[key];
-
-  return typeof value === 'string' && value !== '' ? value : undefined;
-}
+// Loose on purpose: a harness sends fields this shape does not name, and may
+// send one it does name with the wrong type. Anything that does not fit is
+// dropped; the payload is refused only when a tool call cannot be identified.
+const payloadSchema = z.looseObject({
+  hook_event_name: z.enum(['PreToolUse', 'PermissionRequest']),
+  tool_name: z.string().min(1),
+  tool_input: z.looseObject({}).catch({}),
+  session_id: z.string().catch(''),
+  cwd: z.string().min(1).optional().catch(undefined),
+  transcript_path: z.string().min(1).optional().catch(undefined),
+});
 
 export function parsePayload(body: unknown): HookPayload | null {
-  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+  const envelope = z.looseObject({}).safeParse(body);
+
+  if (!envelope.success) {
     return null;
   }
 
-  const payload = body as Readonly<Record<string, unknown>>;
-  const harness = detectHarness(payload);
+  const harness = detectHarness(envelope.data);
 
   if (harness === null) {
     return null;
   }
 
-  const event = readString(payload, 'hook_event_name');
+  const parsed = payloadSchema.safeParse(body);
 
-  if (event === undefined || !EVENTS.has(event)) {
+  if (!parsed.success) {
     return null;
   }
-
-  const toolName = readString(payload, 'tool_name');
-
-  if (toolName === undefined) {
-    return null;
-  }
-
-  const toolInput = payload['tool_input'];
-  const transcriptPath = readString(payload, 'transcript_path');
 
   return {
     harness,
-    event: event as HookEvent,
-    sessionId: readString(payload, 'session_id') ?? '',
-    cwd: readString(payload, 'cwd') ?? process.cwd(),
-    toolName,
-    toolInput:
-      toolInput !== null && typeof toolInput === 'object' && !Array.isArray(toolInput)
-        ? (toolInput as Readonly<Record<string, unknown>>)
-        : {},
+    event: parsed.data.hook_event_name,
+    sessionId: parsed.data.session_id,
+    cwd: parsed.data.cwd ?? process.cwd(),
+    toolName: parsed.data.tool_name,
+    toolInput: parsed.data.tool_input,
 
     // Muse sends null here on every event, so a missing path is normal and not
     // a reason to refuse the payload.
-    ...(transcriptPath === undefined ? {} : { transcriptPath }),
-    raw: payload,
+    transcriptPath: parsed.data.transcript_path,
+    raw: envelope.data,
   };
 }

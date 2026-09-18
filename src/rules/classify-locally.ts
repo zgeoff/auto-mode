@@ -1,4 +1,5 @@
 import { isAbsolute, normalize, relative } from 'node:path';
+import invariant from 'tiny-invariant';
 import type { HookPayload } from '../harness/types.ts';
 import {
   READ_ONLY_COMMANDS,
@@ -64,9 +65,12 @@ function classifySegment(text: string, cwd: string): string | null {
     return 'Read-only actions';
   }
 
-  const head = words[start] as string;
+  const head = words[start];
+
+  invariant(head !== undefined, 'findIndex returned an index the array holds');
+
   const rest = words.slice(start + 1);
-  const name = head.includes('/') ? (head.split('/').pop() as string) : head;
+  const name = head.slice(head.lastIndexOf('/') + 1);
 
   if (READ_ONLY_COMMANDS.has(name)) {
     return 'Read-only actions';

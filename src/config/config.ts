@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import * as z from 'zod';
 
 // @types/node declares execFile as returning a ChildProcess while promisify's
 // signature expects a void-returning callback form; the mismatch is in the
@@ -13,8 +14,8 @@ const run = promisify(execFile);
 export interface ProviderConfig {
   readonly baseURL: string;
   readonly model: string;
-  readonly apiKeyEnv?: string;
-  readonly apiKeyCommand?: string;
+  readonly apiKeyEnv?: string | undefined;
+  readonly apiKeyCommand?: string | undefined;
   readonly reasoning: boolean;
   readonly maxTokens: number;
   readonly timeoutMs: number;
@@ -22,8 +23,8 @@ export interface ProviderConfig {
 
 export interface Config {
   readonly provider: ProviderConfig;
-  readonly classifierPath?: string;
-  readonly rulesPath?: string;
+  readonly classifierPath?: string | undefined;
+  readonly rulesPath?: string | undefined;
   readonly transcriptEntries: number;
   readonly onFailure: 'defer' | 'deny';
 }
@@ -74,62 +75,83 @@ export function configPath(): string {
   return join(base, 'auto-mode', 'config.json');
 }
 
+const text = z.string().min(1);
+const positive = z.number().positive();
+
+// Strict, so a key in the wrong place — maxTokens at the top level rather than
+// under provider — is reported instead of silently ignored.
+const configFileSchema = z.strictObject({
+  preset: text.optional(),
+  provider: z
+    .strictObject({
+      baseURL: text.optional(),
+      model: text.optional(),
+      apiKeyEnv: text.optional(),
+      apiKeyCommand: text.optional(),
+      reasoning: z.boolean().optional(),
+      maxTokens: positive.optional(),
+      timeoutMs: positive.optional(),
+    })
+    .optional(),
+  classifierPath: text.optional(),
+  rulesPath: text.optional(),
+  transcriptEntries: z.number().nonnegative().optional(),
+  onFailure: z.enum(['defer', 'deny']).optional(),
+});
+
 export async function loadConfig(path = configPath()): Promise<Config> {
-  let text: string;
+  let raw: string;
 
   try {
-    text = await readFile(path, 'utf8');
+    raw = await readFile(path, 'utf8');
   } catch {
     return DEFAULT_CONFIG;
   }
 
-  let parsed: unknown;
+  let json: unknown;
 
   try {
-    parsed = JSON.parse(text);
+    json = JSON.parse(raw);
   } catch (error) {
     throw new Error(`${path} is not valid JSON`, { cause: error });
   }
 
-  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`${path} must hold a JSON object`);
+  const parsed = configFileSchema.safeParse(json);
+
+  if (!parsed.success) {
+    throw new Error(`${path} is not a valid config: ${z.prettifyError(parsed.error)}`);
   }
 
-  return merge(parsed as Record<string, unknown>, path);
+  return merge(parsed.data, path);
 }
 
-function merge(raw: Readonly<Record<string, unknown>>, path: string): Config {
-  const presetName = typeof raw['preset'] === 'string' ? raw['preset'] : undefined;
+type ConfigFile = z.infer<typeof configFileSchema>;
 
-  if (presetName !== undefined && PRESETS[presetName] === undefined) {
+function merge(file: Readonly<ConfigFile>, path: string): Config {
+  const preset = file.preset === undefined ? DEFAULT_CONFIG.provider : PRESETS[file.preset];
+
+  if (preset === undefined) {
     throw new Error(
-      `${path} names an unknown preset '${presetName}'; known presets are ${Object.keys(PRESETS).join(', ')}`,
+      `${path} names an unknown preset '${file.preset}'; known presets are ${Object.keys(PRESETS).join(', ')}`,
     );
   }
 
-  const base =
-    presetName === undefined ? DEFAULT_CONFIG.provider : (PRESETS[presetName] as ProviderConfig);
-
-  const override = isObject(raw['provider']) ? raw['provider'] : {};
-
-  const provider: ProviderConfig = {
-    baseURL: str(override['baseURL']) ?? base.baseURL,
-    model: str(override['model']) ?? base.model,
-    reasoning: typeof override['reasoning'] === 'boolean' ? override['reasoning'] : base.reasoning,
-    maxTokens: num(override['maxTokens']) ?? base.maxTokens,
-    timeoutMs: num(override['timeoutMs']) ?? base.timeoutMs,
-    ...pick('apiKeyEnv', str(override['apiKeyEnv']) ?? base.apiKeyEnv),
-    ...pick('apiKeyCommand', str(override['apiKeyCommand']) ?? base.apiKeyCommand),
-  };
-
-  const onFailure = raw['onFailure'] === 'deny' ? 'deny' : 'defer';
+  const override = file.provider ?? {};
 
   return {
-    provider,
-    transcriptEntries: num(raw['transcriptEntries']) ?? DEFAULT_CONFIG.transcriptEntries,
-    onFailure,
-    ...pick('classifierPath', str(raw['classifierPath'])),
-    ...pick('rulesPath', str(raw['rulesPath'])),
+    provider: {
+      baseURL: override.baseURL ?? preset.baseURL,
+      model: override.model ?? preset.model,
+      apiKeyEnv: override.apiKeyEnv ?? preset.apiKeyEnv,
+      apiKeyCommand: override.apiKeyCommand ?? preset.apiKeyCommand,
+      reasoning: override.reasoning ?? preset.reasoning,
+      maxTokens: override.maxTokens ?? preset.maxTokens,
+      timeoutMs: override.timeoutMs ?? preset.timeoutMs,
+    },
+    classifierPath: file.classifierPath,
+    rulesPath: file.rulesPath,
+    transcriptEntries: file.transcriptEntries ?? DEFAULT_CONFIG.transcriptEntries,
+    onFailure: file.onFailure ?? DEFAULT_CONFIG.onFailure,
   };
 }
 
@@ -153,20 +175,4 @@ export async function resolveApiKey(provider: ProviderConfig): Promise<string | 
   } catch {
     return null;
   }
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function str(value: unknown): string | undefined {
-  return typeof value === 'string' && value !== '' ? value : undefined;
-}
-
-function num(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function pick<K extends string>(key: K, value: string | undefined): Record<K, string> | object {
-  return value === undefined ? {} : ({ [key]: value } as Record<K, string>);
 }

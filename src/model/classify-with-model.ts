@@ -26,11 +26,11 @@ export async function classifyWithModel(
 
   try {
     system = await loadPolicy({
-      ...(config.classifierPath === undefined ? {} : { classifierPath: config.classifierPath }),
-      ...(config.rulesPath === undefined ? {} : { rulesPath: config.rulesPath }),
+      classifierPath: config.classifierPath,
+      rulesPath: config.rulesPath,
     });
   } catch (error) {
-    return failure(config, `policy unreadable: ${(error as Error).message}`);
+    return failure(config, `policy unreadable: ${toMessage(error)}`);
   }
 
   const transcript = await readTranscript(payload.transcriptPath, config.transcriptEntries);
@@ -58,9 +58,9 @@ export async function classifyWithModel(
     };
   } catch (error) {
     const message =
-      (error as Error).name === 'AbortError'
+      error instanceof Error && error.name === 'AbortError'
         ? `timed out after ${config.provider.timeoutMs}ms`
-        : (error as Error).message;
+        : toMessage(error);
 
     return failure(config, `${config.provider.model} failed: ${message}`);
   }
@@ -79,4 +79,8 @@ function failure(config: Config, note: string): ModelOutcome {
   }
 
   return { verdict: null, note: `${note}; deferring to the harness` };
+}
+
+function toMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

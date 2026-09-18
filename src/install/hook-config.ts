@@ -1,12 +1,25 @@
+import { match } from 'ts-pattern';
 import type { Harness } from '../harness/types.ts';
 
 export function hookConfig(harness: Harness, command: string): string {
-  const entry =
-    harness === 'claude'
-      ? { matcher: '.*', hooks: [{ type: 'command', command, timeout: 90 }] }
-      : harness === 'codex'
-        ? { hooks: [{ type: 'command', command, timeout: 90 }] }
-        : { matcher: '', hooks: [{ type: 'command', command }] };
+  const entry = match(harness)
+    .with('claude', () => ({
+      // the matcher is a regular expression tested against the tool name. `*`
+      // is not a valid one, and `""` matches only the empty tool name; both
+      // leave the hook installed and never firing
+      matcher: '.*',
+      hooks: [{ type: 'command', command, timeout: 90 }],
+    }))
+    .with('codex', () => ({ hooks: [{ type: 'command', command, timeout: 90 }] }))
+    .with('muse', () => ({
+      // Muse reads `""` as every tool, the opposite of what it means to Claude
+      matcher: '',
+
+      // a handler carrying timeout_ms makes Muse skip the whole handler
+      // silently, so this takes type and command and nothing else
+      hooks: [{ type: 'command', command }],
+    }))
+    .exhaustive();
 
   return JSON.stringify({ hooks: { PreToolUse: [entry] } }, null, 2);
 }

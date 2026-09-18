@@ -1,3 +1,7 @@
+// zod's .catch() is a schema fallback, not a promise handler; both rules below match the method name alone
+// oxlint-disable promise/prefer-await-to-then
+// oxlint-disable unicorn/prefer-top-level-await
+import * as z from 'zod';
 import type { ProviderConfig } from '../config/config.ts';
 
 export interface ModelRequest {
@@ -56,38 +60,50 @@ export async function callModel(
   }
 }
 
+// Thinking blocks are dropped here: the verdict is in the text block, and a
+// reasoning model puts a lot of near-miss wording in the thinking.
+const textBlockSchema = z.object({ type: z.literal('text'), text: z.string() });
+const contentBlockSchema = z.union([textBlockSchema, z.unknown().transform(() => null)]);
+const tokens = z.number().catch(0).default(0);
+
+// Every field falls back rather than failing: a response this shape cannot read
+// yields empty text, and the caller already treats empty text as no answer.
+const responseSchema = z
+  .object({
+    content: z.array(contentBlockSchema).catch([]),
+    usage: z
+      .object({
+        cache_read_input_tokens: tokens,
+        cache_creation_input_tokens: tokens,
+        input_tokens: tokens,
+        output_tokens: tokens,
+      })
+      .catch({
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      }),
+  })
+  .catch({
+    content: [],
+    usage: {
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      input_tokens: 0,
+      output_tokens: 0,
+    },
+  });
+
 function readResult(body: unknown): ModelResult {
-  const root = asObject(body);
-  const content = root['content'];
-  const parts: string[] = [];
-
-  if (Array.isArray(content)) {
-    for (const block of content) {
-      const item = asObject(block);
-
-      // Thinking blocks are skipped: the verdict is in the text block, and a
-      // reasoning model puts a lot of near-miss wording in the thinking.
-      if (item['type'] === 'text' && typeof item['text'] === 'string') {
-        parts.push(item['text']);
-      }
-    }
-  }
-
-  const usage = asObject(root['usage']);
+  const response = responseSchema.parse(body);
+  const parts = response.content.filter((block) => block !== null).map((block) => block.text);
 
   return {
     text: parts.join('\n'),
-    cachedInputTokens: count(usage['cache_read_input_tokens']),
-    cacheWriteTokens: count(usage['cache_creation_input_tokens']),
-    newInputTokens: count(usage['input_tokens']),
-    outputTokens: count(usage['output_tokens']),
+    cachedInputTokens: response.usage.cache_read_input_tokens,
+    cacheWriteTokens: response.usage.cache_creation_input_tokens,
+    newInputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
   };
-}
-
-function asObject(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-}
-
-function count(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }

@@ -23,7 +23,7 @@ export function splitShellCommand(command: string): {
   };
 
   while (i < command.length) {
-    const ch = command[i] as string;
+    const ch = command.charAt(i);
 
     if (quote !== null) {
       // A double-quoted string still expands `$(…)` and backticks, so a

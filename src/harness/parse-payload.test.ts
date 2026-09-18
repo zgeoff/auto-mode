@@ -1,15 +1,18 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import * as z from 'zod';
 import { detectHarness } from './detect-harness.ts';
 import { parsePayload } from './parse-payload.ts';
 import { renderVerdict } from './render-verdict.ts';
 import type { Harness } from './types.ts';
 
+const fixtureSchema = z.record(z.string(), z.unknown());
+
 function fixture(name: string): Record<string, unknown> {
   const path = join(import.meta.dirname, '..', '..', 'fixtures', `${name}-pre-tool-use.json`);
 
-  return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+  return fixtureSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
 }
 
 // Captured from a live Muse 1.3.0 session, a real Claude payload, and a real
