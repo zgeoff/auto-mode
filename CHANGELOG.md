@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.2.0...auto-mode-v0.3.0) (2026-09-18)
+
+
+### Features
+
+* answer a permission request with a nested decision ([#10](https://github.com/zgeoff/auto-mode/issues/10)) ([c61b991](https://github.com/zgeoff/auto-mode/commit/c61b991972256ce41a74ef9afdb1e1b63b7ddc0f))
+
 ## [0.2.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.1.0...auto-mode-v0.2.0) (2026-09-18)
 
 
