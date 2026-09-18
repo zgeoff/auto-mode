@@ -9,7 +9,7 @@ export interface HookPayload {
   readonly cwd: string;
   readonly toolName: string;
   readonly toolInput: Readonly<Record<string, unknown>>;
-  readonly transcriptPath?: string;
+  readonly transcriptPath?: string | undefined;
   readonly raw: Readonly<Record<string, unknown>>;
 }
 

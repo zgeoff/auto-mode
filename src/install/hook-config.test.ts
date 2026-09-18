@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test';
+import * as z from 'zod';
 import { SETTINGS_PATHS, SETUP_NOTES, hookConfig } from './hook-config.ts';
 
+const handlerSchema = z.record(z.string(), z.unknown());
+const pluralSchema = z.object({ hooks: z.tuple([handlerSchema]) });
+const entrySchema = z.object({ hooks: z.object({ PreToolUse: z.tuple([pluralSchema]) }) });
 const CMD = '/usr/bin/node /opt/auto-mode/cli.js run';
 
 // Claude matches tool names on a regular expression, so every tool is `.*`.
@@ -31,9 +35,7 @@ test('it gives Codex no matcher', () => {
 // Muse 1.3 skips a whole handler that carries an unknown field, silently, so an
 // extra key here means the hook never runs at all.
 test('it gives Muse only type and command', () => {
-  const entry = JSON.parse(hookConfig('muse', CMD)) as {
-    hooks: { PreToolUse: [{ hooks: [Record<string, unknown>] }] };
-  };
+  const entry = entrySchema.parse(JSON.parse(hookConfig('muse', CMD)));
 
   expect(Object.keys(entry.hooks.PreToolUse[0].hooks[0]).toSorted()).toStrictEqual([
     'command',

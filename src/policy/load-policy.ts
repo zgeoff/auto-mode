@@ -5,8 +5,8 @@ import { dirname, join, parse } from 'node:path';
 const RULES_MARKER = '<rules>';
 
 export interface PolicyPaths {
-  readonly classifierPath?: string;
-  readonly rulesPath?: string;
+  readonly classifierPath?: string | undefined;
+  readonly rulesPath?: string | undefined;
 }
 
 export async function loadPolicy(paths: PolicyPaths = {}): Promise<string> {

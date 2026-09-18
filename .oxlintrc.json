@@ -28,6 +28,8 @@
     "no-await-in-loop": "off",
     "no-continue": "off",
     "no-inline-comments": "off",
+    // zod schemas and jest-extended matchers are imported wholesale on purpose
+    "import/no-namespace": "off",
     "promise/avoid-new": "off",
     "require-unicode-regexp": "off",
 
@@ -36,12 +38,6 @@
     // declarators alphabetised. Both became reachable in oxlint 1.82
     "one-var": "off",
     "sort-vars": "off",
-
-    // deferred to #2 — the three untyped boundaries become schema parses, and
-    // the verdict and harness branches become ts-pattern matches
-    "no-nested-ternary": "off",
-    "typescript/no-unnecessary-type-assertion": "off",
-    "typescript/no-unsafe-type-assertion": "off",
 
     // deferred to #3 — 15 names sit outside the verb taxonomy
     "zgeoff/function-verb": "off"
