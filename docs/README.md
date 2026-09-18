@@ -1,8 +1,7 @@
 # auto-mode documentation
 
-auto-mode is a permission classifier that runs as a hook, so a coding agent that
-is not Claude can run unattended. The [root README](../README.md) covers install
-and everyday use.
+auto-mode is a permission classifier that runs as a hook. The
+[root README](../README.md) covers install and everyday use.
 
 ## Architecture
 

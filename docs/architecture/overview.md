@@ -1,24 +1,21 @@
 # Overview
 
-auto-mode answers one question, once per tool call: should this action run?
-
-It is a hook. The harness runs it before a tool executes, hands it the pending
-call on stdin, and reads a verdict on stdout. Everything below serves that.
+auto-mode is a hook. The harness runs it before a tool executes, hands it the
+pending call on stdin, and reads a verdict on stdout.
 
 ## Why it exists
 
-Claude Code ships an auto mode that judges each action, so an agent can work
-unattended and only stop at the things that matter. It runs for Claude.
+Claude Code's built-in auto mode judges each action, so an agent can work
+unattended and stop only at what matters. It runs for Claude.
 
-Point the same harness at another model — GLM, Kimi, Muse Spark, anything behind
-an Anthropic-compatible gateway — and the judging goes away. The harness still
-runs the tools and the agent still works, but every action needs a keypress
-again. auto-mode puts the judge back, as something the harness already knows how
-to call.
+Point the same harness at another model through an Anthropic-compatible gateway —
+GLM, Kimi, Muse Spark — and the judging stops. The harness still runs the tools
+and the agent still works, but every action needs approval again. auto-mode
+supplies that judging through an interface the harness already calls.
 
-That shapes two decisions. It targets models that are not Claude, so the prompt
-has to survive a colder reader than Anthropic's own. And it targets three
-harnesses, so nothing may depend on a feature only one of them has.
+Two constraints follow. The prompt targets models that are not Claude, so it has
+to survive a colder reader than Anthropic's own. And it targets three harnesses,
+so nothing may depend on a feature only one of them has.
 
 ## The two tiers
 
@@ -41,29 +38,29 @@ payload on stdin
 ```
 
 **Tier one** matches deterministically and answers allow or escalate. It never
-denies. The asymmetry is the point: a wrong allow costs one unwatched action,
-while a wrong deny stops work the user asked for, and the rules that deny are
-prose that needs a reader.
+denies, because the two errors cost differently: a wrong allow costs one unwatched
+action, while a wrong deny stops work the user asked for, and the rules that deny
+are prose that needs a reader.
 
 It allows three things — read-only tools by name, read-only shell commands
 including reporting `git` subcommands, and deleting regenerable build output
-inside the working tree. A chain is only as allowable as its least obvious part.
+inside the working tree. A chain is allowed only if every part of it is.
 
-It refuses to judge anything it cannot account for. Command substitution,
+It declines to judge anything it cannot account for. Command substitution,
 backticks, process substitution, output redirection, and an unbalanced quote all
-escalate rather than being guessed at.
+escalate.
 
 **Tier two** sends the policy as the system prompt and the action as the user
 turn, then reads `<block>yes</block>` or `<block>no</block>` back.
 
 Every ambiguity in that answer resolves to allow, following the policy's own
-reasoning: a block nobody can name is a false positive, and a false positive
-costs more than the action it stopped. A model that says yes and names no rule
-has not made a case, so there is nothing to show the user and nothing to appeal.
+reasoning: a block nobody can name is a false positive, and a false positive costs
+more than the action it stopped. A model that says yes and names no rule has given
+the user nothing to read and nothing to appeal.
 
 ## Identifying the harness
 
-The three payloads overlap, so the order of these checks is load-bearing.
+The three payloads overlap, so the order of these checks decides the result.
 
 | Harness | Key | Note |
 |---|---|---|
@@ -73,7 +70,7 @@ The three payloads overlap, so the order of these checks is load-bearing.
 
 Environment variables cannot help. Muse runs hook commands with a scrubbed
 environment, so a Muse hook sees none of them — which is also why a Muse setup
-must resolve its API key through a command rather than a variable.
+resolves its API key through a command rather than a variable.
 
 ## The verdict contract
 
@@ -90,8 +87,8 @@ contract on Claude's:
 }
 ```
 
-`permissionDecision` must sit inside `hookSpecificOutput`. Exit 0 — the JSON
-alone decides the outcome.
+`permissionDecision` must sit inside `hookSpecificOutput`. Exit 0; the JSON alone
+decides the outcome.
 
 The reason begins with the rule name in brackets, and that text reaches the agent
 verbatim. Verified in all three harnesses.
@@ -103,22 +100,20 @@ The policy is identical on every call, so it is the cache prefix and carries
 pays about 7,000 input tokens, and a repeat reads 7,025 from cache and pays 42
 new.
 
-The transcript is appended after the policy, and only its tail is included, so
-the prefix grows by appending rather than sliding. A sliding window would change
-the cached prefix on every call and pay full price each time.
+The transcript is appended after the policy, and only its tail is included, so the
+prefix grows by appending rather than sliding. A sliding window would change the
+cached prefix on every call and pay full price each time.
 
-## How this fails
-
-Worth knowing before you trust it.
+## Failure modes
 
 - **A hook that cannot start fails open.** If the command is missing or crashes,
-  the harness logs it and carries on. `onFailure: "deny"` cannot help, because
+  the harness logs it and carries on. `onFailure: "deny"` does not help, because
   the process never runs.
-- **It can only narrow what the harness already allows.** A tool your own
-  permission settings deny is refused before the hook sees it.
+- **auto-mode can only narrow what the harness already allows.** A tool the user's
+  own permission settings deny is refused before the hook sees it.
 - **The agent's own judgement comes first.** A model that refuses to issue a
   command means the hook is never consulted for it.
 - **A model call can time out.** The default is to write nothing and let the
-  harness decide. Set `onFailure` to `deny` to fail closed instead.
-- **A harness timeout shorter than the model call turns every hard case into a
-  silent failure.** `init` emits 90 seconds for this reason.
+  harness decide. `onFailure: "deny"` fails closed instead.
+- **A harness timeout shorter than the model call makes every hard case a silent
+  failure.** `init` emits 90 seconds for this reason.

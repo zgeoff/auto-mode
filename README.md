@@ -14,19 +14,17 @@
   </p>
 </div>
 
-**auto-mode** gives unattended running back to coding agents that are not Claude.
+**auto-mode** is a permission classifier that runs as a hook. It decides whether a
+coding agent's next action should run.
 
-Claude Code has an auto mode that judges each action and only stops the dangerous
-ones. Point Claude Code at a different model — GLM, Kimi, Muse Spark, anything
-behind an Anthropic-compatible gateway — and you lose it. The harness is the
-same, the tools are the same, but every `rm`, every `git push`, every write comes
-back to you for approval. So the cheap model you switched to costs you a keypress
-per step.
+Claude Code's built-in auto mode judges actions only for Claude. Point Claude Code
+at another model through an Anthropic-compatible gateway — GLM, Kimi, Muse Spark —
+and that judging stops. Every shell command, file write, and push needs your
+approval again.
 
-auto-mode is that judge, as a hook. It reads the action the agent is about to
-take, decides, and answers in the shape the harness already understands. It works
-in Claude Code, Codex, and Muse Code, and it does not care which model is driving
-them.
+auto-mode replaces it. The harness calls it before a tool runs, hands it the
+pending call, and reads back allow, deny, or nothing. It works in Claude Code,
+Codex, and Muse Code, and behaves the same whichever model drives them.
 
 ## Install
 
@@ -35,11 +33,10 @@ npm i -g auto-mode
 auto-mode init claude   # or codex, or muse
 ```
 
-`init` prints the hook entry and the file to paste it into, plus the one thing
-that harness needs beyond the entry. It does not write the file. Your settings
-are yours, and an agent that can install its own restraints can remove them.
+`init` prints the hook entry, the file to paste it into, and the extra step that
+harness needs. It does not write the file itself.
 
-You also need a key for the judging model. The default is Muse Spark:
+The judging model needs a key. The default model is Muse Spark:
 
 ```sh
 mkdir -p ~/.config/auto-mode
@@ -53,22 +50,21 @@ Presets for `claude` and `glm` ship too. See
 
 ## How it decides
 
-Two tiers, because the second one costs seconds.
+Two tiers.
 
-1. **Local rules.** Deterministic matching, no network call, well under a
-   millisecond. It answers **allow** or **escalate**, never deny. This is what
-   makes the tool usable: reads, listings, `git status`, and deleting build
-   output never reach the model.
-2. **The model.** Everything else goes to a small reasoning model with the
-   policy as its system prompt. A hard case takes 13 to 24 seconds.
+1. **Local rules.** Deterministic matching, no network call, under a millisecond.
+   Answers allow or escalate, never deny. Reads, listings, `git status`, and
+   deleting build output are settled here and never reach the model.
+2. **The model.** Everything else goes to a small reasoning model with the policy
+   as its system prompt. A hard case takes 13 to 24 seconds.
 
-A wrong local allow costs one unwatched action. A wrong local deny stops work you
-asked for. That asymmetry is why tier one never denies.
+Tier one never denies because the two errors cost differently. A wrong allow costs
+one unwatched action. A wrong deny stops work you asked for, and the rules that
+deny are prose that needs a reader.
 
-## The policy is prose, and it is the product
+## The policy
 
-Two files, and everything in them is what the model reads. Nothing in them is
-addressed to you.
+Two files. Both are sent to the model verbatim, and neither addresses you.
 
 | File | Holds | Edit it to |
 |---|---|---|
@@ -76,19 +72,19 @@ addressed to you.
 | [`policy/classifier.md`](./policy/classifier.md) | Threat model, consent bar, evaluation rules, output contract | Change how judgement works |
 
 `classifier.md` carries a `<rules>` marker on its own line. At run time auto-mode
-replaces it with the whole of `rules.md`. `auto-mode print-prompt` writes exactly
-what the model receives — no assembly you cannot see.
+replaces it with the whole of `rules.md`. `auto-mode print-prompt` writes the
+result, which is what the model reads.
 
-Rules split two ways. A **hard block** takes no consent, because it creates a risk
-you cannot see from inside the session. A **soft block** clears when you named the
-action *and* the detail that makes it dangerous — "force push this branch", not
-"tidy up the repo". Seven exceptions carve out the work that looks dangerous and
-is not: deleting `node_modules`, running a formatter, dropping a local test
-database.
+Rules come in two tiers. A **hard block** takes no consent, because it creates a
+risk you cannot see from inside the session. A **soft block** clears when you
+named the action and the detail that makes it dangerous — "force push this
+branch", not "tidy up the repo". Seven exceptions cover work that resembles a
+blocked action and is not: deleting `node_modules`, running a formatter, dropping
+a local test database.
 
-**Read [`policy/rules.md`](./policy/rules.md) before you turn this on.** If you
-disagree with a rule, change the rule. Point `rulesPath` at your own file and it
-replaces the shipped one whole.
+Read [`policy/rules.md`](./policy/rules.md) before turning this on. To change a
+rule, edit it; `rulesPath` points at your own file and replaces the shipped one
+whole.
 
 ## Harnesses
 
@@ -101,18 +97,18 @@ harness stopped it.
 | Codex | omit `matcher` | `hooks = true`, and trust the hook once |
 | Muse Code | `"matcher": ""` | no `timeout_ms` key |
 
-Each difference silently stops the hook running if you get it wrong, which is why
-`init` prints them. Details in
+Each difference stops the hook running if you get it wrong, and none of them
+reports an error. `init` prints the right one. Details in
 [Harnesses](./docs/guides/harnesses.md).
 
 ## Writing nothing is an answer
 
-It means auto-mode has no opinion, and the harness then does what it would have
-done alone. That is the output for an unknown harness, an event that is not a tool
+It means auto-mode has no opinion, and the harness does what it would have done
+alone. That is the output for an unknown harness, an event that is not a tool
 gate, malformed input, a missing key, and a model that times out.
 
-So this can only narrow what your harness already allows. It never removes a gate
-that was there. Set `onFailure` to `deny` if you would rather fail closed.
+auto-mode can therefore only narrow what your harness already allows. It never
+removes a gate that was there. Set `onFailure` to `deny` to fail closed instead.
 
 ## Commands
 
@@ -127,11 +123,11 @@ that was there. Set `onFailure` to `deny` if you would rather fail closed.
 ## Documentation
 
 - [Overview](./docs/architecture/overview.md) — the two tiers, harness detection,
-  the verdict contract, prompt caching, and every way this fails.
+  the verdict contract, prompt caching, and the failure modes.
 - [Configuration](./docs/guides/configuration.md) — every field, every preset, and
   how the key is found.
 - [Harnesses](./docs/guides/harnesses.md) — installing into Claude Code, Codex,
-  and Muse Code, and what each one does differently.
+  and Muse Code, and what each does differently.
 - [Writing a policy](./docs/guides/policy.md) — the rule tiers, the consent bar,
   and how to change or replace the shipped rules.
 

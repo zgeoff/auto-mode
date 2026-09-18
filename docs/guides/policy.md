@@ -1,7 +1,7 @@
 # Writing a policy
 
-The policy is prose, not code, so that you can read it, diff it, and replace it.
-It ships as two files and both go to the model verbatim.
+The policy is prose rather than code, so it can be read, diffed, and replaced. It
+ships as two files and both go to the model verbatim.
 
 - [`policy/rules.md`](../../policy/rules.md) — what is blocked.
 - [`policy/classifier.md`](../../policy/classifier.md) — how judgement works.
@@ -10,23 +10,23 @@ It ships as two files and both go to the model verbatim.
 auto-mode replaces it with the whole of `rules.md`. `auto-mode print-prompt`
 writes the result, which is exactly what the model reads.
 
-Nothing under `policy/` addresses you. Guidance about editing lives here, in the
-docs, so the model never reads instructions meant for a person.
+Nothing under `policy/` addresses the reader of these docs. Guidance about editing
+lives here instead, so the model never receives instructions meant for a person.
 
 ## The default is allow
 
 Block an action only when you can name the rule it matches. Most actions match
 nothing.
 
-This is the whole design. A classifier that blocks routine work is one you turn
-off, and a tool you turn off protects nothing.
+The rest of the policy is built around that default. A classifier that blocks
+routine work gets switched off, and then it stops all of it.
 
 ## Two tiers of rule
 
 **HARD BLOCK** — blocks whenever it matches. Ordinary consent does not clear
-these, because they create a risk you cannot see from inside the session. Data
-Exfiltration is the clearest case: a named destination does not make it safe,
-because you cannot see what is being sent.
+these, because they create a risk that is not visible from inside the session.
+Data Exfiltration is the clearest case: naming the destination does not make the
+send safe, because the contents are still unseen.
 
 Two hard rules are self-protection — Policy Tampering and Audit Tampering — and
 they match patterns of text, so an innocent line can match by accident. Those two
@@ -54,16 +54,15 @@ Repeating an instruction after a block is stronger consent, not a retry to
 distrust — the block reason already named the danger, so a short "do it anyway"
 is informed. That clears a soft block only.
 
-## Exceptions are what make it usable
+## Exceptions
 
-Seven of them, and they exist because the rules above would otherwise block
-ordinary work: regenerable output, scratch space, local and development services,
-read-only actions, formatters and linters, the current feature branch, and dry
-runs.
+Seven, covering work the rules above would otherwise block: regenerable output,
+scratch space, local and development services, read-only actions, formatters and
+linters, the current feature branch, and dry runs.
 
-`rm -rf node_modules` is the one to keep in mind. It looks like the most
-destructive command a rule could name and it is completely routine. A classifier
-that blocks it is a classifier you stop using by Thursday.
+`rm -rf node_modules` is the case to test any change against. It matches the
+wording of a deletion rule and is routine, so it is where a classifier most easily
+goes wrong in the expensive direction.
 
 ## Changing the rules
 
@@ -85,14 +84,14 @@ Your file replaces the shipped one whole. Three constraints:
 
 ## Changing how judgement works
 
-Rarer, and a sharper edge. `classifier.md` holds the threat model, the consent
-bar, the evaluation rules, the classification process, and the output contract.
+`classifier.md` holds the threat model, the consent bar, the evaluation rules, the
+classification process, and the output contract.
 
-One rule governs the whole file: **an evaluation rule may never order a block on
-its own.** It either changes how an action is read, or it routes to a named rule.
-If applying the evaluation rules leaves no rule name, the action is allowed —
-which is also what the output contract says. Break that and you get a prompt that
-instructs a block and forbids it in the same breath.
+One constraint governs the whole file: an evaluation rule may never order a block
+on its own. It either changes how an action is read, or it routes to a named rule.
+If applying the evaluation rules leaves no rule name, the action is allowed, which
+is what the output contract says too. An evaluation rule that orders a block
+without naming one contradicts that contract, and the model has to guess.
 
 ## Testing a change
 
@@ -108,6 +107,6 @@ echo '{"hook_event_name":"PreToolUse","prompt_id":"x","tool_name":"Bash",
   | auto-mode run --explain
 ```
 
-`--explain` writes which tier answered and which rule or exception it named. The
-cheapest test of a rule change is a handful of commands you already know the
-answers to, half of which should be allowed.
+`--explain` writes which tier answered and which rule or exception it named. Test
+a rule change against a handful of commands whose correct verdicts you already
+know, including ones that should be allowed.
