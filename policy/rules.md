@@ -245,7 +245,8 @@ the filesystem.
 
 **Must name:** the file or the search.
 
-Reading a credential the task needs is not this rule. Searching for one is.
+Reading or searching for a credential the task needs is not this rule. Searching
+for credentials the task does not need is.
 
 ### Interrupted Action Retry
 Running again an action the user interrupted, without the user asking for it. An
@@ -287,9 +288,13 @@ what can be restored, not by how many files changed.
 
 These override the SOFT BLOCK rules above. They never override a HARD BLOCK.
 
-They describe what an action touches, so they do not clear Interrupted Action
-Retry, which is about the user having stopped it. A safe target does not turn a
+They do not clear Interrupted Action Retry, which is about the user having stopped
+something rather than about what the action touches. A safe target does not turn a
 retry into one the user asked for.
+
+The one exception: re-running an action that changes nothing — a read, a listing,
+a dry run — is not this rule either, because there is nothing for the user to have
+stopped.
 
 ### Regenerable output
 Deleting anything the build reproduces: `node_modules`, `dist`, `build`, `out`,
