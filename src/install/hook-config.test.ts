@@ -1,14 +1,22 @@
 import { expect, test } from 'vitest';
-import { hookConfig, SETTINGS_PATHS } from './hook-config.ts';
+import { hookConfig, SETTINGS_PATHS, SETUP_NOTES } from './hook-config.ts';
 
 const CMD = '/usr/bin/node /opt/auto-mode/cli.js run';
 
-// Claude matches on a regular expression. `*` is not one: it matches nothing, so
-// the hook reads as installed and never fires.
-test('it gives Claude an empty matcher, which matches every tool', () => {
+// Claude matches tool names on a regular expression, so every tool is `.*`.
+// Both `*` and `""` leave the hook installed and silently never firing: the
+// first is not valid regex, the second matches only an empty tool name.
+test('it gives Claude a regular expression that matches every tool', () => {
   expect(JSON.parse(hookConfig('claude', CMD))).toStrictEqual({
-    hooks: { PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: CMD, timeout: 90 }] }] },
+    hooks: { PreToolUse: [{ matcher: '.*', hooks: [{ type: 'command', command: CMD, timeout: 90 }] }] },
   });
+});
+
+// The same value means opposite things in the two harnesses, so this pair is
+// asserted together to stop a future edit unifying them.
+test('it uses a different match-everything value for Claude and Muse', () => {
+  expect(hookConfig('claude', CMD)).toContain('"matcher": ".*"');
+  expect(hookConfig('muse', CMD)).toContain('"matcher": ""');
 });
 
 // Codex registers a bare handler list; its own hooks.json carries no matcher.
@@ -39,4 +47,12 @@ test('it allows longer than the model takes', () => {
 test('it names where each harness keeps its settings', () => {
   expect(SETTINGS_PATHS.muse).toContain('muse/settings.json');
   expect(SETTINGS_PATHS.codex).toContain('hooks.json');
+});
+
+// Each harness has one non-obvious requirement that makes the hook silently not
+// run, so each is written down where `init` will print it.
+test('it warns about what each harness needs beyond the entry', () => {
+  expect(SETUP_NOTES.codex.join(' ')).toContain('trust');
+  expect(SETUP_NOTES.muse.join(' ')).toContain('scrubbed environment');
+  expect(SETUP_NOTES.claude.join(' ')).toContain('before the hook sees it');
 });

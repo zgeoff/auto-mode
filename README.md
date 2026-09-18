@@ -92,12 +92,43 @@ Set `onFailure` to `deny` if you would rather fail closed.
 
 ## Harnesses
 
-Claude Code, Codex, and Muse Code. They differ in how the hook is registered and
-in what the payload looks like; the verdict contract is the same for all three.
+Claude Code, Codex, and Muse Code. The verdict contract is the same for all
+three, and all three were verified end to end: the hook denied a real tool call
+and each harness stopped it.
 
-Muse is identified by `model_provider`, which the others do not send. Claude
-sends `prompt_id`. Codex sends `turn_id` — and so does Muse, so the order of
-those checks matters.
+They differ in how the hook is registered, and each difference makes the hook
+silently not run if you get it wrong. `auto-mode init` prints these.
+
+| Harness | Match every tool | Also needed |
+|---|---|---|
+| Claude | `"matcher": ".*"` | — |
+| Codex | omit `matcher` | `hooks = true`, and trust the hook once |
+| Muse | `"matcher": ""` | no `timeout_ms` key |
+
+Three traps worth naming:
+
+- Claude matches tool names against a **regular expression**. `"*"` is not valid
+  regex and `""` matches only a tool named empty; both leave the hook installed
+  and never firing. Muse reads `""` as every tool, so the same value means
+  opposite things in the two harnesses.
+- Codex will not run an **untrusted** hook. It is skipped silently until you
+  trust it once; the answer is recorded under `[hooks.state]` in `config.toml`.
+- Muse **rejects a handler carrying `timeout_ms`**, reporting an unknown field
+  and skipping the whole handler.
+
+Detection order matters too. Muse is identified by `model_provider`, which the
+others do not send. Claude sends `prompt_id`. Codex sends `turn_id` — and so
+does Muse, so Muse has to be tested first.
+
+## What this cannot do
+
+- **A hook that cannot start fails open.** If the command is missing or crashes,
+  the harness logs it and carries on. `onFailure: "deny"` cannot help, because
+  the process never runs.
+- **It can only narrow what the harness already allows.** A tool your own
+  permission settings deny is refused before the hook sees it.
+- **The agent's own judgement comes first.** A model that refuses to issue a
+  command means the hook is never consulted for it.
 
 ## Commands
 

@@ -7,9 +7,12 @@ import type { Harness } from '../harness/types.ts';
  *
  * All three take a different entry shape, and each difference is load-bearing:
  *
- * - Claude matches tools by a regular expression, so the match-everything value
- *   is the empty string. `*` is not a valid regular expression and matches
- *   nothing, which makes the hook look installed while never firing.
+ * - Claude matches tool names against a regular expression, so matching every
+ *   tool is `.*`. Two near-misses both leave the hook installed but never
+ *   firing: `*` is not a valid regular expression, and `""` matches only a tool
+ *   whose name is the empty string.
+ * - Muse takes `""` to mean every tool, so the same value means opposite things
+ *   in the two harnesses.
  * - Codex registers a bare handler list with no matcher.
  * - Muse 1.3 rejects a handler carrying `timeout_ms`, reporting an unknown
  *   field and skipping the whole handler silently, so the hook never runs. A
@@ -22,7 +25,7 @@ import type { Harness } from '../harness/types.ts';
 export function hookConfig(harness: Harness, command: string): string {
   const entry =
     harness === 'claude'
-      ? { matcher: '', hooks: [{ type: 'command', command, timeout: 90 }] }
+      ? { matcher: '.*', hooks: [{ type: 'command', command, timeout: 90 }] }
       : harness === 'codex'
         ? { hooks: [{ type: 'command', command, timeout: 90 }] }
         : { matcher: '', hooks: [{ type: 'command', command }] };
@@ -32,6 +35,24 @@ export function hookConfig(harness: Harness, command: string): string {
 
 export const SETTINGS_PATHS: Readonly<Record<Harness, string>> = {
   claude: '~/.claude/settings.json',
-  codex: '~/.codex/hooks.json (and set hooks = true in ~/.codex/config.toml)',
+  codex: '~/.codex/hooks.json',
   muse: '~/.config/muse/settings.json',
+};
+
+/** What else each harness needs before the hook will run. Empty when nothing. */
+export const SETUP_NOTES: Readonly<Record<Harness, readonly string[]>> = {
+  claude: [
+    'A tool your permission settings already deny is refused before the hook sees it, so',
+    'auto-mode can only narrow what the harness would have allowed.',
+  ],
+  codex: [
+    'Set `hooks = true` in ~/.codex/config.toml.',
+    'Codex will not run an untrusted hook. Trust it once when Codex prompts you; the',
+    'answer is recorded under [hooks.state] in config.toml. Until then the hook is',
+    'skipped silently.',
+  ],
+  muse: [
+    'Muse runs hooks with a scrubbed environment, so an API key from a variable will',
+    'not reach it. Set provider.apiKeyCommand in the auto-mode config instead.',
+  ],
 };

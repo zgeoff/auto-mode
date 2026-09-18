@@ -4,7 +4,7 @@ import { configPath, loadConfig } from './config/config.ts';
 import { parsePayload } from './harness/parse-payload.ts';
 import { renderVerdict } from './harness/render-verdict.ts';
 import type { Harness } from './harness/types.ts';
-import { hookConfig, SETTINGS_PATHS } from './install/hook-config.ts';
+import { hookConfig, SETTINGS_PATHS, SETUP_NOTES } from './install/hook-config.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
@@ -126,6 +126,10 @@ async function main(argv: readonly string[]): Promise<number> {
     process.stdout.write(`# Add this to ${SETTINGS_PATHS[target]}\n`);
     process.stdout.write(`# Configuration lives at ${configPath()}\n`);
     process.stdout.write(`${hookConfig(target, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`)}\n`);
+
+    for (const line of SETUP_NOTES[target]) {
+      process.stdout.write(`# ${line}\n`);
+    }
 
     return 0;
   }
