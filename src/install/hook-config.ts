@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import type { Harness } from '../harness/types.ts';
 
-export function hookConfig(harness: Harness, command: string): string {
+export function buildHookConfig(harness: Harness, command: string): string {
   const entry = match(harness)
     .with('claude', () => ({
       // the matcher is a regular expression tested against the tool name. `*`

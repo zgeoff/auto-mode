@@ -12,7 +12,7 @@ export function splitShellCommand(command: string): {
   let unparsed = false;
   let i = 0;
 
-  const push = (): void => {
+  const collectSegment = (): void => {
     const text = current.trim();
 
     if (text !== '') {
@@ -64,14 +64,14 @@ export function splitShellCommand(command: string): {
     }
 
     if (command.startsWith('&&', i) || command.startsWith('||', i)) {
-      push();
+      collectSegment();
 
       i += 2;
       continue;
     }
 
     if (ch === ';' || ch === '|' || ch === '\n' || ch === '&') {
-      push();
+      collectSegment();
 
       i += 1;
       continue;
@@ -81,7 +81,7 @@ export function splitShellCommand(command: string): {
     i += 1;
   }
 
-  push();
+  collectSegment();
 
   return { segments, hasUnparsedConstruct: unparsed || quote !== null };
 }

@@ -57,7 +57,7 @@ export function classifyLocally(payload: HookPayload): LocalVerdict {
 }
 
 function classifySegment(text: string, cwd: string): string | null {
-  const words = tokenize(text);
+  const words = splitWords(text);
   const start = words.findIndex((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word));
 
   if (start === -1) {
@@ -97,7 +97,7 @@ function classifyRemove(args: readonly string[], cwd: string): string | null {
   }
 
   for (const path of paths) {
-    const stripped = stripQuotes(path);
+    const stripped = toUnquoted(path);
 
     if (stripped.includes('*') || stripped.includes('~') || stripped.includes('$')) {
       return null;
@@ -121,11 +121,11 @@ function classifyRemove(args: readonly string[], cwd: string): string | null {
   return 'Regenerable output';
 }
 
-function tokenize(text: string): readonly string[] {
+function splitWords(text: string): readonly string[] {
   return text.split(/\s+/).filter((word) => word !== '');
 }
 
-function stripQuotes(word: string): string {
+function toUnquoted(word: string): string {
   const [first] = word;
 
   return (first === "'" || first === '"') && word.at(-1) === first ? word.slice(1, -1) : word;

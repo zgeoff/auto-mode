@@ -37,6 +37,7 @@
   "scripts": {
     "audit": "bun audit",
     "build": "tsdown",
+    "build:agents": "bash scripts/build-agents-md.sh agents/shared.md agents/project.md AGENTS.md",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run deadcode && bun test && bun run build && bun run publint",
     "deadcode": "knip",
     "first-publish": "scripts/first-publish.sh",

@@ -17,7 +17,7 @@ export interface ModelResult {
   readonly outputTokens: number;
 }
 
-export async function callModel(
+export async function sendMessage(
   provider: ProviderConfig,
   apiKey: string,
   request: ModelRequest,

@@ -68,7 +68,7 @@ export const PRESETS: Readonly<Record<string, ProviderConfig>> = {
   },
 };
 
-export function configPath(): string {
+export function resolveConfigPath(): string {
   const xdg = process.env['XDG_CONFIG_HOME'];
   const base = xdg !== undefined && xdg !== '' ? xdg : join(homedir(), '.config');
 
@@ -99,7 +99,7 @@ const configFileSchema = z.strictObject({
   onFailure: z.enum(['defer', 'deny']).optional(),
 });
 
-export async function loadConfig(path = configPath()): Promise<Config> {
+export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
   let raw: string;
 
   try {

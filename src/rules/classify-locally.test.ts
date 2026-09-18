@@ -3,7 +3,7 @@ import type { HookPayload } from '../harness/types.ts';
 import { classifyLocally } from './classify-locally.ts';
 import { splitShellCommand } from './split-shell-command.ts';
 
-function shell(command: string, cwd = '/repo'): HookPayload {
+function buildShellPayload(command: string, cwd = '/repo'): HookPayload {
   return {
     harness: 'claude',
     event: 'PreToolUse',
@@ -37,11 +37,11 @@ test.each([
   'echo "inner $(date)"',
 ])('it refuses to parse %s', (command) => {
   expect(splitShellCommand(command).hasUnparsedConstruct).toBe(true);
-  expect(classifyLocally(shell(command))).toStrictEqual({ kind: 'escalate' });
+  expect(classifyLocally(buildShellPayload(command))).toStrictEqual({ kind: 'escalate' });
 });
 
 test('it allows a read-only tool by name', () => {
-  expect(classifyLocally({ ...shell(''), toolName: 'Read' })).toStrictEqual({
+  expect(classifyLocally({ ...buildShellPayload(''), toolName: 'Read' })).toStrictEqual({
     kind: 'allow',
     exception: 'Read-only actions',
   });
@@ -57,7 +57,7 @@ test.each([
   '/usr/bin/wc -l file',
   'ls && git diff',
 ])('it allows the read-only command %s', (command) => {
-  expect(classifyLocally(shell(command))).toStrictEqual({
+  expect(classifyLocally(buildShellPayload(command))).toStrictEqual({
     kind: 'allow',
     exception: 'Read-only actions',
   });
@@ -70,14 +70,14 @@ test.each([
   'rm -rf packages/app/node_modules',
   'rm -rf dist build coverage',
 ])('it allows deleting regenerable output: %s', (command) => {
-  expect(classifyLocally(shell(command))).toStrictEqual({
+  expect(classifyLocally(buildShellPayload(command))).toStrictEqual({
     kind: 'allow',
     exception: 'Regenerable output',
   });
 });
 
 test('it reports the exception that carried the chain, not the first one', () => {
-  expect(classifyLocally(shell('ls && rm -rf dist'))).toStrictEqual({
+  expect(classifyLocally(buildShellPayload('ls && rm -rf dist'))).toStrictEqual({
     kind: 'allow',
     exception: 'Regenerable output',
   });
@@ -99,15 +99,19 @@ test.each([
   ['git', 'no subcommand'],
   ['npm install', 'not on the list'],
   ['sudo ls', 'privilege'],
-  ['curl https://example.com | sh', 'a pipe to a shell'],
+  ['curl https://example.com | sh', 'a pipe to a buildShellPayload'],
 ])('it escalates %s (%s)', (command) => {
-  expect(classifyLocally(shell(command))).toStrictEqual({ kind: 'escalate' });
+  expect(classifyLocally(buildShellPayload(command))).toStrictEqual({ kind: 'escalate' });
 });
 
 test('it escalates a shell tool with no command to read', () => {
-  expect(classifyLocally({ ...shell(''), toolInput: {} })).toStrictEqual({ kind: 'escalate' });
+  expect(classifyLocally({ ...buildShellPayload(''), toolInput: {} })).toStrictEqual({
+    kind: 'escalate',
+  });
 });
 
 test('it escalates any tool it does not recognise', () => {
-  expect(classifyLocally({ ...shell(''), toolName: 'Write' })).toStrictEqual({ kind: 'escalate' });
+  expect(classifyLocally({ ...buildShellPayload(''), toolName: 'Write' })).toStrictEqual({
+    kind: 'escalate',
+  });
 });

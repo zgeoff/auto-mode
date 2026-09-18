@@ -9,7 +9,7 @@ import type { Harness } from './types.ts';
 
 const fixtureSchema = z.record(z.string(), z.unknown());
 
-function fixture(name: string): Record<string, unknown> {
+function readFixture(name: string): Record<string, unknown> {
   const path = join(import.meta.dirname, '..', '..', 'fixtures', `${name}-pre-tool-use.json`);
 
   return fixtureSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
@@ -25,7 +25,7 @@ const HARNESSES: readonly (readonly [string, Harness])[] = [
 ];
 
 test.each(HARNESSES)('it names the %s harness from its own payload', (name, harness) => {
-  expect(detectHarness(fixture(name))).toBe(harness);
+  expect(detectHarness(readFixture(name))).toBe(harness);
 });
 
 test('it reads an unknown payload as nothing to say rather than as an error', () => {
@@ -36,8 +36,8 @@ test('it reads an unknown payload as nothing to say rather than as an error', ()
 });
 
 test('it normalises every harness to the same shape', () => {
-  const claude = parsePayload(fixture('claude'));
-  const muse = parsePayload(fixture('muse'));
+  const claude = parsePayload(readFixture('claude'));
+  const muse = parsePayload(readFixture('muse'));
 
   expect(claude).toMatchObject({
     harness: 'claude',
@@ -55,7 +55,7 @@ test('it normalises every harness to the same shape', () => {
 });
 
 test('it ignores events that are not a tool gate', () => {
-  expect(parsePayload({ ...fixture('claude'), hook_event_name: 'Stop' })).toBeNull();
+  expect(parsePayload({ ...readFixture('claude'), hook_event_name: 'Stop' })).toBeNull();
 });
 
 test('it renders the three verdicts in the shape every harness reads', () => {

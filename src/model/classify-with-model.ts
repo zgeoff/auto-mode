@@ -3,7 +3,7 @@ import { resolveApiKey } from '../config/config.ts';
 import type { HookPayload, Verdict } from '../harness/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import { readTranscript } from '../transcript/read-transcript.ts';
-import { callModel } from './anthropic-client.ts';
+import { sendMessage } from './anthropic-client.ts';
 import { buildUserMessage } from './build-request.ts';
 import { parseModelVerdict } from './parse-verdict.ts';
 
@@ -19,7 +19,10 @@ export async function classifyWithModel(
   const apiKey = await resolveApiKey(config.provider);
 
   if (apiKey === null) {
-    return failure(config, 'no API key: set the configured environment variable or key command');
+    return buildFailure(
+      config,
+      'no API key: set the configured environment variable or key command',
+    );
   }
 
   let system: string;
@@ -30,7 +33,7 @@ export async function classifyWithModel(
       rulesPath: config.rulesPath,
     });
   } catch (error) {
-    return failure(config, `policy unreadable: ${toMessage(error)}`);
+    return buildFailure(config, `policy unreadable: ${toMessage(error)}`);
   }
 
   const transcript = await readTranscript(payload.transcriptPath, config.transcriptEntries);
@@ -38,12 +41,12 @@ export async function classifyWithModel(
   const user = buildUserMessage(payload, transcript, config.provider.reasoning);
 
   try {
-    const result = await callModel(config.provider, apiKey, { system, user });
+    const result = await sendMessage(config.provider, apiKey, { system, user });
 
     if (result.text.trim() === '') {
       // Spark returns nothing at all when max_tokens is too low for it to
       // finish reasoning, and an empty answer is not an allow.
-      return failure(config, `${config.provider.model} returned no text; raise maxTokens`);
+      return buildFailure(config, `${config.provider.model} returned no text; raise maxTokens`);
     }
 
     const verdict = parseModelVerdict(result.text);
@@ -62,11 +65,11 @@ export async function classifyWithModel(
         ? `timed out after ${config.provider.timeoutMs}ms`
         : toMessage(error);
 
-    return failure(config, `${config.provider.model} failed: ${message}`);
+    return buildFailure(config, `${config.provider.model} failed: ${message}`);
   }
 }
 
-function failure(config: Config, note: string): ModelOutcome {
+function buildFailure(config: Config, note: string): ModelOutcome {
   if (config.onFailure === 'deny') {
     return {
       verdict: {
