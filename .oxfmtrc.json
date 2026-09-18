@@ -3,7 +3,15 @@
   // policy/ is verbatim model input, not prose for a reader: its bytes are the
   // prompt and the cache prefix, so a reflow there is a prompt change and
   // belongs in a commit that reviews it as one
-  "ignorePatterns": ["bun.lock", "policy/**", "AGENTS.md", "agents/shared.md"],
+  "ignorePatterns": [
+    "bun.lock",
+    "policy/**",
+    "AGENTS.md",
+    "agents/shared.md",
+    // release-please rewrites this on every release, in its own style; the
+    // formatter would undo that and fail the release PR's own checks
+    "CHANGELOG.md"
+  ],
   "proseWrap": "always",
   "semi": true,
   "trailingComma": "all",
