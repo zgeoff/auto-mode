@@ -1,0 +1,50 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./node_modules/@zgeoff/oxlint-config/oxlintrc.json"],
+  "env": {
+    "node": true,
+    "es2024": true
+  },
+  "rules": {
+    "typescript/prefer-readonly-parameter-types": [
+      "error",
+      {
+        "ignoreInferredTypes": true,
+        "allow": [
+          { "from": "lib", "name": "Buffer" },
+          { "from": "package", "name": "Buffer", "package": "@types/node" }
+        ]
+      }
+    ],
+
+    // same set zgeoff/atc turns off, for the same reasons: each one fired only
+    // where the code was already the clearest form available
+    "import/max-dependencies": "off",
+    "init-declarations": "off",
+    "max-lines": "off",
+    "max-lines-per-function": "off",
+    "max-params": "off",
+    "max-statements": "off",
+    "no-await-in-loop": "off",
+    "no-continue": "off",
+    "no-inline-comments": "off",
+    "promise/avoid-new": "off",
+    "require-unicode-regexp": "off",
+
+    // one-var wants consecutive `const` statements merged into one declaration,
+    // which reads worse than what it replaces; sort-vars then wants the merged
+    // declarators alphabetised. Both became reachable in oxlint 1.82
+    "one-var": "off",
+    "sort-vars": "off",
+
+    // deferred to #2 — the three untyped boundaries become schema parses, and
+    // the verdict and harness branches become ts-pattern matches
+    "no-nested-ternary": "off",
+    "typescript/no-unnecessary-type-assertion": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+
+    // deferred to #3 — 15 names sit outside the verb taxonomy
+    "zgeoff/function-verb": "off"
+  },
+  "ignorePatterns": [".claude/**", ".reviews/**", ".worktrees/**"]
+}

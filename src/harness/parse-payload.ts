@@ -9,12 +9,6 @@ function readString(payload: Readonly<Record<string, unknown>>, key: string): st
   return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
-/**
- * Normalises one harness payload, or returns null when auto-mode has nothing to
- * say about it — an unknown harness, an event that is not a tool gate, or a
- * body that is not an object. A null is not a refusal: the caller stays out of
- * the way and the harness decides for itself.
- */
 export function parsePayload(body: unknown): HookPayload | null {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     return null;

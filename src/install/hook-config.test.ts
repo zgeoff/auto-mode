@@ -1,5 +1,5 @@
-import { expect, test } from 'vitest';
-import { hookConfig, SETTINGS_PATHS, SETUP_NOTES } from './hook-config.ts';
+import { expect, test } from 'bun:test';
+import { SETTINGS_PATHS, SETUP_NOTES, hookConfig } from './hook-config.ts';
 
 const CMD = '/usr/bin/node /opt/auto-mode/cli.js run';
 
@@ -8,7 +8,9 @@ const CMD = '/usr/bin/node /opt/auto-mode/cli.js run';
 // first is not valid regex, the second matches only an empty tool name.
 test('it gives Claude a regular expression that matches every tool', () => {
   expect(JSON.parse(hookConfig('claude', CMD))).toStrictEqual({
-    hooks: { PreToolUse: [{ matcher: '.*', hooks: [{ type: 'command', command: CMD, timeout: 90 }] }] },
+    hooks: {
+      PreToolUse: [{ matcher: '.*', hooks: [{ type: 'command', command: CMD, timeout: 90 }] }],
+    },
   });
 });
 
@@ -33,7 +35,10 @@ test('it gives Muse only type and command', () => {
     hooks: { PreToolUse: [{ hooks: [Record<string, unknown>] }] };
   };
 
-  expect(Object.keys(entry.hooks.PreToolUse[0].hooks[0]).sort()).toStrictEqual(['command', 'type']);
+  expect(Object.keys(entry.hooks.PreToolUse[0].hooks[0]).toSorted()).toStrictEqual([
+    'command',
+    'type',
+  ]);
 });
 
 // The model needs 13-24s on a hard case; a shorter harness timeout would make

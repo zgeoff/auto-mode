@@ -4,20 +4,28 @@
   "description": "A permission classifier that runs as a hook, so agents that are not Claude can run unattended",
   "keywords": [
     "agent",
-    "hook",
-    "permissions",
     "claude-code",
     "codex",
-    "muse"
+    "hook",
+    "muse",
+    "permissions"
   ],
+  "homepage": "https://github.com/zgeoff/auto-mode#readme",
+  "bugs": "https://github.com/zgeoff/auto-mode/issues",
   "license": "MIT",
-  "type": "module",
-  "engines": {
-    "node": ">=24"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zgeoff/auto-mode.git"
   },
   "bin": {
     "auto-mode": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "policy",
+    "LICENSE"
+  ],
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -26,30 +34,44 @@
     "./policy/classifier.md": "./policy/classifier.md",
     "./policy/rules.md": "./policy/rules.md"
   },
-  "files": [
-    "dist",
-    "policy",
-    "LICENSE"
-  ],
   "scripts": {
+    "audit": "bun audit",
     "build": "tsdown",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run deadcode && bun test && bun run build && bun run publint",
+    "deadcode": "knip",
+    "first-publish": "scripts/first-publish.sh",
+    "format": "oxfmt . && format-codemod --quiet .",
+    "format:check": "oxfmt --check . && format-codemod --check --quiet .",
+    "lint": "oxlint --type-aware --type-check --report-unused-disable-directives-severity error",
+    "lint:fix": "oxlint --type-aware --type-check --report-unused-disable-directives-severity error --fix",
+    "prepare": "command -v git > /dev/null 2>&1 && lefthook install --force || true",
     "publint": "publint",
-    "check": "npm run typecheck && npm run test && npm run build && npm run publint",
-    "first-publish": "scripts/first-publish.sh"
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "tiny-invariant": "1.3.3"
   },
   "devDependencies": {
-    "@types/node": "^24.13.5",
-    "publint": "^0.3.24",
-    "tsdown": "^0.23.0",
-    "typescript": "^7.0.2",
-    "vitest": "^5.0.1"
+    "@commitlint/cli": "21.2.2",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "@tsconfig/strictest": "2.0.8",
+    "@types/bun": "1.3.14",
+    "@types/node": "26.5.1",
+    "@zgeoff/bun-test-extended": "0.1.0",
+    "@zgeoff/format-codemod": "0.1.0",
+    "@zgeoff/oxlint-config": "0.1.0",
+    "knip": "6.35.1",
+    "lefthook": "2.1.12",
+    "oxfmt": "0.67.0",
+    "oxlint": "1.82.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "publint": "0.3.24",
+    "tsdown": "0.23.0",
+    "typescript": "7.0.2"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/zgeoff/auto-mode.git"
+  "engines": {
+    "node": ">=24"
   },
-  "homepage": "https://github.com/zgeoff/auto-mode#readme",
-  "bugs": "https://github.com/zgeoff/auto-mode/issues"
+  "packageManager": "bun@1.3.10"
 }

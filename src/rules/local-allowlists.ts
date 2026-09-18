@@ -1,7 +1,3 @@
-/**
- * Tools whose documented effect is to read. Names differ by harness, so this
- * set holds every spelling the three use.
- */
 export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   'Read',
   'Glob',
@@ -20,7 +16,6 @@ export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   'view_image',
 ]);
 
-/** Tools that carry a shell command and so need the command read instead. */
 export const SHELL_TOOLS: ReadonlySet<string> = new Set([
   'Bash',
   'bash',
@@ -29,10 +24,6 @@ export const SHELL_TOOLS: ReadonlySet<string> = new Set([
   'local_shell',
 ]);
 
-/**
- * Commands that only print. A command outside this set is not assumed to
- * write — it is simply not decided here, and goes to the model.
- */
 export const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   'awk',
   'basename',
@@ -87,7 +78,6 @@ export const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   'yq',
 ]);
 
-/** `git` subcommands that only report. */
 export const READ_ONLY_GIT_SUBCOMMANDS: ReadonlySet<string> = new Set([
   'blame',
   'describe',
@@ -106,11 +96,6 @@ export const READ_ONLY_GIT_SUBCOMMANDS: ReadonlySet<string> = new Set([
   'whatchanged',
 ]);
 
-/**
- * Directory names a build reproduces. Deleting one of these inside the working
- * tree is the Regenerable output exception, which is the single most common
- * thing a classifier gets wrong.
- */
 export const REGENERABLE_DIRS: ReadonlySet<string> = new Set([
   '.gradle',
   '.next',

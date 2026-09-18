@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'bun:test';
 import { buildUserMessage } from './build-request.ts';
 import { parseModelVerdict } from './parse-verdict.ts';
 
@@ -66,7 +66,6 @@ test('it labels the action last and asks a reasoning model to think first', () =
   expect(reasoning.indexOf('<action>')).toBeGreaterThan(reasoning.indexOf('</transcript>'));
   expect(reasoning).toContain('rm -rf /');
   expect(reasoning).toContain('Work through the classification process');
-
   expect(buildUserMessage(payload, [], false)).toContain('and nothing else');
   expect(buildUserMessage(payload, [], false)).toContain('(no transcript available');
 });

@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  // policy/ is verbatim model input, not prose for a reader: its bytes are the
+  // prompt and the cache prefix, so a reflow there is a prompt change and
+  // belongs in a commit that reviews it as one
+  "ignorePatterns": ["bun.lock", "policy/**"],
+  "proseWrap": "always",
+  "semi": true,
+  "trailingComma": "all",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "sortImports": {
+    "groups": ["side_effect", "builtin", "external", "unknown", ["parent", "sibling", "index"]],
+    "newlinesBetween": false,
+    "sortSideEffects": false
+  }
+}

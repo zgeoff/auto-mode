@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test } from 'bun:test';
 import type { HookPayload } from '../harness/types.ts';
 import { classifyLocally } from './classify-locally.ts';
 import { splitShellCommand } from './split-shell-command.ts';

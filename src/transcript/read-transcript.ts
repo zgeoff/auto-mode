@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises';
 
-/** One line of the conversation, flattened to text the classifier can read. */
 export interface TranscriptEntry {
   readonly role: string;
   readonly text: string;
@@ -8,18 +7,6 @@ export interface TranscriptEntry {
 
 const MAX_ENTRY_CHARS = 2000;
 
-/**
- * Reads the tail of a harness transcript.
- *
- * Only the tail, and always the same tail for a given session length, so the
- * prompt prefix grows by appending rather than sliding. A sliding window would
- * change the cached prefix on every call and pay full price each time.
- *
- * Every harness writes JSONL but none writes the same schema, so this reads
- * defensively and drops what it cannot understand. A transcript it cannot parse
- * yields no entries, and the classifier then judges the action with no history —
- * which is weaker, not wrong.
- */
 export async function readTranscript(
   path: string | undefined,
   limit: number,
@@ -68,8 +55,16 @@ function flatten(value: unknown): TranscriptEntry | null {
 
   const row = value as Record<string, unknown>;
   const message = row['message'];
-  const inner = message !== null && typeof message === 'object' ? (message as Record<string, unknown>) : row;
-  const role = typeof inner['role'] === 'string' ? inner['role'] : typeof row['type'] === 'string' ? row['type'] : null;
+
+  const inner =
+    message !== null && typeof message === 'object' ? (message as Record<string, unknown>) : row;
+
+  const role =
+    typeof inner['role'] === 'string'
+      ? inner['role']
+      : typeof row['type'] === 'string'
+        ? row['type']
+        : null;
 
   if (role === null) {
     return null;

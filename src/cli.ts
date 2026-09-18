@@ -1,10 +1,10 @@
 #!/usr/bin/env node
+import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
 import { configPath, loadConfig } from './config/config.ts';
 import { parsePayload } from './harness/parse-payload.ts';
 import { renderVerdict } from './harness/render-verdict.ts';
-import type { Harness } from './harness/types.ts';
-import { hookConfig, SETTINGS_PATHS, SETUP_NOTES } from './install/hook-config.ts';
+import { SETTINGS_PATHS, SETUP_NOTES, hookConfig } from './install/hook-config.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
@@ -23,23 +23,10 @@ Options:
   --local-only          With run: skip the model tier
 `;
 
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
-
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.from(chunk));
-  }
-
-  return Buffer.concat(chunks).toString('utf8');
+function readStdin(): Promise<string> {
+  return text(process.stdin);
 }
 
-/**
- * Decides one tool call. Writing nothing is a real answer: it means auto-mode
- * has no opinion, and the harness then does whatever it would have done alone.
- * That is the right output for an unknown harness, for an event that is not a
- * tool gate, and for anything the local tier declines to judge until the model
- * tier exists.
- */
 async function run(explain: boolean, localOnly: boolean): Promise<number> {
   const raw = await readStdin();
 
@@ -79,16 +66,16 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
   return note(explain, outcome.note);
 }
 
-function note(explain: boolean, text: string): number {
+function note(explain: boolean, message: string): number {
   if (explain) {
-    process.stderr.write(`auto-mode: ${text}\n`);
+    process.stderr.write(`auto-mode: ${message}\n`);
   }
 
   return 0;
 }
 
 async function main(argv: readonly string[]): Promise<number> {
-  const { values, positionals } = parseArgs({
+  const args = parseArgs({
     args: [...argv],
     allowPositionals: true,
     options: {
@@ -100,34 +87,35 @@ async function main(argv: readonly string[]): Promise<number> {
     },
   });
 
-  const command = positionals[0];
+  const [command] = args.positionals;
 
-  if (values.help === true || command === undefined) {
+  if (args.values.help === true || command === undefined) {
     process.stdout.write(USAGE);
 
     return 0;
   }
 
   if (command === 'run') {
-    return run(values.explain === true, values['local-only'] === true);
+    return run(args.values.explain === true, args.values['local-only'] === true);
   }
 
   if (command === 'init') {
-    const harness = positionals[1];
+    const [, harness] = args.positionals;
 
     if (harness !== 'claude' && harness !== 'codex' && harness !== 'muse') {
-      process.stderr.write("auto-mode init: name a harness — claude, codex or muse\n");
+      process.stderr.write('auto-mode init: name a harness — claude, codex or muse\n');
 
       return 2;
     }
 
-    const target = harness as Harness;
-
-    process.stdout.write(`# Add this to ${SETTINGS_PATHS[target]}\n`);
+    process.stdout.write(`# Add this to ${SETTINGS_PATHS[harness]}\n`);
     process.stdout.write(`# Configuration lives at ${configPath()}\n`);
-    process.stdout.write(`${hookConfig(target, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`)}\n`);
 
-    for (const line of SETUP_NOTES[target]) {
+    process.stdout.write(
+      `${hookConfig(harness, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`)}\n`,
+    );
+
+    for (const line of SETUP_NOTES[harness]) {
       process.stdout.write(`# ${line}\n`);
     }
 
@@ -136,8 +124,8 @@ async function main(argv: readonly string[]): Promise<number> {
 
   if (command === 'print-prompt') {
     const prompt = await loadPolicy({
-      ...(values.classifier === undefined ? {} : { classifierPath: values.classifier }),
-      ...(values.rules === undefined ? {} : { rulesPath: values.rules }),
+      ...(args.values.classifier === undefined ? {} : { classifierPath: args.values.classifier }),
+      ...(args.values.rules === undefined ? {} : { rulesPath: args.values.rules }),
     });
 
     process.stdout.write(`${prompt}\n`);
