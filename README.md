@@ -1,65 +1,114 @@
 # auto-mode
 
 A permission classifier that runs as a hook. It reads the agent's next action and
-decides allow or block, so you can leave an agent unattended without approving
-every step.
+answers allow, deny, or nothing at all — so you can leave an agent unattended
+without approving every step.
 
-Built for coding agents that are **not** Claude, running in harnesses that are not
-Claude Code. Claude Code has its own auto mode; this gives the same shape to the
-models and harnesses that do not.
+Built for coding agents that are **not** Claude, in harnesses that are not Claude
+Code. Claude Code has its own auto mode; this gives the same shape to everything
+else.
 
-## Status
+## Install
 
-Early. The policy is written; the code is not.
+```sh
+npm i -g auto-mode
+auto-mode init claude   # or codex, or muse
+```
 
-## The three files
+`init` prints the hook entry and the path to paste it into. It does not write
+that file. Your settings are yours, and a tool that installs its own restraints
+can remove them.
 
-| File | Audience | Edit it when |
+## The two tiers
+
+1. **Local rules.** Deterministic matching, no network call, well under a
+   millisecond. It answers **allow** or **escalate** and never denies — a wrong
+   local allow costs one unwatched action, a wrong local deny stops work you
+   asked for.
+2. **The model.** Everything the first tier declines goes to a small reasoning
+   model with the policy as its system prompt. Measured at 13-24 seconds on a
+   hard case, which is why tier one has to catch the ordinary ones.
+
+## The policy
+
+Two files, and everything in them is what the model reads. Nothing there is
+addressed to you.
+
+| File | What it holds | Change it to |
 |---|---|---|
-| `policy/rules.md` | The model | You want to change what is blocked |
-| `policy/classifier.md` | The model | You want to change how judgement works |
-| `README.md` | You | — |
+| `policy/rules.md` | 22 rules, 7 exceptions | Change what is blocked |
+| `policy/classifier.md` | Threat model, consent bar, evaluation rules, output contract | Change how judgement works |
 
-Everything under `policy/` is verbatim what the model reads, and nothing else.
-No file there addresses you. Guidance about editing them lives here.
-
-`policy/classifier.md` holds the threat model, the consent bar, the evaluation
-order, and the output contract. It carries a `<rules>` marker on its own line. At
-run time auto-mode replaces that marker with the whole of `policy/rules.md`, and
-the two become one prompt.
-
-The split exists for two reasons. The framework stays identical across sessions,
-so it sits at the front of the prompt and stays in the provider's cache. And you
-can rewrite every rule without touching the output contract that the verdict
-parser depends on.
+`classifier.md` carries a `<rules>` marker on its own line. At run time auto-mode
+replaces it with the whole of `policy/rules.md` and the two become one prompt.
+`auto-mode print-prompt` writes exactly what the model receives.
 
 **Read `policy/rules.md` before you turn this on.** If you disagree with a rule,
-change the rule. Do not rely on the classifier to guess what you meant.
+change the rule.
 
-## How it works
+## Configuration
 
-Two tiers.
+`~/.config/auto-mode/config.json`. Everything has a default; the file is
+optional.
 
-1. **Local rules.** Deterministic matching against the action. No network call.
-   This catches the common cases in under a millisecond.
-2. **Model.** Anything the local tier cannot settle goes to a small reasoning
-   model with `policy/classifier.md` as its prompt. This costs seconds.
+```json
+{
+  "preset": "spark",
+  "provider": { "apiKeyCommand": "my-key-helper" },
+  "onFailure": "defer"
+}
+```
 
-Tier 1 must catch the majority, or tier 2 makes the session unusable.
+Three presets: `spark` (the default), `claude`, `glm`. Each names a base URL, a
+model, a key source, and the three settings that move together — whether the
+model reasons, its token budget, and its timeout.
 
-## Overriding
+| Key | Default | Meaning |
+|---|---|---|
+| `preset` | `spark` | Which provider to start from |
+| `provider.*` | from the preset | Override any single field |
+| `classifierPath`, `rulesPath` | the shipped files | Use your own policy |
+| `transcriptEntries` | `40` | How much history the model sees |
+| `onFailure` | `defer` | `defer` writes nothing; `deny` fails closed |
 
-Point `rulesPath` at your own rule list, or `classifierPath` at your own
-framework. auto-mode reads your file in place of the default and does not merge
-the two: your file is the whole of that part.
+**Muse Spark is the default** because it reasons, it was correct on every case
+measured, and a contributor-tier call costs roughly a fortieth of the
+alternatives. Its token budget is a floor, not a preference: below it, Spark
+returns nothing at all.
 
-A custom rule list must keep the three headings `HARD BLOCK rules`,
-`SOFT BLOCK rules`, and `ALLOW exceptions`. The classifier refers to them by name.
+The key comes from `provider.apiKeyEnv` first, then from `provider.apiKeyCommand`
+if that is unset. Muse runs hooks with a scrubbed environment, so under Muse the
+command is the only one that works.
 
-To adjust rather than replace, copy the default and edit it. That is the
-supported path, and the reason the policy ships as prose instead of code.
+## Writing nothing is an answer
+
+It means auto-mode has no opinion, and the harness then does what it would have
+done alone. That is the output for an unknown harness, an event that is not a
+tool gate, malformed input, a missing key, and a model that times out. So this
+can only turn an ask into an allow or a deny — it never removes a gate that was
+already there.
+
+Set `onFailure` to `deny` if you would rather fail closed.
 
 ## Harnesses
 
 Claude Code, Codex, and Muse Code. They differ in how the hook is registered and
-in the payload shape; the verdict contract is the same.
+in what the payload looks like; the verdict contract is the same for all three.
+
+Muse is identified by `model_provider`, which the others do not send. Claude
+sends `prompt_id`. Codex sends `turn_id` — and so does Muse, so the order of
+those checks matters.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `auto-mode run` | Read a payload on stdin, write a verdict on stdout |
+| `auto-mode run --explain` | Also write the reasoning to stderr |
+| `auto-mode run --local-only` | Skip the model tier |
+| `auto-mode print-prompt` | Print the assembled system prompt |
+| `auto-mode init <harness>` | Print the hook entry to add |
+
+## Licence
+
+MIT.

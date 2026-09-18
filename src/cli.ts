@@ -1,20 +1,26 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
+import { configPath, loadConfig } from './config/config.ts';
 import { parsePayload } from './harness/parse-payload.ts';
 import { renderVerdict } from './harness/render-verdict.ts';
+import type { Harness } from './harness/types.ts';
+import { hookConfig, SETTINGS_PATHS } from './install/hook-config.ts';
+import { classifyWithModel } from './model/classify-with-model.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 
 const USAGE = `auto-mode — a permission classifier that runs as a hook
 
 Usage:
-  auto-mode run            Read a hook payload on stdin, write a verdict on stdout
-  auto-mode print-prompt   Print the system prompt the classifier receives
+  auto-mode run              Read a hook payload on stdin, write a verdict on stdout
+  auto-mode print-prompt     Print the system prompt the classifier receives
+  auto-mode init <harness>   Print the hook entry to add: claude, codex or muse
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
   --rules <path>        Use this rule list instead of the shipped one
   --explain             With run: also write the reasoning to stderr
+  --local-only          With run: skip the model tier
 `;
 
 async function readStdin(): Promise<string> {
@@ -34,7 +40,7 @@ async function readStdin(): Promise<string> {
  * tool gate, and for anything the local tier declines to judge until the model
  * tier exists.
  */
-async function run(explain: boolean): Promise<number> {
+async function run(explain: boolean, localOnly: boolean): Promise<number> {
   const raw = await readStdin();
 
   let body: unknown;
@@ -42,39 +48,40 @@ async function run(explain: boolean): Promise<number> {
   try {
     body = JSON.parse(raw);
   } catch {
-    if (explain) {
-      process.stderr.write('auto-mode: stdin is not JSON, so no verdict\n');
-    }
-
-    return 0;
+    return note(explain, 'stdin is not JSON, so no verdict');
   }
 
   const payload = parsePayload(body);
 
   if (payload === null) {
-    if (explain) {
-      process.stderr.write('auto-mode: not a tool gate this hook judges, so no verdict\n');
-    }
-
-    return 0;
+    return note(explain, 'not a tool gate this hook judges, so no verdict');
   }
 
   const local = classifyLocally(payload);
 
   if (local.kind === 'allow') {
-    if (explain) {
-      process.stderr.write(`auto-mode: allowed by ${local.exception} (${payload.harness})\n`);
-    }
-
     process.stdout.write(renderVerdict(payload.event, { kind: 'allow' }));
 
-    return 0;
+    return note(explain, `allowed by ${local.exception} (${payload.harness}, local)`);
   }
 
+  if (localOnly) {
+    return note(explain, `${payload.toolName} needs the model tier, which --local-only skipped`);
+  }
+
+  const config = await loadConfig();
+  const outcome = await classifyWithModel(payload, config);
+
+  if (outcome.verdict !== null) {
+    process.stdout.write(renderVerdict(payload.event, outcome.verdict));
+  }
+
+  return note(explain, outcome.note);
+}
+
+function note(explain: boolean, text: string): number {
   if (explain) {
-    process.stderr.write(
-      `auto-mode: ${payload.toolName} needs the model tier, which is not built yet, so no verdict\n`,
-    );
+    process.stderr.write(`auto-mode: ${text}\n`);
   }
 
   return 0;
@@ -88,6 +95,7 @@ async function main(argv: readonly string[]): Promise<number> {
       classifier: { type: 'string' },
       rules: { type: 'string' },
       explain: { type: 'boolean' },
+      'local-only': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -101,7 +109,25 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   if (command === 'run') {
-    return run(values.explain === true);
+    return run(values.explain === true, values['local-only'] === true);
+  }
+
+  if (command === 'init') {
+    const harness = positionals[1];
+
+    if (harness !== 'claude' && harness !== 'codex' && harness !== 'muse') {
+      process.stderr.write("auto-mode init: name a harness — claude, codex or muse\n");
+
+      return 2;
+    }
+
+    const target = harness as Harness;
+
+    process.stdout.write(`# Add this to ${SETTINGS_PATHS[target]}\n`);
+    process.stdout.write(`# Configuration lives at ${configPath()}\n`);
+    process.stdout.write(`${hookConfig(target, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`)}\n`);
+
+    return 0;
   }
 
   if (command === 'print-prompt') {
