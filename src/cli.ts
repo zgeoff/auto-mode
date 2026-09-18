@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
-import { configPath, loadConfig } from './config/config.ts';
+import { loadConfig, resolveConfigPath } from './config/config.ts';
 import { parsePayload } from './harness/parse-payload.ts';
 import { renderVerdict } from './harness/render-verdict.ts';
-import { SETTINGS_PATHS, SETUP_NOTES, hookConfig } from './install/hook-config.ts';
+import { SETTINGS_PATHS, SETUP_NOTES, buildHookConfig } from './install/hook-config.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
@@ -35,13 +35,13 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
   try {
     body = JSON.parse(raw);
   } catch {
-    return note(explain, 'stdin is not JSON, so no verdict');
+    return printNote(explain, 'stdin is not JSON, so no verdict');
   }
 
   const payload = parsePayload(body);
 
   if (payload === null) {
-    return note(explain, 'not a tool gate this hook judges, so no verdict');
+    return printNote(explain, 'not a tool gate this hook judges, so no verdict');
   }
 
   const local = classifyLocally(payload);
@@ -49,11 +49,14 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
   if (local.kind === 'allow') {
     process.stdout.write(renderVerdict(payload.event, { kind: 'allow' }));
 
-    return note(explain, `allowed by ${local.exception} (${payload.harness}, local)`);
+    return printNote(explain, `allowed by ${local.exception} (${payload.harness}, local)`);
   }
 
   if (localOnly) {
-    return note(explain, `${payload.toolName} needs the model tier, which --local-only skipped`);
+    return printNote(
+      explain,
+      `${payload.toolName} needs the model tier, which --local-only skipped`,
+    );
   }
 
   const config = await loadConfig();
@@ -63,10 +66,10 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
     process.stdout.write(renderVerdict(payload.event, outcome.verdict));
   }
 
-  return note(explain, outcome.note);
+  return printNote(explain, outcome.note);
 }
 
-function note(explain: boolean, message: string): number {
+function printNote(explain: boolean, message: string): number {
   if (explain) {
     process.stderr.write(`auto-mode: ${message}\n`);
   }
@@ -109,10 +112,10 @@ async function main(argv: readonly string[]): Promise<number> {
     }
 
     process.stdout.write(`# Add this to ${SETTINGS_PATHS[harness]}\n`);
-    process.stdout.write(`# Configuration lives at ${configPath()}\n`);
+    process.stdout.write(`# Configuration lives at ${resolveConfigPath()}\n`);
 
     process.stdout.write(
-      `${hookConfig(harness, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`)}\n`,
+      `${buildHookConfig(harness, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`)}\n`,
     );
 
     for (const line of SETUP_NOTES[harness]) {

@@ -39,8 +39,7 @@
     "one-var": "off",
     "sort-vars": "off",
 
-    // deferred to #3 — 15 names sit outside the verb taxonomy
-    "zgeoff/function-verb": "off"
+    "zgeoff/function-verb": ["error", { "verbs": ["classify", "detect"], "exemptNames": ["main"] }]
   },
   "ignorePatterns": [".claude/**", ".reviews/**", ".worktrees/**"]
 }

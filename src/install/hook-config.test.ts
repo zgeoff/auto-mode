@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as z from 'zod';
-import { SETTINGS_PATHS, SETUP_NOTES, hookConfig } from './hook-config.ts';
+import { SETTINGS_PATHS, SETUP_NOTES, buildHookConfig } from './hook-config.ts';
 
 const handlerSchema = z.record(z.string(), z.unknown());
 const pluralSchema = z.object({ hooks: z.tuple([handlerSchema]) });
@@ -11,7 +11,7 @@ const CMD = '/usr/bin/node /opt/auto-mode/cli.js run';
 // Both `*` and `""` leave the hook installed and silently never firing: the
 // first is not valid regex, the second matches only an empty tool name.
 test('it gives Claude a regular expression that matches every tool', () => {
-  expect(JSON.parse(hookConfig('claude', CMD))).toStrictEqual({
+  expect(JSON.parse(buildHookConfig('claude', CMD))).toStrictEqual({
     hooks: {
       PreToolUse: [{ matcher: '.*', hooks: [{ type: 'command', command: CMD, timeout: 90 }] }],
     },
@@ -21,13 +21,13 @@ test('it gives Claude a regular expression that matches every tool', () => {
 // The same value means opposite things in the two harnesses, so this pair is
 // asserted together to stop a future edit unifying them.
 test('it uses a different match-everything value for Claude and Muse', () => {
-  expect(hookConfig('claude', CMD)).toContain('"matcher": ".*"');
-  expect(hookConfig('muse', CMD)).toContain('"matcher": ""');
+  expect(buildHookConfig('claude', CMD)).toContain('"matcher": ".*"');
+  expect(buildHookConfig('muse', CMD)).toContain('"matcher": ""');
 });
 
 // Codex registers a bare handler list; its own hooks.json carries no matcher.
 test('it gives Codex no matcher', () => {
-  expect(JSON.parse(hookConfig('codex', CMD))).toStrictEqual({
+  expect(JSON.parse(buildHookConfig('codex', CMD))).toStrictEqual({
     hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: CMD, timeout: 90 }] }] },
   });
 });
@@ -35,7 +35,7 @@ test('it gives Codex no matcher', () => {
 // Muse 1.3 skips a whole handler that carries an unknown field, silently, so an
 // extra key here means the hook never runs at all.
 test('it gives Muse only type and command', () => {
-  const entry = entrySchema.parse(JSON.parse(hookConfig('muse', CMD)));
+  const entry = entrySchema.parse(JSON.parse(buildHookConfig('muse', CMD)));
 
   expect(Object.keys(entry.hooks.PreToolUse[0].hooks[0]).toSorted()).toStrictEqual([
     'command',
@@ -47,7 +47,7 @@ test('it gives Muse only type and command', () => {
 // every hard case a silent failure.
 test('it allows longer than the model takes', () => {
   for (const harness of ['claude', 'codex'] as const) {
-    expect(hookConfig(harness, CMD)).toContain('"timeout": 90');
+    expect(buildHookConfig(harness, CMD)).toContain('"timeout": 90');
   }
 });
 
