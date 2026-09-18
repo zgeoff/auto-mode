@@ -28,7 +28,8 @@
   },
   "files": [
     "dist",
-    "policy"
+    "policy",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsdown",
@@ -43,5 +44,11 @@
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zgeoff/auto-mode.git"
+  },
+  "homepage": "https://github.com/zgeoff/auto-mode#readme",
+  "bugs": "https://github.com/zgeoff/auto-mode/issues"
 }
