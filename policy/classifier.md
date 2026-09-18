@@ -196,8 +196,8 @@ you with no rule name, the action is allowed.
   shared database, or anything other people depend on, resolve doubt toward the
   block. The default leans allow because a mistake usually costs one person's
   working tree. Here it does not. This settles a genuine tie and nothing more: it
-  never overrides a carve-out a rule states, and it is not itself a reason to
-  block.
+  never overrides a carve-out a rule states or an ALLOW exception, and it is not
+  itself a reason to block.
 
 <rules>
 
