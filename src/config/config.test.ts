@@ -7,14 +7,14 @@ import { DEFAULT_CONFIG, PRESETS, loadConfig, resolveApiKey } from './config.ts'
 
 const KEY_ENV = 'AUTO_MODE_TEST_KEY';
 
-async function setupTest(): Promise<{ readonly resolveConfigPath: string }> {
+async function setupTest(): Promise<{ readonly configFile: string }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-config-'));
 
   onTestFinished(async () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  return { resolveConfigPath: join(dir, 'config.json') };
+  return { configFile: join(dir, 'config.json') };
 }
 
 test('it falls back to the shipped defaults when there is no config file', async () => {
@@ -43,18 +43,18 @@ test('it takes a preset and lets one field be overridden', async () => {
   invariant(glm, 'the glm preset is defined');
 
   await writeFile(
-    ctx.resolveConfigPath,
+    ctx.configFile,
     JSON.stringify({ preset: 'glm', provider: { timeoutMs: 45_000 } }),
   );
 
-  const config = await loadConfig(ctx.resolveConfigPath);
+  const config = await loadConfig(ctx.configFile);
 
   expect(config.provider.model).toBe(glm.model);
   expect(config.provider.baseURL).toBe(glm.baseURL);
   expect(config.provider.timeoutMs).toBe(45_000);
 });
 
-const BROKEN_CONFIGS: readonly (readonly [string, string])[] = [
+const BROKEN_CONFIGS: [string, string][] = [
   ['not JSON', 'oops {'],
   ['not an object', '[]'],
   ['an unknown preset', JSON.stringify({ preset: 'gpt' })],
@@ -64,17 +64,17 @@ const BROKEN_CONFIGS: readonly (readonly [string, string])[] = [
 test.each(BROKEN_CONFIGS)('it refuses a config that is %s', async (_label, body) => {
   const ctx = await setupTest();
 
-  await writeFile(ctx.resolveConfigPath, body);
+  await writeFile(ctx.configFile, body);
 
-  await expect(loadConfig(ctx.resolveConfigPath)).toReject();
+  await expect(loadConfig(ctx.configFile)).toReject();
 });
 
 test('it names the known presets when the config asks for one that is not', async () => {
   const ctx = await setupTest();
 
-  await writeFile(ctx.resolveConfigPath, JSON.stringify({ preset: 'gpt' }));
+  await writeFile(ctx.configFile, JSON.stringify({ preset: 'gpt' }));
 
-  const failure = await loadConfig(ctx.resolveConfigPath).catch((error: unknown) => error);
+  const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
 
   invariant(failure instanceof Error, 'an unknown preset rejects with an Error');
 
