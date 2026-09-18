@@ -113,6 +113,10 @@ was there. Set `onFailure` to `deny` to fail closed instead.
 | `auto-mode print-prompt`     | Print the assembled system prompt                  |
 | `auto-mode init <harness>`   | Print the hook entry to add                        |
 
+`init` takes `--event permission-request` to register on the event Claude Code sends when it is
+about to ask you, rather than on every tool call. The
+[harness guide](./docs/guides/harnesses.md#which-event) covers the choice.
+
 ## Documentation
 
 - [Overview](./docs/architecture/overview.md) — the two tiers, harness detection, the verdict

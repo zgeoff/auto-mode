@@ -86,7 +86,8 @@ rather than a variable.
 
 ## The verdict contract
 
-One shape works everywhere, because Codex and Muse both modelled their hook contract on Claude's:
+Two events, two shapes. The tool gate takes a flat decision, and all three harnesses read it,
+because Codex and Muse both modelled their hook contract on Claude's:
 
 ```json
 {
@@ -98,11 +99,26 @@ One shape works everywhere, because Codex and Muse both modelled their hook cont
 }
 ```
 
-`permissionDecision` must sit inside `hookSpecificOutput`. Exit 0; the JSON alone decides the
-outcome.
+Claude Code's permission request takes a nested one, and drops the flat spelling without reporting
+it — an allow written that way leaves the call waiting for the prompt it was meant to answer:
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": { "behavior": "deny", "message": "[Rule Name] one sentence." }
+  }
+}
+```
+
+That event carries allow and deny and nothing else, because it fires when the harness is already on
+its way to the prompt. An ask on it is that prompt, which is what happens when the hook writes
+nothing — so writing nothing is what auto-mode does with one.
+
+`hookSpecificOutput` wraps both. Exit 0; the JSON alone decides the outcome.
 
 The reason begins with the rule name in brackets, and that text reaches the agent verbatim. Verified
-in all three harnesses.
+in all three harnesses, and on both of Claude Code's events.
 
 ## Prompt caching
 

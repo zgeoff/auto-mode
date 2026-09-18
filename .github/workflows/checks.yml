@@ -84,6 +84,13 @@ jobs:
           verdict=$(node dist/cli.js run --local-only < fixtures/muse-pre-tool-use.json)
           test "$verdict" = "$allow"
 
+          # a permission request takes a nested decision, and Claude Code drops
+          # the flat one the tool gate takes
+          nested='{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
+
+          verdict=$(node dist/cli.js run --local-only < fixtures/claude-permission-request.json)
+          test "$verdict" = "$nested"
+
           # an action the local tier will not judge writes nothing, which leaves
           # the harness to decide for itself
           for payload in claude codex; do
