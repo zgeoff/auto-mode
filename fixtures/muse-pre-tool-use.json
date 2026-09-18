@@ -1,0 +1,17 @@
+{
+  "cwd": "/tmp/zsh-1000/claude-1000/-home-geoff-projects/4be7edcf-e55c-4d51-8bb6-e3f65db0c49b/scratchpad",
+  "hook_event_name": "PreToolUse",
+  "model": "muse-spark-1.3-contributor",
+  "model_provider": "meta",
+  "permission_mode": "default",
+  "session_id": "01a0b380-1948-71d3-abd0-2cc87ca7d422",
+  "tool_input": {
+    "command": "echo probe-marker",
+    "description": "Echo probe marker",
+    "workdir": "/tmp/zsh-1000/claude-1000/-home-geoff-projects/4be7edcf-e55c-4d51-8bb6-e3f65db0c49b/scratchpad"
+  },
+  "tool_name": "bash",
+  "tool_use_id": "call_01a0b3803c4b73ee8988982c0768e1f0",
+  "transcript_path": null,
+  "turn_id": "eb4be8a1-37a9-4ee3-8c8d-b0c3538d20b3"
+}

@@ -1,0 +1,14 @@
+{
+  "session_id": "b278c275-bb6f-4ef6-afef-0602af551b8c",
+  "transcript_path": "/home/user/.claude/projects/-repo/b278c275-bb6f-4ef6-afef-0602af551b8c.jsonl",
+  "cwd": "/repo",
+  "prompt_id": "a42b8f67-f6e2-4dde-926d-0a7dd949613e",
+  "permission_mode": "acceptEdits",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/repo/note.txt",
+    "content": "short example text"
+  },
+  "tool_use_id": "toolu_01D5nfrSHMPuWP4PBFM8ms4H"
+}

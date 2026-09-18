@@ -1,0 +1,14 @@
+{
+  "session_id": "01a065b0-1e48-7b41-a3f6-bc5f32a4643e",
+  "turn_id": "01a065b0-1eaf-74d0-bfa2-171085c411b3",
+  "transcript_path": "/home/user/.codex/sessions/2026/09/03/rollout-2026-09-03T15-13-56-01a065b0-1e48-7b41-a3f6-bc5f32a4643e.jsonl",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Add File: note-codex.txt\n+hello\n*** End Patch"
+  },
+  "tool_use_id": "exec-52ab754e-2df8-461e-b054-9e36668b1e12"
+}
