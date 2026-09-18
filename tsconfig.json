@@ -3,5 +3,13 @@
   "compilerOptions": {
     "types": ["node", "bun", "@zgeoff/bun-test-extended"]
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "*.config.ts", "*.config.js"]
+  "include": [
+    "src/**/*.ts",
+    "test-utils/**/*.ts",
+    "mocks/**/*.ts",
+    "scripts/**/*.ts",
+    "test-setup.ts",
+    "*.config.ts",
+    "*.config.js"
+  ]
 }

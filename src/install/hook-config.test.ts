@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as z from 'zod';
+import type { Harness } from '../harness/types.ts';
 import { SETTINGS_PATHS, SETUP_NOTES, buildHookConfig } from './hook-config.ts';
 
 const handlerSchema = z.record(z.string(), z.unknown());
@@ -21,8 +22,8 @@ test('it gives Claude a regular expression that matches every tool', () => {
 // The same value means opposite things in the two harnesses, so this pair is
 // asserted together to stop a future edit unifying them.
 test('it uses a different match-everything value for Claude and Muse', () => {
-  expect(buildHookConfig('claude', CMD)).toContain('"matcher": ".*"');
-  expect(buildHookConfig('muse', CMD)).toContain('"matcher": ""');
+  expect(buildHookConfig('claude', CMD)).toInclude('"matcher": ".*"');
+  expect(buildHookConfig('muse', CMD)).toInclude('"matcher": ""');
 });
 
 // Codex registers a bare handler list; its own hooks.json carries no matcher.
@@ -43,23 +44,23 @@ test('it gives Muse only type and command', () => {
   ]);
 });
 
+const TIMED: Harness[] = ['claude', 'codex'];
+
 // The model needs 13-24s on a hard case; a shorter harness timeout would make
 // every hard case a silent failure.
-test('it allows longer than the model takes', () => {
-  for (const harness of ['claude', 'codex'] as const) {
-    expect(buildHookConfig(harness, CMD)).toContain('"timeout": 90');
-  }
+test.each(TIMED)('it gives %s longer than the model takes', (harness) => {
+  expect(buildHookConfig(harness, CMD)).toInclude('"timeout": 90');
 });
 
 test('it names where each harness keeps its settings', () => {
-  expect(SETTINGS_PATHS.muse).toContain('muse/settings.json');
-  expect(SETTINGS_PATHS.codex).toContain('hooks.json');
+  expect(SETTINGS_PATHS.muse).toInclude('muse/settings.json');
+  expect(SETTINGS_PATHS.codex).toInclude('hooks.json');
 });
 
 // Each harness has one non-obvious requirement that makes the hook silently not
 // run, so each is written down where `init` will print it.
 test('it warns about what each harness needs beyond the entry', () => {
-  expect(SETUP_NOTES.codex.join(' ')).toContain('trust');
-  expect(SETUP_NOTES.muse.join(' ')).toContain('scrubbed environment');
-  expect(SETUP_NOTES.claude.join(' ')).toContain('before the hook sees it');
+  expect(SETUP_NOTES.codex.join(' ')).toInclude('trust');
+  expect(SETUP_NOTES.muse.join(' ')).toInclude('scrubbed environment');
+  expect(SETUP_NOTES.claude.join(' ')).toInclude('before the hook sees it');
 });

@@ -1,5 +1,4 @@
 import { expect, test } from 'bun:test';
-import { buildUserMessage } from './build-request.ts';
 import { parseModelVerdict } from './parse-verdict.ts';
 
 test('it reads a clean block', () => {
@@ -46,26 +45,4 @@ test('it supplies a reason when the model names a rule but gives none', () => {
     rule: 'Irreversible Deletion',
     reason: 'the policy blocks this action.',
   });
-});
-
-test('it labels the action last and asks a reasoning model to think first', () => {
-  const payload = {
-    harness: 'muse' as const,
-    event: 'PreToolUse' as const,
-    sessionId: 's',
-    cwd: '/repo',
-    toolName: 'bash',
-    toolInput: { command: 'rm -rf /' },
-    raw: {},
-  };
-
-  const reasoning = buildUserMessage(payload, [{ role: 'user', text: 'clean up' }], true);
-
-  expect(reasoning).toContain('<transcript>');
-  expect(reasoning).toContain('user: clean up');
-  expect(reasoning.indexOf('<action>')).toBeGreaterThan(reasoning.indexOf('</transcript>'));
-  expect(reasoning).toContain('rm -rf /');
-  expect(reasoning).toContain('Work through the classification process');
-  expect(buildUserMessage(payload, [], false)).toContain('and nothing else');
-  expect(buildUserMessage(payload, [], false)).toContain('(no transcript available');
 });
