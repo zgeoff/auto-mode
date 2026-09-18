@@ -1,0 +1,34 @@
+name: checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Lint the published package
+        run: npm run publint
+      # The policy files ship in the package and are the product, so a broken
+      # splice is a release blocker, not a runtime surprise.
+      - name: Check the policy assembles
+        run: |
+          node dist/cli.js print-prompt > /tmp/prompt.txt
+          grep -q '^## HARD BLOCK rules$' /tmp/prompt.txt
+          grep -q '^## ALLOW exceptions$' /tmp/prompt.txt
+          ! grep -q '^<rules>$' /tmp/prompt.txt

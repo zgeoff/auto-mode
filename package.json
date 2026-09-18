@@ -36,7 +36,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "publint": "publint",
-    "check": "npm run typecheck && npm run test && npm run build && npm run publint"
+    "check": "npm run typecheck && npm run test && npm run build && npm run publint",
+    "first-publish": "scripts/first-publish.sh"
   },
   "devDependencies": {
     "@types/node": "^24.13.5",

@@ -1,0 +1,143 @@
+name: main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      # Recovery path for a release that tagged but failed to publish: skips
+      # the release-please steps and re-runs only the publish step. A version
+      # already on the registry is skipped, so this is safe to re-run.
+      republish:
+        description: 'Republish the current version'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # Trusted publishing. No npm token exists anywhere in this repository.
+      id-token: write
+    steps:
+      # A release takes two runs of this job:
+      # - Run 1, after a releasable commit lands on main: release-please opens
+      #   or updates the release PR (version bump + changelog), the sync step
+      #   makes that PR pass checks, and auto-merge merges it.
+      # - Run 2, triggered by that merge: release-please turns the merged bump
+      #   into a tag and a GitHub release, and the publish step ships to npm.
+      #
+      # The App token exists because GITHUB_TOKEN events do not trigger
+      # workflows, so a GITHUB_TOKEN merge of the release PR would never start
+      # run 2. With no App configured, release PRs are left open to merge by
+      # hand and the chain continues from there. See RELEASING.md.
+      - name: Mint GitHub App token
+        id: app-token
+        if: github.event_name == 'push' && vars.RELEASE_APP_ID != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Run release-please
+        id: release
+        if: github.event_name == 'push'
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ steps.app-token.outputs.token || github.token }}
+
+      # release-please bumps package.json but not the version recorded in
+      # package-lock.json, so the release PR would fail `npm ci` on its own
+      # checks run. Repair it on the PR branch.
+      - name: Check out release PR
+        if: steps.release.outputs.prs_created == 'true'
+        uses: actions/checkout@v5
+        with:
+          ref: release-please--branches--main
+          token: ${{ steps.app-token.outputs.token || github.token }}
+      - name: Set up node
+        if: steps.release.outputs.prs_created == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Sync the lockfile on the release PR
+        if: steps.release.outputs.prs_created == 'true'
+        run: |
+          npm install --package-lock-only
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "chore: sync the lockfile for the release"
+            git push
+          fi
+
+      # Mergeability is recomputed asynchronously after the sync push, and a
+      # MERGEABLE read can be stale, so the merge attempt retries inside the
+      # same loop rather than trusting a single read.
+      - name: Auto-merge the release PR
+        if: github.event_name == 'push' && steps.app-token.outputs.token != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          for pr in $(gh pr list --repo "$GITHUB_REPOSITORY" --head release-please--branches--main --json number --jq '.[].number'); do
+            merged=''
+            for _ in $(seq 1 12); do
+              state=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json mergeable --jq .mergeable)
+              if [ "$state" = "CONFLICTING" ]; then
+                echo "release PR #$pr has conflicts" >&2
+                exit 1
+              fi
+              if [ "$state" = "MERGEABLE" ] && gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --squash; then
+                merged=1
+                break
+              fi
+              sleep 5
+            done
+            if [ -z "$merged" ]; then
+              echo "release PR #$pr never became mergeable" >&2
+              exit 1
+            fi
+          done
+
+      - name: Check out the merged release
+        if: steps.release.outputs.releases_created == 'true' || inputs.republish
+        uses: actions/checkout@v5
+      # Trusted publishing needs npm >= 11.5.1; node 24 bundles a newer one.
+      # Never upgrade the bundled npm in place: a cross-major overlay prunes
+      # transitive dependencies that libnpmpublish needs at publish time.
+      - name: Set up node for publish
+        if: steps.release.outputs.releases_created == 'true' || inputs.republish
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Install dependencies
+        if: steps.release.outputs.releases_created == 'true' || inputs.republish
+        run: npm ci
+      - name: Build
+        if: steps.release.outputs.releases_created == 'true' || inputs.republish
+        run: npm run build
+      # The registry check makes this idempotent: a re-run after a failed
+      # publish skips a version already on npm instead of erroring.
+      - name: Publish
+        if: steps.release.outputs.releases_created == 'true' || inputs.republish
+        run: |
+          name=$(jq -r .name package.json)
+          version=$(jq -r .version package.json)
+          if [ "$(npm view "$name@$version" version 2>/dev/null)" = "$version" ]; then
+            echo "skipping $name@$version: already published"
+            exit 0
+          fi
+          npm publish --provenance --access public
