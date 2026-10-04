@@ -1,132 +1,90 @@
 <div align="center">
   <h1>auto-mode</h1>
-
   <p>
     <a href="https://www.npmjs.com/package/auto-mode"><img src="https://img.shields.io/npm/v/auto-mode" alt="npm version"></a>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
   </p>
-
-  <p>
-    <a href="./docs/README.md">Documentation</a> •
-    <a href="./docs/guides/configuration.md">Configuration</a> •
-    <a href="./policy/rules.md">The rules</a> •
-    <a href="./docs/architecture/overview.md">Architecture</a>
-  </p>
 </div>
 
-**auto-mode** is a permission classifier that runs as a hook. It decides whether a coding agent's
-next action should run.
+**auto-mode** judges coding-agent tool calls through a permission hook. It returns allow, deny, or
+no verdict to Claude Code, Codex, and Muse Code. Local rules settle read-only actions and build
+cleanup; Jev evaluates the remaining actions against a written policy.
 
-Claude Code's built-in auto mode judges actions only for Claude. Point Claude Code at another model
-through an Anthropic-compatible gateway — GLM, Kimi, Muse Spark — and that judging stops. Every
-shell command, file write, and push needs your approval again.
-
-auto-mode replaces it. The harness calls it before a tool runs, hands it the pending call, and reads
-back allow, deny, or nothing. It works in Claude Code, Codex, and Muse Code, and behaves the same
-whichever model drives them.
+The Jev request includes the policy, your configured environment and permissions, the complete
+proposed action, and the last direct user message. It excludes the rest of the session. Configure
+standing permissions upfront; earlier conversational grants and restrictions are unavailable to the
+classifier.
 
 ## Install
 
 ```sh
 npm i -g auto-mode
-auto-mode init claude   # or codex, or muse
+auto-mode init claude --event permission-request
 ```
 
-`init` prints the hook entry, the file to paste it into, and the extra step that harness needs. It
-does not write the file itself.
+Paste the printed hook entry into the file it identifies. `init` prints configuration and never
+writes into a harness's settings. [Harnesses](./docs/guides/harnesses.md) covers registration for
+each harness.
 
-The judging model needs a key. The default model is Muse Spark:
+Create the classifier configuration:
 
-```sh
-mkdir -p ~/.config/auto-mode
-cat > ~/.config/auto-mode/config.json <<'JSON'
-{ "preset": "spark", "provider": { "apiKeyEnv": "META_API_KEY" } }
-JSON
+```json
+{
+  "preset": "jev",
+  "provider": { "apiKeyEnv": "TYPESAFE_API_KEY" }
+}
 ```
 
-Presets for `claude` and `glm` ship too. See [Configuration](./docs/guides/configuration.md).
+Save it as `~/.config/auto-mode/config.json` and export your TypeSafe API key. Hooks that run with a
+scrubbed environment need `provider.apiKeyCommand` instead.
+[Configuration](./docs/guides/configuration.md) covers credentials and provider overrides.
 
-## How it decides
+## Standing permissions
 
-Two tiers.
+Jev imports explicit entries from `autoMode.environment`, `autoMode.allow`, `autoMode.soft_deny`,
+and `autoMode.hard_deny` in your user Claude settings. It imports no credential values or shell
+permission patterns. `$defaults` refers to auto-mode's shipped policy; it does not expand Claude's
+built-in classifier rules.
 
-1. **Local rules.** Deterministic matching, no network call, under a millisecond. Answers allow or
-   escalate, never deny. Reads, listings, `git status`, and deleting build output are settled here
-   and never reach the model.
-2. **The model.** Everything else goes to a small reasoning model with the policy as its system
-   prompt. A hard case takes 13 to 24 seconds.
+Configured allows clear soft blocks. Hard blocks take priority over all allows and conversational
+consent. The last direct user message can supply the exact action and target that a soft block
+needs; replies such as “go ahead” cannot supply an unseen proposal.
 
-Tier one never denies because the two errors cost differently. A wrong allow costs one unwatched
-action. A wrong deny stops work you asked for, and the rules that deny are prose that needs a
-reader.
+Read [the policy](./policy/rules.md) before you enable the hook.
+[Writing a policy](./docs/guides/policy.md) covers the precedence and the limits of an action-only
+assessment.
 
-## The policy
+## Decisions and failures
 
-Two files. Both are sent to the model verbatim, and neither addresses you.
+Jev evaluates each named rule with a typed choice. auto-mode returns a denial for a confident block,
+approval when every rule confidently allows the action, and manual approval for uncertain decisions.
+The confidence threshold is configurable and needs evaluation against your actions.
 
-| File                                             | Holds                                                        | Edit it to                 |
-| ------------------------------------------------ | ------------------------------------------------------------ | -------------------------- |
-| [`policy/rules.md`](./policy/rules.md)           | 22 rules, 7 exceptions                                       | Change what is blocked     |
-| [`policy/classifier.md`](./policy/classifier.md) | Threat model, consent bar, evaluation rules, output contract | Change how judgement works |
-
-`classifier.md` carries a `<rules>` marker on its own line. At run time auto-mode replaces it with
-the whole of `rules.md`. `auto-mode print-prompt` writes the result, which is what the model reads.
-
-Rules come in two tiers. A **hard block** takes no consent, because it creates a risk you cannot see
-from inside the session. A **soft block** clears when you named the action and the detail that makes
-it dangerous — "force push this branch", not "tidy up the repo". Seven exceptions cover work that
-resembles a blocked action and is not: deleting `node_modules`, running a formatter, dropping a
-local test database.
-
-Read [`policy/rules.md`](./policy/rules.md) before turning this on. To change a rule, edit it;
-`rulesPath` points at your own file and replaces the shipped one whole.
-
-## Harnesses
-
-All three were verified end to end: the hook denied a real tool call and the harness stopped it.
-
-| Harness     | Match every tool  | Also needed                             |
-| ----------- | ----------------- | --------------------------------------- |
-| Claude Code | `"matcher": ".*"` | —                                       |
-| Codex       | omit `matcher`    | `hooks = true`, and trust the hook once |
-| Muse Code   | `"matcher": ""`   | no `timeout_ms` key                     |
-
-Each difference stops the hook running if you get it wrong, and none of them reports an error.
-`init` prints the right one. Details in [Harnesses](./docs/guides/harnesses.md).
-
-## Writing nothing is an answer
-
-It means auto-mode has no opinion, and the harness does what it would have done alone. That is the
-output for an unknown harness, an event that is not a tool gate, malformed input, a missing key, and
-a model that times out.
-
-auto-mode can therefore only narrow what your harness already allows. It never removes a gate that
-was there. Set `onFailure` to `deny` to fail closed instead.
+A missing key, failed API call, malformed response, or oversized request follows `onFailure`. The
+default `defer` writes no verdict and leaves the harness to decide; `deny` fails closed. Failures
+write a diagnostic to stderr. auto-mode never truncates a Jev action to make it fit.
 
 ## Commands
 
-| Command                      | What it does                                       |
-| ---------------------------- | -------------------------------------------------- |
-| `auto-mode run`              | Read a payload on stdin, write a verdict on stdout |
-| `auto-mode run --explain`    | Also write the reasoning to stderr                 |
-| `auto-mode run --local-only` | Skip the model tier                                |
-| `auto-mode print-prompt`     | Print the assembled system prompt                  |
-| `auto-mode init <harness>`   | Print the hook entry to add                        |
+| Command                      | Effect                                    |
+| ---------------------------- | ----------------------------------------- |
+| `auto-mode run`              | Read a hook payload and write a verdict   |
+| `auto-mode run --explain`    | Write decision details to stderr          |
+| `auto-mode run --local-only` | Skip the model tier                       |
+| `auto-mode print-prompt`     | Print the selected provider's base policy |
+| `auto-mode init <harness>`   | Print a hook entry                        |
 
-`init` takes `--event permission-request` to register on the event Claude Code sends when it is
-about to ask you, rather than on every tool call. The
-[harness guide](./docs/guides/harnesses.md#which-event) covers the choice.
+Existing `spark`, `claude`, and `glm` presets use the Messages API and conversation history. Select
+`jev` explicitly to change an existing provider configuration.
 
 ## Documentation
 
-- [Overview](./docs/architecture/overview.md) — the two tiers, harness detection, the verdict
-  contract, prompt caching, and the failure modes.
-- [Configuration](./docs/guides/configuration.md) — every field, every preset, and how the key is
-  found.
-- [Harnesses](./docs/guides/harnesses.md) — installing into Claude Code, Codex, and Muse Code, and
-  what each does differently.
-- [Writing a policy](./docs/guides/policy.md) — the rule tiers, the consent bar, and how to change
-  or replace the shipped rules.
+- [Architecture](./docs/architecture/overview.md) covers the request, decision combination, and wire
+  contract.
+- [Configuration](./docs/guides/configuration.md) covers every setting and the imported Claude
+  rules.
+- [Harnesses](./docs/guides/harnesses.md) covers registration and hook trust.
+- [Writing a policy](./docs/guides/policy.md) covers rule edits and evaluation.
 
 ## Licence
 

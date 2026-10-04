@@ -5,17 +5,24 @@ import { loadPolicy } from '../policy/load-policy.ts';
 import { readTranscript } from '../transcript/read-transcript.ts';
 import { sendMessage } from './anthropic-client.ts';
 import { buildUserMessage } from './build-request.ts';
+import { classifyWithJev } from './classify-with-jev.ts';
+import { formatClassifierNote } from './format-classifier-note.ts';
 import { parseModelVerdict } from './parse-verdict.ts';
 
 export interface ModelOutcome {
   readonly verdict: Verdict | null;
   readonly note: string;
+  readonly unavailable?: boolean;
 }
 
 export async function classifyWithModel(
   payload: HookPayload,
   config: Config,
 ): Promise<ModelOutcome> {
+  if (config.provider.protocol === 'system-one') {
+    return classifyWithJev(payload, config);
+  }
+
   const apiKey = await resolveApiKey(config.provider);
 
   if (apiKey === null) {
@@ -49,7 +56,7 @@ export async function classifyWithModel(
       return buildFailure(config, `${config.provider.model} returned no text; raise maxTokens`);
     }
 
-    const verdict = parseModelVerdict(result.text);
+    const verdict = parseModelVerdict(formatClassifierNote(result.text, apiKey));
     const cache = `${result.cachedInputTokens} cached / ${result.cacheWriteTokens} written / ${result.newInputTokens} new / ${result.outputTokens} out`;
 
     return {
@@ -65,7 +72,10 @@ export async function classifyWithModel(
         ? `timed out after ${config.provider.timeoutMs}ms`
         : toMessage(error);
 
-    return buildFailure(config, `${config.provider.model} failed: ${message}`);
+    return buildFailure(
+      config,
+      formatClassifierNote(`${config.provider.model} failed: ${message}`, apiKey),
+    );
   }
 }
 

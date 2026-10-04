@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
@@ -9,14 +9,25 @@ const CLI = join(import.meta.dirname, 'cli.ts');
 // XDG_CONFIG_HOME points at an empty directory so the run never reads the
 // operator's own config, and every run passes --local-only so it never reaches
 // a gateway.
-async function setupTest(): Promise<{ readonly env: NodeJS.ProcessEnv }> {
+async function setupTest(): Promise<{ readonly dir: string; readonly env: NodeJS.ProcessEnv }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-cli-'));
 
   onTestFinished(async () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  return { env: { ...process.env, XDG_CONFIG_HOME: dir } };
+  return {
+    dir,
+    env: {
+      ...process.env,
+      XDG_CONFIG_HOME: dir,
+      CLAUDE_CONFIG_DIR: dir,
+      TYPESAFE_API_KEY: 'cli-test-key',
+      META_API_KEY: 'cli-test-meta-key',
+      ANTHROPIC_API_KEY: 'cli-test-claude-key',
+      ZAI_API_KEY: 'cli-test-zai-key',
+    },
+  };
 }
 
 test('it prints usage and exits 0 when given no command', async () => {
@@ -249,4 +260,92 @@ test('it reads an overridden policy instead of the shipped one', async () => {
   invariant(result.exitCode === 0, 'print-prompt succeeds with an overridden policy');
 
   expect(result.stdout.toString().trim()).toBe('framework\n\nthe rules');
+});
+
+test('it escalates local allowances when imported deny rules need evaluation', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, 'settings.json'),
+    JSON.stringify({ autoMode: { hard_deny: ['Never read the private key'] } }),
+  );
+
+  const payload = JSON.stringify({
+    prompt_id: 'p',
+    hook_event_name: 'PermissionRequest',
+    tool_name: 'Read',
+    tool_input: { file_path: '/repo/key.pem' },
+  });
+
+  const result = await Bun.$`bun ${CLI} run --local-only < ${new Response(payload)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout.toString()).toBe('');
+});
+
+test('it honors fail-closed settings when Claude rules are malformed without printing their contents', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({ preset: 'jev', onFailure: 'deny' }),
+  );
+
+  await writeFile(join(ctx.dir, 'settings.json'), 'private-test-value {');
+
+  const payload = JSON.stringify({
+    prompt_id: 'p',
+    hook_event_name: 'PermissionRequest',
+    tool_name: 'Read',
+    tool_input: { file_path: '/repo/file.ts' },
+  });
+
+  const result = await Bun.$`bun ${CLI} run < ${new Response(payload)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  const verdict: unknown = JSON.parse(result.stdout.toString());
+
+  expect(result.exitCode).toBe(0);
+
+  expect(verdict).toStrictEqual({
+    hookSpecificOutput: {
+      hookEventName: 'PermissionRequest',
+      decision: {
+        behavior: 'deny',
+        message: '[Classifier Unavailable] Claude settings unreadable',
+      },
+    },
+  });
+
+  expect(result.stderr.toString()).not.toInclude('private-test-value');
+});
+
+test('it exits successfully on malformed classifier configuration without echoing it', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+  await writeFile(join(ctx.dir, 'auto-mode', 'config.json'), 'private-test-value {');
+
+  const payload = JSON.stringify({
+    prompt_id: 'p',
+    hook_event_name: 'PermissionRequest',
+    tool_name: 'Read',
+    tool_input: { file_path: '/repo/file.ts' },
+  });
+
+  const result = await Bun.$`bun ${CLI} run < ${new Response(payload)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout.toString()).toBe('');
+  expect(result.stderr.toString()).not.toInclude('private-test-value');
 });

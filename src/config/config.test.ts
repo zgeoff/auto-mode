@@ -23,16 +23,17 @@ test('it falls back to the shipped defaults when there is no config file', async
   expect(config).toStrictEqual(DEFAULT_CONFIG);
 });
 
-test('it ships Muse Spark as the default', () => {
-  expect(DEFAULT_CONFIG.provider.model).toBe('muse-spark-1.3-contributor');
-  expect(DEFAULT_CONFIG.provider.reasoning).toBe(true);
+test('it ships Jev as the default', () => {
+  expect(DEFAULT_CONFIG.provider.model).toBe('jev-1.13.0');
+  expect(DEFAULT_CONFIG.provider.protocol).toBe('system-one');
+  expect(DEFAULT_CONFIG.provider.reasoning).toBe(false);
   expect(DEFAULT_CONFIG.onFailure).toBe('defer');
 });
 
 // Spark returns nothing at all below roughly this budget, so the number is a
 // floor rather than a preference.
 test('it budgets enough output tokens for Spark to finish reasoning', () => {
-  expect(DEFAULT_CONFIG.provider.maxTokens).toBeGreaterThanOrEqual(3000);
+  expect(PRESETS['spark']?.maxTokens).toBeGreaterThanOrEqual(3000);
 });
 
 test('it takes a preset and lets one field be overridden', async () => {
@@ -78,7 +79,7 @@ test('it names the known presets when the config asks for one that is not', asyn
 
   invariant(failure instanceof Error, 'an unknown preset rejects with an Error');
 
-  expect(failure.message).toInclude('spark, claude, glm');
+  expect(failure.message).toInclude('jev, spark, claude, glm');
 });
 
 test('it reads the API key from the environment variable first', async () => {
@@ -110,7 +111,67 @@ test('it reports no key when neither the variable nor a command is set', async (
 });
 
 test('it reports no key when the key command fails', async () => {
-  const key = await resolveApiKey({ ...DEFAULT_CONFIG.provider, apiKeyCommand: 'exit 1' });
+  const key = await resolveApiKey({
+    ...DEFAULT_CONFIG.provider,
+    apiKeyEnv: KEY_ENV,
+    apiKeyCommand: 'exit 1',
+  });
 
   expect(key).toBeNull();
+});
+
+test('it preserves the Messages route for an unmarked custom provider during upgrade', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({
+      provider: {
+        baseURL: 'https://custom.example',
+        model: 'custom-model',
+        apiKeyEnv: 'CUSTOM_MODEL_KEY',
+      },
+    }),
+  );
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.provider).toStrictEqual({
+    protocol: 'messages',
+    baseURL: 'https://custom.example',
+    model: 'custom-model',
+    apiKeyEnv: 'CUSTOM_MODEL_KEY',
+    apiKeyCommand: undefined,
+    reasoning: true,
+    maxTokens: 3000,
+    timeoutMs: 45_000,
+  });
+});
+
+test('it preserves legacy key-only provider overrides', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({ provider: { apiKeyCommand: 'printf test-key' } }),
+  );
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.provider.protocol).toBe('messages');
+  expect(config.provider.model).toBe('muse-spark-1.3-contributor');
+});
+
+test('it uses Jev for an explicitly marked custom decision provider', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({ provider: { protocol: 'system-one', baseURL: 'https://decision.example' } }),
+  );
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.provider.protocol).toBe('system-one');
+  expect(config.provider.model).toBe('jev-1.13.0');
 });

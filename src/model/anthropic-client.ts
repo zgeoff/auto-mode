@@ -47,12 +47,16 @@ export async function sendMessage(
     });
 
     if (!response.ok) {
-      const detail = await response.text();
-
-      throw new Error(`${response.status} ${detail.slice(0, 300)}`);
+      throw new Error(`Messages API returned HTTP ${response.status}`);
     }
 
-    const body: unknown = await response.json();
+    let body: unknown;
+
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error('Messages API returned invalid JSON');
+    }
 
     return readResult(body);
   } finally {

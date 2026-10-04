@@ -2,6 +2,7 @@
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
 import { loadConfig, resolveConfigPath } from './config/config.ts';
+import { loadClaudeRules } from './config/load-claude-rules.ts';
 import { parsePayload } from './harness/parse-payload.ts';
 import { renderVerdict } from './harness/render-verdict.ts';
 import type { HookEvent, Verdict } from './harness/types.ts';
@@ -51,7 +52,30 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
     return printNote(explain, 'not a tool gate this hook judges, so no verdict');
   }
 
-  const local = classifyLocally(payload);
+  const config = await loadConfig();
+
+  let configured = null;
+
+  if (config.provider.protocol === 'system-one') {
+    try {
+      configured = await loadClaudeRules(config.claudeSettingsPath);
+    } catch {
+      if (config.onFailure === 'deny') {
+        writeVerdict(payload.event, {
+          kind: 'deny',
+          rule: 'Classifier Unavailable',
+          reason: 'Claude settings unreadable',
+        });
+      }
+
+      return printNote(true, 'Claude settings unreadable; classifier unavailable');
+    }
+  }
+
+  const local =
+    configured !== null && (configured.hard_deny.length > 0 || configured.soft_deny.length > 0)
+      ? { kind: 'escalate' as const }
+      : classifyLocally(payload);
 
   if (local.kind === 'allow') {
     writeVerdict(payload.event, { kind: 'allow' });
@@ -66,14 +90,13 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
     );
   }
 
-  const config = await loadConfig();
   const outcome = await classifyWithModel(payload, config);
 
   if (outcome.verdict !== null) {
     writeVerdict(payload.event, outcome.verdict);
   }
 
-  return printNote(explain, outcome.note);
+  return printNote(explain || outcome.unavailable === true, outcome.note);
 }
 
 // An event that cannot carry the verdict renders nothing, and writing nothing
@@ -124,7 +147,13 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   if (command === 'run') {
-    return run(args.values.explain === true, args.values['local-only'] === true);
+    try {
+      return await run(args.values.explain === true, args.values['local-only'] === true);
+    } catch {
+      process.stderr.write('auto-mode: configuration unreadable; deferring to the harness\n');
+
+      return 0;
+    }
   }
 
   if (command === 'init') {
@@ -167,10 +196,17 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   if (command === 'print-prompt') {
-    const prompt = await loadPolicy({
-      classifierPath: args.values.classifier,
-      rulesPath: args.values.rules,
-    });
+    const config = await loadConfig();
+
+    const framework = config.provider.protocol === 'system-one' ? 'decision.md' : 'classifier.md';
+
+    const prompt = await loadPolicy(
+      {
+        classifierPath: args.values.classifier ?? config.classifierPath,
+        rulesPath: args.values.rules ?? config.rulesPath,
+      },
+      framework,
+    );
 
     process.stdout.write(`${prompt}\n`);
 

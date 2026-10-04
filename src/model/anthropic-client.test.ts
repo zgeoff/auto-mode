@@ -146,7 +146,7 @@ test('it reads a response it cannot understand as empty rather than failing', as
   expect(result.text).toBe('');
 });
 
-test('it reports the status and body of a failed call', async () => {
+test('it reports the status without the private body of a failed call', async () => {
   server.use(http.post(ENDPOINT, () => HttpResponse.text('over quota', { status: 429 })));
 
   const failure = await sendMessage(PROVIDER, 'k', { system: 's', user: 'u' }).catch(
@@ -156,7 +156,7 @@ test('it reports the status and body of a failed call', async () => {
   invariant(failure instanceof Error, 'a non-ok response rejects with an Error');
 
   expect(failure.message).toInclude('429');
-  expect(failure.message).toInclude('over quota');
+  expect(failure.message).not.toInclude('over quota');
 });
 
 test('it aborts a call that outlives the configured timeout', async () => {
@@ -198,4 +198,15 @@ test('it reaches the same endpoint whether the base URL ends in a slash', async 
   });
 
   expect(track).toHaveBeenCalledExactlyOnceWith(ENDPOINT);
+});
+
+test('it discards malformed response text instead of exposing credential fragments', () => {
+  server.use(http.post(ENDPOINT, () => HttpResponse.text('test-secret-prefix {')));
+
+  const response = sendMessage(PROVIDER, 'test-secret-prefix-and-tail', {
+    system: 'policy',
+    user: 'action',
+  });
+
+  expect(response).rejects.toThrow('Messages API returned invalid JSON');
 });

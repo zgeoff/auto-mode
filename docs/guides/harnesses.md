@@ -84,8 +84,7 @@ Muse runs hook commands with a scrubbed environment, so no exported variable rea
 the API key has to come from `provider.apiKeyCommand`. See [Configuration](./configuration.md).
 
 Muse reports `transcript_path` as null on every event, so the classifier judges a Muse action with
-no conversation history. The action is still matched against the full policy; only the transcript is
-missing.
+no last user message. The action is matched against the policy and configured standing permissions.
 
 A denied call is reported to the agent as `tool blocked by hook: [Rule Name] …`.
 

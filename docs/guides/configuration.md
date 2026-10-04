@@ -1,110 +1,109 @@
 # Configuration
 
 auto-mode reads `~/.config/auto-mode/config.json`, or `$XDG_CONFIG_HOME/auto-mode/config.json` when
-that is set. The file is optional and every field has a default.
+that variable is set. A missing file uses the shipped defaults. An unreadable or malformed file
+leaves the hook without a verdict and writes a diagnostic.
 
-A missing file is normal. A malformed one throws, rather than running a policy you did not write.
-
-## The smallest useful file
-
-```json
-{
-  "preset": "spark",
-  "provider": { "apiKeyEnv": "META_API_KEY" }
-}
-```
-
-## Fields
-
-| Field               | Default          | Meaning                                     |
-| ------------------- | ---------------- | ------------------------------------------- |
-| `preset`            | `spark`          | Which provider to start from                |
-| `provider.*`        | from the preset  | Override any single field                   |
-| `classifierPath`    | the shipped file | Your own judgement framework                |
-| `rulesPath`         | the shipped file | Your own rule list                          |
-| `transcriptEntries` | `40`             | How much history the model sees             |
-| `onFailure`         | `defer`          | `defer` writes nothing; `deny` fails closed |
-
-A `provider` block overrides fields on the preset rather than replacing it, so you can change one
-thing:
-
-```json
-{ "preset": "glm", "provider": { "timeoutMs": 45000 } }
-```
-
-Naming a preset that does not exist is an error, and the message lists the ones that do.
-
-## Presets
-
-| Preset   | Model                        | Base URL                         | Key variable        |
-| -------- | ---------------------------- | -------------------------------- | ------------------- |
-| `spark`  | `muse-spark-1.3-contributor` | `https://api.meta.ai`            | `META_API_KEY`      |
-| `claude` | `claude-haiku-4-5-20251001`  | `https://api.anthropic.com`      | `ANTHROPIC_API_KEY` |
-| `glm`    | `glm-5.3-flash`              | `https://api.z.ai/api/anthropic` | `ZAI_API_KEY`       |
-
-Every provider speaks the Anthropic Messages API, so one client covers all of them and any other
-gateway that does. Point `provider.baseURL` and `provider.model` at anything compatible.
-
-### Why Spark is the default
-
-It reasons, it was correct on every case measured, and a contributor-tier call costs roughly a
-fortieth of the alternatives.
-
-Reasoning is what does the work here. With thinking disabled, a fast model blocked
-`rm -rf node_modules` — a command that looks destructive and is routine. With thinking on it was
-correct, and its latency then matched Spark's.
-
-## Provider fields
-
-| Field           | Meaning                                                              |
-| --------------- | -------------------------------------------------------------------- |
-| `baseURL`       | The API root. `/v1/messages` is appended.                            |
-| `model`         | Model id                                                             |
-| `apiKeyEnv`     | Environment variable holding the key. Tried first.                   |
-| `apiKeyCommand` | Shell command that prints the key. Tried when the variable is unset. |
-| `reasoning`     | Whether the model thinks before answering                            |
-| `maxTokens`     | Output budget                                                        |
-| `timeoutMs`     | How long to wait                                                     |
-
-The last three move together. A reasoning model needs a different prompt ending, more tokens, and
-more time, so `reasoning` sets all three.
-
-`maxTokens` is a floor. Spark spends 1,000 to 1,900 tokens thinking before it answers, and a budget
-that cuts in before it finishes returns an empty response rather than a worse one. The shipped
-default is 3,000.
-
-## Finding the key
-
-The environment variable is tried first, then the command.
+## Configure Jev
 
 ```json
 {
-  "preset": "spark",
-  "provider": { "apiKeyCommand": "op read op://vault/meta/credential" }
+  "preset": "jev",
+  "provider": { "apiKeyEnv": "TYPESAFE_API_KEY" }
 }
 ```
 
-Under Muse the command is the only option, because Muse runs hook commands with a scrubbed
-environment and no exported variable reaches them.
+The default Jev provider calls TypeSafe's `/v1/systemone` endpoint with a Bearer key. It pins
+`jev-1.13.0` and waits up to 5 seconds. Set `provider.baseURL` to the API root of a compatible
+provider.
 
-A command that fails, times out after five seconds, or prints nothing is treated as no key, which
-follows `onFailure`.
+| Field                | Default                      | Effect                                                        |
+| -------------------- | ---------------------------- | ------------------------------------------------------------- |
+| `preset`             | `jev`                        | Select the provider                                           |
+| `provider.*`         | Preset values                | Override individual provider settings                         |
+| `classifierPath`     | Provider's shipped framework | Replace the decision framework                                |
+| `rulesPath`          | Shipped rules                | Replace the block rules and exceptions                        |
+| `claudeSettingsPath` | User Claude settings         | Import explicit `autoMode` entries                            |
+| `minConfidence`      | `0.8`                        | Require confidence and selected probability at this threshold |
+| `onFailure`          | `defer`                      | Defer to the harness or deny on classifier failure            |
+| `transcriptEntries`  | `40`                         | Limit history for Messages API presets                        |
 
-## Replacing the policy
+`minConfidence` accepts values from `0.5` to `1`. The default is a starting threshold, not a
+measured accuracy guarantee. An uncertain Jev decision needs manual approval regardless of
+`onFailure`; uncertainty is a valid result, not a service failure.
+
+## Import Claude rules
+
+The default source is `~/.claude/settings.json`. `CLAUDE_CONFIG_DIR` selects another Claude
+directory when present. An explicit `claudeSettingsPath` selects one file; `null` disables the
+import. auto-mode never reads a repository's Claude settings for standing classifier permissions.
+
+Only the `autoMode` arrays `environment`, `allow`, `soft_deny`, and `hard_deny` enter the request.
+Credential fields, hooks, `permissions.allow`, and other settings do not. A missing user settings
+file adds no explicit entries. An unreadable file or malformed `autoMode` block prevents
+classification and follows `onFailure`.
+
+The shipped policy remains the baseline in every section. `$defaults` refers to that policy and adds
+no extra text. Omitting `$defaults` does not remove the baseline. Imported entries extend the
+baseline even when Claude itself would replace a built-in list.
+
+Environment entries describe targets, trust, and sensitivity. Configured allow entries clear
+matching soft blocks. Configured hard denies and shipped hard blocks take priority. Put durable
+exceptions in the configuration rather than an earlier conversational message.
+
+## Provider settings
+
+| Field           | Effect                                                                |
+| --------------- | --------------------------------------------------------------------- |
+| `protocol`      | `system-one` for typed decisions; `messages` for generative providers |
+| `baseURL`       | API root, without the endpoint                                        |
+| `model`         | Provider model identifier                                             |
+| `apiKeyEnv`     | Environment variable that holds the key                               |
+| `apiKeyCommand` | Shell command that prints the key                                     |
+| `timeoutMs`     | API deadline in milliseconds                                          |
+| `reasoning`     | Prompt ending for Messages API providers                              |
+| `maxTokens`     | Output budget for Messages API providers                              |
+
+The key resolver tries the environment variable first, then the command. A command that fails,
+prints no key, or exceeds 5 seconds produces a missing-key failure. Muse Code scrubs exported
+variables from hooks, so use a key command there.
+
+```json
+{
+  "preset": "jev",
+  "provider": {
+    "apiKeyCommand": "op read 'op://<vault>/<item>/credential'"
+  }
+}
+```
+
+A provider block without a preset or protocol retains the Messages API defaults. Select
+`preset: "jev"` or `protocol: "system-one"` explicitly for a custom Jev provider.
+
+Existing generative presets remain available:
+
+| Preset   | Model                        | Key variable        |
+| -------- | ---------------------------- | ------------------- |
+| `spark`  | `muse-spark-1.3-contributor` | `META_API_KEY`      |
+| `claude` | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
+| `glm`    | `glm-5.3-flash`              | `ZAI_API_KEY`       |
+
+These providers use `/v1/messages`, the generative framework, and up to `transcriptEntries` entries.
+They do not import Claude's `autoMode` entries. Their reasoning and output budgets apply only to
+that protocol.
+
+## Replace the policy
 
 ```json
 {
   "rulesPath": "/home/you/my-rules.md",
-  "classifierPath": "/home/you/my-classifier.md"
+  "classifierPath": "/home/you/my-decision-framework.md"
 }
 ```
 
-Each replaces the shipped file whole; the two are not merged. `rulesPath` is the one most setups
-change.
+Each file replaces its shipped counterpart. Keep the `HARD BLOCK rules`, `SOFT BLOCK rules`, and
+`ALLOW exceptions` headings in the rule file, with each rule under a `###` heading. Keep the
+`<rules>` marker in the framework. Duplicate or absent block rules prevent a Jev call.
 
-A replacement rule list must keep the three headings `HARD BLOCK rules`, `SOFT BLOCK rules`, and
-`ALLOW exceptions`, because the classifier refers to them by name. A replacement framework must keep
-a `<rules>` line; without it auto-mode throws rather than send a policy containing no rules.
-
-To adjust rather than replace, copy the shipped file and edit it. See
-[Writing a policy](./policy.md).
+Run `auto-mode print-prompt` to inspect the base policy for your configured provider. The printed
+policy excludes imported user settings and the proposed action.
