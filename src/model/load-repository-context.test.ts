@@ -5,6 +5,14 @@ import { join } from 'node:path';
 import { loadRepositoryContext } from './load-repository-context.ts';
 
 async function setupTest() {
+  const previousGitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
+    (name) => [name, process.env[name]] as const,
+  );
+
+  for (const [name] of previousGitEnv) {
+    delete process.env[name];
+  }
+
   const dir = await mkdtemp(join(tmpdir(), 'repository-context-'));
 
   const repo = join(dir, 'repo');
@@ -18,6 +26,14 @@ async function setupTest() {
   );
 
   onTestFinished(async () => {
+    for (const [name, value] of previousGitEnv) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
+
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -125,17 +141,7 @@ test.each(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'] as const)(
 
     await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/feature\n');
 
-    const previous = process.env[name];
-
     process.env[name] = '/another/repository';
-
-    onTestFinished(() => {
-      if (previous === undefined) {
-        delete process.env[name];
-      } else {
-        process.env[name] = previous;
-      }
-    });
 
     const context = await loadRepositoryContext(ctx.repo);
 

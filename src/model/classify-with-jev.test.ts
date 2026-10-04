@@ -12,6 +12,14 @@ import { classifyWithModel } from './classify-with-model.ts';
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'jev-classifier-'));
 
+  const previousGitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
+    (name) => [name, process.env[name]] as const,
+  );
+
+  for (const [name] of previousGitEnv) {
+    delete process.env[name];
+  }
+
   const previous = process.env['AUTO_MODE_JEV_TEST_KEY'];
 
   process.env['AUTO_MODE_JEV_TEST_KEY'] = 'test-key';
@@ -29,6 +37,14 @@ async function setupTest() {
     classifier: join(dir, 'classifier.md'),
     rules: join(dir, 'rules.md'),
     async [Symbol.asyncDispose]() {
+      for (const [name, value] of previousGitEnv) {
+        if (value === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = value;
+        }
+      }
+
       if (previous === undefined) {
         delete process.env['AUTO_MODE_JEV_TEST_KEY'];
       } else {
