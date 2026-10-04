@@ -6,15 +6,21 @@ test('it gives a hard block priority over a soft block and an uncertain answer',
     {
       state: {
         policy: 'policy',
+        rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
         action: { tool: 'Bash', cwd: '/repo', input: {} },
       },
       questions: {},
       rules: {
-        soft: { name: 'Shared Infrastructure', tier: 'soft', text: 'soft' },
-        hard: { name: 'Data Exfiltration', tier: 'hard', text: 'hard' },
-        uncertain: { name: 'Policy Tampering', tier: 'hard', text: 'unknown' },
+        soft: { name: 'Shared Infrastructure', tier: 'soft', source: 'replacement', text: 'soft' },
+        hard: { name: 'Data Exfiltration', tier: 'hard', source: 'replacement', text: 'hard' },
+        uncertain: {
+          name: 'Policy Tampering',
+          tier: 'hard',
+          source: 'replacement',
+          text: 'unknown',
+        },
       },
     },
     {
@@ -63,12 +69,20 @@ test.each([
       {
         state: {
           policy: 'policy',
+          rulesSource: 'replacement',
           configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
           lastUserMessage: null,
           action: { tool: 'Bash', cwd: '/repo', input: {} },
         },
         questions: {},
-        rules: { rule: { name: 'Shared Infrastructure', tier: 'soft', text: 'soft' } },
+        rules: {
+          rule: {
+            name: 'Shared Infrastructure',
+            tier: 'soft',
+            source: 'replacement',
+            text: 'soft',
+          },
+        },
       },
       {
         model: 'jev-1.13.0',

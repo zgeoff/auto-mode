@@ -3,12 +3,14 @@ import type { ClaudeRules } from '../config/load-claude-rules.ts';
 export interface DecisionRule {
   readonly name: string;
   readonly tier: 'hard' | 'soft';
+  readonly source: 'shipped' | 'replacement' | 'configured';
   readonly text: string;
 }
 
 export interface DecisionRequest {
   readonly state: {
     readonly policy: string;
+    readonly rulesSource: 'shipped' | 'replacement';
     readonly configuredRules: ClaudeRules;
     readonly lastUserMessage: string | null;
     readonly action: {

@@ -30,7 +30,8 @@ export async function classifyWithJev(payload: HookPayload, config: Config): Pro
       readLastUserMessage(payload.transcriptPath),
     ]);
 
-    const request = buildDecisionRequest(payload, policy, rules, lastUserMessage);
+    const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
+    const request = buildDecisionRequest(payload, policy, rules, lastUserMessage, rulesSource);
 
     const result = await sendDecision(config.provider, key, request);
 

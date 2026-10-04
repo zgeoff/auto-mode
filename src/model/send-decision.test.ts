@@ -35,6 +35,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
     {
       state: {
         policy: 'policy',
+        rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: 'fix the parser',
         action: { tool: 'Edit', cwd: '/repo', input: { new_string: 'green' } },
@@ -47,7 +48,12 @@ test('it authenticates a structured decision request and reads typed probabiliti
         },
       },
       rules: {
-        rule: { name: 'Security Control Removal', tier: 'soft', text: 'Do not remove checks' },
+        rule: {
+          name: 'Security Control Removal',
+          tier: 'soft',
+          source: 'replacement',
+          text: 'Do not remove checks',
+        },
       },
     },
   );
@@ -58,6 +64,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
     model: 'jev-1.13.0',
     state: {
       policy: 'policy',
+      rulesSource: 'replacement',
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       lastUserMessage: 'fix the parser',
       action: { tool: 'Edit', cwd: '/repo', input: { new_string: 'green' } },
@@ -165,6 +172,7 @@ test.each([
     {
       state: {
         policy: 'policy',
+        rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
         action: { tool: 'Edit', cwd: '/repo', input: {} },
@@ -177,7 +185,12 @@ test.each([
         },
       },
       rules: {
-        rule: { name: 'Security Control Removal', tier: 'soft', text: 'Do not remove checks' },
+        rule: {
+          name: 'Security Control Removal',
+          tier: 'soft',
+          source: 'replacement',
+          text: 'Do not remove checks',
+        },
       },
     },
   );
@@ -200,6 +213,7 @@ test('it aborts a request at its deadline', () => {
     {
       state: {
         policy: 'policy',
+        rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
         action: { tool: 'Edit', cwd: '/repo', input: {} },
@@ -219,6 +233,7 @@ test('it refuses oversized input before a request without truncating it', async 
     {
       state: {
         policy: 'policy',
+        rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
         action: {
@@ -248,6 +263,7 @@ test('it omits response bodies from HTTP errors', () => {
     {
       state: {
         policy: 'policy',
+        rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
         action: { tool: 'Edit', cwd: '/repo', input: {} },
@@ -273,6 +289,7 @@ test('it discards malformed JSON bodies instead of exposing credential fragments
     {
       state: {
         policy: 'policy',
+        rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
         action: { tool: 'Edit', cwd: '/repo', input: {} },

@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, http } from 'msw';
+import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { server } from '../../mocks/node.ts';
 import { DEFAULT_CONFIG } from '../config/config.ts';
@@ -198,14 +199,9 @@ test.each(['defer', 'deny'] as const)(
 );
 
 test.each(['Policy Tampering', 'Audit Tampering'] as const)(
-  'it accepts a confident false-positive clarification for %s without adding history',
+  'it accepts clarification for the genuinely shipped %s rule without adding history',
   async (name) => {
     await using ctx = await setupTest();
-
-    await writeFile(
-      ctx.rules,
-      `## HARD BLOCK rules\n### ${name}\nProtect the relevant configuration or audit record`,
-    );
 
     const clarification = `The ${name} finding is wrong: this is my disposable test fixture, not the active policy or an audit record.`;
 
@@ -220,18 +216,22 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
       http.post('https://decision.test/v1/systemone', async (info) => {
         body = await info.request.json();
 
-        return HttpResponse.json({
-          model: 'jev-1.13.0',
-          answers: {
-            rule_0: {
+        const requestSchema = z.object({ questions: z.record(z.string(), z.unknown()) });
+        const request = requestSchema.parse(body);
+
+        const answers = Object.fromEntries(
+          Object.keys(request.questions).map((id) => [
+            id,
+            {
               type: 'choice',
               choice: 'allow',
               confidence: 1,
               probabilities: { allow: 1, block: 0, ask: 0 },
             },
-          },
-          usage: { input_tokens: 400 },
-        });
+          ]),
+        );
+
+        return HttpResponse.json({ model: 'jev-1.13.0', answers, usage: { input_tokens: 400 } });
       }),
     );
 
@@ -254,17 +254,40 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
           apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
         },
         claudeSettingsPath: null,
-        rulesPath: ctx.rules,
       },
     );
 
     expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
 
-    const request = z.object({ state: z.object({ lastUserMessage: z.string() }) }).parse(body);
+    const questionSchema = z.object({
+      instructions: z.string(),
+      criteria: z.object({ allow: z.string() }),
+    });
 
+    const stateSchema = z.object({
+      rulesSource: z.literal('shipped'),
+      lastUserMessage: z.string(),
+      policy: z.string(),
+    });
+
+    const requestSchema = z.object({
+      state: stateSchema,
+      questions: z.record(z.string(), questionSchema),
+    });
+
+    const request = requestSchema.parse(body);
+
+    const question = Object.values(request.questions).find((candidate) =>
+      candidate.instructions.includes(`### ${name}\n`),
+    );
+
+    invariant(question, 'the shipped self-protection rule has a question');
+
+    expect(request.state.rulesSource).toBe('shipped');
     expect(request.state.lastUserMessage).toBe(clarification);
+    expect(request.state.policy).toInclude('An agent that can edit its own restraints has none.');
 
-    expect(JSON.stringify(body)).toInclude(
+    expect(question.criteria.allow).toInclude(
       'specific user clarification supported by the supplied evidence',
     );
 
@@ -272,13 +295,8 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
   },
 );
 
-test('it retains a separate hard block after the self-protection finding clears', async () => {
+test('it retains a separate shipped hard block after the self-protection finding clears', async () => {
   await using ctx = await setupTest();
-
-  await writeFile(
-    ctx.rules,
-    '## HARD BLOCK rules\n### Policy Tampering\nProtect the policy\n### Data Exfiltration\nNever send keys',
-  );
 
   await writeFile(
     ctx.transcript,
@@ -292,26 +310,31 @@ test('it retains a separate hard block after the self-protection finding clears'
   );
 
   server.use(
-    http.post('https://decision.test/v1/systemone', () =>
-      HttpResponse.json({
-        model: 'jev-1.13.0',
-        answers: {
-          rule_0: {
-            type: 'choice',
-            choice: 'allow',
-            confidence: 1,
-            probabilities: { allow: 1, block: 0, ask: 0 },
-          },
-          rule_1: {
-            type: 'choice',
-            choice: 'block',
-            confidence: 1,
-            probabilities: { allow: 0, block: 1, ask: 0 },
-          },
-        },
-        usage: { input_tokens: 400 },
-      }),
-    ),
+    http.post('https://decision.test/v1/systemone', async (info) => {
+      const body: unknown = await info.request.json();
+
+      const questionSchema = z.object({ instructions: z.string() });
+      const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+      const request = requestSchema.parse(body);
+
+      const answers = Object.fromEntries(
+        Object.entries(request.questions).map(([id, question]) => {
+          const blocks = question.instructions.includes('### Data Exfiltration\n');
+
+          return [
+            id,
+            {
+              type: 'choice',
+              choice: blocks ? 'block' : 'allow',
+              confidence: 1,
+              probabilities: { allow: blocks ? 0 : 1, block: blocks ? 1 : 0, ask: 0 },
+            },
+          ];
+        }),
+      );
+
+      return HttpResponse.json({ model: 'jev-1.13.0', answers, usage: { input_tokens: 400 } });
+    }),
   );
 
   const outcome = await classifyWithModel(
@@ -335,7 +358,6 @@ test('it retains a separate hard block after the self-protection finding clears'
         apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
       },
       claudeSettingsPath: null,
-      rulesPath: ctx.rules,
     },
   );
 
@@ -345,3 +367,101 @@ test('it retains a separate hard block after the self-protection finding clears'
     reason: 'The action matches Data Exfiltration.',
   });
 });
+
+test.each(['Policy Tampering', 'Audit Tampering'] as const)(
+  'it preserves replacement-policy provenance for a same-title %s rule',
+  async (name) => {
+    await using ctx = await setupTest();
+
+    await writeFile(
+      ctx.rules,
+      `## HARD BLOCK rules\n### ${name}\nNever remove any log, including disposable test logs`,
+    );
+
+    await writeFile(
+      ctx.transcript,
+      JSON.stringify({
+        type: 'user',
+        message: {
+          role: 'user',
+          content: `The ${name} finding is wrong: this is a disposable test log.`,
+        },
+      }),
+    );
+
+    let body: unknown;
+
+    server.use(
+      http.post('https://decision.test/v1/systemone', async (info) => {
+        body = await info.request.json();
+
+        return HttpResponse.json({
+          model: 'jev-1.13.0',
+          answers: {
+            rule_0: {
+              type: 'choice',
+              choice: 'block',
+              confidence: 1,
+              probabilities: { allow: 0, block: 1, ask: 0 },
+            },
+          },
+          usage: { input_tokens: 400 },
+        });
+      }),
+    );
+
+    const outcome = await classifyWithModel(
+      {
+        harness: 'claude',
+        event: 'PermissionRequest',
+        sessionId: 's',
+        cwd: '/repo',
+        transcriptPath: ctx.transcript,
+        toolName: 'Bash',
+        toolInput: { command: 'rm /repo/test/log.txt' },
+        raw: {},
+      },
+      {
+        ...DEFAULT_CONFIG,
+        provider: {
+          ...DEFAULT_CONFIG.provider,
+          baseURL: 'https://decision.test',
+          apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+        },
+        claudeSettingsPath: null,
+        rulesPath: ctx.rules,
+      },
+    );
+
+    expect(outcome.verdict).toStrictEqual({
+      kind: 'deny',
+      rule: name,
+      reason: `The action matches ${name}.`,
+    });
+
+    const questionSchema = z.object({
+      instructions: z.string(),
+      criteria: z.object({ allow: z.string() }),
+    });
+
+    const stateSchema = z.object({ rulesSource: z.literal('replacement') });
+
+    const requestSchema = z.object({
+      state: stateSchema,
+      questions: z.record(z.string(), questionSchema),
+    });
+
+    const request = requestSchema.parse(body);
+    const question = request.questions['rule_0'];
+
+    invariant(question, 'the replacement rule has a question');
+
+    expect(request.state.rulesSource).toBe('replacement');
+
+    expect(question.instructions).toInclude(
+      'This rule has no hard-block false-positive clarification exception',
+    );
+
+    expect(question.criteria.allow).not.toInclude('specific user clarification');
+  },
+);

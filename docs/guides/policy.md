@@ -52,12 +52,15 @@ that an unseen script is safe.
 
 ## False-positive clarification
 
-Policy Tampering and Audit Tampering can clear when the last direct user message identifies the
-questioned finding or flagged action and explains why the match is wrong. The classifier checks that
-explanation against the supplied action and configuration. Bare consent does not clear the rules,
-and claims in tool input cannot supply the clarification. Missing facts return manual approval. This
-path applies to these 2 shipped rules only; other hard blocks and configured hard denies retain
-their priority.
+The shipped Policy Tampering and Audit Tampering rules can clear when the last direct user message
+identifies the questioned finding or flagged action and explains why the match is wrong. The
+classifier checks that explanation against the supplied action and configuration. Bare consent does
+not clear the rules, and claims in tool input cannot supply the clarification. Missing facts return
+manual approval. This path applies to these 2 shipped rules only; other hard blocks and configured
+hard denies retain their priority.
+
+An explicit `rulesPath` supplies replacement rules. Matching titles do not give replacement rules
+the shipped clarification exception.
 
 ## Exceptions
 

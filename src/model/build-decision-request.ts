@@ -7,6 +7,7 @@ export function buildDecisionRequest(
   policy: string,
   configuredRules: ClaudeRules,
   lastUserMessage: string | null,
+  rulesSource: 'shipped' | 'replacement' = 'replacement',
 ): DecisionRequest {
   const rules: Record<string, DecisionRule> = {};
   let tier: DecisionRule['tier'] | null = null;
@@ -27,7 +28,12 @@ export function buildDecisionRequest(
         throw new Error('Policy has an empty or duplicate rule');
       }
 
-      rules[`rule_${Object.keys(rules).length}`] = { name, tier, text: section.trim() };
+      rules[`rule_${Object.keys(rules).length}`] = {
+        name,
+        tier,
+        source: rulesSource,
+        text: section.trim(),
+      };
     }
   }
 
@@ -40,6 +46,7 @@ export function buildDecisionRequest(
       rules[`${category}_${index}`] = {
         name: `Configured ${category} ${index + 1}`,
         tier: category === 'hard_deny' ? 'hard' : 'soft',
+        source: 'configured',
         text,
       };
     }
@@ -48,6 +55,7 @@ export function buildDecisionRequest(
   const questions = Object.fromEntries(
     Object.entries(rules).map(([id, rule]) => {
       const canClarifyFalsePositive =
+        rule.source === 'shipped' &&
         rule.tier === 'hard' &&
         (rule.name === 'Policy Tampering' || rule.name === 'Audit Tampering');
 
@@ -77,6 +85,7 @@ export function buildDecisionRequest(
   return {
     state: {
       policy,
+      rulesSource,
       configuredRules,
       lastUserMessage,
       action: { tool: payload.toolName, cwd: payload.cwd, input: payload.toolInput },
