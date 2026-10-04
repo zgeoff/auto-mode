@@ -24,13 +24,12 @@ export function buildPromptContext(
   const lastDirectUserMessage: UserTask | null =
     origin === 'composer' || origin === 'bridge' || origin === 'sdk'
       ? { text: input.text, origin }
-      : null;
+      : (previous?.lastDirectUserMessage ?? null);
 
   return {
     originalUserTask:
-      previous?.hasPrompt !== true && previous?.canCaptureOriginal === true
-        ? lastDirectUserMessage
-        : (previous?.originalUserTask ?? null),
+      previous?.originalUserTask ??
+      (previous?.canCaptureOriginal === true ? lastDirectUserMessage : null),
     lastDirectUserMessage,
     hasPrompt: true,
     canCaptureOriginal: previous?.canCaptureOriginal ?? false,
