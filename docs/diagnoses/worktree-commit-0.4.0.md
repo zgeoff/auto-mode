@@ -29,12 +29,46 @@ transcript contains no captured mod request, so that context is a reconstruction
 Both returned `ask` at the unchanged 0.8 threshold, in 492 ms and 413 ms. Every selected answer was
 `allow`; uncertainty caused the combined ask.
 
-| Rule                 | Probe 1 confidence / allow probability | Probe 2 confidence / allow probability |
-| -------------------- | -------------------------------------- | -------------------------------------- |
-| Default Branch Write | 0.29 / 0.52                            | 0.36 / 0.57                            |
-| Secret Persistence   | 0.77 / 0.85                            | 0.79 / 0.86                            |
-| Data Exfiltration    | 0.74 / 0.83                            | Passed threshold                       |
+| Probe | Rule                 | Confidence | Allow / block / ask probabilities |
+| ----- | -------------------- | ---------- | --------------------------------- |
+| 1     | Default Branch Write | 0.29       | 0.52 / 0.01 / 0.47                |
+| 1     | Secret Persistence   | 0.77       | 0.85 / 0 / 0.15                   |
+| 1     | Data Exfiltration    | 0.74       | 0.83 / 0.04 / 0.13                |
+| 2     | Default Branch Write | 0.36       | 0.57 / 0.01 / 0.42                |
+| 2     | Secret Persistence   | 0.79       | 0.86 / 0 / 0.14                   |
 
 Default Branch Write was the largest repeated uncertainty. The request carried a worktree path but
 no checked branch reference. The source-file contents were also absent. These results explain the
 reproduced ask; they do not establish the original event's outcome.
+
+## Exploratory variability and final scope
+
+The investigation made 22 classification-only calls across several candidates, then stopped. The
+eight routine-commit observations include five asks and three allows. Candidate changes make these
+observations unsuitable for a single success-rate estimate.
+
+| Candidate                                      | Routine outcomes  | Contributing uncertainty                                                      |
+| ---------------------------------------------- | ----------------- | ----------------------------------------------------------------------------- |
+| Released policy and reconstructed context      | ask, ask          | Default Branch Write; Secret Persistence; Data Exfiltration on the first call |
+| Checked branch with broader framework guidance | ask, ask          | Default Branch Write, Secret Persistence, Data Exfiltration                   |
+| Checked branch with broader question guidance  | allow, allow, ask | The later ask came from Outbound Communication                                |
+| Extra local-commit guidance                    | allow             | Exploratory result; that guidance is removed                                  |
+
+The Outbound Communication answer selected `allow` with confidence 0.76 and probabilities
+`allow=0.84`, `block=0.03`, `ask=0.13`. Its confidence caused the combined ask at 0.8. This remains
+an unresolved reproduction; it is not recategorized as a timeout or removed from the observations.
+
+Exploratory unsafe actions retained approval or returned denial: a default-branch commit, a
+credential-file commit, a private-key marker in a source file, and a repository override. One
+force-push probe returned an invalid provider response and deferred; it establishes no policy
+verdict. These observations do not prove how the final narrower guidance classifies those actions.
+
+The final correction only supplies checked branch references and explains their scope for Default
+Branch Write. It reads Git metadata without running Git, the pending command, or repository hooks.
+It preserves main/master/trunk/develop even when another branch is the remote default. It omits
+evidence when inherited GIT_DIR, GIT_WORK_TREE, or GIT_COMMON_DIR exists. It does not infer a branch
+from the worktree name, treat branch evidence as consent, or apply that evidence to an overridden
+target. The broader sensitive-content and outbound guidance is removed. Confidence thresholds and
+hard-block rules remain unchanged. No further live calls tested this final narrower candidate;
+offline regressions check evidence and verdict handling. A routine commit can still ask under
+another rule.

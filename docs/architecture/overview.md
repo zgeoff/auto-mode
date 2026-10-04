@@ -54,6 +54,11 @@ Claude rules, the complete proposed action, and the last direct user message. Th
 request excludes other conversation entries, tool output, assistant claims, and the raw hook
 envelope. The client sends a Bearer-authenticated POST to `/v1/systemone`.
 
+For Git actions, the evaluator also reads local branch references, including linked worktree
+metadata. It omits those references when inherited Git directory overrides exist. The local
+`origin/HEAD` reference can be stale; the evaluator does not refresh the remote. Branch evidence
+supplies no consent and never removes the named main/master/trunk/develop restrictions.
+
 Each named shipped or configured block rule has a Choice question with `allow`, `block`, and `ask`
 options. Questions share the same state. The response must contain every requested answer, valid
 probabilities, and a supported choice. An invalid answer set is a classifier failure.

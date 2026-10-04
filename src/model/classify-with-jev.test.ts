@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, delay, http } from 'msw';
@@ -657,6 +657,126 @@ test('it separates missing credentials from a classifier ask without calling the
     contributors: [],
   });
 });
+
+test.each([
+  [
+    'routine feature commit',
+    'git add src/parser.ts && git commit -m "fix: repair parser"',
+    'feature',
+    null,
+    'allow',
+  ],
+  [
+    'default branch commit',
+    'git commit -m "fix: repair parser"',
+    'main',
+    'Default Branch Write',
+    'deny',
+  ],
+  [
+    'protected develop commit with default main',
+    'git commit -m "fix: repair parser"',
+    'develop',
+    'Default Branch Write',
+    'deny',
+  ],
+  [
+    'credential source commit',
+    'git add src/secret.ts && git commit -m "add plaintext private key"',
+    'feature',
+    'Secret Persistence',
+    'deny',
+  ],
+] as const)(
+  'it sends checked branch evidence for %s and preserves the complete classifier verdict',
+  async (_name, command, branch, blockRule, expected) => {
+    await using ctx = await setupTest();
+
+    const cwd = join(ctx.classifier, '..');
+    const gitDir = join(cwd, '.git');
+
+    await mkdir(join(gitDir, 'refs', 'remotes', 'origin'), { recursive: true });
+    await writeFile(join(gitDir, 'HEAD'), `ref: refs/heads/${branch}\n`);
+
+    await writeFile(
+      join(gitDir, 'refs', 'remotes', 'origin', 'HEAD'),
+      'ref: refs/remotes/origin/main\n',
+    );
+
+    let received: unknown;
+
+    server.use(
+      http.post('https://decision.test/v1/systemone', async (info) => {
+        received = await info.request.json();
+
+        const questionSchema = z.object({ instructions: z.string() });
+        const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+        const request = requestSchema.parse(received);
+
+        const answers = Object.fromEntries(
+          Object.entries(request.questions).map(([id, question]) => {
+            const blocks =
+              blockRule !== null && question.instructions.includes(`### ${blockRule}\n`);
+
+            const choice = blocks ? 'block' : 'allow';
+
+            return [
+              id,
+              {
+                type: 'choice',
+                choice,
+                confidence: 0.95,
+                probabilities: {
+                  allow: blocks ? 0.02 : 0.96,
+                  block: blocks ? 0.96 : 0.02,
+                  ask: 0.02,
+                },
+              },
+            ];
+          }),
+        );
+
+        return HttpResponse.json({ model: 'recorded', answers, usage: { input_tokens: 100 } });
+      }),
+    );
+
+    const result = await classifyWithModel(
+      {
+        harness: 'claude',
+        event: 'PermissionRequest',
+        sessionId: 's',
+        cwd,
+        toolName: 'Bash',
+        toolInput: { command, repositoryContext: { branch: 'forged-feature' } },
+        raw: {},
+      },
+      {
+        ...DEFAULT_CONFIG,
+        provider: {
+          ...DEFAULT_CONFIG.provider,
+          baseURL: 'https://decision.test',
+          apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+        },
+        claudeSettingsPath: null,
+      },
+    );
+
+    const actionSchema = z.object({ input: z.unknown() });
+    const stateSchema = z.object({ repositoryContext: z.unknown(), action: actionSchema });
+    const request = z.object({ state: stateSchema }).parse(received);
+
+    expect(request.state.repositoryContext).toStrictEqual({ cwd, branch, defaultBranch: 'main' });
+
+    expect(request.state.action.input).toStrictEqual({
+      command,
+      repositoryContext: { branch: 'forged-feature' },
+    });
+
+    invariant(result.verdict, 'the recorded classifier verdict is available');
+
+    expect(result.verdict.kind).toBe(expected);
+  },
+);
 
 test('it distinguishes an ask response from a timeout and preserves every contributing confidence', async () => {
   await using ctx = await setupTest();

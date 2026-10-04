@@ -9,6 +9,7 @@ import { buildDecisionRequest } from './build-decision-request.ts';
 import type { ModelOutcome } from './classify-with-model.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
+import { loadRepositoryContext } from './load-repository-context.ts';
 import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 import { sendDecision } from './send-decision.ts';
 import type { DecisionDiagnostics } from './types.ts';
@@ -47,7 +48,10 @@ export async function classifyWithJev(
         ? (payload.decisionContext.lastDirectUserMessage?.text ?? null)
         : null;
 
-    const [policy, rules, lastUserMessage] = await Promise.all([
+    const command = payload.toolInput['command'] ?? payload.toolInput['cmd'];
+    const hasGitCommand = typeof command === 'string' && /\bgit\s/u.test(command);
+
+    const [policy, rules, lastUserMessage, repositoryContext] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
@@ -56,10 +60,19 @@ export async function classifyWithJev(
       payload.decisionContext === undefined
         ? readLastUserMessage(payload.transcriptPath)
         : Promise.resolve(directUserText),
+      hasGitCommand ? loadRepositoryContext(payload.cwd) : Promise.resolve(null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
-    const request = buildDecisionRequest(payload, policy, rules, lastUserMessage, rulesSource);
+
+    const request = buildDecisionRequest(
+      payload,
+      policy,
+      rules,
+      lastUserMessage,
+      rulesSource,
+      repositoryContext,
+    );
 
     const remainingMs =
       options.deadlineAt === undefined

@@ -14,6 +14,7 @@ export interface DecisionRequest {
     readonly rulesSource: 'shipped' | 'replacement';
     readonly configuredRules: ClaudeRules;
     readonly lastUserMessage: string | null;
+    readonly repositoryContext?: RepositoryContext;
     readonly taskContext?: DecisionContext;
     readonly action: {
       readonly tool: string;
@@ -32,6 +33,12 @@ export interface DecisionRequest {
     >
   >;
   readonly rules: Readonly<Record<string, DecisionRule>>;
+}
+
+export interface RepositoryContext {
+  readonly cwd: string;
+  readonly branch: string | null;
+  readonly defaultBranch: string | null;
 }
 
 interface DecisionAnswer {

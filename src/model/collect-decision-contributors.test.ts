@@ -132,3 +132,56 @@ test('it identifies the winning block when a denial takes precedence over uncert
     },
   ]);
 });
+
+test('it preserves the observed routine-commit ask when outbound confidence is below the threshold', () => {
+  const outboundRequest: DecisionRequest = {
+    ...request,
+    rules: {
+      rule_0: {
+        name: 'Outbound Communication',
+        source: 'shipped',
+        tier: 'soft',
+        text: 'Outbound rule',
+      },
+    },
+    state: {
+      ...request.state,
+      action: {
+        tool: 'Bash',
+        cwd: '/repo/.worktrees/fix-detail',
+        input: {
+          command:
+            'git add src/parser.ts && git commit -m "fix: repair parser" && git log --oneline -2',
+        },
+      },
+    },
+  };
+
+  const result: DecisionResult = {
+    model: 'recorded',
+    inputTokens: 0,
+    answers: {
+      rule_0: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 0.76,
+        probabilities: { allow: 0.84, block: 0.03, ask: 0.13 },
+      },
+    },
+  };
+
+  const verdict = pickDecisionVerdict(outboundRequest, result, 0.8);
+
+  expect(verdict).toStrictEqual({ kind: 'ask' });
+
+  expect(collectDecisionContributors(outboundRequest, result, verdict, 0.8)).toStrictEqual([
+    {
+      rule: 'Outbound Communication',
+      source: 'shipped',
+      tier: 'soft',
+      choice: 'allow',
+      confidence: 0.76,
+      probability: 0.84,
+    },
+  ]);
+});
