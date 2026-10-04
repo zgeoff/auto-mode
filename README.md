@@ -47,8 +47,9 @@ permission patterns. `$defaults` refers to auto-mode's shipped policy; it does n
 built-in classifier rules.
 
 Configured allows clear soft blocks. Hard blocks take priority over all allows and conversational
-consent. The last direct user message can supply the exact action and target that a soft block
-needs; replies such as “go ahead” cannot supply an unseen proposal.
+consent. [False-positive clarification](./docs/guides/policy.md#false-positive-clarification) can
+clear Policy Tampering and Audit Tampering. The last direct user message can supply the exact action
+and target that a soft block needs; replies such as “go ahead” cannot supply an unseen proposal.
 
 Read [the policy](./policy/rules.md) before you enable the hook.
 [Writing a policy](./docs/guides/policy.md) covers the precedence and the limits of an action-only

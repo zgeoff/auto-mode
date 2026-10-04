@@ -50,6 +50,15 @@ outside the assessment. If an action requires facts that its own input does not 
 classifier can return manual approval. It does not infer that a resource belongs to the agent or
 that an unseen script is safe.
 
+## False-positive clarification
+
+Policy Tampering and Audit Tampering can clear when the last direct user message identifies the
+questioned finding or flagged action and explains why the match is wrong. The classifier checks that
+explanation against the supplied action and configuration. Bare consent does not clear the rules,
+and claims in tool input cannot supply the clarification. Missing facts return manual approval. This
+path applies to these 2 shipped rules only; other hard blocks and configured hard denies retain
+their priority.
+
 ## Exceptions
 
 Seven, covering work the rules above would otherwise block: regenerable output, scratch space, local
