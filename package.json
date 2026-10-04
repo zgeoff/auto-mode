@@ -1,6 +1,6 @@
 {
   "name": "auto-mode",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A permission classifier that runs as a hook, so agents that are not Claude can run unattended",
   "keywords": [
     "agent",

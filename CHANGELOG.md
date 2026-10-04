@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.0...auto-mode-v0.4.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* record permission diagnostics and check branch evidence ([#19](https://github.com/zgeoff/auto-mode/issues/19)) ([9e4e7d3](https://github.com/zgeoff/auto-mode/commit/9e4e7d351535acb3f78e8ed15757c37566f6213e))
+
 ## [0.4.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.3.0...auto-mode-v0.4.0) (2026-10-04)
 
 
