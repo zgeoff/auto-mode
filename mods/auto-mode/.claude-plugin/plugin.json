@@ -1,0 +1,14 @@
+{
+  "name": "auto-mode",
+  "version": "0.1.0",
+  "description": "Judge pending permission requests with Jev before the permission dialog",
+  "author": { "name": "zgeoff" },
+  "userConfig": {
+    "command": {
+      "type": "string",
+      "title": "auto-mode executable",
+      "description": "The auto-mode executable, as a command name or absolute path",
+      "default": "auto-mode"
+    }
+  }
+}

@@ -1,15 +1,9 @@
-import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import * as z from 'zod';
-
-// @types/node declares execFile as returning a ChildProcess while promisify's
-// signature expects a void-returning callback form; the mismatch is in the
-// declaration, not the call.
-// oxlint-disable-next-line typescript/strict-void-return
-const run = promisify(execFile);
+import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
+import type { EvaluationOptions } from './types.ts';
 
 export interface ProviderConfig {
   readonly protocol?: 'messages' | 'system-one';
@@ -185,24 +179,19 @@ function merge(file: Readonly<ConfigFile>, path: string): Config {
   };
 }
 
-export async function resolveApiKey(provider: ProviderConfig): Promise<string | null> {
+export function resolveApiKey(
+  provider: ProviderConfig,
+  options: EvaluationOptions = {},
+): Promise<string | null> {
   const fromEnv = provider.apiKeyEnv === undefined ? undefined : process.env[provider.apiKeyEnv];
 
   if (fromEnv !== undefined && fromEnv !== '') {
-    return fromEnv;
+    return Promise.resolve(fromEnv);
   }
 
   if (provider.apiKeyCommand === undefined || provider.apiKeyCommand === '') {
-    return null;
+    return Promise.resolve(null);
   }
 
-  try {
-    const result = await run('/bin/sh', ['-c', provider.apiKeyCommand], { timeout: 5000 });
-
-    const key = result.stdout.trim();
-
-    return key === '' ? null : key;
-  } catch {
-    return null;
-  }
+  return readApiKeyFromCommand(provider.apiKeyCommand, options);
 }

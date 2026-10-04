@@ -6,12 +6,34 @@ export async function sendDecision(
   provider: ProviderConfig,
   apiKey: string,
   request: DecisionRequest,
+  signal?: Readonly<AbortSignal>,
 ): Promise<DecisionResult> {
-  const body = JSON.stringify({
+  const input = {
     model: provider.model,
-    state: request.state,
+    state: { ...request.state },
     questions: request.questions,
-  });
+  };
+
+  let body = JSON.stringify(input);
+
+  for (const field of ['delegatedTask', 'originalUserTask'] as const) {
+    const context = input.state.taskContext;
+
+    if (Buffer.byteLength(body) <= 100_000 || context === undefined || context[field] === null) {
+      continue;
+    }
+
+    input.state.taskContext = {
+      ...context,
+      [field]: null,
+      omittedTaskContext: [
+        ...context.omittedTaskContext.filter((item) => item.field !== field),
+        { field, reason: 'budget' },
+      ],
+    };
+
+    body = JSON.stringify(input);
+  }
 
   if (Buffer.byteLength(body) > 100_000) {
     throw new Error(
@@ -20,6 +42,16 @@ export async function sendDecision(
   }
 
   const controller = new AbortController();
+
+  const stopRequest = () => {
+    controller.abort();
+  };
+
+  signal?.addEventListener('abort', stopRequest, { once: true });
+
+  if (signal?.aborted === true) {
+    controller.abort();
+  }
 
   const timer = setTimeout(() => {
     controller.abort();
@@ -92,5 +124,6 @@ export async function sendDecision(
     return { model: parsed.model, answers: parsed.answers, inputTokens: parsed.usage.input_tokens };
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', stopRequest);
   }
 }

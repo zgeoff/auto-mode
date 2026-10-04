@@ -14,6 +14,8 @@ install and everyday use.
   how the API key is found.
 - [Harnesses](./guides/harnesses.md) — installing into Claude Code, Codex, and Muse Code, and the
   one thing each does differently.
+- [Claude permission mod](./guides/claude-mod.md) — Jev decisions before the dialog, time limits,
+  and a reversible session trial.
 - [Writing a policy](./guides/policy.md) — the rule tiers, the consent bar, and how to change or
   replace the shipped rules.
 

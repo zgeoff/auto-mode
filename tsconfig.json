@@ -7,6 +7,7 @@
     "src/**/*.ts",
     "test-utils/**/*.ts",
     "mocks/**/*.ts",
+    "mods/auto-mode/hooks/**/*.ts",
     "scripts/**/*.ts",
     "test-setup.ts",
     "*.config.ts",

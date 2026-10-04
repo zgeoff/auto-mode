@@ -38,6 +38,53 @@ test('it prints usage and exits 0 when given no command', async () => {
   expect(result.stdout.toString()).toInclude('auto-mode run');
 });
 
+test('it refuses a traditional evaluator in Jev-only mode before a local allowance', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+  await writeFile(join(ctx.dir, 'auto-mode', 'config.json'), JSON.stringify({ preset: 'spark' }));
+
+  const payload = JSON.stringify({
+    prompt_id: 'jev-only-check',
+    hook_event_name: 'PermissionRequest',
+    tool_name: 'Read',
+    tool_input: { file_path: '/repo/file.ts' },
+  });
+
+  const result = await Bun.$`bun ${CLI} run --jev-only < ${new Response(payload)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout.toString()).toBe('');
+  expect(result.stderr.toString()).toInclude('Jev-only evaluation requires system-one');
+});
+
+test('it accepts a local allowance through Jev-only mode', async () => {
+  const ctx = await setupTest();
+
+  const payload = JSON.stringify({
+    prompt_id: 'jev-only-check',
+    hook_event_name: 'PermissionRequest',
+    tool_name: 'Read',
+    tool_input: { file_path: '/repo/file.ts' },
+  });
+
+  const result = await Bun.$`bun ${CLI} run --jev-only < ${new Response(payload)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(result.exitCode).toBe(0);
+
+  const output: unknown = JSON.parse(result.stdout.toString());
+
+  expect(output).toStrictEqual({
+    hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
+  });
+});
+
 test('it exits 2 on a command it does not know', async () => {
   const ctx = await setupTest();
   const result = await Bun.$`bun ${CLI} frobnicate`.env(ctx.env).quiet().nothrow();

@@ -49,9 +49,10 @@ It declines to judge anything it cannot account for. Command substitution, backt
 substitution, output redirection, and an unbalanced quote all escalate.
 
 **Tier two** uses Jev's typed decision API. The request includes the base policy, explicit user
-Claude rules, the complete proposed action, and the last direct user message. It excludes other
-conversation entries, tool output, assistant claims, and the raw hook envelope. The client sends a
-Bearer-authenticated POST to `/v1/systemone`.
+Claude rules, the complete proposed action, and the last direct user message. The optional
+[Claude mod](../guides/claude-mod.md) also supplies bounded task context with explicit origins. The
+request excludes other conversation entries, tool output, assistant claims, and the raw hook
+envelope. The client sends a Bearer-authenticated POST to `/v1/systemone`.
 
 Each named shipped or configured block rule has a Choice question with `allow`, `block`, and `ask`
 options. Questions share the same state. The response must contain every requested answer, valid
@@ -62,9 +63,9 @@ confidence and selected probability at or above `minConfidence`. Any uncertain a
 `ask` returns manual approval. Approval needs a confident allow from every question. Block messages
 include the matching rule; Jev supplies no generated explanation.
 
-The client refuses a request larger than 100,000 bytes before it calls the API. It does not truncate
-the action or user message. The provider enforces its token limits; a rejected request follows
-`onFailure`.
+The client refuses a request larger than 100,000 bytes before it calls the API. It can omit optional
+task context to fit the request, with an explicit reason. It does not truncate the action or user
+message. The provider enforces its token limits; a rejected request follows `onFailure`.
 
 The Messages API presets use the generative framework and transcript reader. Their cache and
 output-token handling apply only to that protocol.

@@ -23,6 +23,7 @@
   "files": [
     "dist",
     "policy",
+    "mods/auto-mode",
     "LICENSE"
   ],
   "type": "module",
@@ -49,7 +50,8 @@
     "publint": "publint",
     "test": "bun --no-env-file test",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check:artifact": "bun --no-env-file scripts/check-artifact.ts"
+    "check:artifact": "bun --no-env-file scripts/check-artifact.ts",
+    "check:claude-mod": "bash scripts/check-claude-mod.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.2",

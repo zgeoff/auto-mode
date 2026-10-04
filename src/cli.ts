@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
+import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { loadConfig, resolveConfigPath } from './config/config.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
 import { parsePayload } from './harness/parse-payload.ts';
@@ -29,13 +30,20 @@ Options:
   --event <event>       With init: pre-tool-use, the default, or permission-request
   --explain             With run: also write the reasoning to stderr
   --local-only          With run: skip the model tier
+  --jev-only            With run: require Jev and cap its API timeout at 5 seconds
+  --evaluation-deadline <unix-ms>  With --jev-only: share the helper and API deadline
 `;
 
 function readStdin(): Promise<string> {
   return text(process.stdin);
 }
 
-async function run(explain: boolean, localOnly: boolean): Promise<number> {
+async function run(
+  explain: boolean,
+  localOnly: boolean,
+  jevOnly: boolean,
+  deadline?: string,
+): Promise<number> {
   const raw = await readStdin();
 
   let body: unknown;
@@ -52,7 +60,13 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
     return printNote(explain, 'not a tool gate this hook judges, so no verdict');
   }
 
-  const config = await loadConfig();
+  const loaded = await loadConfig();
+
+  const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
+
+  if (config === null) {
+    return printNote(true, 'Jev-only evaluation requires system-one; deferring to the harness');
+  }
 
   let configured = null;
 
@@ -90,13 +104,41 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
     );
   }
 
-  const outcome = await classifyWithModel(payload, config);
+  const deadlineAt = deadline === undefined ? undefined : Number(deadline);
 
-  if (outcome.verdict !== null) {
-    writeVerdict(payload.event, outcome.verdict);
+  if (
+    deadlineAt !== undefined &&
+    (!jevOnly || !Number.isSafeInteger(deadlineAt) || deadlineAt <= 0)
+  ) {
+    return printNote(true, 'invalid Jev evaluation deadline; deferring to the harness');
   }
 
-  return printNote(explain || outcome.unavailable === true, outcome.note);
+  const controller = new AbortController();
+
+  const stopEvaluation = () => {
+    controller.abort();
+  };
+
+  if (jevOnly) {
+    process.on('SIGTERM', stopEvaluation);
+    process.on('SIGINT', stopEvaluation);
+  }
+
+  try {
+    const outcome = await classifyWithModel(payload, config, {
+      deadlineAt,
+      signal: controller.signal,
+    });
+
+    if (outcome.verdict !== null) {
+      writeVerdict(payload.event, outcome.verdict);
+    }
+
+    return printNote(explain || outcome.unavailable === true, outcome.note);
+  } finally {
+    process.off('SIGTERM', stopEvaluation);
+    process.off('SIGINT', stopEvaluation);
+  }
 }
 
 // An event that cannot carry the verdict renders nothing, and writing nothing
@@ -134,6 +176,8 @@ async function main(argv: readonly string[]): Promise<number> {
       event: { type: 'string' },
       explain: { type: 'boolean' },
       'local-only': { type: 'boolean' },
+      'jev-only': { type: 'boolean' },
+      'evaluation-deadline': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -148,7 +192,12 @@ async function main(argv: readonly string[]): Promise<number> {
 
   if (command === 'run') {
     try {
-      return await run(args.values.explain === true, args.values['local-only'] === true);
+      return await run(
+        args.values.explain === true,
+        args.values['local-only'] === true,
+        args.values['jev-only'] === true,
+        args.values['evaluation-deadline'],
+      );
     } catch {
       process.stderr.write('auto-mode: configuration unreadable; deferring to the harness\n');
 

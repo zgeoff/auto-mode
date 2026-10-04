@@ -1,5 +1,6 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
+import type { EvaluationOptions } from '../config/types.ts';
 import type { HookPayload, Verdict } from '../harness/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import { readTranscript } from '../transcript/read-transcript.ts';
@@ -18,9 +19,10 @@ export interface ModelOutcome {
 export async function classifyWithModel(
   payload: HookPayload,
   config: Config,
+  options: EvaluationOptions = {},
 ): Promise<ModelOutcome> {
   if (config.provider.protocol === 'system-one') {
-    return classifyWithJev(payload, config);
+    return classifyWithJev(payload, config, options);
   }
 
   const apiKey = await resolveApiKey(config.provider);

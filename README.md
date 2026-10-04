@@ -72,11 +72,15 @@ write a diagnostic to stderr. auto-mode never truncates a Jev action to make it 
 | `auto-mode run`              | Read a hook payload and write a verdict   |
 | `auto-mode run --explain`    | Write decision details to stderr          |
 | `auto-mode run --local-only` | Skip the model tier                       |
+| `auto-mode run --jev-only`   | Require Jev with a 5-second API timeout   |
 | `auto-mode print-prompt`     | Print the selected provider's base policy |
 | `auto-mode init <harness>`   | Print a hook entry                        |
 
 Existing `spark`, `claude`, and `glm` presets use the Messages API and conversation history. Select
 `jev` explicitly to change an existing provider configuration.
+
+The optional [Claude permission mod](./docs/guides/claude-mod.md) evaluates ask decisions before the
+permission dialog. It preserves existing allow and deny decisions and has a bounded child process.
 
 ## Documentation
 
