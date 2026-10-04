@@ -1,4 +1,5 @@
 import type { ClaudeRules } from '../config/load-claude-rules.ts';
+import type { DecisionContext } from '../harness/types.ts';
 
 export interface DecisionRule {
   readonly name: string;
@@ -13,6 +14,7 @@ export interface DecisionRequest {
     readonly rulesSource: 'shipped' | 'replacement';
     readonly configuredRules: ClaudeRules;
     readonly lastUserMessage: string | null;
+    readonly taskContext?: DecisionContext;
     readonly action: {
       readonly tool: string;
       readonly cwd: string;

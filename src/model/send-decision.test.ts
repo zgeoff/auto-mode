@@ -301,3 +301,53 @@ test('it discards malformed JSON bodies instead of exposing credential fragments
 
   expect(response).rejects.toThrow('Decision API returned invalid JSON');
 });
+
+test('it removes optional tasks to preserve a complete action near the request limit', async () => {
+  let body: unknown;
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', async (info) => {
+      body = await info.request.json();
+
+      return HttpResponse.json({ model: 'jev-1.13.0', answers: {}, usage: { input_tokens: 400 } });
+    }),
+  );
+
+  const content = 'x'.repeat(99_000);
+
+  await sendDecision({ ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' }, 'test-key', {
+    state: {
+      policy: 'complete policy',
+      rulesSource: 'replacement',
+      configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+      lastUserMessage: 'Do not push',
+      action: { tool: 'Write', cwd: '/repo', input: { content } },
+      taskContext: {
+        agentID: null,
+        originalUserTask: { text: 't'.repeat(3000), origin: 'composer' },
+        delegatedTask: { text: 'd'.repeat(3000), origin: 'agent.spawn' },
+        lastDirectUserMessage: { text: 'Do not push', origin: 'composer' },
+        omittedTaskContext: [],
+      },
+    },
+    questions: {},
+    rules: {},
+  });
+
+  expect(body).toMatchObject({
+    state: {
+      policy: 'complete policy',
+      lastUserMessage: 'Do not push',
+      action: { input: { content } },
+      taskContext: {
+        originalUserTask: null,
+        delegatedTask: null,
+        lastDirectUserMessage: { text: 'Do not push', origin: 'composer' },
+        omittedTaskContext: [
+          { field: 'delegatedTask', reason: 'budget' },
+          { field: 'originalUserTask', reason: 'budget' },
+        ],
+      },
+    },
+  });
+});

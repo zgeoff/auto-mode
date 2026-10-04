@@ -37,9 +37,40 @@ interface CallInput {
   readonly agentId?: string;
 }
 
+export interface UserTask {
+  readonly text: string;
+  readonly origin: 'composer' | 'bridge' | 'sdk';
+}
+
+export interface PromptContext {
+  readonly originalUserTask: UserTask | null;
+  readonly lastDirectUserMessage: UserTask | null;
+  readonly hasPrompt: boolean;
+  readonly canCaptureOriginal: boolean;
+}
+
+interface PromptInput {
+  readonly text: string;
+  readonly origin: { readonly kind: string };
+}
+
+interface SpawnInput {
+  readonly prompt: string;
+  readonly cwd?: string;
+  readonly parentAgentId?: string;
+}
+
 interface ModEvents {
-  readonly 'classic.SessionStart': { readonly input: SessionContext; readonly result: object };
+  readonly 'classic.SessionStart': {
+    readonly input: SessionContext & { readonly source?: string };
+    readonly result: object;
+  };
   readonly 'classic.UserPromptSubmit': { readonly input: SessionContext; readonly result: object };
+  readonly 'prompt.submit': { readonly input: PromptInput; readonly result: object };
+  readonly 'agent.spawn': {
+    readonly input: SpawnInput;
+    readonly result: { readonly agentId?: string; readonly model?: string; readonly deny?: string };
+  };
   readonly 'tool.call': { readonly input: CallInput; readonly result: object };
   readonly 'tool.check': { readonly input: CheckInput; readonly result: PermissionDecision };
   readonly 'process.run': {
@@ -60,6 +91,7 @@ export interface ModAPI {
   readonly process: {
     readonly run: (argv: readonly string[], init?: ProcessInput['init']) => Promise<ProcessResult>;
   };
+  readonly prompt: { readonly submit: (input: Pick<PromptInput, 'text'>) => Promise<object> };
   readonly tool: { readonly check: (input: CheckInput) => Promise<PermissionDecision> };
   readonly classic: {
     readonly SessionStart: (

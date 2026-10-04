@@ -21,11 +21,17 @@ declare module 'claude-code/testing' {
   export const expect: Expect;
   export function test(
     name: string,
-    body: (api: import('./types.ts').ModAPI, on: import('./types.ts').ModOn) => Promise<void>,
+    body: (
+      api: import('./types.ts').ModAPI,
+      on: import('./types.ts').ModOn,
+    ) => Promise<void> | void,
   ): void;
   export function test(
     name: string,
     options: TestOptions,
-    body: (api: import('./types.ts').ModAPI, on: import('./types.ts').ModOn) => Promise<void>,
+    body: (
+      api: import('./types.ts').ModAPI,
+      on: import('./types.ts').ModOn,
+    ) => Promise<void> | void,
   ): void;
 }

@@ -26,13 +26,20 @@ export async function classifyWithJev(
       throw new Error('no API key: set the configured environment variable or key command');
     }
 
+    const directUserText =
+      payload.decisionContext?.agentID === null
+        ? (payload.decisionContext.lastDirectUserMessage?.text ?? null)
+        : null;
+
     const [policy, rules, lastUserMessage] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
       ),
       loadClaudeRules(config.claudeSettingsPath),
-      readLastUserMessage(payload.transcriptPath),
+      payload.decisionContext === undefined
+        ? readLastUserMessage(payload.transcriptPath)
+        : Promise.resolve(directUserText),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';

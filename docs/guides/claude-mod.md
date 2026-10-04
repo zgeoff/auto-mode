@@ -9,11 +9,31 @@ and rule. It evaluates only ask decisions. An uncertain verdict, missing executa
 invalid output, or absent session context preserves the original ask. A configured classifier
 failure under `onFailure: "deny"` can still return a named denial.
 
-Jev receives the existing policy and settings, the complete action, and the last direct user message
-from the session transcript. Session start and user prompt events supply the transcript path. Each
-permission check reads the current directory from the host, including changes within a turn. The mod
-skips known subagent calls rather than applying the main session's user authorization to them. A hot
-reload without context preserves manual approval until the next user prompt.
+The mod evaluates main and subagent calls through the same permission check. Each check reads the
+current directory inside that call's host context. Agent delegation passes through the normal check
+before a child starts. Existing denials remain final.
+
+The mod captures the first direct task and the current direct message from the host's prompt event.
+It keeps their composer, Remote Control, or SDK origins. It captures each child's original task from
+its spawn event. Jev receives these as separate task context beside the complete policy and action:
+
+| Field                   | Evidence                                                    |
+| ----------------------- | ----------------------------------------------------------- |
+| `originalUserTask`      | The first direct task captured in this process              |
+| `delegatedTask`         | The child's original agent-authored task                    |
+| `lastDirectUserMessage` | The current direct message, absent for a child              |
+| `omittedTaskContext`    | Tasks absent through unavailable context or the byte budget |
+
+Task prompts describe purpose and never grant consent or clear a blocked rule. The evaluator does
+not read the parent transcript for a child. A notification clears current direct user evidence.
+Resume within the same process keeps a captured original task. Session resume or mod reload cannot
+recover its origin, so the original task remains explicitly unavailable. A reload without session
+context preserves manual approval until the next user prompt.
+
+Each optional task prompt has a 4,096-byte limit. An oversized task is omitted whole. If the
+complete request exceeds 100,000 bytes, the client omits optional tasks before it refuses the
+request. Policy, action, and current direct user evidence remain complete. The provider's token
+limit still applies.
 
 ## Time limits
 
