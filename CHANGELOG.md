@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.3.0...auto-mode-v0.4.0) (2026-10-04)
+
+
+### Features
+
+* add claude tool.check approval mod ([8545610](https://github.com/zgeoff/auto-mode/commit/8545610b787c77bbfe7ac88a9faa2e422f6fca3a))
+* add jev approvals with configured permission rules ([#16](https://github.com/zgeoff/auto-mode/issues/16)) ([d83e968](https://github.com/zgeoff/auto-mode/commit/d83e968120e67809d977e5ebb04d55fc4e65b704))
+
 ## [0.3.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.2.0...auto-mode-v0.3.0) (2026-09-18)
 
 
