@@ -6,6 +6,7 @@ export async function sendDecision(
   provider: ProviderConfig,
   apiKey: string,
   request: DecisionRequest,
+  signal?: Readonly<AbortSignal>,
 ): Promise<DecisionResult> {
   const body = JSON.stringify({
     model: provider.model,
@@ -20,6 +21,16 @@ export async function sendDecision(
   }
 
   const controller = new AbortController();
+
+  const stopRequest = () => {
+    controller.abort();
+  };
+
+  signal?.addEventListener('abort', stopRequest, { once: true });
+
+  if (signal?.aborted === true) {
+    controller.abort();
+  }
 
   const timer = setTimeout(() => {
     controller.abort();
@@ -92,5 +103,6 @@ export async function sendDecision(
     return { model: parsed.model, answers: parsed.answers, inputTokens: parsed.usage.input_tokens };
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', stopRequest);
   }
 }

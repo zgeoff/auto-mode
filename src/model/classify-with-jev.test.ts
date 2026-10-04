@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, delay, http } from 'msw';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { server } from '../../mocks/node.ts';
@@ -465,3 +465,53 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
     expect(question.criteria.allow).not.toInclude('specific user clarification');
   },
 );
+
+test('it returns the configured denial before the outer cap after a slow helper and API timeout', async () => {
+  await using ctx = await setupTest();
+
+  const helper = join(ctx.classifier, '..', 'slow-key-helper.cjs');
+
+  await writeFile(helper, "setTimeout(() => console.log('offline-deadline-test-key'), 4000);\n");
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', async () => {
+      await delay(5000);
+
+      return HttpResponse.json({});
+    }),
+  );
+
+  const started = performance.now();
+
+  const result = await classifyWithModel(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 'slow-helper-check',
+      cwd: '/repo',
+      toolName: 'Write',
+      toolInput: { file_path: '/repo/fixture', content: 'green' },
+      raw: {},
+    },
+    {
+      ...DEFAULT_CONFIG,
+      onFailure: 'deny',
+      claudeSettingsPath: null,
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: undefined,
+        apiKeyCommand: `${process.execPath} ${helper}`,
+        timeoutMs: 5000,
+      },
+    },
+    { deadlineAt: Date.now() + 7500 },
+  );
+
+  expect(result.verdict).toMatchObject({ kind: 'deny', rule: 'Classifier Unavailable' });
+  expect(result.unavailable).toBe(true);
+  expect(result.note).toInclude('evaluation deadline expired');
+  expect(performance.now() - started).toBeLessThan(8000);
+}, 10_000);

@@ -10,6 +10,7 @@ test('it preserves an existing denial and its rule', async ($, on) => {
 
   let calls = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -55,6 +56,7 @@ test('it preserves an existing allowance without a second evaluator', async ($, 
 
   let calls = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -103,6 +105,7 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -153,7 +156,7 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -171,6 +174,7 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -225,7 +229,7 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -243,6 +247,7 @@ test('it retains manual approval when Jev returns no opinion', async ($, on) => 
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -292,7 +297,7 @@ test('it retains manual approval when Jev returns no opinion', async ($, on) => 
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -310,6 +315,7 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -359,7 +365,7 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -377,6 +383,7 @@ test('it retains manual approval for a verdict from another event', async ($, on
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -427,7 +434,7 @@ test('it retains manual approval for a verdict from another event', async ($, on
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -445,6 +452,7 @@ test('it retains manual approval for a malformed denial', async ($, on) => {
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -495,7 +503,7 @@ test('it retains manual approval for a malformed denial', async ($, on) => {
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -513,6 +521,7 @@ test('it retains manual approval for a truncated response', async ($, on) => {
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -563,7 +572,7 @@ test('it retains manual approval for a truncated response', async ($, on) => {
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -581,6 +590,7 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -631,7 +641,7 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -649,6 +659,7 @@ test('it retains manual approval when the child times out', async ($, on) => {
   let stdin = '';
   let timeoutMs = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
   on('classic.SessionStart', () => ({}));
 
@@ -689,7 +700,7 @@ test('it retains manual approval when the child times out', async ($, on) => {
   });
 
   expect(invocation).toMatchObject({
-    argv: ['auto-mode', 'run', '--jev-only'],
+    argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
 });
@@ -704,6 +715,7 @@ test('it retains manual approval before the session context arrives', async ($, 
 
   let calls = 0;
 
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => decided);
 
   on('process.run', () => {
@@ -746,6 +758,7 @@ test(
     let stdin = '';
     let timeoutMs = 0;
 
+    on('session.cwd', () => ({ value: '/repo' }));
     on('tool.check', () => decided);
     on('classic.SessionStart', () => ({}));
 
@@ -796,7 +809,13 @@ test(
     });
 
     expect(invocation).toMatchObject({
-      argv: ['/opt/auto mode/bin/auto-mode', 'run', '--jev-only'],
+      argv: [
+        '/opt/auto mode/bin/auto-mode',
+        'run',
+        '--jev-only',
+        '--evaluation-deadline',
+        expect.any(String),
+      ],
       init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
     });
   },
@@ -804,6 +823,7 @@ test(
 
 test('it refreshes the context from the current user prompt after reload', async ($, on) => {
   on('classic.UserPromptSubmit', () => ({}));
+  on('session.cwd', () => ({ value: '/new-repo' }));
   on('tool.check', () => ({ decision: 'ask' }));
 
   let stdin = '';
@@ -849,6 +869,7 @@ test('it preserves the complete action without truncation', async ($, on) => {
   let stdin = '';
 
   on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => ({ decision: 'ask' }));
 
   on('process.run', (_api, e) => {
@@ -879,6 +900,7 @@ test('it does not replace the main context with a subagent prompt', async ($, on
 
   on('classic.SessionStart', () => ({}));
   on('classic.UserPromptSubmit', () => ({}));
+  on('session.cwd', () => ({ value: '/main' }));
   on('tool.check', () => ({ decision: 'ask' }));
 
   on('process.run', (_api, e) => {
@@ -928,6 +950,7 @@ test('it does not replace the main context with a subagent prompt', async ($, on
 
 test('it honors a configured fail-closed classifier verdict', async ($, on) => {
   on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => ({ decision: 'ask' }));
 
   on('process.run', () => ({
@@ -957,4 +980,37 @@ test('it honors a configured fail-closed classifier verdict', async ($, on) => {
     decision: 'deny',
     reason: '[Classifier Unavailable] Jev unavailable.',
   });
+});
+
+test('it reads the current directory between two calls without a new prompt', async ($, on) => {
+  let cwd = '/first';
+  const inputs: unknown[] = [];
+
+  on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: cwd }));
+  on('tool.check', () => ({ decision: 'ask' }));
+
+  on('process.run', (_api, e) => {
+    inputs.push(JSON.parse(e.init?.stdin ?? ''));
+
+    return {
+      value: {
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    };
+  });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ source: 'startup', cwd: '/first' });
+  await $.tool.check({ tool: 'Bash', input: { command: 'rm fixture.txt' } });
+
+  cwd = '/second';
+
+  await $.tool.check({ tool: 'Bash', input: { command: 'rm fixture.txt' } });
+
+  expect(inputs).toMatchObject([{ cwd: '/first' }, { cwd: '/second' }]);
 });

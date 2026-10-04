@@ -10,15 +10,19 @@ invalid output, or absent session context preserves the original ask. A configur
 failure under `onFailure: "deny"` can still return a named denial.
 
 Jev receives the existing policy and settings, the complete action, and the last direct user message
-from the session transcript. Session start and user prompt events supply the transcript path. The
-mod skips known subagent calls rather than applying the main session's user authorization to them. A
-hot reload without context preserves manual approval until the next user prompt.
+from the session transcript. Session start and user prompt events supply the transcript path. Each
+permission check reads the current directory from the host, including changes within a turn. The mod
+skips known subagent calls rather than applying the main session's user authorization to them. A hot
+reload without context preserves manual approval until the next user prompt.
 
 ## Time limits
 
 The mod passes `--jev-only`, which refuses Messages API providers and caps Jev's API timeout at 5
 seconds. The child process has an 8-second limit, reduced to leave 250 ms within the handler's
-remaining budget. The mod declines evaluation when fewer than 500 ms remain. It discards child
+remaining budget. A shared deadline ends evaluation 500 ms before that outer limit. The key helper
+uses the remaining deadline, and the API uses the time left after the helper, up to 5 seconds. This
+leaves time to return the configured failure verdict. Cancellation stops the owned key helper and
+its process group. The mod declines evaluation when fewer than 500 ms remain. It discards child
 stderr and does not copy invalid output into diagnostics.
 
 ## Check the mod
@@ -30,9 +34,10 @@ bun run check
 bun run check:claude-mod
 ```
 
-The mod gate runs plugin validation and native event tests with a clean environment and isolated
-Claude configuration. It starts no session and makes no network call. The TypeScript declarations
-cover the fields that this mod uses from that Claude Code version.
+The mod gate stages its native event tests outside Bun's discovery tree, then runs plugin validation
+and the native runner with a clean environment and isolated Claude configuration. It starts no
+session and makes no network call. The TypeScript declarations cover the fields that this mod uses
+from that Claude Code version.
 
 ## Try one session
 

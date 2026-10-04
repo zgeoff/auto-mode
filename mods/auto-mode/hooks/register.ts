@@ -3,7 +3,6 @@ import type { ModOn, ModOptions } from './types.ts';
 
 export function register(on: ModOn, options: ModOptions): void {
   let context: {
-    readonly cwd: string;
     readonly sessionID: string;
     readonly transcriptPath: string;
   } | null = null;
@@ -12,7 +11,7 @@ export function register(on: ModOn, options: ModOptions): void {
 
   on('classic.SessionStart', (_api, e, next) => {
     if (e.agent_id === undefined) {
-      context = { cwd: e.cwd, sessionID: e.session_id, transcriptPath: e.transcript_path };
+      context = { sessionID: e.session_id, transcriptPath: e.transcript_path };
     }
 
     return next(e);
@@ -20,7 +19,7 @@ export function register(on: ModOn, options: ModOptions): void {
 
   on('classic.UserPromptSubmit', (_api, e, next) => {
     if (e.agent_id === undefined) {
-      context = { cwd: e.cwd, sessionID: e.session_id, transcriptPath: e.transcript_path };
+      context = { sessionID: e.session_id, transcriptPath: e.transcript_path };
     }
 
     return next(e);
@@ -59,20 +58,32 @@ export function register(on: ModOn, options: ModOptions): void {
     }
 
     try {
-      const command = typeof options.command === 'string' ? options.command : 'auto-mode';
+      const cwd = await $.session.cwd();
 
-      const result = await $.process.run([command, 'run', '--jev-only'], {
-        timeoutMs: Math.min(timeoutMs, next.budget.remainingMs - 250),
-        stdin: JSON.stringify({
-          hook_event_name: 'PermissionRequest',
-          prompt_id: e.tool_use_id ?? 'mod-check',
-          session_id: context.sessionID,
-          cwd: context.cwd,
-          transcript_path: context.transcriptPath,
-          tool_name: e.tool,
-          tool_input: e.input,
-        }),
-      });
+      const command = typeof options.command === 'string' ? options.command : 'auto-mode';
+      const childTimeoutMs = Math.min(timeoutMs, next.budget.remainingMs - 250);
+
+      if (childTimeoutMs < 500) {
+        return decided;
+      }
+
+      const deadlineAt = Date.now() + childTimeoutMs - 500;
+
+      const result = await $.process.run(
+        [command, 'run', '--jev-only', '--evaluation-deadline', String(deadlineAt)],
+        {
+          timeoutMs: childTimeoutMs,
+          stdin: JSON.stringify({
+            hook_event_name: 'PermissionRequest',
+            prompt_id: e.tool_use_id ?? 'mod-check',
+            session_id: context.sessionID,
+            cwd,
+            transcript_path: context.transcriptPath,
+            tool_name: e.tool,
+            tool_input: e.input,
+          }),
+        },
+      );
 
       if (result.exitCode !== 0 || result.isStdoutTruncated || next.signal.aborted) {
         return decided;

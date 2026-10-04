@@ -46,6 +46,7 @@ interface ModEvents {
     readonly input: ProcessInput;
     readonly result: { readonly value: ProcessResult };
   };
+  readonly 'session.cwd': { readonly input: object; readonly result: { readonly value: string } };
 }
 
 interface Next<E extends keyof ModEvents> {
@@ -55,6 +56,7 @@ interface Next<E extends keyof ModEvents> {
 }
 
 export interface ModAPI {
+  readonly session: { readonly cwd: () => Promise<string> };
   readonly process: {
     readonly run: (argv: readonly string[], init?: ProcessInput['init']) => Promise<ProcessResult>;
   };
