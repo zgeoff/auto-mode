@@ -19,7 +19,7 @@ one of them has.
 
 ## The two tiers
 
-```
+```text
 payload on stdin
       │
       ▼
@@ -30,7 +30,7 @@ payload on stdin
       │
       │ escalate
       ▼
- tier 2: the model ──► allow / deny ──► write verdict    (2-24 s)
+ tier 2: Jev ──► allow / deny / ask ──► write verdict
       │
       │ failure
       ▼
@@ -48,20 +48,26 @@ if every part of it is.
 It declines to judge anything it cannot account for. Command substitution, backticks, process
 substitution, output redirection, and an unbalanced quote all escalate.
 
-**Tier two** sends the policy as the system prompt and the action as the user turn, then reads
-`<block>yes</block>` or `<block>no</block>` back.
+**Tier two** uses Jev's typed decision API. The request includes the base policy, explicit user
+Claude rules, the complete proposed action, and the last direct user message. It excludes other
+conversation entries, tool output, assistant claims, and the raw hook envelope. The client sends a
+Bearer-authenticated POST to `/v1/systemone`.
 
-Every ambiguity in that answer resolves to allow, following the policy's own reasoning: a block
-nobody can name is a false positive, and a false positive costs more than the action it stopped. A
-model that says yes and names no rule has given the user nothing to read and nothing to appeal.
+Each named shipped or configured block rule has a Choice question with `allow`, `block`, and `ask`
+options. Questions share the same state. The response must contain every requested answer, valid
+probabilities, and a supported choice. An invalid answer set is a classifier failure.
 
-The user turn carries the transcript first and the pending action last, under a label. The policy
-tells the classifier to judge the most recent action and to read everything before it as context, so
-the ordering is what makes that instruction resolvable.
+The caller combines the answers with hard blocks before soft blocks. A block needs both its
+confidence and selected probability at or above `minConfidence`. Any uncertain answer or explicit
+`ask` returns manual approval. Approval needs a confident allow from every question. Block messages
+include the matching rule; Jev supplies no generated explanation.
 
-The client is a bare `fetch` against `/v1/messages` rather than an SDK. This runs once per tool
-call, so process start-up sits on the critical path, and every supported provider serves the same
-endpoint shape.
+The client refuses a request larger than 100,000 bytes before it calls the API. It does not truncate
+the action or user message. The provider enforces its token limits; a rejected request follows
+`onFailure`.
+
+The Messages API presets use the generative framework and transcript reader. Their cache and
+output-token handling apply only to that protocol.
 
 ## Writing nothing
 
@@ -120,15 +126,21 @@ nothing — so writing nothing is what auto-mode does with one.
 The reason begins with the rule name in brackets, and that text reaches the agent verbatim. Verified
 in all three harnesses, and on both of Claude Code's events.
 
-## Prompt caching
+## Permission evidence
 
-The policy is identical on every call, so it is the cache prefix and carries
-`cache_control: {"type": "ephemeral"}`. Measured on Muse Spark: the first call pays about 7,000
-input tokens, and a repeat reads 7,025 from cache and pays 42 new.
+The rule importer reads only explicit `autoMode` arrays from the user's Claude settings. `$defaults`
+refers to the shipped policy. It imports no credential fields or shell permission patterns.
+Configured hard and soft deny entries bypass local allowances so the model evaluates those
+restrictions even for a read-only action.
 
-The transcript is appended after the policy, and only its tail is included, so the prefix grows by
-appending rather than sliding. A sliding window would change the cached prefix on every call and pay
-full price each time.
+The transcript reader selects the last direct user text. It ignores assistant messages, tool-result
+messages, metadata, subagent messages, and atc message envelopes. A missing transcript supplies no
+user message. It keeps the message whole; the request limit handles oversized input.
+
+The last user message can supply specific consent required by a soft block. It cannot redefine the
+policy or supply an unseen proposal. Earlier conversation grants, restrictions, ownership, and
+interruptions are outside the assessment. The classifier asks for manual approval when facts about
+the supplied action are needed and absent; it does not ask about every possible unseen event.
 
 ## Failure modes
 
@@ -138,7 +150,7 @@ full price each time.
   settings deny is refused before the hook sees it.
 - **The agent's own judgement comes first.** A model that refuses to issue a command means the hook
   is never consulted for it.
-- **A model call can time out.** The default is to write nothing and let the harness decide.
-  `onFailure: "deny"` fails closed instead.
+- **A model call can time out.** The default is to write nothing, report the failure on stderr, and
+  let the harness decide. `onFailure: "deny"` fails closed instead.
 - **A harness timeout shorter than the model call makes every hard case a silent failure.** `init`
   emits 90 seconds for this reason.

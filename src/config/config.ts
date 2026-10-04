@@ -12,6 +12,7 @@ import * as z from 'zod';
 const run = promisify(execFile);
 
 export interface ProviderConfig {
+  readonly protocol?: 'messages' | 'system-one';
   readonly baseURL: string;
   readonly model: string;
   readonly apiKeyEnv?: string | undefined;
@@ -27,27 +28,41 @@ export interface Config {
   readonly rulesPath?: string | undefined;
   readonly transcriptEntries: number;
   readonly onFailure: 'defer' | 'deny';
+  readonly claudeSettingsPath?: string | null | undefined;
+  readonly minConfidence?: number | undefined;
 }
 
 export const DEFAULT_CONFIG: Config = {
   provider: {
-    baseURL: 'https://api.meta.ai',
-    model: 'muse-spark-1.3-contributor',
-    apiKeyEnv: 'META_API_KEY',
-    reasoning: true,
-
-    // Measured against the real 7k-token policy, not a one-line prompt: Spark
-    // spends 1,000-1,900 tokens thinking before it answers, and a 2,000 cap
-    // truncated the answer away. A hard case takes 13-24s on a cold cache.
+    protocol: 'system-one',
+    baseURL: 'https://api.typesafe.ai',
+    model: 'jev-1.13.0',
+    apiKeyEnv: 'TYPESAFE_API_KEY',
+    reasoning: false,
     maxTokens: 3000,
-    timeoutMs: 45_000,
+    timeoutMs: 5000,
   },
   transcriptEntries: 40,
   onFailure: 'defer',
+  minConfidence: 0.8,
+};
+
+const SPARK_PROVIDER: ProviderConfig = {
+  baseURL: 'https://api.meta.ai',
+  model: 'muse-spark-1.3-contributor',
+  apiKeyEnv: 'META_API_KEY',
+  reasoning: true,
+
+  // Measured against the real 7k-token policy, not a one-line prompt: Spark
+  // spends 1,000-1,900 tokens thinking before it answers, and a 2,000 cap
+  // truncated the answer away. A hard case takes 13-24s on a cold cache.
+  maxTokens: 3000,
+  timeoutMs: 45_000,
 };
 
 export const PRESETS: Readonly<Record<string, ProviderConfig>> = {
-  spark: DEFAULT_CONFIG.provider,
+  jev: DEFAULT_CONFIG.provider,
+  spark: SPARK_PROVIDER,
   claude: {
     baseURL: 'https://api.anthropic.com',
     model: 'claude-haiku-4-5-20251001',
@@ -84,6 +99,7 @@ const configFileSchema = z.strictObject({
   preset: text.optional(),
   provider: z
     .strictObject({
+      protocol: z.enum(['messages', 'system-one']).optional(),
       baseURL: text.optional(),
       model: text.optional(),
       apiKeyEnv: text.optional(),
@@ -97,6 +113,8 @@ const configFileSchema = z.strictObject({
   rulesPath: text.optional(),
   transcriptEntries: z.number().nonnegative().optional(),
   onFailure: z.enum(['defer', 'deny']).optional(),
+  claudeSettingsPath: text.nullable().optional(),
+  minConfidence: z.number().min(0.5).max(1).optional(),
 });
 
 export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
@@ -104,16 +122,20 @@ export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
 
   try {
     raw = await readFile(path, 'utf8');
-  } catch {
-    return DEFAULT_CONFIG;
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return DEFAULT_CONFIG;
+    }
+
+    throw new Error('auto-mode configuration unreadable', { cause: error });
   }
 
   let json: unknown;
 
   try {
     json = JSON.parse(raw);
-  } catch (error) {
-    throw new Error(`${path} is not valid JSON`, { cause: error });
+  } catch {
+    throw new Error(`${path} is not valid JSON`);
   }
 
   const parsed = configFileSchema.safeParse(json);
@@ -128,7 +150,12 @@ export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
 type ConfigFile = z.infer<typeof configFileSchema>;
 
 function merge(file: Readonly<ConfigFile>, path: string): Config {
-  const preset = file.preset === undefined ? DEFAULT_CONFIG.provider : PRESETS[file.preset];
+  const implicitProvider =
+    file.provider !== undefined && file.provider.protocol !== 'system-one'
+      ? SPARK_PROVIDER
+      : DEFAULT_CONFIG.provider;
+
+  const preset = file.preset === undefined ? implicitProvider : PRESETS[file.preset];
 
   if (preset === undefined) {
     throw new Error(
@@ -140,6 +167,7 @@ function merge(file: Readonly<ConfigFile>, path: string): Config {
 
   return {
     provider: {
+      protocol: override.protocol ?? preset.protocol ?? 'messages',
       baseURL: override.baseURL ?? preset.baseURL,
       model: override.model ?? preset.model,
       apiKeyEnv: override.apiKeyEnv ?? preset.apiKeyEnv,
@@ -152,6 +180,8 @@ function merge(file: Readonly<ConfigFile>, path: string): Config {
     rulesPath: file.rulesPath,
     transcriptEntries: file.transcriptEntries ?? DEFAULT_CONFIG.transcriptEntries,
     onFailure: file.onFailure ?? DEFAULT_CONFIG.onFailure,
+    claudeSettingsPath: file.claudeSettingsPath,
+    minConfidence: file.minConfidence ?? DEFAULT_CONFIG.minConfidence,
   };
 }
 

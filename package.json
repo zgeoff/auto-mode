@@ -38,7 +38,7 @@
     "audit": "bun audit",
     "build": "tsdown",
     "build:agents": "bash scripts/build-agents-md.sh agents/shared.md agents/project.md AGENTS.md",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run deadcode && bun test && bun run build && bun run publint",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run deadcode && bun run test && bun run build && bun run check:artifact && bun run publint",
     "deadcode": "knip",
     "first-publish": "scripts/first-publish.sh",
     "format": "oxfmt . && format-codemod --quiet .",
@@ -47,8 +47,9 @@
     "lint:fix": "oxlint --type-aware --type-check --report-unused-disable-directives-severity error --fix",
     "prepare": "command -v git > /dev/null 2>&1 && lefthook install --force || true",
     "publint": "publint",
-    "test": "bun test",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "test": "bun --no-env-file test",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check:artifact": "bun --no-env-file scripts/check-artifact.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.2",

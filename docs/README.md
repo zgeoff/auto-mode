@@ -6,12 +6,12 @@ install and everyday use.
 ## Architecture
 
 - [Overview](./architecture/overview.md) — the two tiers, how a harness is identified, the verdict
-  contract, prompt caching, and every way this fails.
+  contract, permission evidence, and failure handling.
 
 ## Guides
 
-- [Configuration](./guides/configuration.md) — every `config.json` field, the three presets, and how
-  the API key is found.
+- [Configuration](./guides/configuration.md) — every `config.json` field, the provider presets, and
+  how the API key is found.
 - [Harnesses](./guides/harnesses.md) — installing into Claude Code, Codex, and Muse Code, and the
   one thing each does differently.
 - [Writing a policy](./guides/policy.md) — the rule tiers, the consent bar, and how to change or
@@ -20,7 +20,8 @@ install and everyday use.
 ## The policy itself
 
 - [`policy/rules.md`](../policy/rules.md) — what is blocked.
-- [`policy/classifier.md`](../policy/classifier.md) — how judgement works.
+- [`policy/decision.md`](../policy/decision.md) — Jev evidence and precedence.
+- [`policy/classifier.md`](../policy/classifier.md) — the generative framework.
 
-Both are sent to the model verbatim. `auto-mode print-prompt` writes the two spliced together, which
-is exactly what the classifier reads.
+The selected framework combines with the rule list. `auto-mode print-prompt` prints that base
+policy. The Jev request includes explicit Claude rules and action evidence separately.

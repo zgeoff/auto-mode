@@ -5,18 +5,19 @@ hands it the pending call on stdin, and reads allow, deny, or nothing on stdout.
 Code, Codex, and Muse Code, and its target is a model that is not Claude driving one of them.
 
 `docs/architecture/overview.md` is the authoritative account of how the pieces fit: the two tiers,
-harness identification, the verdict contract, prompt caching, and the failure modes. Read it in full
-before changing the hook path, the policy, or a harness integration — grep locates code, it does not
-teach the invariants.
+harness identification, the verdict contract, permission evidence, and the failure modes. Read it in
+full before changing the hook path, the policy, or a harness integration — grep locates code, it
+does not teach the invariants.
 
 ## Layout
 
 Single package, no workspaces. `src/` groups modules by concern, one primary export per file:
 `harness/` normalises a payload and renders a verdict; `rules/` is the deterministic first tier;
-`model/` is the second tier and its Messages API client; `policy/` assembles the prompt;
-`transcript/` reads conversation history; `config/` holds configuration and presets; `install/`
-prints the hook entry a harness needs. `cli.ts` is the entrypoint. `policy/` at the repo root holds
-the prompt itself. `fixtures/` holds one recorded payload per harness.
+`model/` is the second tier and its decision and Messages API clients; `policy/` assembles the
+prompt; `transcript/` reads the last direct user message for Jev and conversation history for
+generative providers; `config/` holds configuration and presets; `install/` prints the hook entry a
+harness needs. `cli.ts` is the entrypoint. `policy/` at the repo root holds the prompt itself.
+`fixtures/` holds one recorded payload per harness.
 
 ## Runtime rules
 
@@ -39,12 +40,13 @@ Everything under `policy/` is verbatim model input. It is not prose for a reader
 is configured to leave it alone: its bytes are the prompt and the cache prefix, so a reflow is a
 prompt change and belongs in a commit that reviews it as one.
 
-- `classifier.md` is the judgement framework and `rules.md` is the rule list. `loadPolicy` splices
-  the second into the first at the `<rules>` marker; nothing else is added, so
-  `auto-mode print-prompt` shows exactly what the classifier reads.
-- Every instruction to block must terminate at a rule name that exists in `rules.md`. An evaluation
-  rule in `classifier.md` may never order a block on its own — a block the model cannot name is one
-  the user cannot read or appeal. A block that cannot be named is an allow.
+- `decision.md` is the Jev framework, `classifier.md` is the generative framework, and `rules.md` is
+  the rule list. `loadPolicy` splices the rules at the `<rules>` marker. `auto-mode print-prompt`
+  prints the selected base policy; configured rules and action evidence are separate request fields.
+- Every instruction to block must terminate at a rule name that exists in `rules.md` or an explicit
+  configured deny entry. An evaluation rule in `classifier.md` may never order a block on its own —
+  a block the model cannot name is one the user cannot read or appeal. A block that cannot be named
+  is an allow.
 - No evaluation rule may share a name with a rule or exception, or prefix one, because a verdict
   quotes the name back and the reader cannot tell which was meant.
 - The rules that deny are prose that needs a reader, so the local tier never denies. It allows or it

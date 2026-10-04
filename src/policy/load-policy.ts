@@ -9,9 +9,12 @@ export interface PolicyPaths {
   readonly rulesPath?: string | undefined;
 }
 
-export async function loadPolicy(paths: PolicyPaths = {}): Promise<string> {
+export async function loadPolicy(
+  paths: PolicyPaths = {},
+  framework: 'classifier.md' | 'decision.md' = 'classifier.md',
+): Promise<string> {
   const shipped = findShippedPolicyDir();
-  const classifierPath = paths.classifierPath ?? join(shipped, 'classifier.md');
+  const classifierPath = paths.classifierPath ?? join(shipped, framework);
   const rulesPath = paths.rulesPath ?? join(shipped, 'rules.md');
 
   const [classifier, rules] = await Promise.all([
