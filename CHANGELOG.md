@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.1...auto-mode-v0.4.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* clarify source-edit and synthetic-fixture applicability ([#21](https://github.com/zgeoff/auto-mode/issues/21)) ([661a25d](https://github.com/zgeoff/auto-mode/commit/661a25d15cb2e4f265449bea2f07d364b5ef978c))
+
 ## [0.4.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.0...auto-mode-v0.4.1) (2026-10-04)
 
 
