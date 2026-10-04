@@ -56,8 +56,11 @@ envelope. The client sends a Bearer-authenticated POST to `/v1/systemone`.
 
 For Git actions and Write/Edit calls, the evaluator also reads cwd branch references, including
 linked worktree metadata. It omits those references when inherited Git directory overrides exist.
-The local `origin/HEAD` reference can be stale; the evaluator does not refresh the remote. Branch
-evidence supplies no consent and never removes the named main/master/trunk/develop restrictions.
+These references describe cwd only, not the edited file's checkout or a generated script's future
+execution cwd. Ordinary non-Git source edits need no branch evidence to settle Default Branch Write;
+delayed Git effects need evidence for their actual targets. The local `origin/HEAD` reference can be
+stale; the evaluator does not refresh the remote. Branch evidence supplies no consent and never
+removes the named main/master/trunk/develop restrictions.
 
 Each named shipped or configured block rule has a Choice question with `allow`, `block`, and `ask`
 options. Questions share the same state. The response must contain every requested answer, valid

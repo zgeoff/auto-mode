@@ -73,53 +73,81 @@ test('it gives each named rule a question with a manual approval option', () => 
   expect(question.instructions).toInclude('For hard blocks, ignore allow exceptions and consent');
 });
 
-test('it distinguishes an ordinary source edit from direct and delayed protected-branch Git writes', async () => {
-  const policy = await loadPolicy({}, 'decision.md');
+test.each([true, false])(
+  'it distinguishes a non-Git edit from actual Git targets with cwd evidence %s',
+  async (hasRepositoryContext) => {
+    const policy = await loadPolicy({}, 'decision.md');
 
-  const input = {
-    file_path: '/repo/src/shared/build-status.ts',
-    content: "export function buildStatus() { return 'ready'; }",
-  };
+    const input = {
+      file_path: '/another-checkout/src/shared/build-status.ts',
+      content: "export function buildStatus() { return 'ready'; }",
+    };
 
-  const repositoryContext = { cwd: '/repo', branch: 'feature', defaultBranch: 'main' };
+    const repositoryContext = hasRepositoryContext
+      ? { cwd: '/repo', branch: 'feature', defaultBranch: 'main' }
+      : null;
 
-  const request = buildDecisionRequest(
-    {
-      harness: 'claude',
-      event: 'PermissionRequest',
-      sessionId: 's',
-      cwd: '/repo',
-      toolName: 'Write',
-      toolInput: input,
-      raw: {},
-    },
-    policy,
-    { environment: [], allow: [], soft_deny: [], hard_deny: [] },
-    'Maintain the sanitizer',
-    'shipped',
-    repositoryContext,
-  );
+    const request = buildDecisionRequest(
+      {
+        harness: 'claude',
+        event: 'PermissionRequest',
+        sessionId: 's',
+        cwd: '/repo',
+        toolName: 'Write',
+        toolInput: input,
+        raw: {},
+      },
+      policy,
+      { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+      'Maintain the sanitizer',
+      'shipped',
+      repositoryContext,
+    );
 
-  const ruleID = Object.entries(request.rules).find(
-    ([, rule]) => rule.name === 'Default Branch Write',
-  )?.[0];
+    const ruleID = Object.entries(request.rules).find(
+      ([, rule]) => rule.name === 'Default Branch Write',
+    )?.[0];
 
-  invariant(ruleID !== undefined, 'the default-branch rule exists');
+    invariant(ruleID !== undefined, 'the default-branch rule exists');
 
-  const question = request.questions[ruleID];
+    const question = request.questions[ruleID];
 
-  invariant(question, 'the default-branch question exists');
+    invariant(question, 'the default-branch question exists');
 
-  expect(request.state.action.input).toStrictEqual(input);
-  expect(request.state.repositoryContext).toStrictEqual(repositoryContext);
+    expect(request.state.action.input).toStrictEqual(input);
+    expect(request.state.repositoryContext ?? null).toStrictEqual(repositoryContext);
 
-  expect(question.instructions).toInclude(
-    'do not ask for branch consent for that edit or infer a later Git step from task context',
-  );
+    expect(question.instructions).toInclude(
+      'An ordinary non-Git source or test edit does not itself commit, push, or merge and this rule is allow without branch evidence',
+    );
 
-  expect(question.instructions).toInclude('Written scripts retain their delayed Git effects');
-  expect(question.instructions).toInclude('main, master, trunk, and develop');
-});
+    expect(question.instructions).not.toInclude('verified feature worktree');
+    expect(request.state.policy).not.toInclude('verified feature worktree');
+    expect(request.state.policy).toInclude('This does not require branch evidence');
+    expect(question.instructions).toInclude('branch evidence is not required for that distinction');
+
+    expect(question.instructions).toInclude(
+      "repositoryContext describes cwd only, not the edited file's checkout or a generated script's future execution cwd",
+    );
+
+    expect(request.state.policy).toInclude(
+      "It describes cwd only, not the edited file's checkout or a generated script's future execution cwd",
+    );
+
+    expect(question.instructions).toInclude(
+      'do not ask for branch consent for that edit or infer a later Git step from task context',
+    );
+
+    expect(question.instructions).toInclude('Written scripts retain their delayed Git effects');
+
+    expect(question.instructions).toInclude(
+      'judge those effects against evidence for their actual target repository, execution cwd, and branch, not assumed cwd references',
+    );
+
+    expect(request.state.policy).toInclude('do not assume it inherits repositoryContext');
+    expect(question.instructions).toInclude('main, master, trunk, and develop');
+  },
+);
 
 test.each(['Data Exfiltration', 'Secret Persistence'] as const)(
   'it clarifies inert literals for shipped %s without a consent exception for real credentials',

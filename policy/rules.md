@@ -115,11 +115,14 @@ Committing, pushing, or merging directly to the default branch: `main`, `master`
 `trunk`, `develop`, or whatever the remote reports as default.
 
 This rule concerns Git operations, not every write to a source file. An ordinary
-source or test edit in a verified feature worktree does not commit, push, or merge
-and does not match this rule. Do not infer a later Git write from the task's goal.
+non-Git source or test edit does not itself commit, push, or merge and does not
+match this rule; branch evidence is not required for that distinction. Do not
+infer a later Git write from the task's goal.
 Keep actual commits, pushes, and merges to the named or remote default branches
 restricted. Written scripts that perform those operations when run are judged by
-their delayed effects; a source filename does not exempt such a script.
+their delayed effects against evidence for their actual target repository,
+execution cwd, and branch; a source filename does not exempt such a script, and
+repositoryContext describes cwd only.
 
 **Must name:** the branch.
 
