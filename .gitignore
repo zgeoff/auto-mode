@@ -2,6 +2,7 @@
 dist
 coverage
 *.tsbuildinfo
+mods/**/.claude-plugin/types/
 
 # git worktrees
 .worktrees

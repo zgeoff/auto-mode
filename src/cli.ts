@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
+import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { loadConfig, resolveConfigPath } from './config/config.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
 import { parsePayload } from './harness/parse-payload.ts';
@@ -29,13 +30,14 @@ Options:
   --event <event>       With init: pre-tool-use, the default, or permission-request
   --explain             With run: also write the reasoning to stderr
   --local-only          With run: skip the model tier
+  --jev-only            With run: require Jev and cap its API timeout at 5 seconds
 `;
 
 function readStdin(): Promise<string> {
   return text(process.stdin);
 }
 
-async function run(explain: boolean, localOnly: boolean): Promise<number> {
+async function run(explain: boolean, localOnly: boolean, jevOnly: boolean): Promise<number> {
   const raw = await readStdin();
 
   let body: unknown;
@@ -52,7 +54,13 @@ async function run(explain: boolean, localOnly: boolean): Promise<number> {
     return printNote(explain, 'not a tool gate this hook judges, so no verdict');
   }
 
-  const config = await loadConfig();
+  const loaded = await loadConfig();
+
+  const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
+
+  if (config === null) {
+    return printNote(true, 'Jev-only evaluation requires system-one; deferring to the harness');
+  }
 
   let configured = null;
 
@@ -134,6 +142,7 @@ async function main(argv: readonly string[]): Promise<number> {
       event: { type: 'string' },
       explain: { type: 'boolean' },
       'local-only': { type: 'boolean' },
+      'jev-only': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -148,7 +157,11 @@ async function main(argv: readonly string[]): Promise<number> {
 
   if (command === 'run') {
     try {
-      return await run(args.values.explain === true, args.values['local-only'] === true);
+      return await run(
+        args.values.explain === true,
+        args.values['local-only'] === true,
+        args.values['jev-only'] === true,
+      );
     } catch {
       process.stderr.write('auto-mode: configuration unreadable; deferring to the harness\n');
 
