@@ -79,7 +79,15 @@ export function register(on: ModOn, options: ModOptions): void {
 
     const logPrefix = `auto-mode action ${actionID}:`;
 
-    if (decided.decision !== 'ask' || next.signal.aborted || context === null) {
+    if (decided.decision !== 'ask') {
+      return decided;
+    }
+
+    if (next.signal.aborted || context === null) {
+      const status = next.signal.aborted ? 'cancelled' : 'missing session context';
+
+      $.ui.log(`${logPrefix} evaluation skipped; ${status}`, { to: 'debug' });
+
       return decided;
     }
 
@@ -97,6 +105,8 @@ export function register(on: ModOn, options: ModOptions): void {
       const agentID = e.tool_use_id === undefined ? null : activeCalls.get(e.tool_use_id);
 
       if (e.tool_use_id !== undefined && agentID === undefined) {
+        $.ui.log(`${logPrefix} evaluation skipped; untracked tool call`, { to: 'debug' });
+
         return decided;
       }
 

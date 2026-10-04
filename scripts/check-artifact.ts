@@ -16,6 +16,8 @@ async function main() {
     const env = {
       ...process.env,
       XDG_CONFIG_HOME: dir,
+      XDG_STATE_HOME: dir,
+      AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
       CLAUDE_CONFIG_DIR: dir,
       TYPESAFE_API_KEY: '',
     };
