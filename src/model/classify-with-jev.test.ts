@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, delay, http } from 'msw';
@@ -11,6 +11,14 @@ import { classifyWithModel } from './classify-with-model.ts';
 
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'jev-classifier-'));
+
+  const previousGitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
+    (name) => [name, process.env[name]] as const,
+  );
+
+  for (const [name] of previousGitEnv) {
+    delete process.env[name];
+  }
 
   const previous = process.env['AUTO_MODE_JEV_TEST_KEY'];
 
@@ -29,6 +37,14 @@ async function setupTest() {
     classifier: join(dir, 'classifier.md'),
     rules: join(dir, 'rules.md'),
     async [Symbol.asyncDispose]() {
+      for (const [name, value] of previousGitEnv) {
+        if (value === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = value;
+        }
+      }
+
       if (previous === undefined) {
         delete process.env['AUTO_MODE_JEV_TEST_KEY'];
       } else {
@@ -184,6 +200,14 @@ test.each(['defer', 'deny'] as const)(
     );
 
     expect(outcome.unavailable).toBe(true);
+
+    expect(outcome.diagnostics).toMatchObject({
+      status: 'failure',
+      stage: 'request',
+      keyResolved: true,
+      keySource: 'environment',
+      contributors: [],
+    });
 
     const expected =
       onFailure === 'defer'
@@ -513,6 +537,15 @@ test('it returns the configured denial before the outer cap after a slow helper 
   expect(result.verdict).toMatchObject({ kind: 'deny', rule: 'Classifier Unavailable' });
   expect(result.unavailable).toBe(true);
   expect(result.note).toInclude('evaluation deadline expired');
+
+  expect(result.diagnostics).toMatchObject({
+    status: 'timeout',
+    stage: 'request',
+    keyResolved: true,
+    keySource: 'command',
+    contributors: [],
+  });
+
   expect(performance.now() - started).toBeLessThan(8000);
 }, 10_000);
 
@@ -606,4 +639,243 @@ test('it evaluates child task context without reading parent consent on resume',
   expect(JSON.stringify(requests)).not.toInclude('PARENT_CONSENT_CANARY');
   expect(JSON.stringify(requests)).not.toInclude('INJECTED_PARENT_CONSENT');
   expect(JSON.stringify(requests)).toInclude('neither grants consent or clears a rule');
+});
+
+test('it separates missing credentials from a classifier ask without calling the service', async () => {
+  await using ctx = await setupTest();
+
+  const result = await classifyWithModel(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 's',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'git commit' },
+      raw: {},
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: { ...DEFAULT_CONFIG.provider, apiKeyEnv: undefined, apiKeyCommand: undefined },
+      claudeSettingsPath: null,
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+    },
+  );
+
+  expect(result.verdict).toBeNull();
+
+  expect(result.diagnostics).toMatchObject({
+    status: 'failure',
+    stage: 'credential',
+    keyResolved: false,
+    keySource: 'none',
+    contributors: [],
+  });
+});
+
+test.each([
+  [
+    'routine feature commit',
+    'git add src/parser.ts && git commit -m "fix: repair parser"',
+    'feature',
+    null,
+    'allow',
+  ],
+  [
+    'default branch commit',
+    'git commit -m "fix: repair parser"',
+    'main',
+    'Default Branch Write',
+    'deny',
+  ],
+  [
+    'protected develop commit with default main',
+    'git commit -m "fix: repair parser"',
+    'develop',
+    'Default Branch Write',
+    'deny',
+  ],
+  [
+    'credential source commit',
+    'git add src/secret.ts && git commit -m "add plaintext private key"',
+    'feature',
+    'Secret Persistence',
+    'deny',
+  ],
+] as const)(
+  'it sends checked branch evidence for %s and preserves the complete classifier verdict',
+  async (_name, command, branch, blockRule, expected) => {
+    await using ctx = await setupTest();
+
+    const cwd = join(ctx.classifier, '..');
+    const gitDir = join(cwd, '.git');
+
+    await mkdir(join(gitDir, 'refs', 'remotes', 'origin'), { recursive: true });
+    await writeFile(join(gitDir, 'HEAD'), `ref: refs/heads/${branch}\n`);
+
+    await writeFile(
+      join(gitDir, 'refs', 'remotes', 'origin', 'HEAD'),
+      'ref: refs/remotes/origin/main\n',
+    );
+
+    let received: unknown;
+
+    server.use(
+      http.post('https://decision.test/v1/systemone', async (info) => {
+        received = await info.request.json();
+
+        const questionSchema = z.object({ instructions: z.string() });
+        const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+        const request = requestSchema.parse(received);
+
+        const answers = Object.fromEntries(
+          Object.entries(request.questions).map(([id, question]) => {
+            const blocks =
+              blockRule !== null && question.instructions.includes(`### ${blockRule}\n`);
+
+            const choice = blocks ? 'block' : 'allow';
+
+            return [
+              id,
+              {
+                type: 'choice',
+                choice,
+                confidence: 0.95,
+                probabilities: {
+                  allow: blocks ? 0.02 : 0.96,
+                  block: blocks ? 0.96 : 0.02,
+                  ask: 0.02,
+                },
+              },
+            ];
+          }),
+        );
+
+        return HttpResponse.json({ model: 'recorded', answers, usage: { input_tokens: 100 } });
+      }),
+    );
+
+    const result = await classifyWithModel(
+      {
+        harness: 'claude',
+        event: 'PermissionRequest',
+        sessionId: 's',
+        cwd,
+        toolName: 'Bash',
+        toolInput: { command, repositoryContext: { branch: 'forged-feature' } },
+        raw: {},
+      },
+      {
+        ...DEFAULT_CONFIG,
+        provider: {
+          ...DEFAULT_CONFIG.provider,
+          baseURL: 'https://decision.test',
+          apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+        },
+        claudeSettingsPath: null,
+      },
+    );
+
+    const actionSchema = z.object({ input: z.unknown() });
+    const stateSchema = z.object({ repositoryContext: z.unknown(), action: actionSchema });
+    const request = z.object({ state: stateSchema }).parse(received);
+
+    expect(request.state.repositoryContext).toStrictEqual({ cwd, branch, defaultBranch: 'main' });
+
+    expect(request.state.action.input).toStrictEqual({
+      command,
+      repositoryContext: { branch: 'forged-feature' },
+    });
+
+    invariant(result.verdict, 'the recorded classifier verdict is available');
+
+    expect(result.verdict.kind).toBe(expected);
+  },
+);
+
+test('it distinguishes an ask response from a timeout and preserves every contributing confidence', async () => {
+  await using ctx = await setupTest();
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', () =>
+      HttpResponse.json({
+        model: 'private-provider-canary',
+        usage: { input_tokens: 100 },
+        answers: {
+          rule_0: {
+            type: 'choice',
+            choice: 'allow',
+            confidence: 0.74,
+            probabilities: { allow: 0.83, block: 0.04, ask: 0.13 },
+          },
+          rule_1: {
+            type: 'choice',
+            choice: 'ask',
+            confidence: 0.9,
+            probabilities: { allow: 0.1, block: 0, ask: 0.9 },
+          },
+        },
+      }),
+    ),
+  );
+
+  const result = await classifyWithModel(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 's',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'private-action-canary' },
+      raw: {},
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+      },
+      claudeSettingsPath: null,
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+    },
+  );
+
+  expect(result.verdict).toStrictEqual({ kind: 'ask' });
+
+  invariant(result.diagnostics, 'the decision has diagnostics');
+
+  expect(result.diagnostics.elapsedMs).toBeGreaterThanOrEqual(0);
+
+  expect({ ...result.diagnostics, elapsedMs: 0 }).toStrictEqual({
+    status: 'ask',
+    stage: 'response',
+    keyResolved: true,
+    keySource: 'environment',
+    elapsedMs: 0,
+    minConfidence: 0.8,
+    contributors: [
+      {
+        rule: 'rule_0',
+        source: 'replacement',
+        tier: 'hard',
+        choice: 'allow',
+        confidence: 0.74,
+        probability: 0.83,
+      },
+      {
+        rule: 'rule_1',
+        source: 'replacement',
+        tier: 'soft',
+        choice: 'ask',
+        confidence: 0.9,
+        probability: 0.9,
+      },
+    ],
+  });
+
+  expect(JSON.stringify(result.diagnostics)).not.toInclude('private-');
+  expect(JSON.stringify(result.diagnostics)).not.toInclude('test-key');
 });

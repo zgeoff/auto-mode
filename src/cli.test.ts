@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
@@ -21,6 +21,8 @@ async function setupTest(): Promise<{ readonly dir: string; readonly env: NodeJS
     env: {
       ...process.env,
       XDG_CONFIG_HOME: dir,
+      XDG_STATE_HOME: dir,
+      AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
       CLAUDE_CONFIG_DIR: dir,
       TYPESAFE_API_KEY: 'cli-test-key',
       META_API_KEY: 'cli-test-meta-key',
@@ -395,4 +397,13 @@ test('it exits successfully on malformed classifier configuration without echoin
   expect(result.exitCode).toBe(0);
   expect(result.stdout.toString()).toBe('');
   expect(result.stderr.toString()).not.toInclude('private-test-value');
+
+  const diagnosticsText = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+
+  const records: unknown[] = diagnosticsText
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line) as unknown);
+
+  expect(records).toMatchObject([{ status: 'started' }, { status: 'failure', verdict: 'defer' }]);
 });

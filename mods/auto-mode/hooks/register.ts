@@ -72,13 +72,30 @@ export function register(on: ModOn, options: ModOptions): void {
   on('tool.check', async ($, e, next) => {
     const decided = await next(e);
 
-    if (decided.decision !== 'ask' || next.signal.aborted || context === null) {
+    const actionID =
+      e.tool_use_id !== undefined && /^call_[\da-f]{24,32}$/u.test(e.tool_use_id)
+        ? e.tool_use_id
+        : 'unavailable';
+
+    const logPrefix = `auto-mode action ${actionID}:`;
+
+    if (decided.decision !== 'ask') {
+      return decided;
+    }
+
+    if (next.signal.aborted || context === null) {
+      const status = next.signal.aborted ? 'cancelled' : 'missing session context';
+
+      $.ui.log(`${logPrefix} evaluation skipped; ${status}`, { to: 'debug' });
+
       return decided;
     }
 
     const timeoutMs = Math.min(8000, next.budget.remainingMs - 250);
 
     if (timeoutMs < 500) {
+      $.ui.log(`${logPrefix} evaluation skipped; insufficient budget`, { to: 'debug' });
+
       return decided;
     }
 
@@ -88,6 +105,8 @@ export function register(on: ModOn, options: ModOptions): void {
       const agentID = e.tool_use_id === undefined ? null : activeCalls.get(e.tool_use_id);
 
       if (e.tool_use_id !== undefined && agentID === undefined) {
+        $.ui.log(`${logPrefix} evaluation skipped; untracked tool call`, { to: 'debug' });
+
         return decided;
       }
 
@@ -110,10 +129,16 @@ export function register(on: ModOn, options: ModOptions): void {
       const childTimeoutMs = Math.min(timeoutMs, next.budget.remainingMs - 250);
 
       if (childTimeoutMs < 500) {
+        $.ui.log(`${logPrefix} evaluation skipped; insufficient subprocess budget`, {
+          to: 'debug',
+        });
+
         return decided;
       }
 
       const deadlineAt = Date.now() + childTimeoutMs - 500;
+
+      $.ui.log(`${logPrefix} evaluator invoked`, { to: 'debug' });
 
       const result = await $.process.run(
         [command, 'run', '--jev-only', '--evaluation-deadline', String(deadlineAt)],
@@ -143,11 +168,37 @@ export function register(on: ModOn, options: ModOptions): void {
       );
 
       if (result.exitCode !== 0 || result.isStdoutTruncated || next.signal.aborted) {
+        let status = 'nonzero exit';
+
+        if (next.signal.aborted) {
+          status = 'cancelled';
+        } else if (result.isStdoutTruncated) {
+          status = 'truncated verdict';
+        }
+
+        $.ui.log(`${logPrefix} manual approval retained; ${status}`, { to: 'debug' });
+
         return decided;
       }
 
-      return parseDecision(result.stdout) ?? decided;
-    } catch {
+      const verdict = parseDecision(result.stdout);
+
+      const message =
+        verdict === null
+          ? 'manual approval retained; no usable verdict; inspect action diagnostics'
+          : `evaluator verdict ${verdict.decision}`;
+
+      $.ui.log(`${logPrefix} ${message}`, { to: 'debug' });
+
+      return verdict ?? decided;
+    } catch (error) {
+      const status =
+        error instanceof Error && /aborted: still running after \d+ms$/u.test(error.message)
+          ? 'subprocess timeout'
+          : 'subprocess failure';
+
+      $.ui.log(`${logPrefix} manual approval retained; ${status}`, { to: 'debug' });
+
       return decided;
     }
   });

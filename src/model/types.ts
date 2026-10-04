@@ -14,6 +14,7 @@ export interface DecisionRequest {
     readonly rulesSource: 'shipped' | 'replacement';
     readonly configuredRules: ClaudeRules;
     readonly lastUserMessage: string | null;
+    readonly repositoryContext?: RepositoryContext;
     readonly taskContext?: DecisionContext;
     readonly action: {
       readonly tool: string;
@@ -34,6 +35,12 @@ export interface DecisionRequest {
   readonly rules: Readonly<Record<string, DecisionRule>>;
 }
 
+export interface RepositoryContext {
+  readonly cwd: string;
+  readonly branch: string | null;
+  readonly defaultBranch: string | null;
+}
+
 interface DecisionAnswer {
   readonly type: 'choice';
   readonly choice: 'allow' | 'block' | 'ask';
@@ -45,4 +52,21 @@ export interface DecisionResult {
   readonly model: string;
   readonly answers: Readonly<Record<string, DecisionAnswer>>;
   readonly inputTokens: number;
+}
+
+export interface DecisionDiagnostics {
+  readonly status: 'allow' | 'deny' | 'ask' | 'failure' | 'timeout' | 'cancelled';
+  readonly stage: 'credential' | 'evidence' | 'request' | 'response';
+  readonly keyResolved: boolean;
+  readonly keySource: 'environment' | 'command' | 'none';
+  readonly elapsedMs: number;
+  readonly minConfidence: number;
+  readonly contributors: readonly {
+    readonly rule: string;
+    readonly source: DecisionRule['source'];
+    readonly tier: DecisionRule['tier'];
+    readonly choice: DecisionAnswer['choice'];
+    readonly confidence: number;
+    readonly probability: number;
+  }[];
 }

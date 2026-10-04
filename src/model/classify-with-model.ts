@@ -9,11 +9,13 @@ import { buildUserMessage } from './build-request.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
 import { parseModelVerdict } from './parse-verdict.ts';
+import type { DecisionDiagnostics } from './types.ts';
 
 export interface ModelOutcome {
   readonly verdict: Verdict | null;
   readonly note: string;
   readonly unavailable?: boolean;
+  readonly diagnostics?: DecisionDiagnostics;
 }
 
 export async function classifyWithModel(

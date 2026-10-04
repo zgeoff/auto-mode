@@ -7,9 +7,12 @@ import { loadPolicy } from '../policy/load-policy.ts';
 import { readLastUserMessage } from '../transcript/read-last-user-message.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import type { ModelOutcome } from './classify-with-model.ts';
+import { collectDecisionContributors } from './collect-decision-contributors.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
+import { loadRepositoryContext } from './load-repository-context.ts';
 import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 import { sendDecision } from './send-decision.ts';
+import type { DecisionDiagnostics } from './types.ts';
 
 export async function classifyWithJev(
   payload: HookPayload,
@@ -18,6 +21,18 @@ export async function classifyWithJev(
 ): Promise<ModelOutcome> {
   const start = performance.now();
   let key: string | null = null;
+  let stage: DecisionDiagnostics['stage'] = 'credential';
+  const minConfidence = config.minConfidence ?? 0.8;
+  let keySource: DecisionDiagnostics['keySource'] = 'none';
+
+  const envKey =
+    config.provider.apiKeyEnv === undefined ? undefined : process.env[config.provider.apiKeyEnv];
+
+  if (envKey !== undefined && envKey !== '') {
+    keySource = 'environment';
+  } else if (config.provider.apiKeyCommand !== undefined && config.provider.apiKeyCommand !== '') {
+    keySource = 'command';
+  }
 
   try {
     key = await resolveApiKey(config.provider, options);
@@ -26,12 +41,17 @@ export async function classifyWithJev(
       throw new Error('no API key: set the configured environment variable or key command');
     }
 
+    stage = 'evidence';
+
     const directUserText =
       payload.decisionContext?.agentID === null
         ? (payload.decisionContext.lastDirectUserMessage?.text ?? null)
         : null;
 
-    const [policy, rules, lastUserMessage] = await Promise.all([
+    const command = payload.toolInput['command'] ?? payload.toolInput['cmd'];
+    const hasGitCommand = typeof command === 'string' && /\bgit\s/u.test(command);
+
+    const [policy, rules, lastUserMessage, repositoryContext] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
@@ -40,10 +60,19 @@ export async function classifyWithJev(
       payload.decisionContext === undefined
         ? readLastUserMessage(payload.transcriptPath)
         : Promise.resolve(directUserText),
+      hasGitCommand ? loadRepositoryContext(payload.cwd) : Promise.resolve(null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
-    const request = buildDecisionRequest(payload, policy, rules, lastUserMessage, rulesSource);
+
+    const request = buildDecisionRequest(
+      payload,
+      policy,
+      rules,
+      lastUserMessage,
+      rulesSource,
+      repositoryContext,
+    );
 
     const remainingMs =
       options.deadlineAt === undefined
@@ -59,12 +88,25 @@ export async function classifyWithJev(
       timeoutMs: Math.min(config.provider.timeoutMs, remainingMs),
     };
 
+    stage = 'request';
+
     const result = await sendDecision(provider, key, request, options.signal);
 
-    const verdict = pickDecisionVerdict(request, result, config.minConfidence ?? 0.8);
+    stage = 'response';
+
+    const verdict = pickDecisionVerdict(request, result, minConfidence);
 
     return {
       verdict,
+      diagnostics: {
+        status: verdict.kind,
+        stage,
+        keyResolved: true,
+        keySource,
+        elapsedMs: Math.round(performance.now() - start),
+        minConfidence,
+        contributors: collectDecisionContributors(request, result, verdict, minConfidence),
+      },
       note: formatClassifierNote(
         `${config.provider.model}: ${verdict.kind} (${Math.round(performance.now() - start)}ms, ${result.inputTokens} input tokens)`,
         key,
@@ -72,12 +114,19 @@ export async function classifyWithJev(
     };
   } catch (error) {
     let reason = 'classifier failed';
+    let status: DecisionDiagnostics['status'] = 'failure';
 
     if (options.signal?.aborted === true) {
       reason = 'evaluation cancelled';
+      status = 'cancelled';
     } else if (options.deadlineAt !== undefined && Date.now() >= options.deadlineAt) {
       reason = 'evaluation deadline expired';
+      status = 'timeout';
     } else if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        status = 'timeout';
+      }
+
       reason =
         error.name === 'AbortError'
           ? `timed out after ${config.provider.timeoutMs}ms`
@@ -93,6 +142,15 @@ export async function classifyWithJev(
           : null,
       note,
       unavailable: true,
+      diagnostics: {
+        status,
+        stage,
+        keyResolved: key !== null,
+        keySource,
+        elapsedMs: Math.round(performance.now() - start),
+        minConfidence,
+        contributors: [],
+      },
     };
   }
 }
