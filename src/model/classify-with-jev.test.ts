@@ -185,6 +185,14 @@ test.each(['defer', 'deny'] as const)(
 
     expect(outcome.unavailable).toBe(true);
 
+    expect(outcome.diagnostics).toMatchObject({
+      status: 'failure',
+      stage: 'request',
+      keyResolved: true,
+      keySource: 'environment',
+      contributors: [],
+    });
+
     const expected =
       onFailure === 'defer'
         ? null
@@ -513,6 +521,15 @@ test('it returns the configured denial before the outer cap after a slow helper 
   expect(result.verdict).toMatchObject({ kind: 'deny', rule: 'Classifier Unavailable' });
   expect(result.unavailable).toBe(true);
   expect(result.note).toInclude('evaluation deadline expired');
+
+  expect(result.diagnostics).toMatchObject({
+    status: 'timeout',
+    stage: 'request',
+    keyResolved: true,
+    keySource: 'command',
+    contributors: [],
+  });
+
   expect(performance.now() - started).toBeLessThan(8000);
 }, 10_000);
 
@@ -606,4 +623,123 @@ test('it evaluates child task context without reading parent consent on resume',
   expect(JSON.stringify(requests)).not.toInclude('PARENT_CONSENT_CANARY');
   expect(JSON.stringify(requests)).not.toInclude('INJECTED_PARENT_CONSENT');
   expect(JSON.stringify(requests)).toInclude('neither grants consent or clears a rule');
+});
+
+test('it separates missing credentials from a classifier ask without calling the service', async () => {
+  await using ctx = await setupTest();
+
+  const result = await classifyWithModel(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 's',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'git commit' },
+      raw: {},
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: { ...DEFAULT_CONFIG.provider, apiKeyEnv: undefined, apiKeyCommand: undefined },
+      claudeSettingsPath: null,
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+    },
+  );
+
+  expect(result.verdict).toBeNull();
+
+  expect(result.diagnostics).toMatchObject({
+    status: 'failure',
+    stage: 'credential',
+    keyResolved: false,
+    keySource: 'none',
+    contributors: [],
+  });
+});
+
+test('it distinguishes an ask response from a timeout and preserves every contributing confidence', async () => {
+  await using ctx = await setupTest();
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', () =>
+      HttpResponse.json({
+        model: 'private-provider-canary',
+        usage: { input_tokens: 100 },
+        answers: {
+          rule_0: {
+            type: 'choice',
+            choice: 'allow',
+            confidence: 0.74,
+            probabilities: { allow: 0.83, block: 0.04, ask: 0.13 },
+          },
+          rule_1: {
+            type: 'choice',
+            choice: 'ask',
+            confidence: 0.9,
+            probabilities: { allow: 0.1, block: 0, ask: 0.9 },
+          },
+        },
+      }),
+    ),
+  );
+
+  const result = await classifyWithModel(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 's',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'private-action-canary' },
+      raw: {},
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+      },
+      claudeSettingsPath: null,
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+    },
+  );
+
+  expect(result.verdict).toStrictEqual({ kind: 'ask' });
+
+  invariant(result.diagnostics, 'the decision has diagnostics');
+
+  expect(result.diagnostics.elapsedMs).toBeGreaterThanOrEqual(0);
+
+  expect({ ...result.diagnostics, elapsedMs: 0 }).toStrictEqual({
+    status: 'ask',
+    stage: 'response',
+    keyResolved: true,
+    keySource: 'environment',
+    elapsedMs: 0,
+    minConfidence: 0.8,
+    contributors: [
+      {
+        rule: 'rule_0',
+        source: 'replacement',
+        tier: 'hard',
+        choice: 'allow',
+        confidence: 0.74,
+        probability: 0.83,
+      },
+      {
+        rule: 'rule_1',
+        source: 'replacement',
+        tier: 'soft',
+        choice: 'ask',
+        confidence: 0.9,
+        probability: 0.9,
+      },
+    ],
+  });
+
+  expect(JSON.stringify(result.diagnostics)).not.toInclude('private-');
+  expect(JSON.stringify(result.diagnostics)).not.toInclude('test-key');
 });

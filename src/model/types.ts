@@ -46,3 +46,20 @@ export interface DecisionResult {
   readonly answers: Readonly<Record<string, DecisionAnswer>>;
   readonly inputTokens: number;
 }
+
+export interface DecisionDiagnostics {
+  readonly status: 'allow' | 'deny' | 'ask' | 'failure' | 'timeout' | 'cancelled';
+  readonly stage: 'credential' | 'evidence' | 'request' | 'response';
+  readonly keyResolved: boolean;
+  readonly keySource: 'environment' | 'command' | 'none';
+  readonly elapsedMs: number;
+  readonly minConfidence: number;
+  readonly contributors: readonly {
+    readonly rule: string;
+    readonly source: DecisionRule['source'];
+    readonly tier: DecisionRule['tier'];
+    readonly choice: DecisionAnswer['choice'];
+    readonly confidence: number;
+    readonly probability: number;
+  }[];
+}

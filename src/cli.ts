@@ -1,9 +1,11 @@
 #!/usr/bin/env node
+import { randomUUID } from 'node:crypto';
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { loadConfig, resolveConfigPath } from './config/config.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
+import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { parsePayload } from './harness/parse-payload.ts';
 import { renderVerdict } from './harness/render-verdict.ts';
 import type { HookEvent, Verdict } from './harness/types.ts';
@@ -60,11 +62,25 @@ async function run(
     return printNote(explain, 'not a tool gate this hook judges, so no verdict');
   }
 
-  const loaded = await loadConfig();
+  const invocationID = randomUUID();
+
+  await writeActionDiagnostic(payload, { invocationID, status: 'started' });
+
+  let loaded;
+
+  try {
+    loaded = await loadConfig();
+  } catch {
+    await writeActionDiagnostic(payload, { invocationID, status: 'failure', verdict: 'defer' });
+
+    return printNote(true, 'configuration unreadable; deferring to the harness');
+  }
 
   const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
 
   if (config === null) {
+    await writeActionDiagnostic(payload, { invocationID, status: 'failure', verdict: 'defer' });
+
     return printNote(true, 'Jev-only evaluation requires system-one; deferring to the harness');
   }
 
@@ -82,6 +98,12 @@ async function run(
         });
       }
 
+      await writeActionDiagnostic(payload, {
+        invocationID,
+        status: 'failure',
+        verdict: config.onFailure === 'deny' ? 'deny' : 'defer',
+      });
+
       return printNote(true, 'Claude settings unreadable; classifier unavailable');
     }
   }
@@ -94,10 +116,14 @@ async function run(
   if (local.kind === 'allow') {
     writeVerdict(payload.event, { kind: 'allow' });
 
+    await writeActionDiagnostic(payload, { invocationID, status: 'allow', verdict: 'allow' });
+
     return printNote(explain, `allowed by ${local.exception} (${payload.harness}, local)`);
   }
 
   if (localOnly) {
+    await writeActionDiagnostic(payload, { invocationID, status: 'skipped', verdict: 'defer' });
+
     return printNote(
       explain,
       `${payload.toolName} needs the model tier, which --local-only skipped`,
@@ -110,6 +136,8 @@ async function run(
     deadlineAt !== undefined &&
     (!jevOnly || !Number.isSafeInteger(deadlineAt) || deadlineAt <= 0)
   ) {
+    await writeActionDiagnostic(payload, { invocationID, status: 'failure', verdict: 'defer' });
+
     return printNote(true, 'invalid Jev evaluation deadline; deferring to the harness');
   }
 
@@ -133,6 +161,13 @@ async function run(
     if (outcome.verdict !== null) {
       writeVerdict(payload.event, outcome.verdict);
     }
+
+    await writeActionDiagnostic(payload, {
+      invocationID,
+      status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
+      verdict: outcome.verdict?.kind ?? 'defer',
+      ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
+    });
 
     return printNote(explain || outcome.unavailable === true, outcome.note);
   } finally {

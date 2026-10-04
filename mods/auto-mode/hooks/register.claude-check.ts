@@ -1014,3 +1014,69 @@ test('it reads the current directory between two calls without a new prompt', as
 
   expect(inputs).toMatchObject([{ cwd: '/first' }, { cwd: '/second' }]);
 });
+
+test('it records invocation and fallback without copying child output or failure text', async ($, on) => {
+  const logs: string[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push(e.text);
+
+    return { value: undefined };
+  });
+
+  on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => ({ decision: 'ask' }));
+
+  on('process.run', () => ({
+    value: {
+      exitCode: 0,
+      stdout: 'private-stdout-canary',
+      stderr: 'private-stderr-canary',
+      isStdoutTruncated: false,
+      isStderrTruncated: false,
+    },
+  }));
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ source: 'startup' });
+
+  const result = await $.tool.check({ tool: 'Bash', input: { command: 'private-action-canary' } });
+
+  expect(result).toStrictEqual({ decision: 'ask' });
+
+  expect(logs).toStrictEqual([
+    'auto-mode action unavailable: evaluator invoked',
+    'auto-mode action unavailable: manual approval retained; no usable verdict; inspect action diagnostics',
+  ]);
+});
+
+test('it identifies a subprocess failure without copying the exception', async ($, on) => {
+  const logs: string[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push(e.text);
+
+    return { value: undefined };
+  });
+
+  on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => ({ decision: 'ask' }));
+
+  on('process.run', () => {
+    throw new Error('private-exception-canary: aborted: still running after 8000ms');
+  });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ source: 'startup' });
+
+  const result = await $.tool.check({ tool: 'Bash', input: {} });
+
+  expect(result).toStrictEqual({ decision: 'ask' });
+
+  expect(logs).toStrictEqual([
+    'auto-mode action unavailable: evaluator invoked',
+    'auto-mode action unavailable: manual approval retained; subprocess failure',
+  ]);
+});

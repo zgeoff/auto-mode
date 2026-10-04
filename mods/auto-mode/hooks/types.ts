@@ -78,6 +78,10 @@ interface ModEvents {
     readonly result: { readonly value: ProcessResult };
   };
   readonly 'session.cwd': { readonly input: object; readonly result: { readonly value: string } };
+  readonly 'ui.log': {
+    readonly input: { readonly text: string; readonly to?: 'debug' | 'transcript' };
+    readonly result: object;
+  };
 }
 
 interface Next<E extends keyof ModEvents> {
@@ -86,7 +90,12 @@ interface Next<E extends keyof ModEvents> {
   readonly budget: { readonly remainingMs: number };
 }
 
+interface LogOptions {
+  readonly to: 'debug';
+}
+
 export interface ModAPI {
+  readonly ui: { readonly log: (text: string, options?: LogOptions) => void };
   readonly session: { readonly cwd: () => Promise<string> };
   readonly process: {
     readonly run: (argv: readonly string[], init?: ProcessInput['init']) => Promise<ProcessResult>;
