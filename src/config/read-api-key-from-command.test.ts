@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { watch } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
@@ -9,23 +9,46 @@ import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-key-command-'));
 
-  let watcher: ReturnType<typeof watch>;
+  let acceptReady: (value: string) => void;
 
-  const ready = new Promise<void>((resolve, reject) => {
-    watcher = watch(dir, (_event, filename) => {
-      if (filename === 'ready.json') {
-        resolve();
-      }
+  const ready = new Promise<string>((resolve) => {
+    acceptReady = resolve;
+  });
+
+  const server = createServer((socket) => {
+    let body = '';
+
+    socket.setEncoding('utf8');
+
+    socket.on('data', (chunk: string) => {
+      body += chunk;
     });
 
-    watcher.on('error', reject);
+    socket.on('end', () => {
+      acceptReady(body);
+
+      socket.end();
+    });
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.on('error', reject);
+    server.listen(join(dir, 'ready.sock'), resolve);
   });
 
   return {
     dir,
     ready,
     async [Symbol.asyncDispose]() {
-      watcher.close();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      });
 
       await rm(dir, { recursive: true, force: true });
     },
@@ -36,14 +59,13 @@ test('it stops a key helper and its child on cancellation', async () => {
   await using ctx = await setupTest();
 
   const helper = join(ctx.dir, 'helper.cjs');
-  const readyPath = join(ctx.dir, 'ready.json');
+  const readyPath = join(ctx.dir, 'ready.sock');
 
   await writeFile(
     helper,
-    `const fs = require('node:fs');
-const child = require('node:child_process').spawn('/bin/sh', ['-c', 'sleep 30'], {stdio:'ignore'});
-fs.writeFileSync('${readyPath}.tmp', JSON.stringify({helper:process.pid, child:child.pid}));
-fs.renameSync('${readyPath}.tmp', '${readyPath}');
+    `const child = require('node:child_process').spawn('/bin/sh', ['-c', 'sleep 30'], {stdio:'ignore'});
+const socket = require('node:net').connect('${readyPath}');
+socket.on('connect', () => socket.end(JSON.stringify({helper:process.pid, child:child.pid})));
 setTimeout(() => console.log('offline-test-key'), 30000);
 `,
   );
@@ -54,9 +76,7 @@ setTimeout(() => console.log('offline-test-key'), 30000);
     signal: controller.signal,
   });
 
-  await ctx.ready;
-
-  const readyJSON = await readFile(readyPath, 'utf8');
+  const readyJSON = await ctx.ready;
 
   const pidSchema = z.object({
     helper: z.number().int().positive(),
