@@ -50,6 +50,8 @@ export async function classifyWithJev(
 
     const command = payload.toolInput['command'] ?? payload.toolInput['cmd'];
     const hasGitCommand = typeof command === 'string' && /\bgit\s/u.test(command);
+    const isFileEdit = payload.toolName === 'Write' || payload.toolName === 'Edit';
+    const needsRepositoryContext = hasGitCommand || isFileEdit;
 
     const [policy, rules, lastUserMessage, repositoryContext] = await Promise.all([
       loadPolicy(
@@ -60,7 +62,7 @@ export async function classifyWithJev(
       payload.decisionContext === undefined
         ? readLastUserMessage(payload.transcriptPath)
         : Promise.resolve(directUserText),
-      hasGitCommand ? loadRepositoryContext(payload.cwd) : Promise.resolve(null),
+      needsRepositoryContext ? loadRepositoryContext(payload.cwd) : Promise.resolve(null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';

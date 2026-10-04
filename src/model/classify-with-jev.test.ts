@@ -794,6 +794,98 @@ test.each([
   },
 );
 
+test.each([
+  ['Write', null],
+  ['Edit', null],
+  ['Write', 'GIT_DIR'],
+  ['Edit', 'GIT_WORK_TREE'],
+  ['Write', 'GIT_COMMON_DIR'],
+] as const)(
+  'it supplies cwd references for %s with override %s without clearing a secret block',
+  async (toolName, override) => {
+    await using ctx = await setupTest();
+
+    const cwd = join(ctx.classifier, '..');
+    const gitDir = join(cwd, '.git');
+
+    await mkdir(join(gitDir, 'refs', 'remotes', 'origin'), { recursive: true });
+    await writeFile(join(gitDir, 'HEAD'), 'ref: refs/heads/feature\n');
+
+    await writeFile(
+      join(gitDir, 'refs', 'remotes', 'origin', 'HEAD'),
+      'ref: refs/remotes/origin/main\n',
+    );
+
+    if (override !== null) {
+      process.env[override] = '/another/repository';
+    }
+
+    let received: unknown;
+
+    server.use(
+      http.post('https://decision.test/v1/systemone', async (info) => {
+        received = await info.request.json();
+
+        return HttpResponse.json({
+          model: 'recorded',
+          usage: { input_tokens: 100 },
+          answers: {
+            rule_0: {
+              type: 'choice',
+              choice: 'block',
+              confidence: 1,
+              probabilities: { allow: 0, block: 1, ask: 0 },
+            },
+            rule_1: {
+              type: 'choice',
+              choice: 'allow',
+              confidence: 1,
+              probabilities: { allow: 1, block: 0, ask: 0 },
+            },
+          },
+        });
+      }),
+    );
+
+    const input = { file_path: join(cwd, 'test/fixture.ts'), new_string: 'sensitive material' };
+
+    const result = await classifyWithModel(
+      {
+        harness: 'claude',
+        event: 'PermissionRequest',
+        sessionId: 's',
+        cwd,
+        toolName,
+        toolInput: input,
+        raw: {},
+      },
+      {
+        ...DEFAULT_CONFIG,
+        provider: {
+          ...DEFAULT_CONFIG.provider,
+          baseURL: 'https://decision.test',
+          apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+        },
+        claudeSettingsPath: null,
+        classifierPath: ctx.classifier,
+        rulesPath: ctx.rules,
+      },
+    );
+
+    const request = z.object({ state: z.record(z.string(), z.unknown()) }).parse(received);
+
+    const expectedRepository =
+      override === null ? { cwd, branch: 'feature', defaultBranch: 'main' } : null;
+
+    expect(request.state['repositoryContext'] ?? null).toStrictEqual(expectedRepository);
+    expect(request.state['action']).toStrictEqual({ tool: toolName, cwd, input });
+
+    invariant(result.verdict, 'the classifier verdict is available');
+
+    expect(result.verdict.kind).toBe('deny');
+  },
+);
+
 test('it distinguishes an ask response from a timeout and preserves every contributing confidence', async () => {
   await using ctx = await setupTest();
 
