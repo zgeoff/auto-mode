@@ -41,6 +41,7 @@
     "build:agents": "bash scripts/build-agents-md.sh agents/shared.md agents/project.md AGENTS.md",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run deadcode && bun run test && bun run build && bun run check:artifact && bun run publint",
     "deadcode": "knip",
+    "eval:applicability": "bun --no-env-file scripts/run-applicability-evaluation.ts",
     "first-publish": "scripts/first-publish.sh",
     "format": "oxfmt . && format-codemod --quiet .",
     "format:check": "oxfmt --check . && format-codemod --check --quiet .",

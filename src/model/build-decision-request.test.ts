@@ -73,6 +73,138 @@ test('it gives each named rule a question with a manual approval option', () => 
   expect(question.instructions).toInclude('For hard blocks, ignore allow exceptions and consent');
 });
 
+test('it distinguishes an ordinary source edit from direct and delayed protected-branch Git writes', async () => {
+  const policy = await loadPolicy({}, 'decision.md');
+
+  const input = {
+    file_path: '/repo/src/shared/build-status.ts',
+    content: "export function buildStatus() { return 'ready'; }",
+  };
+
+  const repositoryContext = { cwd: '/repo', branch: 'feature', defaultBranch: 'main' };
+
+  const request = buildDecisionRequest(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 's',
+      cwd: '/repo',
+      toolName: 'Write',
+      toolInput: input,
+      raw: {},
+    },
+    policy,
+    { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+    'Maintain the sanitizer',
+    'shipped',
+    repositoryContext,
+  );
+
+  const ruleID = Object.entries(request.rules).find(
+    ([, rule]) => rule.name === 'Default Branch Write',
+  )?.[0];
+
+  invariant(ruleID !== undefined, 'the default-branch rule exists');
+
+  const question = request.questions[ruleID];
+
+  invariant(question, 'the default-branch question exists');
+
+  expect(request.state.action.input).toStrictEqual(input);
+  expect(request.state.repositoryContext).toStrictEqual(repositoryContext);
+
+  expect(question.instructions).toInclude(
+    'do not ask for branch consent for that edit or infer a later Git step from task context',
+  );
+
+  expect(question.instructions).toInclude('Written scripts retain their delayed Git effects');
+  expect(question.instructions).toInclude('main, master, trunk, and develop');
+});
+
+test.each(['Data Exfiltration', 'Secret Persistence'] as const)(
+  'it clarifies inert literals for shipped %s without a consent exception for real credentials',
+  async (name) => {
+    const policy = await loadPolicy({}, 'decision.md');
+
+    const request = buildDecisionRequest(
+      {
+        harness: 'claude',
+        event: 'PermissionRequest',
+        sessionId: 's',
+        cwd: '/repo',
+        toolName: 'Write',
+        toolInput: {
+          file_path: '/repo/test/sanitizer.test.ts',
+          content: "const fixture = 'EXAMPLE_ONLY_NOT_A_VALID_TOKEN';",
+        },
+        raw: {},
+      },
+      policy,
+      {
+        environment: [],
+        allow: ['All test fixtures are routine'],
+        soft_deny: [],
+        hard_deny: ['Never copy active credentials'],
+      },
+      'Add an inert sanitizer regression',
+      'shipped',
+    );
+
+    const ruleID = Object.entries(request.rules).find(([, rule]) => rule.name === name)?.[0];
+
+    invariant(ruleID !== undefined, 'the shipped hard rule exists');
+
+    const question = request.questions[ruleID];
+
+    invariant(question, 'the hard-rule question exists');
+
+    expect(question.instructions).toInclude(
+      'Decide from the supplied literal and data flow, not a secret-shaped prefix alone',
+    );
+
+    expect(question.instructions).toInclude(
+      'A test filename, a synthetic comment, or consent never clears material from a real credential source',
+    );
+
+    expect(question.instructions).toInclude(
+      'This rule has no hard-block false-positive clarification exception',
+    );
+
+    expect(request.questions['hard_deny_0']).toBeDefined();
+  },
+);
+
+test.each(['Data Exfiltration', 'Secret Persistence', 'Default Branch Write'] as const)(
+  'it preserves a stricter replacement %s rule without the shipped applicability guidance',
+  (name) => {
+    const request = buildDecisionRequest(
+      {
+        harness: 'claude',
+        event: 'PermissionRequest',
+        sessionId: 's',
+        cwd: '/repo',
+        toolName: 'Write',
+        toolInput: {
+          file_path: '/repo/test/fixture.ts',
+          content: "const fixture = 'EXAMPLE_ONLY_NOT_A_VALID_TOKEN';",
+        },
+        raw: {},
+      },
+      `## HARD BLOCK rules\n### ${name}\nRefuse every edit to this protected fixture.`,
+      { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+      'Maintain tests',
+    );
+
+    const question = request.questions['rule_0'];
+
+    invariant(question, 'the replacement question exists');
+
+    expect(question.instructions).not.toInclude('Identify actual sensitive material');
+    expect(question.instructions).not.toInclude('First determine whether the pending action');
+    expect(question.instructions).toInclude('Refuse every edit to this protected fixture');
+  },
+);
+
 test('it uses evaluator branch evidence and keeps a forged branch in action input separate', async () => {
   const policy = await loadPolicy({}, 'decision.md');
 
