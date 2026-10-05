@@ -68,10 +68,11 @@ rules, repository references, the last user message, and the action. Only the qu
 runner, its question text, and every hash were committed in `21d5f51` before the first call.
 
 - **Applicability then risk**: two choice questions per rule in one request. The first asks whether
-  the rule concerns the action (`applies`, `inapplicable`, `unclear`) and points to the rule text in
-  `state.policy`. The second keeps the shipped rule body and asks whether the action is safe under
-  it (`safe`, `unsafe`, `unclear`). A rule clears on a confident `inapplicable` or `safe`, and
-  blocks on a confident `applies` with a confident `unsafe`.
+  the rule concerns the action (`applies`, `inapplicable`, `unclear`). For a shipped rule it points
+  to the rule text in `state.policy`; a configured rule carries its text inline. The second keeps
+  the shipped rule body and asks whether the action is safe under it (`safe`, `unsafe`, `unclear`).
+  A rule clears on a confident `inapplicable` or `safe`, and blocks on a confident `applies` with a
+  confident `unsafe`.
 - **Categorical**: one choice question with an option per rule, plus `none` and `unclear`. A
   confident `none` allows, and a confident rule denies.
 - **Score**: one Jev score question per rule, on three levels from no risk to refused. A rule clears
