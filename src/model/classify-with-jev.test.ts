@@ -206,6 +206,7 @@ test.each(['defer', 'deny'] as const)(
       stage: 'request',
       keyResolved: true,
       keySource: 'environment',
+      failureReason: 'http-status',
       contributors: [],
     });
 
@@ -946,6 +947,7 @@ test('it distinguishes an ask response from a timeout and preserves every contri
     stage: 'response',
     keyResolved: true,
     keySource: 'environment',
+    failureReason: null,
     elapsedMs: 0,
     minConfidence: 0.8,
     contributors: [
@@ -970,4 +972,144 @@ test('it distinguishes an ask response from a timeout and preserves every contri
 
   expect(JSON.stringify(result.diagnostics)).not.toInclude('private-');
   expect(JSON.stringify(result.diagnostics)).not.toInclude('test-key');
+});
+
+test('it sends a 249-line test Edit with the shipped policy and an operator-sized rule set', async () => {
+  await using ctx = await setupTest();
+
+  let bodyBytes = 0;
+
+  await writeFile(
+    ctx.settings,
+    JSON.stringify({
+      autoMode: {
+        environment: Array.from(
+          { length: 11 },
+          (_, index) => `Environment entry ${index}: ${'e'.repeat(220)}`,
+        ),
+        allow: Array.from({ length: 5 }, (_, index) => `Allow entry ${index}: ${'a'.repeat(220)}`),
+        soft_deny: Array.from(
+          { length: 4 },
+          (_, index) => `Soft deny entry ${index}: ${'d'.repeat(220)}`,
+        ),
+      },
+    }),
+  );
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', async (info) => {
+      const text = await info.request.text();
+
+      bodyBytes = Buffer.byteLength(text);
+
+      const questions = z
+        .object({ questions: z.record(z.string(), z.unknown()) })
+        .parse(JSON.parse(text)).questions;
+
+      return HttpResponse.json({
+        model: 'jev-1.13.0',
+        usage: { input_tokens: 1 },
+        answers: Object.fromEntries(
+          Object.keys(questions).map((id) => [
+            id,
+            {
+              type: 'choice',
+              choice: 'allow',
+              confidence: 1,
+              probabilities: { allow: 1, block: 0, ask: 0 },
+            },
+          ]),
+        ),
+      });
+    }),
+  );
+
+  const added = Array.from(
+    { length: 249 },
+    (_, index) =>
+      `  expect(renderRow(session, ${index})).toContain('\\u001B[90m│\\u001B[0m testsess  claude  model');`,
+  ).join('\n');
+
+  const result = await classifyWithModel(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 's',
+      cwd: '/repo',
+      toolName: 'Edit',
+      toolInput: {
+        file_path: '/repo/src/client/ui.test.ts',
+        old_string: "test('it renders the overlay', () => {\n",
+        new_string: `test('it renders the overlay', () => {\n${added}\n`,
+      },
+      raw: {},
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+      },
+      claudeSettingsPath: ctx.settings,
+    },
+  );
+
+  expect(result.verdict).toStrictEqual({ kind: 'allow' });
+  expect(bodyBytes).toBeGreaterThan(80_000);
+  expect(bodyBytes).toBeLessThan(100_000);
+});
+
+test('it defers an oversized Edit before any request and records only the failure reason', async () => {
+  await using ctx = await setupTest();
+
+  let requests = 0;
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', () => {
+      requests += 1;
+
+      return HttpResponse.text('unreachable', { status: 500 });
+    }),
+  );
+
+  const result = await classifyWithModel(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 's',
+      cwd: '/repo',
+      toolName: 'Edit',
+      toolInput: {
+        file_path: '/repo/src/client/ui.test.ts',
+        old_string: 'private-edit-canary',
+        new_string: `private-edit-canary${'x'.repeat(100_000)}`,
+      },
+      raw: {},
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+      },
+      claudeSettingsPath: null,
+      onFailure: 'defer',
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+    },
+  );
+
+  expect(result.verdict).toBeNull();
+  expect(requests).toBe(0);
+
+  expect(result.diagnostics).toMatchObject({
+    status: 'failure',
+    stage: 'request',
+    failureReason: 'request-too-large',
+    contributors: [],
+  });
+
+  expect(JSON.stringify(result.diagnostics)).not.toInclude('private-edit-canary');
 });

@@ -11,6 +11,7 @@ export interface DecisionRule {
 export interface DecisionRequest {
   readonly state: {
     readonly policy: string;
+    readonly answerGuidance: string;
     readonly rulesSource: 'shipped' | 'replacement';
     readonly configuredRules: ClaudeRules;
     readonly lastUserMessage: string | null;
@@ -54,11 +55,18 @@ export interface DecisionResult {
   readonly inputTokens: number;
 }
 
+export type DecisionFailureReason =
+  | 'request-too-large'
+  | 'network'
+  | 'http-status'
+  | 'invalid-response';
+
 export interface DecisionDiagnostics {
   readonly status: 'allow' | 'deny' | 'ask' | 'failure' | 'timeout' | 'cancelled';
   readonly stage: 'credential' | 'evidence' | 'request' | 'response';
   readonly keyResolved: boolean;
   readonly keySource: 'environment' | 'command' | 'none';
+  readonly failureReason: DecisionFailureReason | null;
   readonly elapsedMs: number;
   readonly minConfidence: number;
   readonly contributors: readonly {

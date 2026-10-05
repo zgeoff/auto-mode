@@ -8,6 +8,7 @@ import { readLastUserMessage } from '../transcript/read-last-user-message.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import type { ModelOutcome } from './classify-with-model.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
+import { DecisionRequestError } from './decision-request-error.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
 import { loadRepositoryContext } from './load-repository-context.ts';
 import { pickDecisionVerdict } from './pick-decision-verdict.ts';
@@ -105,6 +106,7 @@ export async function classifyWithJev(
         stage,
         keyResolved: true,
         keySource,
+        failureReason: null,
         elapsedMs: Math.round(performance.now() - start),
         minConfidence,
         contributors: collectDecisionContributors(request, result, verdict, minConfidence),
@@ -149,6 +151,7 @@ export async function classifyWithJev(
         stage,
         keyResolved: key !== null,
         keySource,
+        failureReason: error instanceof DecisionRequestError ? error.reason : null,
         elapsedMs: Math.round(performance.now() - start),
         minConfidence,
         contributors: [],
