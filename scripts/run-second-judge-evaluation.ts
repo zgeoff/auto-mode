@@ -30,7 +30,7 @@ import { loadPolicy } from '../src/policy/load-policy.ts';
 const SAMPLES = 3;
 const THRESHOLD = 0.8;
 
-// GEO-78 allows 1,000 requests per model family; two stages share each budget.
+// Two stages share a 1,000-request budget per model family.
 const MAX_REQUESTS_PER_STAGE = 500;
 const VARIANTS = ['baseline', 'guidance'] as const;
 
