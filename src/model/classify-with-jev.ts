@@ -107,6 +107,7 @@ export async function classifyWithJev(
         keyResolved: true,
         keySource,
         failureReason: null,
+        requestBytes: result.requestBytes,
         elapsedMs: Math.round(performance.now() - start),
         minConfidence,
         contributors: collectDecisionContributors(request, result, verdict, minConfidence),
@@ -127,14 +128,15 @@ export async function classifyWithJev(
       reason = 'evaluation deadline expired';
       status = 'timeout';
     } else if (error instanceof Error) {
-      if (error.name === 'AbortError') {
+      const isTimeout =
+        error.name === 'AbortError' ||
+        (error instanceof DecisionRequestError && error.reason === 'aborted');
+
+      if (isTimeout) {
         status = 'timeout';
       }
 
-      reason =
-        error.name === 'AbortError'
-          ? `timed out after ${config.provider.timeoutMs}ms`
-          : error.message;
+      reason = isTimeout ? `timed out after ${config.provider.timeoutMs}ms` : error.message;
     }
 
     const note = formatClassifierNote(`${config.provider.model} unavailable: ${reason}`, key);
@@ -152,6 +154,7 @@ export async function classifyWithJev(
         keyResolved: key !== null,
         keySource,
         failureReason: error instanceof DecisionRequestError ? error.reason : null,
+        requestBytes: error instanceof DecisionRequestError ? error.requestBytes : null,
         elapsedMs: Math.round(performance.now() - start),
         minConfidence,
         contributors: [],

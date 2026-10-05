@@ -27,6 +27,7 @@ test('it gives a hard block priority over a soft block and an uncertain answer',
     {
       model: 'jev-1.13.0',
       inputTokens: 100,
+      requestBytes: 0,
       answers: {
         soft: {
           type: 'choice',
@@ -89,6 +90,7 @@ test.each([
       {
         model: 'jev-1.13.0',
         inputTokens: 100,
+        requestBytes: 0,
         answers: {
           rule: {
             type: 'choice',

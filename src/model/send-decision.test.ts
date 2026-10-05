@@ -9,12 +9,16 @@ import { sendDecision } from './send-decision.ts';
 test('it authenticates a structured decision request and reads typed probabilities', async () => {
   const authorizations: string[] = [];
   let body: unknown;
+  let bodyBytes = 0;
 
   server.use(
     http.post('https://decision.test/v1/systemone', async (info) => {
       authorizations.push(info.request.headers.get('authorization') ?? '');
 
-      body = await info.request.json();
+      const text = await info.request.text();
+
+      bodyBytes = Buffer.byteLength(text);
+      body = JSON.parse(text);
 
       return HttpResponse.json({
         model: 'jev-1.13.0',
@@ -93,6 +97,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
       },
     },
     inputTokens: 100,
+    requestBytes: bodyBytes,
   });
 });
 
@@ -206,7 +211,7 @@ test.each([
   expect(rejection).toMatchObject({ reason: 'invalid-response' });
 });
 
-test('it aborts a request at its deadline', () => {
+test('it aborts a request at its deadline and reports the request size', async () => {
   server.use(
     http.post('https://decision.test/v1/systemone', async () => {
       await delay(100);
@@ -232,7 +237,13 @@ test('it aborts a request at its deadline', () => {
     },
   );
 
-  expect(response).rejects.toHaveProperty('name', 'AbortError');
+  const rejection: unknown = await response.catch((error: unknown) => error);
+
+  invariant(rejection instanceof DecisionRequestError, 'the deadline rejects with its reason');
+
+  expect(rejection.reason).toBe('aborted');
+  expect(rejection.requestBytes).toBeGreaterThan(0);
+  expect(rejection.cause).toHaveProperty('name', 'AbortError');
 });
 
 test('it refuses oversized input before a request without truncating it', async () => {

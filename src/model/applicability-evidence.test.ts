@@ -161,7 +161,13 @@ test('it reproduces every recorded verdict from valid full answer distributions 
         questions: {},
       };
 
-      const result: DecisionResult = { model: report.model, inputTokens: 0, answers };
+      const result: DecisionResult = {
+        model: report.model,
+        inputTokens: 0,
+        requestBytes: 0,
+        answers,
+      };
+
       const verdict = pickDecisionVerdict(request, result, report.threshold);
 
       expect(verdict.kind).toBe(record.status);

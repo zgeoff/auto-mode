@@ -15,12 +15,15 @@ identifies credential resolution, evidence preparation, the request, or a valida
 `keySource` and `keyResolved` show whether the environment or helper supplied a key. A request-stage
 failure does not prove that an HTTP request reached the provider. `failureReason` holds
 `request-too-large` when the serialized request exceeds 100,000 bytes and no call was made,
-`network` when the call did not complete, `http-status` for a non-success response, and
-`invalid-response` for a body that fails validation. It is `null` for other failures and for a
-completed decision. `contributors` records every answer that caused an ask, or the rule that caused
-a denial, with its choice, confidence, and selected probability. `minConfidence` records the
-unchanged threshold. The final `verdict` distinguishes a failure that defers from one that fails
-closed.
+`aborted` when the call or the response read was aborted, with `status` showing whether by the
+provider timeout, the evaluation deadline, or a cancellation, `network` when the call did not
+complete, `http-status` for a non-success response, and `invalid-response` for a body that fails
+validation. It is `null` for other failures and for a completed decision. `requestBytes` holds the
+UTF-8 size of the serialized request body whenever the body was built, including for the failures
+above; it is `null` when a failure came before the body. It records a size only, never content.
+`contributors` records every answer that caused an ask, or the rule that caused a denial, with its
+choice, confidence, and selected probability. `minConfidence` records the unchanged threshold. The
+final `verdict` distinguishes a failure that defers from one that fails closed.
 
 An ask on `PermissionRequest` writes no verdict to stdout. A completed record with status `ask`
 therefore proves a classifier ask even when the mod retains manual approval. A start without a final

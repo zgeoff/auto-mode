@@ -941,13 +941,15 @@ test('it distinguishes an ask response from a timeout and preserves every contri
   invariant(result.diagnostics, 'the decision has diagnostics');
 
   expect(result.diagnostics.elapsedMs).toBeGreaterThanOrEqual(0);
+  expect(result.diagnostics.requestBytes).toBeGreaterThan(0);
 
-  expect({ ...result.diagnostics, elapsedMs: 0 }).toStrictEqual({
+  expect({ ...result.diagnostics, elapsedMs: 0, requestBytes: 0 }).toStrictEqual({
     status: 'ask',
     stage: 'response',
     keyResolved: true,
     keySource: 'environment',
     failureReason: null,
+    requestBytes: 0,
     elapsedMs: 0,
     minConfidence: 0.8,
     contributors: [
@@ -1056,6 +1058,7 @@ test('it sends a 249-line test Edit with the shipped policy and an operator-size
   );
 
   expect(result.verdict).toStrictEqual({ kind: 'allow' });
+  expect(result.diagnostics?.requestBytes).toBe(bodyBytes);
   expect(bodyBytes).toBeGreaterThan(80_000);
   expect(bodyBytes).toBeLessThan(100_000);
 });
@@ -1111,5 +1114,58 @@ test('it defers an oversized Edit before any request and records only the failur
     contributors: [],
   });
 
+  invariant(result.diagnostics, 'the failure has diagnostics');
+
+  expect(result.diagnostics.requestBytes).toBeGreaterThan(100_000);
   expect(JSON.stringify(result.diagnostics)).not.toInclude('private-edit-canary');
+});
+
+test('it reports a provider timeout as a timeout with the request size', async () => {
+  await using ctx = await setupTest();
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', async () => {
+      await delay(200);
+
+      return HttpResponse.json({});
+    }),
+  );
+
+  const result = await classifyWithModel(
+    {
+      harness: 'claude',
+      event: 'PermissionRequest',
+      sessionId: 's',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'git push' },
+      raw: {},
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+        timeoutMs: 20,
+      },
+      claudeSettingsPath: null,
+      onFailure: 'defer',
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+    },
+  );
+
+  expect(result.verdict).toBeNull();
+  expect(result.note).toInclude('timed out after 20ms');
+
+  expect(result.diagnostics).toMatchObject({
+    status: 'timeout',
+    stage: 'request',
+    failureReason: 'aborted',
+  });
+
+  invariant(result.diagnostics, 'the timeout has diagnostics');
+
+  expect(result.diagnostics.requestBytes).toBeGreaterThan(0);
 });
