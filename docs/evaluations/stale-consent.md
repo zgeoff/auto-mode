@@ -77,6 +77,10 @@ mod keeps the previous direct message only for an origin other than composer, Re
 SDK. The transcript reader of the hook path also skips atc envelopes and keeps the earlier direct
 message.
 
+The count of 12 is the number of decision calls the script made. The client does not retry, but its
+`fetch` follows HTTP redirects by default, and the run did not count network attempts. A redirect
+would have sent a further HTTP request that this count does not include.
+
 ## Repeat the evaluation
 
 The script needs an explicit `--live` flag and never runs through tests or CI. Without `--live`, it
