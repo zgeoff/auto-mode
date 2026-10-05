@@ -28,6 +28,7 @@ async function main(): Promise<void> {
       'max-requests': { type: 'string', default: '112' },
       'max-failures': { type: 'string', default: '3' },
       seed: { type: 'string' },
+      resume: { type: 'string' },
     },
   });
 
@@ -178,17 +179,26 @@ async function main(): Promise<void> {
 
   invariant(runs.length <= maxRequests, 'The plan exceeds the request budget.');
 
+  const previous =
+    args.values.resume === undefined ? null : await loadPreviousReport(args.values.resume, freeze);
+
+  const records: EvaluationRecord[] = previous === null ? [] : [...previous.records];
+  let sent = previous === null ? 0 : previous.requestsSent;
+  let failures = 0;
+
+  const completed = new Set(
+    records
+      .filter((record) => record.allowScore !== undefined)
+      .map((record) => `${record.id}:${record.shape}:${String(record.sample)}`),
+  );
+
   const key = isLive ? await resolveApiKey(config.provider) : null;
 
   invariant(!isLive || key !== null, 'The configured evaluation credential is unavailable.');
 
-  const records: EvaluationRecord[] = [];
-  let sent = 0;
-  let failures = 0;
-
   const writeReport = async (): Promise<void> => {
     const report = {
-      freeze,
+      freeze: { ...freeze, resumedFrom: previous?.origin ?? null },
       requestsSent: sent,
       failures,
       summary: buildSummary(corpus.cases, shapes, records),
@@ -199,6 +209,10 @@ async function main(): Promise<void> {
   };
 
   for (const plan of runs) {
+    if (completed.has(`${plan.entry.id}:${plan.shape}:${String(plan.sample)}`)) {
+      continue;
+    }
+
     const requestBytes = Buffer.byteLength(plan.body);
 
     const base = {
@@ -242,7 +256,15 @@ async function main(): Promise<void> {
     if (outcome.kind === 'failure') {
       failures += 1;
 
-      records.push({ ...base, status: 'failure', reason: outcome.reason, sentAt, elapsedMs });
+      records.push({
+        ...base,
+        status: 'failure',
+        reason: outcome.reason,
+        detail: outcome.detail ?? null,
+        sentAt,
+        elapsedMs,
+      });
+
       console.log(JSON.stringify({ id: plan.entry.id, shape: plan.shape, status: 'failure' }));
       continue;
     }
@@ -276,6 +298,65 @@ async function main(): Promise<void> {
 }
 
 const TIMEOUT_MS = 30_000;
+
+const FROZEN_FIELDS = [
+  'model',
+  'corpus',
+  'shapes',
+  'samplesPerCase',
+  'seed',
+  'policyHash',
+  'configuredRulesHash',
+  'corpusHash',
+  'questionHashes',
+] as const;
+
+async function loadPreviousReport(
+  path: string,
+  freeze: Readonly<Record<(typeof FROZEN_FIELDS)[number], unknown>>,
+): Promise<{
+  readonly records: readonly EvaluationRecord[];
+  readonly requestsSent: number;
+  readonly origin: Readonly<Record<string, unknown>>;
+}> {
+  const text = await readFile(path, 'utf8');
+
+  const recordSchema = z.looseObject({
+    id: z.string(),
+    severity: z.enum(SEVERITIES),
+    shape: z.enum(SHAPES),
+    sample: z.number().int().nonnegative(),
+    status: z.string(),
+    allowScore: z.number().optional(),
+    heldBy: z.string().nullable().optional(),
+  });
+
+  const reportSchema = z.object({
+    freeze: z.record(z.string(), z.unknown()),
+    requestsSent: z.number().int().nonnegative(),
+    records: z.array(recordSchema),
+  });
+
+  const report = reportSchema.parse(JSON.parse(text));
+
+  for (const field of FROZEN_FIELDS) {
+    invariant(
+      JSON.stringify(report.freeze[field]) === JSON.stringify(freeze[field]),
+      `A resumed run keeps the frozen ${field}.`,
+    );
+  }
+
+  return {
+    records: report.records.filter((record) => record.status !== 'not-sent'),
+    requestsSent: report.requestsSent,
+    origin: {
+      reportHash: toHash(text),
+      window: report.freeze['window'],
+      resumedFrom: report.freeze['resumedFrom'] ?? null,
+      requestsSent: report.requestsSent,
+    },
+  };
+}
 
 type Shape = (typeof SHAPES)[number];
 
@@ -339,7 +420,7 @@ type ShapeOutcome =
       readonly inputTokens: number | null;
       readonly answers: Readonly<Record<string, ShapeAnswer>>;
     }
-  | { readonly kind: 'failure'; readonly reason: string };
+  | { readonly kind: 'failure'; readonly reason: string; readonly detail?: unknown };
 
 async function sendShapeRequest(
   baseURL: string,
@@ -380,8 +461,14 @@ async function sendShapeRequest(
       })
       .safeParse(responseBody);
 
-    if (!parsed.success || !isCompleteAnswerSet(questions, parsed.data.answers)) {
-      return { kind: 'failure', reason: 'invalid-response' };
+    if (!parsed.success) {
+      return { kind: 'failure', reason: 'invalid-response', detail: parsed.error.issues };
+    }
+
+    // Jev answers hold only probabilities, so keeping a rejected set costs nothing
+    // and is the only evidence of why it failed.
+    if (!isCompleteAnswerSet(questions, parsed.data.answers)) {
+      return { kind: 'failure', reason: 'invalid-response', detail: parsed.data.answers };
     }
 
     return {
@@ -559,9 +646,10 @@ interface EvaluationRecord {
   readonly id: string;
   readonly severity: (typeof SEVERITIES)[number];
   readonly shape: Shape;
+  readonly sample: number;
   readonly status: string;
-  readonly allowScore?: number;
-  readonly heldBy?: string | null;
+  readonly allowScore?: number | undefined;
+  readonly heldBy?: string | null | undefined;
   readonly [field: string]: unknown;
 }
 
