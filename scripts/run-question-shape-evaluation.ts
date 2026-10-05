@@ -184,6 +184,7 @@ async function main(): Promise<void> {
 
   const records: EvaluationRecord[] = previous === null ? [] : [...previous.records];
   let sent = previous === null ? 0 : previous.requestsSent;
+  const priorFailures = records.filter((record) => record.status === 'failure').length;
   let failures = 0;
 
   const completed = new Set(
@@ -200,7 +201,8 @@ async function main(): Promise<void> {
     const report = {
       freeze: { ...freeze, resumedFrom: previous?.origin ?? null },
       requestsSent: sent,
-      failures,
+      failures: priorFailures + failures,
+      failuresThisRun: failures,
       summary: buildSummary(corpus.cases, shapes, records),
       records,
     };
