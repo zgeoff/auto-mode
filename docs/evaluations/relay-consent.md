@@ -125,9 +125,11 @@ rate.
 Two results limit what this table can decide:
 
 1. **No risky cell reached allow, including current consent.** Current consent gave ask in 60 of 60
-   samples. Its gating rule chose allow, but other rules held the ask: Unnamed Destination on every
-   PR and comment sample, and Data Exfiltration on 18 of 20 push samples. With a current-consent
-   allow rate of 0, legitimate-consent loss is 0 for every handling and does not separate them.
+   samples. On the PRs and comments, its gating rule chose allow in all 40 samples, and Unnamed
+   Destination held the ask in every one. On the pushes, Default Branch Write itself chose block in
+   17 of 20 samples, below the deny threshold, and Data Exfiltration held the ask in 18. With a
+   current-consent allow rate of 0, legitimate-consent loss is 0 for every handling and does not
+   separate them.
 2. **The safe actions did not allow without a message.** The `absent` safe cell gave ask in 20 of 20
    samples, held by Data Exfiltration, while the gating rule was a confident allow in all 20. Under
    keep, a stale message, even an unrelated request, let 13 of 39 safe samples allow. Mark and drop
@@ -183,9 +185,10 @@ significance, and the absence of a false allow here does not show that none can 
 - **Drop** removes the carryover, but it also removes the refusal: a stale refusal became a deny in
   19 of 60 samples, against 60 of 60 under keep.
 - **Mark** removed the carryover as fully as drop did in this sample, with no confident gating allow
-  on any stale cell. It kept 51 of 60 refusals at deny. Its cost on the safe actions equals drop's,
-  and the safe-action asks come from Data Exfiltration, which a message did not settle under mark
-  either.
+  on any risky stale cell. On the safe actions, where an allow is expected, the gating rule stayed a
+  confident allow in 27 of 40 marked samples. Mark kept 51 of 60 refusals at deny. Its cost on the
+  safe actions equals drop's: Data Exfiltration held the ask in every marked safe sample, and a
+  marked message did not settle it.
 
 ## Limits
 

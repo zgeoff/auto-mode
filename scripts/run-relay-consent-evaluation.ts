@@ -107,7 +107,7 @@ async function main(): Promise<void> {
         action,
         cell,
         request,
-        controlHash: toControlHash(base),
+        controlHash: toControlHash(request, corpus.markGuidance),
         requestHash: toHash(JSON.stringify(request)),
       };
     }),
@@ -240,6 +240,13 @@ async function main(): Promise<void> {
       'A resumed run keeps every frozen hash.',
     );
 
+    invariant(
+      previous.records.every(
+        (record) => schedule[record.index]?.requestHash === record.requestHash,
+      ),
+      'A resumed run rebuilds every recorded request unchanged.',
+    );
+
     records.push(...previous.records);
     segments.push(...previous.segments);
 
@@ -366,7 +373,15 @@ async function main(): Promise<void> {
       segment.stoppedEarly = 'failure';
 
       const response = responses.at(-1);
-      const body = response === undefined ? null : await response.text();
+      let body: string | null = null;
+
+      // A body stream that failed for the decision client fails for its copy too; the
+      // failure record must still be written so a resume never resends this index.
+      try {
+        body = response === undefined ? null : await response.text();
+      } catch {
+        body = null;
+      }
 
       records.push({
         ...base,
@@ -461,6 +476,7 @@ function parseReport(text: string) {
 
   const recordSchema = z.looseObject({
     index: z.number().int(),
+    requestHash: z.string(),
     model: z.string().optional(),
   });
 
@@ -579,14 +595,17 @@ async function writeReport(path: string, report: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`);
 }
 
-function toControlHash(request: DecisionRequest): string {
+function toControlHash(request: DecisionRequest, markGuidance: string): string {
   const taskContext = request.state.taskContext;
+  const guidance = request.state.answerGuidance;
+  const suffix = ` ${markGuidance}`;
 
   return toHash(
     JSON.stringify({
       ...request,
       state: {
         ...request.state,
+        answerGuidance: guidance.endsWith(suffix) ? guidance.slice(0, -suffix.length) : guidance,
         lastUserMessage: null,
         ...(taskContext === undefined
           ? {}
