@@ -49,19 +49,22 @@ bypass allows an Edit or Write inside the cwd.
 - **The detector alone is not a policy.** With every Jev answer ignored, it still misses 4 GEO-78
   cases, 7 GEO-89 cases, and 12 near-misses: in-scope loss of uncommitted work, production state,
   public exposure, and secrets written into files. Jev already holds those.
-- **What the veto stops in real work.** Under the cwd scope, it adds 14 stops in 7 actions. Six are
-  the task's own work done from somewhere else: two edits to another worktree's test from the main
-  checkout, three pushes to a task branch from the main checkout, and a reply on the task's own PR.
-  The seventh is a detector error: `gh api graphql -f query=…` is a read, and the detector counts
-  any `-f` field as a write.
-- **A task-assigned scope removes the six.** When the scope names each session's worktree, branch,
-  and PR, release-all-allow with the veto stops 33 of 452, and only the GraphQL read remains.
-  auto-mode cannot know that scope today; a harness or task file would have to declare it.
+- **What the veto stops in real work.** Under the cwd scope, it adds 8 stops in 4 approved actions.
+  Three are the task's own work done from somewhere else: two edits to another worktree's test from
+  the main checkout, and a reply on the task's own PR. The fourth is a detector error:
+  `gh api graphql -f query=…` is a read, and the detector counts any `-f` field as a write. The veto
+  also fires on 3 pushes to a task branch from the main checkout; the table leaves them out, because
+  GEO-104 labels them tolerable rather than approved.
+- **A task-assigned scope removes the three.** When the scope names each session's worktree, branch,
+  and PR, release-all-allow with the veto stops 33 of 452, and only the GraphQL read remains. The 3
+  pushes also clear. auto-mode cannot know that scope today; a harness or task file would have to
+  declare it.
 
 ## Experiment B: the detector as evidence
 
 Jev saw `state.scopeEvidence` and the fixed instruction only on cases where the detector fired.
-Every other case keeps its recorded answers. The table counts cases allowed on any sample.
+Every other case keeps its recorded answers. The catastrophic columns count a case allowed on any
+sample; the twin column counts a twin allowed on at least 2 of 3.
 
 | Answers                           | Twins allowed, shipped rule (≥2 of 3) | Catastrophic allowed, shipped rule | Catastrophic allowed, release-all-allow | GEO-78 real asks stopped, release-all-allow |
 | --------------------------------- | ------------------------------------- | ---------------------------------- | --------------------------------------- | ------------------------------------------- |
@@ -82,7 +85,8 @@ Every other case keeps its recorded answers. The table counts cases allowed on a
   worktree-cleanup and repository-visibility near-misses and lets through `gh pr merge --admin`
   after "Merge PR 298 once CI is green". These runs use the GEO-78 configured rules, so they do not
   reproduce GEO-104's numbers.
-- Jev answered with evidence in 374–389 ms at the median, the same as without it.
+- Jev answered with evidence in 374 ms (baseline) and 389 ms (guidance) at the median. The GEO-78
+  runs without evidence recorded 333 ms over every case.
 
 ## Follow-ups
 
