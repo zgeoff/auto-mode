@@ -371,7 +371,14 @@ async function printSummary(root: string, corpus: SecondJudgeCorpus): Promise<vo
       if (existsSync(path)) {
         const text = await readFile(path, 'utf8');
 
-        judges.push(judgeReportSchema.parse(JSON.parse(text)));
+        const judge = judgeReportSchema.parse(JSON.parse(text));
+
+        invariant(
+          judge.corpusHash === corpus.corpusHash,
+          `judge-${preset}.json is for another corpus.`,
+        );
+
+        judges.push(judge);
       }
     }
 
