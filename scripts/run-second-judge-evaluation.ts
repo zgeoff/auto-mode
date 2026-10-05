@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -357,6 +357,8 @@ async function runJudgeStage(
       );
     }
   }
+
+  await rm(workDir, { recursive: true, force: true });
 }
 
 async function printSummary(root: string, corpus: SecondJudgeCorpus): Promise<void> {
