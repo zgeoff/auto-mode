@@ -287,78 +287,80 @@ async function runJudgeStage(
   const system = await loadPolicy({}, 'classifier.md');
   const workDir = await mkdtemp(join(tmpdir(), 'second-judge-'));
 
-  const systemPath = join(workDir, 'system.md');
+  try {
+    const systemPath = join(workDir, 'system.md');
 
-  await writeFile(systemPath, system);
+    await writeFile(systemPath, system);
 
-  const records: JudgeReport['records'][number][] = [];
+    const records: JudgeReport['records'][number][] = [];
 
-  const header = {
-    preset: viaClaudeCode ? 'claude-code' : presetName,
-    model: viaClaudeCode ? `${provider.model} via claude -p` : provider.model,
-    samplesPerCase: SAMPLES,
-    policyHash: toHash(system),
-    corpusHash: corpus.corpusHash,
-    eligibleFrom: jevReports.map((item) => item.variant),
-  } as const;
+    const header = {
+      preset: viaClaudeCode ? 'claude-code' : presetName,
+      model: viaClaudeCode ? `${provider.model} via claude -p` : provider.model,
+      samplesPerCase: SAMPLES,
+      policyHash: toHash(system),
+      corpusHash: corpus.corpusHash,
+      eligibleFrom: jevReports.map((item) => item.variant),
+    } as const;
 
-  for (let sample = 1; sample <= SAMPLES; sample += 1) {
-    for (const entry of cases) {
-      const user = buildUserMessage(
-        buildEvaluationPayload(entry),
-        [{ role: 'user', text: entry.lastUserMessage }],
-        provider.reasoning,
-      );
+    for (let sample = 1; sample <= SAMPLES; sample += 1) {
+      for (const entry of cases) {
+        const user = buildUserMessage(
+          buildEvaluationPayload(entry),
+          [{ role: 'user', text: entry.lastUserMessage }],
+          provider.reasoning,
+        );
 
-      const started = performance.now();
-      let record: JudgeReport['records'][number];
+        const started = performance.now();
+        let record: JudgeReport['records'][number];
 
-      try {
-        const reply =
-          key === null
-            ? await runClaudeCode(provider.model, systemPath, user, provider.timeoutMs, workDir)
-            : await sendMessage(provider, key, { system, user });
+        try {
+          const reply =
+            key === null
+              ? await runClaudeCode(provider.model, systemPath, user, provider.timeoutMs, workDir)
+              : await sendMessage(provider, key, { system, user });
 
-        const text = formatClassifierNote(reply.text, key);
-        const verdict = parseJudgeVerdict(text);
+          const text = formatClassifierNote(reply.text, key);
+          const verdict = parseJudgeVerdict(text);
 
-        record = {
-          case: entry.id,
-          sample,
-          verdict: verdict.kind,
-          rule: verdict.kind === 'block' ? verdict.rule : null,
-          failureReason: null,
-          elapsedMs: Math.round(performance.now() - started),
-          outputTokens: reply.outputTokens,
-          tail: text.slice(-600),
-        };
-      } catch (error) {
-        record = {
-          case: entry.id,
-          sample,
-          verdict: 'failure',
-          rule: null,
-          failureReason:
-            error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'request',
-          elapsedMs: Math.round(performance.now() - started),
-          outputTokens: null,
-          tail: null,
-        };
+          record = {
+            case: entry.id,
+            sample,
+            verdict: verdict.kind,
+            rule: verdict.kind === 'block' ? verdict.rule : null,
+            failureReason: null,
+            elapsedMs: Math.round(performance.now() - started),
+            outputTokens: reply.outputTokens,
+            tail: text.slice(-600),
+          };
+        } catch (error) {
+          record = {
+            case: entry.id,
+            sample,
+            verdict: 'failure',
+            rule: null,
+            failureReason:
+              error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'request',
+            elapsedMs: Math.round(performance.now() - started),
+            outputTokens: null,
+            tail: null,
+          };
+        }
+
+        records.push(record);
+
+        const report: JudgeReport = { ...header, requestsSent: records.length, records };
+
+        await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
+
+        console.log(
+          JSON.stringify({ preset: presetName, sample, case: entry.id, verdict: record.verdict }),
+        );
       }
-
-      records.push(record);
-
-      const report: JudgeReport = { ...header, requestsSent: records.length, records };
-
-      await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
-
-      console.log(
-        JSON.stringify({ preset: presetName, sample, case: entry.id, verdict: record.verdict }),
-      );
     }
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
   }
-
-  await rm(workDir, { recursive: true, force: true });
 }
 
 async function printSummary(root: string, corpus: SecondJudgeCorpus): Promise<void> {
