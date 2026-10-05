@@ -373,7 +373,7 @@ async function main(): Promise<void> {
         status: 'failure',
         failure: error instanceof DecisionRequestError ? error.reason : 'other',
         failureHTTPStatus: response?.status ?? null,
-        failureBody: body === null ? null : body.slice(0, 2048),
+        failureBody: body === null ? null : body.slice(0, 65_536),
         elapsedMs: Math.round(performance.now() - started),
         gating: null,
         answers: null,
