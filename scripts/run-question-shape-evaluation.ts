@@ -189,14 +189,16 @@ async function main(): Promise<void> {
 
     sent += 1;
 
+    const sentAt = new Date().toISOString();
+
     const started = performance.now();
 
-    const outcome = await sendShapeRequest(config.provider.baseURL, key, plan.body);
+    const outcome = await sendShapeRequest(config.provider.baseURL, key, plan.body, plan.questions);
 
     const elapsedMs = Math.round(performance.now() - started);
 
     if (outcome.kind === 'failure') {
-      records.push({ ...base, status: 'failure', reason: outcome.reason, elapsedMs });
+      records.push({ ...base, status: 'failure', reason: outcome.reason, sentAt, elapsedMs });
       console.log(JSON.stringify({ case: plan.entry.name, shape: plan.shape, status: 'failure' }));
       continue;
     }
@@ -208,6 +210,7 @@ async function main(): Promise<void> {
       model: outcome.model,
       status: verdict.kind,
       rule: verdict.rule,
+      sentAt,
       elapsedMs,
       answers: formatAnswers(plan.baseline.rules, outcome.answers),
     });
@@ -322,6 +325,7 @@ const answerSchema = z.object({
 });
 
 interface ShapeAnswer {
+  readonly type: 'choice' | 'score';
   readonly choice?: string | undefined;
   readonly score?: number | undefined;
   readonly confidence: number;
@@ -336,7 +340,12 @@ type ShapeOutcome =
     }
   | { readonly kind: 'failure'; readonly reason: string };
 
-async function sendShapeRequest(baseURL: string, key: string, body: string): Promise<ShapeOutcome> {
+async function sendShapeRequest(
+  baseURL: string,
+  key: string,
+  body: string,
+  questions: Readonly<Record<string, ShapeQuestion>>,
+): Promise<ShapeOutcome> {
   const controller = new AbortController();
 
   const timer = setTimeout(() => {
@@ -349,6 +358,7 @@ async function sendShapeRequest(baseURL: string, key: string, body: string): Pro
       signal: controller.signal,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
       body,
+      redirect: 'error',
     });
 
     if (!response.ok) {
@@ -361,7 +371,7 @@ async function sendShapeRequest(baseURL: string, key: string, body: string): Pro
       .object({ model: z.string().min(1), answers: z.record(z.string(), answerSchema) })
       .safeParse(responseBody);
 
-    if (!parsed.success) {
+    if (!parsed.success || !isCompleteAnswerSet(questions, parsed.data.answers)) {
       return { kind: 'failure', reason: 'invalid-response' };
     }
 
@@ -374,6 +384,40 @@ async function sendShapeRequest(baseURL: string, key: string, body: string): Pro
   } finally {
     clearTimeout(timer);
   }
+}
+
+function isCompleteAnswerSet(
+  questions: Readonly<Record<string, ShapeQuestion>>,
+  answers: Readonly<Record<string, ShapeAnswer>>,
+): boolean {
+  if (Object.keys(answers).length !== Object.keys(questions).length) {
+    return false;
+  }
+
+  return Object.entries(questions).every(([id, question]) => {
+    const answer = answers[id];
+
+    const options =
+      question.type === 'choice'
+        ? Object.keys(question.criteria)
+        : question.criteria.map((_, index) => String(index));
+
+    if (answer === undefined || answer.type !== question.type) {
+      return false;
+    }
+
+    const distribution = Object.entries(answer.probabilities);
+    const total = distribution.reduce((sum, [, p]) => sum + p, 0);
+    const top = Math.max(...distribution.map(([, p]) => p));
+
+    return (
+      distribution.length === options.length &&
+      options.every((option) => option in answer.probabilities) &&
+      Math.abs(total - 1) <= 0.01 &&
+      (question.type === 'score' ||
+        (answer.choice !== undefined && answer.probabilities[answer.choice] === top))
+    );
+  });
 }
 
 type RuleOutcome = 'clear' | 'block' | 'ask';
