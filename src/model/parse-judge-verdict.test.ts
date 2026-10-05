@@ -16,6 +16,13 @@ test.each([
     '<block>no</block> then <block>yes</block>',
     { kind: 'block', rule: null },
   ],
+  ['an unclosed block after an allow', '<block>no</block>\n<block>yes', { kind: 'unreadable' }],
+  [
+    'a nested block after an allow',
+    '<block>no</block>\n<block><answer>yes</answer></block>',
+    { kind: 'unreadable' },
+  ],
+  ['a stray closing tag', '</block><block>no</block>', { kind: 'unreadable' }],
   ['a bare allow', '<block>no</block>', { kind: 'allow' }],
   [
     'reasoning that ends in an allow',

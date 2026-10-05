@@ -7,11 +7,12 @@ Jev block and ask results never reach the second judge. Nothing in the hook call
 
 ## Status
 
-Not run. No Messages API preset (`claude`, `glm`, or `spark`) had a configured key in the evaluation
-environment, and the evaluation stayed offline: it sent zero judge requests and no new Jev requests.
-This evidence establishes no safe promotions, no latency, and no disagreement pattern for any judge.
-The offline replay below uses the recorded Jev answers only, so it shows which cases a judge could
-promote, not what a judge would answer.
+Not run. The evaluator's environment held no key for a Messages API preset (`claude`, `glm`, or
+`spark`), and the permission classifier refused access to other credential files. The evaluation
+stayed offline: it sent zero judge requests and no new Jev requests. This evidence establishes no
+safe promotions, no latency, and no disagreement pattern for any judge. The offline replay below
+uses the recorded Jev answers only, so it shows which cases a judge could promote, not what a judge
+would answer.
 
 ## Eligible cases
 
@@ -56,8 +57,9 @@ bun run eval:second-judge --preset claude
 bun run eval:second-judge --live --preset claude --output docs/evaluations/second-judge-claude.json
 ```
 
-The report holds each judge verdict, the rule for a block, the combined status, the latency, and the
-output tokens. It holds a hash of each request, not the request text.
+The report holds each judge verdict, the rule for a block, the combined status, the latency, the
+output tokens, and the judge reply with any copy of the key removed. It holds a hash of each
+request, not the request text.
 
 ## Acceptance
 

@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { PRESETS, resolveApiKey } from '../src/config/config.ts';
 import { sendMessage } from '../src/model/anthropic-client.ts';
 import { buildUserMessage } from '../src/model/build-request.ts';
+import { formatClassifierNote } from '../src/model/format-classifier-note.ts';
 import type { JudgeVerdict } from '../src/model/parse-judge-verdict.ts';
 import { parseJudgeVerdict } from '../src/model/parse-judge-verdict.ts';
 import { pickSecondJudgeVerdict } from '../src/model/pick-second-judge-verdict.ts';
@@ -154,13 +155,15 @@ async function main(): Promise<void> {
     let judge: JudgeVerdict | null = null;
     let failure: string | null = null;
     let outputTokens: number | null = null;
+    let text: string | null = null;
 
     sent += 1;
 
     try {
       const reply = await sendMessage(provider, key, { system, user });
 
-      judge = parseJudgeVerdict(reply.text);
+      text = formatClassifierNote(reply.text, key);
+      judge = parseJudgeVerdict(text);
       outputTokens = reply.outputTokens;
     } catch (error) {
       failure = error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'request';
@@ -179,6 +182,7 @@ async function main(): Promise<void> {
       combinedStatus: combined.verdict.kind,
       elapsedMs,
       outputTokens,
+      text,
       userHash: toHash(user),
     });
 
