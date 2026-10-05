@@ -36,8 +36,9 @@ depends on where auto-mode is installed:
 | `PreToolUse` hook (the `init` default)                              | auto-mode judges the call first. Its deny blocks the call and its ask prompts. The entry decides only when auto-mode writes nothing, such as a failed call under `onFailure: "defer"`. |
 
 Under the first two installs, a bypass skips every rule, hard rules included. Data Exfiltration
-cannot match a call that auto-mode never receives. Give a bypass entry only to a command whose own
-effect stays on this machine and cannot send content anywhere.
+cannot match a call that auto-mode never receives. Give a bypass entry only to an exact command that
+only reads and runs no code the agent can change. An entry for a repository script fails that test:
+it bypasses every rule, hard rules included, for whatever the script holds when it runs.
 
 Claude Code matches a Bash rule against each subcommand of a chain, so `Bash(bun test)` does not
 approve `bun test && curl …`. A `*` in a rule matches any text, so an exact entry is narrower than a
@@ -67,8 +68,8 @@ behaviour rather than naming a rule.
 
 - **No entry** for reads. auto-mode's local tier already allows read-only tools, read-only shell
   commands, and reporting `git` subcommands.
-- **`permissions.allow`** for a local command that runs often and stays on this machine, such as the
-  repository's own test and type-check scripts.
+- **`permissions.allow`** for an exact read-only command that the local tier does not cover and that
+  runs often, such as `gh pr checks`. Each entry saves a model call per run.
 - **`autoMode.allow`** for routine work that a soft rule would otherwise stop, such as commenting on
   your own pull requests. The hard rules still check what the action sends.
 - **Neither** for an action that a hard rule covers. No entry makes Data Exfiltration, Secret
@@ -83,7 +84,7 @@ to these settings or to the hook that runs auto-mode can match Policy Tampering.
 ```json
 {
   "permissions": {
-    "allow": ["Bash(bun run test)", "Bash(bun run typecheck)", "Bash(bun run lint)"]
+    "allow": ["Bash(gh pr view)", "Bash(gh pr checks)", "Bash(gh run list)"]
   },
   "autoMode": {
     "allow": [
@@ -94,16 +95,18 @@ to these settings or to the hook that runs auto-mode can match Policy Tampering.
 }
 ```
 
-| Entry                     | Kind     | What it bypasses or decides                                                                                                                                                                                           |
-| ------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Bash(bun run test)`      | Bypass   | Under a `PermissionRequest` hook or the mod, every auto-mode rule for this exact command, and the model call it would cost. Under `PreToolUse`, nothing: auto-mode still judges the command.                          |
-| `Bash(bun run typecheck)` | Bypass   | The same, for the type check.                                                                                                                                                                                         |
-| `Bash(bun run lint)`      | Bypass   | The same, for the linter without its fix flag.                                                                                                                                                                        |
-| Pull request entry        | Decision | Can clear Outbound Communication for those three commands on `<owner>` repositories. Merging stays under Default Branch Write. A body or comment that carries a credential still matches Data Exfiltration.           |
-| `generated/` entry        | Decision | Can clear Irreversible Deletion for that one directory. Replace `generated/` with the build output your repository recreates; `dist`, `build`, and other common names already match the Regenerable output exception. |
+| Entry                | Kind     | What it bypasses or decides                                                                                                                                                                                           |
+| -------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Bash(gh pr view)`   | Bypass   | Under a `PermissionRequest` hook or the mod, every auto-mode rule for this exact command, and the model call it would cost. Under `PreToolUse`, nothing: auto-mode still judges the command.                          |
+| `Bash(gh pr checks)` | Bypass   | The same, for the check status of the current branch's pull request.                                                                                                                                                  |
+| `Bash(gh run list)`  | Bypass   | The same, for the list of recent workflow runs.                                                                                                                                                                       |
+| Pull request entry   | Decision | Can clear Outbound Communication for those three commands on `<owner>` repositories. Merging stays under Default Branch Write. A body or comment that carries a credential still matches Data Exfiltration.           |
+| `generated/` entry   | Decision | Can clear Irreversible Deletion for that one directory. Replace `generated/` with the build output your repository recreates; `dist`, `build`, and other common names already match the Regenerable output exception. |
 
-A bypass entry for a repository script trusts whatever the script holds when it runs. auto-mode does
-not judge that run, even after an agent has edited the script.
+Each bypass entry is an exact command that only reads pull request or workflow state, so no hard
+rule can match what it does. auto-mode's local tier does not allow `gh`, so each run that reaches
+auto-mode costs a model call. The guide suggests no entry for a test, build, or lint script, because
+such an entry hides whatever the script runs.
 
 None of these entries clears a hard rule, and this guide recommends no entry that would.
 
@@ -127,5 +130,7 @@ Prefer: Running bun run db:migrate against the local development database. This 
         printing, copying, or writing a credential, a token, or the contents of a key file.
 ```
 
-Keep an exclusion inside the allow entry it narrows. A separate `soft_deny` entry also works, but it
-sends every action to Jev, as described above.
+Keep an exclusion inside the allow entry it narrows. A separate `soft_deny` entry does not keep it:
+a configured allow entry can clear a configured `soft_deny` entry, so a broad allow entry can clear
+the restriction meant to narrow it. A `soft_deny` entry also sends every action to Jev, as described
+above.
