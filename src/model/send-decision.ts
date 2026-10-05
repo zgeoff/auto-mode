@@ -1,5 +1,6 @@
 import * as z from 'zod';
 import type { ProviderConfig } from '../config/config.ts';
+import { DecisionRequestError } from './decision-request-error.ts';
 import type { DecisionRequest, DecisionResult } from './types.ts';
 
 export async function sendDecision(
@@ -36,7 +37,8 @@ export async function sendDecision(
   }
 
   if (Buffer.byteLength(body) > 100_000) {
-    throw new Error(
+    throw new DecisionRequestError(
+      'request-too-large',
       'Decision input exceeds 100000 bytes; refusing to truncate the action or user message',
     );
   }
@@ -58,15 +60,28 @@ export async function sendDecision(
   }, provider.timeoutMs);
 
   try {
-    const response = await fetch(`${provider.baseURL.replace(/\/$/, '')}/v1/systemone`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-      body,
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(`${provider.baseURL.replace(/\/$/, '')}/v1/systemone`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+        body,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
+      }
+
+      throw new DecisionRequestError('network', 'Decision API request failed');
+    }
 
     if (!response.ok) {
-      throw new Error(`Decision API returned HTTP ${response.status}`);
+      throw new DecisionRequestError(
+        'http-status',
+        `Decision API returned HTTP ${response.status}`,
+      );
     }
 
     const probability = z.number().min(0).max(1);
@@ -88,27 +103,40 @@ export async function sendDecision(
 
     try {
       responseBody = await response.json();
-    } catch {
-      throw new Error('Decision API returned invalid JSON');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
+      }
+
+      throw new DecisionRequestError('invalid-response', 'Decision API returned invalid JSON');
     }
 
     const parsedResponse = schema.safeParse(responseBody);
 
     if (!parsedResponse.success) {
-      throw new Error('Decision API returned a malformed response');
+      throw new DecisionRequestError(
+        'invalid-response',
+        'Decision API returned a malformed response',
+      );
     }
 
     const parsed = parsedResponse.data;
 
     if (Object.keys(parsed.answers).length !== Object.keys(request.questions).length) {
-      throw new Error('Decision API returned an incomplete answer set');
+      throw new DecisionRequestError(
+        'invalid-response',
+        'Decision API returned an incomplete answer set',
+      );
     }
 
     for (const id of Object.keys(request.questions)) {
       const value = parsed.answers[id];
 
       if (value === undefined) {
-        throw new Error('Decision API omitted a requested answer');
+        throw new DecisionRequestError(
+          'invalid-response',
+          'Decision API omitted a requested answer',
+        );
       }
 
       const distribution = Object.values(value.probabilities);
@@ -117,7 +145,10 @@ export async function sendDecision(
         Math.abs(distribution.reduce((sum, p) => sum + p, 0) - 1) > 0.01 ||
         value.probabilities[value.choice] < Math.max(...distribution)
       ) {
-        throw new Error('Decision API returned invalid probabilities');
+        throw new DecisionRequestError(
+          'invalid-response',
+          'Decision API returned invalid probabilities',
+        );
       }
     }
 

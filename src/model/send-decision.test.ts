@@ -1,7 +1,9 @@
 import { expect, test } from 'bun:test';
 import { HttpResponse, delay, http } from 'msw';
+import invariant from 'tiny-invariant';
 import { server } from '../../mocks/node.ts';
 import { DEFAULT_CONFIG } from '../config/config.ts';
+import { DecisionRequestError } from './decision-request-error.ts';
 import { sendDecision } from './send-decision.ts';
 
 test('it authenticates a structured decision request and reads typed probabilities', async () => {
@@ -35,6 +37,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
     {
       state: {
         policy: 'policy',
+        answerGuidance: 'Apply the policy.',
         rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: 'fix the parser',
@@ -64,6 +67,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
     model: 'jev-1.13.0',
     state: {
       policy: 'policy',
+      answerGuidance: 'Apply the policy.',
       rulesSource: 'replacement',
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       lastUserMessage: 'fix the parser',
@@ -172,6 +176,7 @@ test.each([
     {
       state: {
         policy: 'policy',
+        answerGuidance: 'Apply the policy.',
         rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
@@ -195,7 +200,10 @@ test.each([
     },
   );
 
-  await expect(response).toReject();
+  const rejection: unknown = await response.catch((error: unknown) => error);
+
+  expect(rejection).toBeInstanceOf(DecisionRequestError);
+  expect(rejection).toMatchObject({ reason: 'invalid-response' });
 });
 
 test('it aborts a request at its deadline', () => {
@@ -213,6 +221,7 @@ test('it aborts a request at its deadline', () => {
     {
       state: {
         policy: 'policy',
+        answerGuidance: 'Apply the policy.',
         rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
@@ -233,6 +242,7 @@ test('it refuses oversized input before a request without truncating it', async 
     {
       state: {
         policy: 'policy',
+        answerGuidance: 'Apply the policy.',
         rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
@@ -247,7 +257,12 @@ test('it refuses oversized input before a request without truncating it', async 
     },
   );
 
-  await expect(response).toReject();
+  const rejection: unknown = await response.catch((error: unknown) => error);
+
+  invariant(rejection instanceof DecisionRequestError, 'the size guard rejects with its reason');
+
+  expect(rejection.reason).toBe('request-too-large');
+  expect(rejection.message).not.toInclude('remove the auth check');
 });
 
 test('it omits response bodies from HTTP errors', () => {
@@ -263,6 +278,7 @@ test('it omits response bodies from HTTP errors', () => {
     {
       state: {
         policy: 'policy',
+        answerGuidance: 'Apply the policy.',
         rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
@@ -289,6 +305,7 @@ test('it discards malformed JSON bodies instead of exposing credential fragments
     {
       state: {
         policy: 'policy',
+        answerGuidance: 'Apply the policy.',
         rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
@@ -318,6 +335,7 @@ test('it removes optional tasks to preserve a complete action near the request l
   await sendDecision({ ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' }, 'test-key', {
     state: {
       policy: 'complete policy',
+      answerGuidance: 'Apply the policy.',
       rulesSource: 'replacement',
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       lastUserMessage: 'Do not push',
@@ -337,6 +355,7 @@ test('it removes optional tasks to preserve a complete action near the request l
   expect(body).toMatchObject({
     state: {
       policy: 'complete policy',
+      answerGuidance: 'Apply the policy.',
       lastUserMessage: 'Do not push',
       action: { input: { content } },
       taskContext: {

@@ -151,6 +151,7 @@ test('it reproduces every recorded verdict from valid full answer distributions 
       const request: DecisionRequest = {
         state: {
           policy: '',
+          answerGuidance: 'Apply the policy.',
           rulesSource: 'shipped',
           configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
           lastUserMessage: null,

@@ -6,6 +6,7 @@ test('it gives a hard block priority over a soft block and an uncertain answer',
     {
       state: {
         policy: 'policy',
+        answerGuidance: 'Apply the policy.',
         rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: null,
@@ -69,6 +70,7 @@ test.each([
       {
         state: {
           policy: 'policy',
+          answerGuidance: 'Apply the policy.',
           rulesSource: 'replacement',
           configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
           lastUserMessage: null,

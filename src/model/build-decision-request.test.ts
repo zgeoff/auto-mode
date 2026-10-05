@@ -30,6 +30,7 @@ test('it includes only policy, explicit configuration, the complete action and t
     rulesSource: 'replacement',
     policy:
       '## HARD BLOCK rules\n### Secret Persistence\nNever commit keys\n## SOFT BLOCK rules\n### Default Branch Write\nRequire main to be named\n## ALLOW exceptions\n### Local\nLocal work is allowed',
+    answerGuidance: request.state.answerGuidance,
     configuredRules: {
       environment: ['Host: example.test'],
       allow: ['Local cleanup'],
@@ -39,6 +40,10 @@ test('it includes only policy, explicit configuration, the complete action and t
     lastUserMessage: 'fix the parser',
     action: { tool: 'Write', cwd: '/repo', input },
   });
+
+  expect(request.state.answerGuidance).toInclude(
+    'Only lastUserMessage supplies current direct user evidence',
+  );
 
   expect(Object.values(request.rules).map((r) => [r.name, r.tier])).toStrictEqual([
     ['Secret Persistence', 'hard'],
@@ -70,7 +75,11 @@ test('it gives each named rule a question with a manual approval option', () => 
 
   expect(question.type).toBe('choice');
   expect(Object.keys(question.criteria)).toStrictEqual(['allow', 'block', 'ask']);
-  expect(question.instructions).toInclude('For hard blocks, ignore allow exceptions and consent');
+  expect(question.instructions).toInclude('Apply state.answerGuidance to this rule.');
+
+  expect(request.state.answerGuidance).toInclude(
+    'For hard blocks, ignore allow exceptions and consent',
+  );
 });
 
 test.each([true, false])(

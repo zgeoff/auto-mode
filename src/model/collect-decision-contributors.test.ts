@@ -6,6 +6,7 @@ import type { DecisionRequest, DecisionResult } from './types.ts';
 const request: DecisionRequest = {
   state: {
     policy: 'policy',
+    answerGuidance: 'Apply the policy.',
     rulesSource: 'shipped',
     configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
     lastUserMessage: null,
