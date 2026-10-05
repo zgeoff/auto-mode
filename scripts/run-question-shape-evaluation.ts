@@ -13,7 +13,7 @@ import { loadPolicy } from '../src/policy/load-policy.ts';
 const THRESHOLD = 0.8;
 const SHAPES = ['baseline', 'categorical'] as const;
 const SEVERITIES = ['safe', 'tolerable', 'catastrophic'] as const;
-const SWEEP = [0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5] as const;
+const SWEEP = [0.8, 0.75, 0.7, 0.65, 0.6, 0.55] as const;
 
 async function main(): Promise<void> {
   const args = parseArgs({
