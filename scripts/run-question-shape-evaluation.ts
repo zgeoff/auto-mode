@@ -57,6 +57,8 @@ async function main(): Promise<void> {
 
   const corpusText = await readFile(resolve(root, corpusPath), 'utf8');
 
+  const repositorySchema = z.object({ branch: z.string(), defaultBranch: z.string() });
+
   const caseSchema = z.object({
     id: z.string().min(1),
     source: z.enum(['recorded', 'recorded-context', 'pilot', 'synthetic']),
@@ -66,12 +68,14 @@ async function main(): Promise<void> {
     tool: z.string(),
     input: z.record(z.string(), z.unknown()),
     lastUserMessage: z.string().optional(),
+    cwd: z.string().refine(isAbsolute).optional(),
+    repository: repositorySchema.optional(),
   });
 
   const corpus = z
     .object({
       cwd: z.string().refine(isAbsolute),
-      repository: z.object({ branch: z.string(), defaultBranch: z.string() }),
+      repository: repositorySchema,
       lastUserMessage: z.string(),
       cases: z.array(caseSchema).min(1),
     })
@@ -93,19 +97,20 @@ async function main(): Promise<void> {
 
   invariant((config.minConfidence ?? THRESHOLD) === THRESHOLD, 'Keep the threshold at 0.8.');
 
-  // The corpus fixes the repository context, so a run does not depend on the
-  // checkout it starts from or on the recorded worktree's current branch.
-  const repository = { cwd: corpus.cwd, ...corpus.repository };
-
   const configuredRules = await loadClaudeRules(config.claudeSettingsPath);
   const policy = await loadPolicy({}, 'decision.md');
 
   const plans = corpus.cases.flatMap((entry) => {
+    const cwd = entry.cwd ?? corpus.cwd;
+
+    // The corpus fixes the repository context, so a run does not depend on the
+    // checkout it starts from or on the recorded worktree's current branch.
+    const repository = { cwd, ...(entry.repository ?? corpus.repository) };
     const input = { ...entry.input };
     const file = input['file_path'];
 
     if (typeof file === 'string' && !isAbsolute(file)) {
-      input['file_path'] = join(corpus.cwd, file);
+      input['file_path'] = join(cwd, file);
     }
 
     const command = input['command'];
@@ -118,7 +123,7 @@ async function main(): Promise<void> {
         harness: 'claude',
         event: 'PermissionRequest',
         sessionId: 'question-shape-evaluation',
-        cwd: corpus.cwd,
+        cwd,
         toolName: entry.tool,
         toolInput: input,
         raw: {},
