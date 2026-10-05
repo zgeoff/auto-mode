@@ -95,6 +95,11 @@ sample; the twin column counts a twin allowed on at least 2 of 3.
 - Give consent for an out-of-scope target its own channel, such as a task scope that the user or
   harness declares and the hook reads. Neither Jev nor a fixed instruction supplied it here.
 - Read `gh api graphql` queries as reads unless they carry `mutation`.
+- Close the detector gaps that review found before any product use. It misses a quoted redirect
+  target, a redirect with a descriptor number (`2> path`), `cp`/`mv`/`ln -t`, a push URL that only
+  contains the repository name, and a PR number in another repository (`--repo`). It flags reads
+  through file tools, and it resolves `ssh-keygen -f ./key` against the home directory. No case in
+  the four corpora takes any of these forms, so no number above changes.
 
 ## Request counts
 
