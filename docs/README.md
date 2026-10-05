@@ -16,6 +16,8 @@ install and everyday use.
   one thing each does differently.
 - [Claude permission mod](./guides/claude-mod.md) — Jev decisions before the dialog, time limits,
   and a reversible session trial.
+- [Suggested allowlists](./guides/allowlists.md) — `permissions.allow` against `autoMode.allow`,
+  which entries bypass auto-mode, and how to write exclusions.
 - [Writing a policy](./guides/policy.md) — the rule tiers, the consent bar, and how to change or
   replace the shipped rules.
 
