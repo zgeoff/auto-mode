@@ -1,9 +1,13 @@
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { once } from 'node:events';
 import { existsSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
+import * as z from 'zod';
 import { PRESETS, loadConfig, resolveApiKey } from '../src/config/config.ts';
 import { buildEvaluationPayload } from '../src/evaluation/build-evaluation-payload.ts';
 import { buildEvaluationRequest } from '../src/evaluation/build-evaluation-request.ts';
@@ -36,6 +40,7 @@ async function main(): Promise<void> {
       stage: { type: 'string' },
       variant: { type: 'string' },
       preset: { type: 'string' },
+      transport: { type: 'string' },
       live: { type: 'boolean' },
       output: { type: 'string' },
     },
@@ -61,10 +66,18 @@ async function main(): Promise<void> {
   }
 
   if (stage === 'judge') {
+    const transport = args.values.transport ?? 'messages';
+
+    invariant(
+      transport === 'messages' || (transport === 'claude-code' && args.values.preset === 'claude'),
+      'Pass --transport claude-code only with --preset claude.',
+    );
+
     await runJudgeStage(
       root,
       corpus,
       args.values.preset,
+      transport === 'claude-code',
       args.values.live === true,
       args.values.output,
     );
@@ -222,6 +235,7 @@ async function runJudgeStage(
   root: string,
   corpus: SecondJudgeCorpus,
   presetName: string | undefined,
+  viaClaudeCode: boolean,
   live: boolean,
   output: string | undefined,
 ): Promise<void> {
@@ -263,17 +277,25 @@ async function runJudgeStage(
 
   invariant(output !== undefined, 'Pass --output <path> with --live.');
 
-  const key = await resolveApiKey(provider);
+  const key = viaClaudeCode ? null : await resolveApiKey(provider);
 
-  invariant(key !== null, `The ${presetName} preset has no configured key; no request was sent.`);
+  invariant(
+    viaClaudeCode || key !== null,
+    `The ${presetName} preset has no configured key; no request was sent.`,
+  );
 
   const system = await loadPolicy({}, 'classifier.md');
+  const workDir = await mkdtemp(join(tmpdir(), 'second-judge-'));
+
+  const systemPath = join(workDir, 'system.md');
+
+  await writeFile(systemPath, system);
 
   const records: JudgeReport['records'][number][] = [];
 
   const header = {
-    preset: presetName,
-    model: provider.model,
+    preset: viaClaudeCode ? 'claude-code' : presetName,
+    model: viaClaudeCode ? `${provider.model} via claude -p` : provider.model,
     samplesPerCase: SAMPLES,
     policyHash: toHash(system),
     corpusHash: corpus.corpusHash,
@@ -292,7 +314,10 @@ async function runJudgeStage(
       let record: JudgeReport['records'][number];
 
       try {
-        const reply = await sendMessage(provider, key, { system, user });
+        const reply =
+          key === null
+            ? await runClaudeCode(provider.model, systemPath, user, provider.timeoutMs, workDir)
+            : await sendMessage(provider, key, { system, user });
 
         const text = formatClassifierNote(reply.text, key);
         const verdict = parseJudgeVerdict(text);
@@ -340,7 +365,7 @@ async function printSummary(root: string, corpus: SecondJudgeCorpus): Promise<vo
   for (const jev of jevReports) {
     const judges: (JudgeReport | null)[] = [null];
 
-    for (const preset of Object.keys(PRESETS)) {
+    for (const preset of [...Object.keys(PRESETS), 'claude-code']) {
       const path = join(root, `docs/evaluations/second-judge/judge-${preset}.json`);
 
       if (existsSync(path)) {
@@ -365,6 +390,76 @@ async function printSummary(root: string, corpus: SecondJudgeCorpus): Promise<vo
       );
     }
   }
+}
+
+// The claude preset sends an API key the subscription login cannot supply, so
+// this transport runs the same system and user message through `claude -p`.
+async function runClaudeCode(
+  model: string,
+  systemPath: string,
+  user: string,
+  timeoutMs: number,
+  cwd: string,
+): Promise<{ text: string; outputTokens: number | null }> {
+  // The preset sends no thinking budget; Claude Code adds one by default,
+  // which took a hand-tested case from 11s to 47s, past the preset timeout.
+  const env = { ...process.env, MAX_THINKING_TOKENS: '0' };
+
+  const child = spawn(
+    'claude',
+    [
+      '-p',
+      '--model',
+      model,
+      '--system-prompt-file',
+      systemPath,
+      '--tools',
+      '',
+      '--strict-mcp-config',
+      '--setting-sources',
+      '',
+      '--no-session-persistence',
+      '--output-format',
+      'json',
+    ],
+    { cwd, env, stdio: ['pipe', 'pipe', 'ignore'] },
+  );
+
+  const chunks: Buffer[] = [];
+
+  child.stdout.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+
+  child.stdin.end(user);
+
+  const timer = setTimeout(() => {
+    child.kill('SIGKILL');
+  }, timeoutMs);
+
+  const closed = await once(child, 'close');
+
+  const exitCode = z.number().int().nullable().parse(closed[0]);
+
+  clearTimeout(timer);
+
+  if (exitCode === null) {
+    throw new DOMException('claude -p timed out', 'AbortError');
+  }
+
+  const body = z
+    .object({
+      is_error: z.boolean(),
+      result: z.string().optional(),
+      usage: z.object({ output_tokens: z.number().int() }).optional(),
+    })
+    .parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+
+  if (body.is_error || exitCode !== 0) {
+    throw new Error('claude -p failed');
+  }
+
+  return { text: body.result ?? '', outputTokens: body.usage?.output_tokens ?? null };
 }
 
 async function loadJevReports(root: string, corpus: SecondJudgeCorpus): Promise<JevReport[]> {
