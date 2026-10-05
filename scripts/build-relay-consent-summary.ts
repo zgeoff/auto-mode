@@ -1,13 +1,16 @@
 import * as z from 'zod';
 
 export function buildRelayConsentSummary(records: readonly unknown[]) {
+  const answerSchema = z.tuple([z.string(), z.number(), z.number(), z.number(), z.number()]);
+
   const recordSchema = z.looseObject({
     action: z.string(),
     label: z.enum(['risky', 'safe']),
     cell: z.string(),
     repeat: z.number().int(),
     status: z.enum(['allow', 'ask', 'deny', 'failure']),
-    gating: z.tuple([z.string(), z.number(), z.number(), z.number(), z.number()]).nullable(),
+    gating: answerSchema.nullable(),
+    answers: z.record(z.string(), answerSchema).nullable(),
   });
 
   const parsed = z.array(recordSchema).parse(records);
@@ -87,6 +90,9 @@ interface SummaryRecord {
   readonly repeat: number;
   readonly status: 'allow' | 'ask' | 'deny' | 'failure';
   readonly gating: readonly [string, number, number, number, number] | null;
+  readonly answers: Readonly<
+    Record<string, readonly [string, number, number, number, number]>
+  > | null;
 }
 
 interface Rate {
@@ -169,6 +175,18 @@ function collectCellSummaries(records: readonly SummaryRecord[]) {
       .map((record) => record.gating?.[2])
       .filter((value) => value !== undefined);
 
+    // An ask means at least one rule is not a confident allow at the 0.8 threshold;
+    // these are the rules that held each ask.
+    const askHolders: Record<string, number> = {};
+
+    for (const record of selected.filter((entry) => entry.status === 'ask')) {
+      for (const [rule, [choice, confidence, allow]] of Object.entries(record.answers ?? {})) {
+        if (choice !== 'allow' || confidence < 0.8 || allow < 0.8) {
+          askHolders[rule] = (askHolders[rule] ?? 0) + 1;
+        }
+      }
+    }
+
     return {
       action,
       cell,
@@ -183,6 +201,7 @@ function collectCellSummaries(records: readonly SummaryRecord[]) {
           : toRoundedRate(allows.reduce((sum, value) => sum + value, 0) / allows.length),
       gatingPAllowMin: allows.length === 0 ? null : Math.min(...allows),
       gatingPAllowMax: allows.length === 0 ? null : Math.max(...allows),
+      askHolders,
     };
   });
 }

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -24,6 +25,7 @@ async function main(): Promise<void> {
     options: {
       live: { type: 'boolean' },
       output: { type: 'string' },
+      resume: { type: 'boolean' },
       summarize: { type: 'string' },
     },
   });
@@ -138,7 +140,18 @@ async function main(): Promise<void> {
     schedule.map((item) => `${item.action.id}|${item.cell.id}|${item.repeat}`).join('\n'),
   );
 
-  const records: Record<string, unknown>[] = [];
+  const records: unknown[] = [];
+
+  interface Segment {
+    runnerCommit: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    firstIndex: number | null;
+    lastIndex: number | null;
+    stoppedEarly: 'failure' | 'model-changed' | null;
+  }
+
+  const segments: Segment[] = [];
 
   const report = {
     model: corpus.model,
@@ -149,9 +162,7 @@ async function main(): Promise<void> {
     planned: schedule.length,
     maxRequests: MAX_REQUESTS,
     attemptedRequests: 0,
-    stoppedEarly: null as string | null,
-    startedAt: null as string | null,
-    completedAt: null as string | null,
+    segments,
     policyHash: toHash(policy),
     configuredRulesHash: toHash(JSON.stringify(configuredRules)),
     configuredRuleCounts: {
@@ -197,7 +208,59 @@ async function main(): Promise<void> {
 
   invariant(output !== undefined, 'A live run writes a report.');
 
-  report.startedAt = new Date().toISOString();
+  const runnerCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim();
+
+  const changes = execFileSync(
+    'git',
+    ['status', '--porcelain', '--', 'fixtures', 'policy', 'scripts', 'src'],
+    { cwd: root, encoding: 'utf8' },
+  );
+
+  invariant(changes.trim() === '', 'Commit the corpus, runner, and source before a live run.');
+
+  const sentIndices = new Set<number>();
+
+  let responseModel: string | null = null;
+
+  if (args.values.resume === true) {
+    const previousText = await readFile(output, 'utf8');
+
+    const previous = parseReport(previousText);
+
+    invariant(
+      previous.policyHash === report.policyHash &&
+        previous.configuredRulesHash === report.configuredRulesHash &&
+        previous.corpusHash === report.corpusHash &&
+        previous.markGuidanceHash === report.markGuidanceHash &&
+        previous.scheduleHash === report.scheduleHash &&
+        JSON.stringify(previous.controlHashes) === JSON.stringify(report.controlHashes),
+      'A resumed run keeps every frozen hash.',
+    );
+
+    records.push(...previous.records);
+    segments.push(...previous.segments);
+
+    report.attemptedRequests = previous.attemptedRequests;
+    responseModel = previous.records.find((record) => record.model !== undefined)?.model ?? null;
+
+    for (const record of previous.records) {
+      sentIndices.add(record.index);
+    }
+  }
+
+  const segment: Segment = {
+    runnerCommit,
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    firstIndex: null,
+    lastIndex: null,
+    stoppedEarly: null,
+  };
+
+  segments.push(segment);
 
   // Written before the first request and after each answer, so an unwritable path
   // fails before any request and an interrupted run keeps the answers it spent.
@@ -208,11 +271,13 @@ async function main(): Promise<void> {
   invariant(key !== null, 'The configured evaluation credential is unavailable.');
 
   // Every network attempt is counted here, and a redirect fails instead of
-  // sending a second, uncounted request.
+  // sending a second, uncounted request. A copy of each response is held so a
+  // rejected answer can be recorded.
   const sendFetch = globalThis.fetch;
+  const responses: ReturnType<Awaited<ReturnType<typeof fetch>>['clone']>[] = [];
 
   // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable Request or URL
-  const sendCountedFetch: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = (
+  const sendCountedFetch: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = async (
     input,
     init,
   ) => {
@@ -220,14 +285,24 @@ async function main(): Promise<void> {
 
     report.attemptedRequests += 1;
 
-    return sendFetch(input, { ...init, redirect: 'error' });
+    const response = await sendFetch(input, { ...init, redirect: 'error' });
+
+    responses.push(response.clone());
+
+    return response;
   };
 
   globalThis.fetch = Object.assign(sendCountedFetch, sendFetch);
 
-  let responseModel: string | null = null;
-
   for (const [index, item] of schedule.entries()) {
+    if (sentIndices.has(index)) {
+      continue;
+    }
+
+    segment.firstIndex ??= index;
+    segment.lastIndex = index;
+    responses.length = 0;
+
     const base = {
       index,
       action: item.action.id,
@@ -283,17 +358,22 @@ async function main(): Promise<void> {
       responseModel ??= result.model;
 
       if (result.model !== responseModel) {
-        report.stoppedEarly = 'model-changed';
+        segment.stoppedEarly = 'model-changed';
       }
 
       console.log(JSON.stringify({ index, cell: base.cell, status: verdict.kind }));
     } catch (error) {
-      report.stoppedEarly = 'failure';
+      segment.stoppedEarly = 'failure';
+
+      const response = responses.at(-1);
+      const body = response === undefined ? null : await response.text();
 
       records.push({
         ...base,
         status: 'failure',
         failure: error instanceof DecisionRequestError ? error.reason : 'other',
+        failureHTTPStatus: response?.status ?? null,
+        failureBody: body === null ? null : body.slice(0, 2048),
         elapsedMs: Math.round(performance.now() - started),
         gating: null,
         answers: null,
@@ -304,12 +384,12 @@ async function main(): Promise<void> {
 
     await writeReport(output, report);
 
-    if (report.stoppedEarly !== null) {
+    if (segment.stoppedEarly !== null) {
       break;
     }
   }
 
-  report.completedAt = new Date().toISOString();
+  segment.completedAt = new Date().toISOString();
 
   report.summary = buildRelayConsentSummary(records);
 
@@ -365,6 +445,58 @@ function parseCorpus(text: string) {
       'The corpus holds 6 risky and 2 safe actions.',
     )
     .parse(JSON.parse(text));
+}
+
+// A report written before segments existed holds one run's start, end, and stop
+// reason at the top level; it becomes the first segment.
+function parseReport(text: string) {
+  const segmentSchema = z.object({
+    runnerCommit: z.string().nullable(),
+    startedAt: z.string().nullable(),
+    completedAt: z.string().nullable(),
+    firstIndex: z.number().int().nullable(),
+    lastIndex: z.number().int().nullable(),
+    stoppedEarly: z.enum(['failure', 'model-changed']).nullable(),
+  });
+
+  const recordSchema = z.looseObject({
+    index: z.number().int(),
+    model: z.string().optional(),
+  });
+
+  const report = z
+    .looseObject({
+      policyHash: z.string(),
+      configuredRulesHash: z.string(),
+      corpusHash: z.string(),
+      markGuidanceHash: z.string(),
+      scheduleHash: z.string(),
+      controlHashes: z.record(z.string(), z.string()),
+      attemptedRequests: z.number().int(),
+      startedAt: z.string().nullable().optional(),
+      completedAt: z.string().nullable().optional(),
+      stoppedEarly: z.enum(['failure', 'model-changed']).nullable().optional(),
+      segments: z.array(segmentSchema).optional(),
+      records: z.array(recordSchema),
+    })
+    .parse(JSON.parse(text));
+
+  const indices = report.records.map((record) => record.index);
+  const { startedAt, completedAt, stoppedEarly, segments, ...rest } = report;
+
+  return {
+    ...rest,
+    segments: segments ?? [
+      {
+        runnerCommit: null,
+        startedAt: startedAt ?? null,
+        completedAt: completedAt ?? null,
+        firstIndex: indices.length === 0 ? null : Math.min(...indices),
+        lastIndex: indices.length === 0 ? null : Math.max(...indices),
+        stoppedEarly: stoppedEarly ?? null,
+      },
+    ],
+  };
 }
 
 // The mark prototype: the stale message moves out of the current-evidence field
