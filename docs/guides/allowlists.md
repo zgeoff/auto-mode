@@ -69,7 +69,8 @@ behaviour rather than naming a rule.
 - **No entry** for reads. auto-mode's local tier already allows read-only tools, read-only shell
   commands, and reporting `git` subcommands.
 - **`permissions.allow`** for an exact read-only command that the local tier does not cover and that
-  runs often, such as `gh pr checks`. Each entry saves a model call per run.
+  runs often, such as `gh pr checks`. Under a `PermissionRequest` hook or the mod, each entry saves
+  a model call per run.
 - **`autoMode.allow`** for routine work that a soft rule would otherwise stop, such as commenting on
   your own pull requests. The hard rules still check what the action sends.
 - **Neither** for an action that a hard rule covers. No entry makes Data Exfiltration, Secret
