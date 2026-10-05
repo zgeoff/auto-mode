@@ -136,7 +136,7 @@ test('it reproduces every recorded verdict from the recorded answers at the unch
 
       const verdict = pickDecisionVerdict(
         request,
-        { model: phase.model, answers, inputTokens: 0 },
+        { model: phase.model, answers, inputTokens: 0, requestBytes: 0 },
         0.8,
       );
 

@@ -42,6 +42,7 @@ test.each([
     const result: DecisionResult = {
       model: 'private-model-canary',
       inputTokens: 100,
+      requestBytes: 0,
       answers: {
         rule_0: { type: 'choice', choice, confidence, probabilities },
         soft_deny_0: {
@@ -74,6 +75,7 @@ test('it records every uncertain rule and uses identifiers for private configure
   const result: DecisionResult = {
     model: 'private-model-canary',
     inputTokens: 100,
+    requestBytes: 0,
     answers: Object.fromEntries(
       Object.keys(request.rules).map((id) => [
         id,
@@ -102,6 +104,7 @@ test('it identifies the winning block when a denial takes precedence over uncert
   const result: DecisionResult = {
     model: 'jev',
     inputTokens: 100,
+    requestBytes: 0,
     answers: {
       rule_0: {
         type: 'choice',
@@ -161,6 +164,7 @@ test('it preserves the observed routine-commit ask when outbound confidence is b
   const result: DecisionResult = {
     model: 'recorded',
     inputTokens: 0,
+    requestBytes: 0,
     answers: {
       rule_0: {
         type: 'choice',

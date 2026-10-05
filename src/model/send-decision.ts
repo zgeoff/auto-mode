@@ -36,9 +36,12 @@ export async function sendDecision(
     body = JSON.stringify(input);
   }
 
-  if (Buffer.byteLength(body) > 100_000) {
+  const requestBytes = Buffer.byteLength(body);
+
+  if (requestBytes > 100_000) {
     throw new DecisionRequestError(
       'request-too-large',
+      requestBytes,
       'Decision input exceeds 100000 bytes; refusing to truncate the action or user message',
     );
   }
@@ -71,15 +74,18 @@ export async function sendDecision(
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        throw error;
+        throw new DecisionRequestError('aborted', requestBytes, 'Decision request aborted', {
+          cause: error,
+        });
       }
 
-      throw new DecisionRequestError('network', 'Decision API request failed');
+      throw new DecisionRequestError('network', requestBytes, 'Decision API request failed');
     }
 
     if (!response.ok) {
       throw new DecisionRequestError(
         'http-status',
+        requestBytes,
         `Decision API returned HTTP ${response.status}`,
       );
     }
@@ -105,10 +111,16 @@ export async function sendDecision(
       responseBody = await response.json();
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        throw error;
+        throw new DecisionRequestError('aborted', requestBytes, 'Decision request aborted', {
+          cause: error,
+        });
       }
 
-      throw new DecisionRequestError('invalid-response', 'Decision API returned invalid JSON');
+      throw new DecisionRequestError(
+        'invalid-response',
+        requestBytes,
+        'Decision API returned invalid JSON',
+      );
     }
 
     const parsedResponse = schema.safeParse(responseBody);
@@ -116,6 +128,7 @@ export async function sendDecision(
     if (!parsedResponse.success) {
       throw new DecisionRequestError(
         'invalid-response',
+        requestBytes,
         'Decision API returned a malformed response',
       );
     }
@@ -125,6 +138,7 @@ export async function sendDecision(
     if (Object.keys(parsed.answers).length !== Object.keys(request.questions).length) {
       throw new DecisionRequestError(
         'invalid-response',
+        requestBytes,
         'Decision API returned an incomplete answer set',
       );
     }
@@ -135,6 +149,7 @@ export async function sendDecision(
       if (value === undefined) {
         throw new DecisionRequestError(
           'invalid-response',
+          requestBytes,
           'Decision API omitted a requested answer',
         );
       }
@@ -147,12 +162,18 @@ export async function sendDecision(
       ) {
         throw new DecisionRequestError(
           'invalid-response',
+          requestBytes,
           'Decision API returned invalid probabilities',
         );
       }
     }
 
-    return { model: parsed.model, answers: parsed.answers, inputTokens: parsed.usage.input_tokens };
+    return {
+      model: parsed.model,
+      answers: parsed.answers,
+      inputTokens: parsed.usage.input_tokens,
+      requestBytes,
+    };
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', stopRequest);

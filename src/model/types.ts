@@ -53,10 +53,12 @@ export interface DecisionResult {
   readonly model: string;
   readonly answers: Readonly<Record<string, DecisionAnswer>>;
   readonly inputTokens: number;
+  readonly requestBytes: number;
 }
 
 export type DecisionFailureReason =
   | 'request-too-large'
+  | 'aborted'
   | 'network'
   | 'http-status'
   | 'invalid-response';
@@ -67,6 +69,7 @@ export interface DecisionDiagnostics {
   readonly keyResolved: boolean;
   readonly keySource: 'environment' | 'command' | 'none';
   readonly failureReason: DecisionFailureReason | null;
+  readonly requestBytes: number | null;
   readonly elapsedMs: number;
   readonly minConfidence: number;
   readonly contributors: readonly {
