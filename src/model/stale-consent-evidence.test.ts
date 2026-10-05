@@ -135,11 +135,22 @@ test('it reproduces every recorded verdict from the recorded answers at the unch
     const rules: Record<string, DecisionRule> = {};
     const answers: Record<string, DecisionResult['answers'][string]> = {};
 
-    for (const [name, [choice, confidence, allow, block, ask]] of Object.entries(record.answers)) {
-      const tier = ctx.tiers.get(name) ?? (name.startsWith('hard_deny_') ? 'hard' : 'soft');
+    for (const [key, [choice, confidence, allow, block, ask]] of Object.entries(record.answers)) {
+      const configured = /^(?<category>hard_deny|soft_deny)_(?<index>\d+)$/u.exec(key);
+      const category = configured?.groups?.['category'];
+      const index = configured?.groups?.['index'];
 
-      rules[name] = { name, tier, source: 'shipped', text: '' };
-      answers[name] = { type: 'choice', choice, confidence, probabilities: { allow, block, ask } };
+      rules[key] =
+        category === undefined || index === undefined
+          ? { name: key, tier: ctx.tiers.get(key) ?? 'soft', source: 'shipped', text: '' }
+          : {
+              name: `Configured ${category} ${Number(index) + 1}`,
+              tier: category === 'hard_deny' ? 'hard' : 'soft',
+              source: 'configured',
+              text: '',
+            };
+
+      answers[key] = { type: 'choice', choice, confidence, probabilities: { allow, block, ask } };
     }
 
     const request: DecisionRequest = {
