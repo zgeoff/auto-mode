@@ -43,6 +43,7 @@
     "deadcode": "knip",
     "eval:answer-guidance": "bun --no-env-file scripts/run-answer-guidance-evaluation.ts",
     "eval:applicability": "bun --no-env-file scripts/run-applicability-evaluation.ts",
+    "eval:second-judge": "bun --no-env-file scripts/run-second-judge-evaluation.ts",
     "first-publish": "scripts/first-publish.sh",
     "format": "oxfmt . && format-codemod --quiet .",
     "format:check": "oxfmt --check . && format-codemod --check --quiet .",
