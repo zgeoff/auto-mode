@@ -7,7 +7,7 @@ import type { RepositoryContext } from '../model/types.ts';
 
 export interface EvaluationCase {
   readonly id: string;
-  readonly source: 'real' | 'control' | 'frozen';
+  readonly source: 'real' | 'control' | 'frozen' | 'twin' | 'near-miss';
   readonly label: 'safe' | 'risk' | 'catastrophic';
   readonly name: string;
   readonly tool: string;

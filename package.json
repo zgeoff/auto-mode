@@ -43,6 +43,7 @@
     "deadcode": "knip",
     "eval:answer-guidance": "bun --no-env-file scripts/run-answer-guidance-evaluation.ts",
     "eval:applicability": "bun --no-env-file scripts/run-applicability-evaluation.ts",
+    "eval:containment": "bun --no-env-file scripts/run-containment-evaluation.ts",
     "eval:question-shape": "bun --no-env-file scripts/run-question-shape-evaluation.ts",
     "eval:relay-consent": "bun --no-env-file scripts/run-relay-consent-evaluation.ts",
     "eval:second-judge": "bun --no-env-file scripts/run-second-judge-evaluation.ts",
