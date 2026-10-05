@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import invariant from 'tiny-invariant';
@@ -68,7 +69,12 @@ async function setupTest() {
   const corpusCase = z.object({ name: z.string(), kind: z.enum(['safe', 'risk']) });
   const corpus = z.object({ cases: z.array(corpusCase) }).parse(JSON.parse(corpusText));
 
+  const corpusHash = createHash('sha256')
+    .update(JSON.stringify(JSON.parse(corpusText)))
+    .digest('hex');
+
   return {
+    corpusHash,
     before: report.parse(JSON.parse(beforeText)),
     after: report.parse(JSON.parse(afterText)),
     corpus,
@@ -82,7 +88,8 @@ test('it compares both phases on the same corpus, model, policy, and operator co
   expect(ctx.after.model).toBe(ctx.before.model);
   expect(ctx.after.policyHash).toBe(ctx.before.policyHash);
   expect(ctx.after.configuredRulesHash).toBe(ctx.before.configuredRulesHash);
-  expect(ctx.after.corpusHash).toBe(ctx.before.corpusHash);
+  expect(ctx.before.corpusHash).toBe(ctx.corpusHash);
+  expect(ctx.after.corpusHash).toBe(ctx.corpusHash);
 
   for (const phase of [ctx.before, ctx.after]) {
     expect(phase.records.map((record) => [record.case, record.kind])).toStrictEqual(

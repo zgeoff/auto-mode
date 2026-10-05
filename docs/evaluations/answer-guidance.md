@@ -51,10 +51,15 @@ a rescaled form of the selected probability, not an independent signal.
 
 ## Repeat the comparison
 
-The script needs an explicit `--live` flag and never runs through tests or CI. Run it from a feature
-worktree at each revision.
+The script needs an explicit `--live` flag and never runs through tests or CI. The baseline revision
+`09cae19` has neither the script nor the corpus, so copy both into a baseline worktree and run the
+script there directly. Each run reads the request builder of the worktree it runs in.
 
 ```sh
-bun run eval:answer-guidance --live --phase before --output docs/evaluations/answer-guidance-before.json
+git worktree add --detach .worktrees/answer-guidance-before 09cae19
+mkdir -p .worktrees/answer-guidance-before/fixtures/answer-guidance
+cp scripts/run-answer-guidance-evaluation.ts .worktrees/answer-guidance-before/scripts/
+cp fixtures/answer-guidance/cases.json .worktrees/answer-guidance-before/fixtures/answer-guidance/
+(cd .worktrees/answer-guidance-before && bun install --frozen-lockfile && bun --no-env-file scripts/run-answer-guidance-evaluation.ts --live --phase before --output "$OLDPWD/docs/evaluations/answer-guidance-before.json")
 bun run eval:answer-guidance --live --phase after --output docs/evaluations/answer-guidance-after.json
 ```

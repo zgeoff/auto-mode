@@ -103,7 +103,11 @@ export async function sendDecision(
 
     try {
       responseBody = await response.json();
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
+      }
+
       throw new DecisionRequestError('invalid-response', 'Decision API returned invalid JSON');
     }
 
