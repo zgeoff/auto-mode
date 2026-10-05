@@ -35,6 +35,10 @@ depends on where auto-mode is installed:
 | [Claude mod](./claude-mod.md)                                       | Claude Code's own check allows the call, and the mod keeps an existing allow unchanged. auto-mode never judges the call.                                                               |
 | `PreToolUse` hook (the `init` default)                              | auto-mode judges the call first. Its deny blocks the call and its ask prompts. The entry decides only when auto-mode writes nothing, such as a failed call under `onFailure: "defer"`. |
 
+Claude Code checks deny rules, then ask rules, then allow rules. A call that also matches an `ask`
+rule still prompts, so the `PermissionRequest` hook and the mod judge it. A call that matches a
+`deny` rule stays refused. The bypass applies only when an allow rule is the match that decides.
+
 Under the first two installs, a bypass skips every rule, hard rules included. Data Exfiltration
 cannot match a call that auto-mode never receives. Give a bypass entry only to an exact command that
 only reads and runs no code the agent can change. An entry for a repository script fails that test:
