@@ -44,6 +44,8 @@
     "eval:answer-guidance": "bun --no-env-file scripts/run-answer-guidance-evaluation.ts",
     "eval:applicability": "bun --no-env-file scripts/run-applicability-evaluation.ts",
     "eval:question-shape": "bun --no-env-file scripts/run-question-shape-evaluation.ts",
+    "eval:relay-consent": "bun --no-env-file scripts/run-relay-consent-evaluation.ts",
+    "eval:second-judge": "bun --no-env-file scripts/run-second-judge-evaluation.ts",
     "eval:stale-consent": "bun --no-env-file scripts/run-stale-consent-evaluation.ts",
     "first-publish": "scripts/first-publish.sh",
     "format": "oxfmt . && format-codemod --quiet .",
@@ -79,6 +81,9 @@
     "tsdown": "0.23.0",
     "typescript": "7.0.2",
     "zod": "4.6.2"
+  },
+  "overrides": {
+    "smol-toml": "1.9.0"
   },
   "engines": {
     "node": ">=24"
