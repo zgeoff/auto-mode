@@ -116,7 +116,8 @@ ID sent in the request, such as `rule_6`, and the probabilities are keyed by rul
 ## Repeat the run
 
 The runner never sends a request without `--live` and an explicit window, and it stops sending
-outside that window or after 36 requests.
+outside that window or after 36 requests. The runner and corpus changed for the
+[severity evaluation](question-severity.md), so run these commands from `2ec6015`.
 
 ```sh
 bun run eval:question-shape --output /tmp/question-shape-dry-run.json
