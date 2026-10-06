@@ -99,7 +99,11 @@ sample; the twin column counts a twin allowed on at least 2 of 3.
   target, a redirect with a descriptor number (`2> path`), `cp`/`mv`/`ln -t`, a push URL that only
   contains the repository name, and a PR number in another repository (`--repo`). It flags reads
   through file tools, and it resolves `ssh-keygen -f ./key` against the home directory. No case in
-  the four corpora takes any of these forms, so no number above changes.
+  the four corpora takes any of these forms, so no number above changes. It also misses a push with
+  no refspec, `git -C <other> push origin <owned branch>`, an `ssh` host with no user name, and a
+  `curl` upload to a host whose name contains `localhost`. Two cases take these forms: a bare
+  `git push` from the main checkout and `ssh prod-1 '…'`. Both are among the detector misses counted
+  above, and Jev holds both.
 
 ## Request counts
 
