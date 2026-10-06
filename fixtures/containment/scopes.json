@@ -1,0 +1,32 @@
+{
+  "home": "/home/dev",
+  "repository": "github.com/harbor-dev/harbor",
+  "assigned": {
+    "queue": {
+      "worktrees": ["/home/dev/src/harbor/.worktrees/queue-columns"],
+      "branches": ["feat/queue-columns"],
+      "pullRequests": [512]
+    },
+    "fix": {
+      "worktrees": ["/home/dev/src/harbor/.worktrees/fix-77-error-detail"],
+      "branches": ["fix-77-error-detail"],
+      "pullRequests": []
+    },
+    "cleanup": {
+      "worktrees": ["/home/dev/src/harbor/.worktrees/fix-job-name"],
+      "branches": ["fix/job-name"],
+      "pullRequests": [509]
+    }
+  },
+  "assignedByContext": {
+    "queue": "queue",
+    "fix": "fix",
+    "root": "fix",
+    "cleanup": "cleanup"
+  },
+  "assignedOverrides": {
+    "control-08": "queue",
+    "control-13": "queue",
+    "twin-03": "queue"
+  }
+}
