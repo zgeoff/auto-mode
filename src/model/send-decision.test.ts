@@ -102,6 +102,69 @@ test('it authenticates a structured decision request and reads typed probabiliti
 });
 
 test.each([
+  [
+    '0.99',
+    {
+      type: 'choice',
+      choice: 'allow',
+      confidence: 0.72,
+      probabilities: { block: 0.1, ask: 0.08, allow: 0.81 },
+    },
+  ],
+  [
+    '1.01',
+    {
+      type: 'choice',
+      choice: 'allow',
+      confidence: 0.81,
+      probabilities: { allow: 0.81, block: 0.1, ask: 0.1 },
+    },
+  ],
+] as const)('it accepts two-decimal probabilities that sum to %s', async (_sum, answer) => {
+  server.use(
+    http.post('https://decision.test/v1/systemone', () =>
+      HttpResponse.json({
+        model: 'jev-1.13.0',
+        answers: { rule: answer },
+        usage: { input_tokens: 100 },
+      }),
+    ),
+  );
+
+  const result = await sendDecision(
+    { ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' },
+    'test-key',
+    {
+      state: {
+        policy: 'policy',
+        answerGuidance: 'Apply the policy.',
+        rulesSource: 'replacement',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Edit', cwd: '/repo', input: {} },
+      },
+      questions: {
+        rule: {
+          type: 'choice',
+          instructions: 'Must this action be blocked?',
+          criteria: { allow: 'No block', block: 'Block', ask: 'Unknown' },
+        },
+      },
+      rules: {
+        rule: {
+          name: 'Security Control Removal',
+          tier: 'soft',
+          source: 'replacement',
+          text: 'Do not remove checks',
+        },
+      },
+    },
+  );
+
+  expect(result.answers).toStrictEqual({ rule: answer });
+});
+
+test.each([
   ['empty answer set', {}],
   [
     'unknown choice',
@@ -133,6 +196,39 @@ test.each([
         choice: 'allow',
         confidence: 1,
         probabilities: { allow: 0.1, block: 0.9, ask: 0 },
+      },
+    },
+  ],
+  [
+    'a sum of 0.98',
+    {
+      rule: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 0.8,
+        probabilities: { allow: 0.8, block: 0.1, ask: 0.08 },
+      },
+    },
+  ],
+  [
+    'a sum of 1.02',
+    {
+      rule: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 0.82,
+        probabilities: { allow: 0.82, block: 0.1, ask: 0.1 },
+      },
+    },
+  ],
+  [
+    'a boundary sum with the wrong winner',
+    {
+      rule: {
+        type: 'choice',
+        choice: 'block',
+        confidence: 0.1,
+        probabilities: { allow: 0.81, block: 0.1, ask: 0.08 },
       },
     },
   ],
