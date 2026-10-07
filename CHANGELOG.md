@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.5.0...auto-mode-v0.6.0) (2026-10-07)
+
+
+### Features
+
+* **geo-152:** deny with a reason instead of asking ([#44](https://github.com/zgeoff/auto-mode/issues/44)) ([755b80d](https://github.com/zgeoff/auto-mode/commit/755b80d02bc7b82ea0aa459f9b988b431c6c2793))
+
 ## [0.5.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.4...auto-mode-v0.5.0) (2026-10-07)
 
 
