@@ -11,27 +11,27 @@ responses, and exception text. Configured and replacement rules use question ide
 shipped rules retain their public names. Session and action identifiers use the first 16 hexadecimal
 characters of SHA-256. Hash a recorded tool-call identifier to find its `actionHash`.
 
-For Jev, `diagnostics.status` distinguishes `ask`, `failure`, `timeout`, and `cancelled`. `stage`
-identifies credential resolution, evidence preparation, the request, or a validated response.
-`keySource` and `keyResolved` show whether the environment or helper supplied a key. A request-stage
-failure does not prove that an HTTP request reached the provider. `failureReason` holds
-`request-too-large` when the serialized request exceeds 100,000 bytes and no call was made,
+For Jev, `diagnostics.status` distinguishes `allow`, `deny`, `failure`, `timeout`, and `cancelled`.
+`stage` identifies credential resolution, evidence preparation, the request, or a validated
+response. `keySource` and `keyResolved` show whether the environment or helper supplied a key. A
+request-stage failure does not prove that an HTTP request reached the provider. `failureReason`
+holds `request-too-large` when the serialized request exceeds 100,000 bytes and no call was made,
 `aborted` when the call or the response read was aborted, with `status` showing whether by the
 provider timeout, the evaluation deadline, or a cancellation, `network` when the call did not
 complete, `http-status` for a non-success response, and `invalid-response` for a body that fails
 validation. It is `null` for other failures and for a completed decision. `requestBytes` holds the
 UTF-8 size of the serialized request body whenever the body was built, including for the failures
 above; it is `null` when a failure came before the body. It records a size only, never content.
-`contributors` records every answer that caused an ask, or the rule that caused a denial, with its
-choice, confidence, and selected probability. `minConfidence` records the unchanged threshold. The
-final `verdict` distinguishes a failure that defers from one that fails closed.
+`contributors` records the rule that caused a confident denial, or every answer that left the
+decision uncertain, with its choice, confidence, and selected probability. A denial whose
+contributors hold no confident block is an uncertain one. `minConfidence` records the unchanged
+threshold. The final `verdict` distinguishes a failure that defers from one that fails closed.
 
-An ask writes no verdict to stdout. A completed record with status `ask` therefore proves a
-classifier ask even when the mod retains manual approval. A start without a final record proves only
+A completed decision always writes a verdict to stdout. A start without a final record proves only
 that the CLI started; a killed process may leave that pair incomplete.
 
 The Claude mod also writes bounded debug messages for invocation and fallback: insufficient budget,
 nonzero exit, truncated output, no usable verdict, subprocess failure, or subprocess timeout. It
 never copies child output or exception text into those messages. Match the session, timestamp, and
 supported tool-call identifier with the action records. The absence of a record does not prove an
-allow or an ask.
+allow or a denial.

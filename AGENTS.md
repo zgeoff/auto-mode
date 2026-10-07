@@ -199,8 +199,9 @@ library entry point; `index.ts` is the public API; `cli.ts` is the entrypoint th
 - The CLI always exits 0. The mod reads a non-zero exit as a failure, and the JSON on stdout is what
   decides the outcome.
 - Writing nothing is a verdict, not a failure: it means auto-mode has no opinion and the mod keeps
-  the prompt Claude Code was about to show. An ask, a body that is not a mod request, a body that is
-  not JSON, and a failed model call under `onFailure: "defer"` all write nothing.
+  the prompt Claude Code was about to show. A body that is not a mod request, a body that is not
+  JSON, and a failed model call under `onFailure: "defer"` all write nothing. A classifier decision
+  is always an allow or a deny with a reason; it never asks.
 - Runtime dependencies are bundled, not external. The CLI starts once per prompted tool call, so
   resolving a package from `node_modules` is paid on every call.
 - Everything CI and the git hooks run is a root `package.json` script; invoke a gate by script name,

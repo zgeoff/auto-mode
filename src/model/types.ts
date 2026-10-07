@@ -64,7 +64,7 @@ export type DecisionFailureReason =
   | 'invalid-response';
 
 export interface DecisionDiagnostics {
-  readonly status: 'allow' | 'deny' | 'ask' | 'failure' | 'timeout' | 'cancelled';
+  readonly status: 'allow' | 'deny' | 'failure' | 'timeout' | 'cancelled';
   readonly stage: 'credential' | 'evidence' | 'request' | 'response';
   readonly keyResolved: boolean;
   readonly keySource: 'environment' | 'command' | 'none';

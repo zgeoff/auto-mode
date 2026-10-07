@@ -6,9 +6,9 @@ import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
+import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
 import { DecisionRequestError } from '../src/model/decision-request-error.ts';
-import { pickDecisionVerdict } from '../src/model/pick-decision-verdict.ts';
 import { sendDecision } from '../src/model/send-decision.ts';
 import type { DecisionRequest } from '../src/model/types.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
@@ -177,7 +177,7 @@ async function main(): Promise<void> {
     try {
       const result = await sendDecision(config.provider, key, request);
 
-      const verdict = pickDecisionVerdict(request, result, 0.8);
+      const verdict = pickEvaluationVerdict(request, result, 0.8);
 
       const answers = Object.fromEntries(
         Object.entries(request.rules).map(([id, rule]) => {

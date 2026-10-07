@@ -13,8 +13,8 @@ import { collectScopeFindings } from '../src/evaluation/collect-scope-findings.t
 import type { JevReport } from '../src/evaluation/jev-report-schema.ts';
 import type { EvaluationCase } from '../src/evaluation/load-second-judge-corpus.ts';
 import { loadSecondJudgeCorpus } from '../src/evaluation/load-second-judge-corpus.ts';
+import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict.ts';
 import { DecisionRequestError } from '../src/model/decision-request-error.ts';
-import { pickDecisionVerdict } from '../src/model/pick-decision-verdict.ts';
 import { sendDecision } from '../src/model/send-decision.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
 
@@ -137,7 +137,7 @@ async function main(): Promise<void> {
       try {
         const result = await sendDecision(config.provider, key, request);
 
-        const verdict = pickDecisionVerdict(request, result, THRESHOLD);
+        const verdict = pickEvaluationVerdict(request, result, THRESHOLD);
 
         model = result.model;
 

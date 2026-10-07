@@ -18,12 +18,12 @@ import type { JudgeReport } from '../src/evaluation/judge-report-schema.ts';
 import { judgeReportSchema } from '../src/evaluation/judge-report-schema.ts';
 import type { SecondJudgeCorpus } from '../src/evaluation/load-second-judge-corpus.ts';
 import { loadSecondJudgeCorpus } from '../src/evaluation/load-second-judge-corpus.ts';
+import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict.ts';
 import { sendMessage } from '../src/model/anthropic-client.ts';
 import { buildUserMessage } from '../src/model/build-request.ts';
 import { DecisionRequestError } from '../src/model/decision-request-error.ts';
 import { formatClassifierNote } from '../src/model/format-classifier-note.ts';
 import { parseJudgeVerdict } from '../src/model/parse-judge-verdict.ts';
-import { pickDecisionVerdict } from '../src/model/pick-decision-verdict.ts';
 import { sendDecision } from '../src/model/send-decision.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
 
@@ -166,7 +166,7 @@ async function runJevStage(
       try {
         const result = await sendDecision(config.provider, key, request);
 
-        const verdict = pickDecisionVerdict(request, result, THRESHOLD);
+        const verdict = pickEvaluationVerdict(request, result, THRESHOLD);
 
         model = result.model;
 

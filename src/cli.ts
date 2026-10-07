@@ -121,14 +121,8 @@ async function run(
   }
 }
 
-// An ask renders nothing, and writing nothing is the answer: the mod keeps the
-// prompt Claude Code was about to show.
 function writeVerdict(verdict: Verdict): void {
-  const rendered = renderVerdict(verdict);
-
-  if (rendered !== null) {
-    process.stdout.write(rendered);
-  }
+  process.stdout.write(renderVerdict(verdict));
 }
 
 function printNote(explain: boolean, message: string): number {

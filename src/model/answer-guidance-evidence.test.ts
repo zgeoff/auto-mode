@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { pickEvaluationVerdict } from '../evaluation/pick-evaluation-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
-import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 import type { DecisionRequest, DecisionResult, DecisionRule } from './types.ts';
 
 async function setupTest() {
@@ -131,7 +131,7 @@ test('it reproduces every recorded verdict from the recorded answers at the unch
         rules,
       };
 
-      const verdict = pickDecisionVerdict(
+      const verdict = pickEvaluationVerdict(
         request,
         { model: phase.model, answers, inputTokens: 0, requestBytes: 0 },
         0.8,

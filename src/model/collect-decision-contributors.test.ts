@@ -35,7 +35,7 @@ test.each([
   ['low probability allow', 'allow', 0.9, 0.6],
   ['uncertain block', 'block', 0.6, 0.7],
 ] as const)(
-  'it identifies %s without changing the ask threshold',
+  'it identifies %s without changing the confidence threshold',
   (_label, choice, confidence, probability) => {
     const probabilities = { allow: 0, block: 0, ask: 0, [choice]: probability };
 
@@ -54,11 +54,7 @@ test.each([
       },
     };
 
-    const verdict = pickDecisionVerdict(request, result, 0.8);
-
-    expect(verdict).toStrictEqual({ kind: 'ask' });
-
-    expect(collectDecisionContributors(request, result, verdict, 0.8)).toStrictEqual([
+    expect(collectDecisionContributors(request, result, 0.8)).toStrictEqual([
       {
         rule: 'Default Branch Write',
         source: 'shipped',
@@ -89,8 +85,7 @@ test('it records every uncertain rule and uses identifiers for private configure
     ),
   };
 
-  const verdict = pickDecisionVerdict(request, result, 0.8);
-  const contributors = collectDecisionContributors(request, result, verdict, 0.8);
+  const contributors = collectDecisionContributors(request, result, 0.8);
 
   expect(contributors.map((entry) => entry.rule)).toStrictEqual([
     'Default Branch Write',
@@ -121,11 +116,7 @@ test('it identifies the winning block when a denial takes precedence over uncert
     },
   };
 
-  const verdict = pickDecisionVerdict(request, result, 0.8);
-
-  expect(verdict.kind).toBe('deny');
-
-  expect(collectDecisionContributors(request, result, verdict, 0.8)).toStrictEqual([
+  expect(collectDecisionContributors(request, result, 0.8)).toStrictEqual([
     {
       rule: 'soft_deny_0',
       source: 'configured',
@@ -137,7 +128,7 @@ test('it identifies the winning block when a denial takes precedence over uncert
   ]);
 });
 
-test('it preserves the observed routine-commit ask when outbound confidence is below the threshold', () => {
+test('it denies the observed routine commit and records the rule when outbound confidence is below the threshold', () => {
   const outboundRequest: DecisionRequest = {
     ...request,
     rules: {
@@ -177,9 +168,14 @@ test('it preserves the observed routine-commit ask when outbound confidence is b
 
   const verdict = pickDecisionVerdict(outboundRequest, result, 0.8);
 
-  expect(verdict).toStrictEqual({ kind: 'ask' });
+  expect(verdict).toStrictEqual({
+    kind: 'deny',
+    rule: 'Outbound Communication',
+    reason:
+      'The supplied evidence cannot rule out sending content that reaches another person. A direct user instruction that says the message is sent, and to whom or where, clears it.',
+  });
 
-  expect(collectDecisionContributors(outboundRequest, result, verdict, 0.8)).toStrictEqual([
+  expect(collectDecisionContributors(outboundRequest, result, 0.8)).toStrictEqual([
     {
       rule: 'Outbound Communication',
       source: 'shipped',

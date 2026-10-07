@@ -359,7 +359,8 @@ test('it retains a separate shipped hard block after the self-protection finding
   expect(outcome.verdict).toStrictEqual({
     kind: 'deny',
     rule: 'Data Exfiltration',
-    reason: 'The action matches Data Exfiltration.',
+    reason:
+      'The action matches this rule: sending sensitive data, such as credentials or private code, off the machine. No instruction or configuration clears this rule.',
   });
 });
 
@@ -426,7 +427,8 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
     expect(outcome.verdict).toStrictEqual({
       kind: 'deny',
       rule: name,
-      reason: `The action matches ${name}.`,
+      reason:
+        'The action matches this rule: the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
     });
 
     const questionSchema = z.object({
@@ -569,7 +571,12 @@ test('it evaluates child task context without reading parent consent on resume',
       },
     );
 
-    expect(result.verdict).toStrictEqual({ kind: 'ask' });
+    expect(result.verdict).toStrictEqual({
+      kind: 'deny',
+      rule: 'Data Exfiltration',
+      reason:
+        'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
+    });
   }
 
   expect(requests).toMatchObject(
@@ -827,7 +834,7 @@ test.each([
   },
 );
 
-test('it distinguishes an ask response from a timeout and preserves every contributing confidence', async () => {
+test('it denies an uncertain response, distinct from a timeout, and preserves every contributing confidence', async () => {
   await using ctx = await setupTest();
 
   server.use(
@@ -873,7 +880,12 @@ test('it distinguishes an ask response from a timeout and preserves every contri
     },
   );
 
-  expect(result.verdict).toStrictEqual({ kind: 'ask' });
+  expect(result.verdict).toStrictEqual({
+    kind: 'deny',
+    rule: 'Data Exfiltration',
+    reason:
+      'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
+  });
 
   invariant(result.diagnostics, 'the decision has diagnostics');
 
@@ -881,7 +893,7 @@ test('it distinguishes an ask response from a timeout and preserves every contri
   expect(result.diagnostics.requestBytes).toBeGreaterThan(0);
 
   expect({ ...result.diagnostics, elapsedMs: 0, requestBytes: 0 }).toStrictEqual({
-    status: 'ask',
+    status: 'deny',
     stage: 'response',
     keyResolved: true,
     keySource: 'environment',

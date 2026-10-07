@@ -51,8 +51,8 @@ the pending action. Jev still answers every block rule for that action:
 1. A shipped hard rule or a configured `hard_deny` entry blocks first. No allow entry clears it.
 2. A soft rule or a configured `soft_deny` entry blocks next, unless a shipped exception, a matching
    allow entry, or specific consent in the last direct user message clears it.
-3. Jev asks for manual approval when the supplied evidence leaves a rule unsettled, including
-   whether an allow entry covers the action.
+3. Jev denies the action when the supplied evidence leaves a rule unsettled, including whether an
+   allow entry covers the action. The denial names that rule.
 
 An allow entry does not change the local tier. Read-only tools and commands still run without a
 model call. A `soft_deny` or `hard_deny` entry is different: while any exists, every action goes to

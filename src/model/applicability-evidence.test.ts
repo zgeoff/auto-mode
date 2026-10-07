@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { pickDecisionVerdict } from './pick-decision-verdict.ts';
+import { pickEvaluationVerdict } from '../evaluation/pick-evaluation-verdict.ts';
 import type { DecisionRequest, DecisionResult } from './types.ts';
 
 async function setupTest() {
@@ -168,7 +168,7 @@ test('it reproduces every recorded verdict from valid full answer distributions 
         answers,
       };
 
-      const verdict = pickDecisionVerdict(request, result, report.threshold);
+      const verdict = pickEvaluationVerdict(request, result, report.threshold);
 
       expect(verdict.kind).toBe(record.status);
     }
