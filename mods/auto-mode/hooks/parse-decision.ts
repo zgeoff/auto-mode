@@ -3,6 +3,8 @@ interface Decision {
   readonly reason?: string;
 }
 
+// The CLI ships with this mod, so any other shape is a mismatched or broken CLI,
+// and only an exact verdict may replace the prompt.
 export function parseDecision(stdout: string): Decision | null {
   let body: unknown;
 
@@ -12,15 +14,19 @@ export function parseDecision(stdout: string): Decision | null {
     return null;
   }
 
-  if (typeof body !== 'object' || body === null || !('decision' in body)) {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return null;
   }
 
-  if (body.decision === 'allow') {
+  const keys = Object.keys(body).toSorted().join(',');
+
+  if (keys === 'decision' && 'decision' in body && body.decision === 'allow') {
     return { decision: 'allow' };
   }
 
   if (
+    keys === 'decision,reason' &&
+    'decision' in body &&
     body.decision === 'deny' &&
     'reason' in body &&
     typeof body.reason === 'string' &&

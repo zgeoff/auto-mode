@@ -433,6 +433,47 @@ test('it retains manual approval for a hook-shaped verdict', async ($, on) => {
   });
 });
 
+test('it retains manual approval for a verdict with unknown or mistyped fields', async ($, on) => {
+  const outputs = [
+    '{"decision":"allow","reason":123}',
+    '{"decision":"allow","rule":"Read-only actions"}',
+    '{"decision":"deny","reason":"[Data Exfiltration] Refuse the transfer.","extra":true}',
+    '{"decision":"deny","reason":42}',
+    '["allow"]',
+  ];
+
+  let stdout = '';
+
+  on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => ({ decision: 'ask' }));
+
+  on('process.run', () => ({
+    value: {
+      exitCode: 0,
+      stdout,
+      stderr: '',
+      isStdoutTruncated: false,
+      isStderrTruncated: false,
+    },
+  }));
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ source: 'startup', session_id: 'session-1', cwd: '/repo' });
+
+  const results: unknown[] = [];
+
+  for (const output of outputs) {
+    stdout = output;
+
+    const result = await $.tool.check({ tool: 'Bash', input: { command: 'rm fixture.txt' } });
+
+    results.push(result);
+  }
+
+  expect(results).toStrictEqual(outputs.map(() => ({ decision: 'ask' })));
+});
+
 test('it retains manual approval for a malformed denial', async ($, on) => {
   const decided = {
     decision: 'ask',
