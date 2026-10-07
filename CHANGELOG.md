@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.3...auto-mode-v0.4.4) (2026-10-07)
+
+
+### Bug Fixes
+
+* **geo-92:** accept probability sums at the ±0.01 boundary ([#36](https://github.com/zgeoff/auto-mode/issues/36)) ([1ff374c](https://github.com/zgeoff/auto-mode/commit/1ff374c96e4537685b60b61b22511b4933353f70))
+
 ## [0.4.3](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.2...auto-mode-v0.4.3) (2026-10-06)
 
 
