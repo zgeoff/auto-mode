@@ -7,6 +7,8 @@ install and everyday use.
 
 - [Overview](./architecture/overview.md) — the two tiers, how a harness is identified, the verdict
   contract, permission evidence, and failure handling.
+- [Decision model](./architecture/decision-model.md) — the approved design: the pipeline, deny with
+  a reason, the denial budget, task scope, the edit bypass, Jev, the judge, and the evidence.
 
 ## Guides
 

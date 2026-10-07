@@ -172,14 +172,15 @@ this file as its guidelines. A repo that runs another review bot names it and it
 
 # auto-mode
 
-auto-mode is a permission classifier that runs as a hook. The harness calls it before a tool runs,
-hands it the pending call on stdin, and reads allow, deny, or nothing on stdout. It works in Claude
-Code, Codex, and Muse Code, and its target is a model that is not Claude driving one of them.
+auto-mode is a permission classifier: a core library that other software can call, plus a Claude
+Code mod. Claude Code calls it before a tool runs and reads allow, deny, or nothing. Its target is a
+model that is not Claude driving Claude Code.
 
 `docs/architecture/overview.md` is the authoritative account of how the pieces fit: the two tiers,
-harness identification, the verdict contract, permission evidence, and the failure modes. Read it in
-full before changing the hook path, the policy, or a harness integration — grep locates code, it
-does not teach the invariants.
+the verdict contract, permission evidence, and the failure modes.
+`docs/architecture/decision-model.md` is the approved design for what each stage decides. Read both
+in full before changing the hook path, the policy, or the Claude Code integration — grep locates
+code, it does not teach the invariants.
 
 ## Layout
 
@@ -221,19 +222,16 @@ prompt change and belongs in a commit that reviews it as one.
   is an allow.
 - No evaluation rule may share a name with a rule or exception, or prefix one, because a verdict
   quotes the name back and the reader cannot tell which was meant.
-- The rules that deny are prose that needs a reader, so the local tier never denies. It allows or it
-  escalates.
+- The rules that deny are prose that needs a reader, so the local tier never denies on a rule. It
+  may deny only on a concrete scope finding: a write target outside the task scope, named in the
+  deny. Everything else it allows or escalates.
 
-## Harness integration contract
+## Claude Code integration contract
 
-- A payload is identified by shape, not by an environment variable: Muse runs hook commands with a
-  scrubbed environment. Muse carries `model_provider`, Claude carries `prompt_id`, Codex carries
-  `turn_id`. Muse sends `turn_id` too, so Muse is tested first.
-- auto-mode never writes a harness settings file. It prints the entry for the user to paste.
-- The three entry shapes differ and each difference stops the hook firing when it is wrong. Claude
-  matches a regular expression, Muse reads the empty string as every tool, and Muse skips a whole
-  handler that carries an unknown field. `SETUP_NOTES` carries what else each harness needs.
-- A change to a harness contract is verified against that harness by hand before it merges. The
+- Claude Code is the only harness auto-mode targets. Codex and Muse ship their own auto mode, so a
+  feature may depend on what only Claude Code offers.
+- auto-mode never writes a Claude Code settings file. It prints the entry for the user to paste.
+- A change to the Claude Code contract is verified against Claude Code by hand before it merges. The
   fixtures are recordings, not a substitute for running it.
 
 ## Function naming — project verbs
