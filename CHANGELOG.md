@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.3](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.2...auto-mode-v0.4.3) (2026-10-06)
+
+
+### Bug Fixes
+
+* record request size and aborts in decision diagnostics ([#26](https://github.com/zgeoff/auto-mode/issues/26)) ([0fcf1a9](https://github.com/zgeoff/auto-mode/commit/0fcf1a924e4613698eb97fef6c5b7fb6e4055687))
+* send shared answer guidance once and record failure reasons ([#24](https://github.com/zgeoff/auto-mode/issues/24)) ([89069de](https://github.com/zgeoff/auto-mode/commit/89069de470d4c5d2e54cd2fdc8e28a5a1f4cca4c))
+
 ## [0.4.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.1...auto-mode-v0.4.2) (2026-10-04)
 
 
