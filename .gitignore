@@ -17,8 +17,10 @@ Thumbs.db
 
 # agent scratch
 .reviews
-.claude/*
-!.claude/skills/
+.claude
+!/.claude/
+/.claude/*
+!/.claude/skills/
 
 # local credentials
 .env
