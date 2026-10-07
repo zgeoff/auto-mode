@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.4...auto-mode-v0.5.0) (2026-10-07)
+
+
+### Features
+
+* **geo-153:** split auto-mode into a core library and a mod ([#41](https://github.com/zgeoff/auto-mode/issues/41)) ([6a44fa4](https://github.com/zgeoff/auto-mode/commit/6a44fa44dadf9ab2880a991aab3f00d3bc408f4f))
+
 ## [0.4.4](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.4.3...auto-mode-v0.4.4) (2026-10-07)
 
 
