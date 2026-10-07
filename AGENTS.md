@@ -228,8 +228,8 @@ prompt change and belongs in a commit that reviews it as one.
 
 ## Claude Code integration contract
 
-- Claude Code is the only harness. Codex and Muse ship their own auto mode, so a feature may depend
-  on what only Claude Code offers.
+- Claude Code is the only harness auto-mode targets. Codex and Muse ship their own auto mode, so a
+  feature may depend on what only Claude Code offers.
 - auto-mode never writes a Claude Code settings file. It prints the entry for the user to paste.
 - A change to the Claude Code contract is verified against Claude Code by hand before it merges. The
   fixtures are recordings, not a substitute for running it.

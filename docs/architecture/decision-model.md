@@ -66,6 +66,8 @@ union of these sources:
 
 - The cwd scope: the worktree that holds the action's current directory, and its branch unless that
   branch is the default branch.
+- The home worktree: the worktree that holds the session's first current directory, and its branch
+  unless that branch is the default branch.
 - What the session created: worktrees and branches recorded from the session's own allowed actions,
   and PRs whose head branch is in scope.
 - The checkout's remotes.

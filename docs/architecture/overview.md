@@ -17,7 +17,7 @@ The prompt targets models that are not Claude, so it has to survive a colder rea
 own.
 
 auto-mode is a core library that other software can call, plus a Claude Code mod. Codex and Muse
-ship their own auto mode, so auto-mode carries no integration for them. The
+ship their own auto mode, so Claude Code is the only harness auto-mode targets. The
 [decision model](./decision-model.md) is the approved design for what each stage decides; this
 overview describes the code as it runs.
 
@@ -41,10 +41,11 @@ payload on stdin
  defer (write nothing) or deny, per config
 ```
 
-**Tier one** matches deterministically. It never denies on a prose rule, because the two errors cost
-differently: a wrong allow costs one unwatched action, while a wrong deny stops work the user asked
-for, and the rules that deny are prose that needs a reader. The local tier may deny only on a
-concrete scope finding: a write target outside the task scope, named in the deny.
+**Tier one** matches deterministically and answers allow or escalate. It never denies on a prose
+rule, because the two errors cost differently: a wrong allow costs one unwatched action, while a
+wrong deny stops work the user asked for, and the rules that deny are prose that needs a reader. The
+only local deny the decision model permits is a concrete scope finding: a write target outside the
+task scope, named in the deny.
 
 It allows three things — read-only tools by name, read-only shell commands including reporting `git`
 subcommands, and deleting regenerable build output inside the working tree. A chain is allowed only
