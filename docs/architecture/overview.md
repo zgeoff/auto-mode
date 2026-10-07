@@ -13,9 +13,13 @@ Spark — and the judging stops. The harness still runs the tools and the agent 
 action needs approval again. auto-mode supplies that judging through an interface the harness
 already calls.
 
-Two constraints follow. The prompt targets models that are not Claude, so it has to survive a colder
-reader than Anthropic's own. And it targets three harnesses, so nothing may depend on a feature only
-one of them has.
+The prompt targets models that are not Claude, so it has to survive a colder reader than Anthropic's
+own.
+
+auto-mode is a core library that other software can call, plus a Claude Code mod. Codex and Muse
+ship their own auto mode, so auto-mode carries no integration for them. The
+[decision model](./decision-model.md) is the approved design for what each stage decides; this
+overview describes the code as it runs.
 
 ## The two tiers
 
@@ -37,9 +41,10 @@ payload on stdin
  defer (write nothing) or deny, per config
 ```
 
-**Tier one** matches deterministically and answers allow or escalate. It never denies, because the
-two errors cost differently: a wrong allow costs one unwatched action, while a wrong deny stops work
-the user asked for, and the rules that deny are prose that needs a reader.
+**Tier one** matches deterministically. It never denies on a prose rule, because the two errors cost
+differently: a wrong allow costs one unwatched action, while a wrong deny stops work the user asked
+for, and the rules that deny are prose that needs a reader. The local tier may deny only on a
+concrete scope finding: a write target outside the task scope, named in the deny.
 
 It allows three things — read-only tools by name, read-only shell commands including reporting `git`
 subcommands, and deleting regenerable build output inside the working tree. A chain is allowed only
@@ -87,22 +92,11 @@ not a tool gate, for a body that is not JSON, and for a model call that failed u
 
 ## Identifying the harness
 
-The three payloads overlap, so the order of these checks decides the result.
-
-| Harness | Key              | Note                                         |
-| ------- | ---------------- | -------------------------------------------- |
-| Muse    | `model_provider` | Neither other harness sends it               |
-| Claude  | `prompt_id`      |                                              |
-| Codex   | `turn_id`        | Muse sends this too, so Muse is tested first |
-
-Environment variables cannot help. Muse runs hook commands with a scrubbed environment, so a Muse
-hook sees none of them — which is also why a Muse setup resolves its API key through a command
-rather than a variable.
+The hook identifies a Claude Code payload by its `prompt_id` field, not by an environment variable.
 
 ## The verdict contract
 
-Two events, two shapes. The tool gate takes a flat decision, and all three harnesses read it,
-because Codex and Muse both modelled their hook contract on Claude's:
+Two events, two shapes. The tool gate takes a flat decision:
 
 ```json
 {
@@ -132,8 +126,8 @@ nothing — so writing nothing is what auto-mode does with one.
 
 `hookSpecificOutput` wraps both. Exit 0; the JSON alone decides the outcome.
 
-The reason begins with the rule name in brackets, and that text reaches the agent verbatim. Verified
-in all three harnesses, and on both of Claude Code's events.
+The reason begins with the rule name in brackets, and that text reaches the agent verbatim on both
+of Claude Code's events.
 
 ## Permission evidence
 
