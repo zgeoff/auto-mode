@@ -143,6 +143,12 @@ export async function sendDecision(
       );
     }
 
+    const probabilitySumTolerance = 0.01;
+
+    // Jev rounds probabilities to two decimals, and their float sum misses the tolerance by a hair:
+    // 0.1 + 0.08 + 0.81 differs from 1 by 0.010000000000000009.
+    const floatSumSlack = 1e-9;
+
     for (const id of Object.keys(request.questions)) {
       const value = parsed.answers[id];
 
@@ -157,7 +163,8 @@ export async function sendDecision(
       const distribution = Object.values(value.probabilities);
 
       if (
-        Math.abs(distribution.reduce((sum, p) => sum + p, 0) - 1) > 0.01 ||
+        Math.abs(distribution.reduce((sum, p) => sum + p, 0) - 1) >
+          probabilitySumTolerance + floatSumSlack ||
         value.probabilities[value.choice] < Math.max(...distribution)
       ) {
         throw new DecisionRequestError(
