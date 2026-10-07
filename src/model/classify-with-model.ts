@@ -1,9 +1,8 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import type { EvaluationOptions } from '../config/types.ts';
-import type { HookPayload, Verdict } from '../harness/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
-import { readTranscript } from '../transcript/read-transcript.ts';
+import type { ActionRequest, Verdict } from '../request/types.ts';
 import { sendMessage } from './anthropic-client.ts';
 import { buildUserMessage } from './build-request.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
@@ -19,7 +18,7 @@ export interface ModelOutcome {
 }
 
 export async function classifyWithModel(
-  payload: HookPayload,
+  payload: ActionRequest,
   config: Config,
   options: EvaluationOptions = {},
 ): Promise<ModelOutcome> {
@@ -47,8 +46,12 @@ export async function classifyWithModel(
     return buildFailure(config, `policy unreadable: ${toMessage(error)}`);
   }
 
-  const transcript = await readTranscript(payload.transcriptPath, config.transcriptEntries);
+  const directMessage =
+    payload.decisionContext?.agentID === null
+      ? payload.decisionContext.lastDirectUserMessage
+      : null;
 
+  const transcript = directMessage === null ? [] : [{ role: 'user', text: directMessage.text }];
   const user = buildUserMessage(payload, transcript, config.provider.reasoning);
 
   try {
@@ -95,7 +98,7 @@ function buildFailure(config: Config, note: string): ModelOutcome {
     };
   }
 
-  return { verdict: null, note: `${note}; deferring to the harness` };
+  return { verdict: null, note: `${note}; no verdict` };
 }
 
 function toMessage(error: unknown): string {

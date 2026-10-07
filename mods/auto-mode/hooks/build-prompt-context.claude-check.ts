@@ -14,7 +14,6 @@ test('it keeps the original human task separate from later instructions', () => 
   expect(later).toStrictEqual({
     originalUserTask: { text: 'Build the parser', origin: 'composer' },
     lastDirectUserMessage: { text: 'Do not push', origin: 'bridge' },
-    hasPrompt: true,
     canCaptureOriginal: true,
   });
 });

@@ -39,7 +39,7 @@
     "one-var": "off",
     "sort-vars": "off",
 
-    "zgeoff/function-verb": ["error", { "verbs": ["classify", "detect"], "exemptNames": ["main"] }]
+    "zgeoff/function-verb": ["error", { "verbs": ["classify"], "exemptNames": ["main"] }]
   },
   "ignorePatterns": [".claude/**", ".reviews/**", ".worktrees/**"]
 }

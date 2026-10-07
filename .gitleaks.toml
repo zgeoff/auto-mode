@@ -12,5 +12,5 @@ paths = ['''\.test\.ts$''']
 
 [[allowlists]]
 targetRules = ["generic-api-key"]
-description = "fixtures are recorded hook payloads with placeholder values"
+description = "fixtures are recorded mod requests and corpora with placeholder values"
 paths = ['''^fixtures/''']

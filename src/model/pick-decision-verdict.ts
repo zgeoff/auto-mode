@@ -1,4 +1,4 @@
-import type { Verdict } from '../harness/types.ts';
+import type { Verdict } from '../request/types.ts';
 import type { DecisionRequest, DecisionResult } from './types.ts';
 
 export function pickDecisionVerdict(

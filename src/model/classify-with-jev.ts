@@ -2,9 +2,8 @@ import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { loadClaudeRules } from '../config/load-claude-rules.ts';
 import type { EvaluationOptions } from '../config/types.ts';
-import type { HookPayload } from '../harness/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
-import { readLastUserMessage } from '../transcript/read-last-user-message.ts';
+import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import type { ModelOutcome } from './classify-with-model.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
@@ -16,7 +15,7 @@ import { sendDecision } from './send-decision.ts';
 import type { DecisionDiagnostics } from './types.ts';
 
 export async function classifyWithJev(
-  payload: HookPayload,
+  payload: ActionRequest,
   config: Config,
   options: EvaluationOptions = {},
 ): Promise<ModelOutcome> {
@@ -54,15 +53,12 @@ export async function classifyWithJev(
     const isFileEdit = payload.toolName === 'Write' || payload.toolName === 'Edit';
     const needsRepositoryContext = hasGitCommand || isFileEdit;
 
-    const [policy, rules, lastUserMessage, repositoryContext] = await Promise.all([
+    const [policy, rules, repositoryContext] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
       ),
       loadClaudeRules(config.claudeSettingsPath),
-      payload.decisionContext === undefined
-        ? readLastUserMessage(payload.transcriptPath)
-        : Promise.resolve(directUserText),
       needsRepositoryContext ? loadRepositoryContext(payload.cwd) : Promise.resolve(null),
     ]);
 
@@ -72,7 +68,7 @@ export async function classifyWithJev(
       payload,
       policy,
       rules,
-      lastUserMessage,
+      directUserText,
       rulesSource,
       repositoryContext,
     );

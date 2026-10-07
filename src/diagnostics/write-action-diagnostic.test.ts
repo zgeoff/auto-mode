@@ -30,13 +30,11 @@ test('it appends private correlated records without action, task, credential, or
   const ctx = await setupTest();
 
   const payload = {
-    harness: 'claude' as const,
-    event: 'PermissionRequest' as const,
-    sessionId: 'private-session-canary',
+    sessionID: 'private-session-canary',
     cwd: '/private-cwd-canary',
     toolName: 'private-tool-canary',
     toolInput: { command: 'private-command-canary' },
-    raw: { prompt_id: 'private-action-canary', env: { TOKEN: 'private-token-canary' } },
+    toolUseID: 'private-action-canary',
   };
 
   await writeActionDiagnostic(payload, { invocationID: 'invocation', status: 'started' });
@@ -54,30 +52,26 @@ test('it appends private correlated records without action, task, credential, or
     .split('\n')
     .map((line) => JSON.parse(line) as unknown);
 
-  const sessionHash = createHash('sha256').update(payload.sessionId).digest('hex').slice(0, 16);
-  const actionHash = createHash('sha256').update(payload.raw.prompt_id).digest('hex').slice(0, 16);
+  const sessionHash = createHash('sha256').update(payload.sessionID).digest('hex').slice(0, 16);
+  const actionHash = createHash('sha256').update(payload.toolUseID).digest('hex').slice(0, 16);
 
   expect(records).toHaveLength(2);
 
   expect(records).toMatchObject([
     {
-      schemaVersion: 1,
+      schemaVersion: 2,
       invocationID: 'invocation',
       sessionHash,
       actionHash,
-      harness: 'claude',
-      event: 'PermissionRequest',
       status: 'started',
       verdict: null,
       diagnostics: null,
     },
     {
-      schemaVersion: 1,
+      schemaVersion: 2,
       invocationID: 'invocation',
       sessionHash,
       actionHash,
-      harness: 'claude',
-      event: 'PermissionRequest',
       status: 'ask',
       verdict: 'ask',
       diagnostics: null,
@@ -98,13 +92,10 @@ test('it preserves the verdict path when the diagnostic destination is unavailab
 
   await writeActionDiagnostic(
     {
-      harness: 'claude',
-      event: 'PermissionRequest',
-      sessionId: 's',
+      sessionID: 's',
       cwd: '/repo',
       toolName: 'Bash',
       toolInput: {},
-      raw: {},
     },
     { invocationID: 'i', status: 'failure', verdict: 'defer' },
   );

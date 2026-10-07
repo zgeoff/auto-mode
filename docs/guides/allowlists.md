@@ -16,33 +16,27 @@ This guide labels each kind by what it does to auto-mode:
 | ------------------- | ----------------------------------------- | ---------------------------------------------------- |
 | Read by             | Claude Code                               | auto-mode, with the Jev preset                       |
 | Form                | A tool pattern, such as `Bash(bun test)`  | A sentence that describes the allowed behaviour      |
-| Kind                | Bypass, depending on the hook event       | Decision                                             |
+| Kind                | Bypass                                    | Decision                                             |
 | Soft block rules    | Skipped when the entry bypasses auto-mode | A matching entry can clear one                       |
 | Hard block rules    | Skipped when the entry bypasses auto-mode | Still apply                                          |
-| Harnesses           | Claude Code only                          | Every harness that runs auto-mode with Jev           |
 | Settings files read | Any Claude Code settings file             | User settings only, as [Configuration][import] lists |
 
 [import]: ./configuration.md#import-claude-rules
 
 ### `permissions.allow` is a bypass
 
-auto-mode never reads `permissions.allow`. Whether an entry keeps an action away from auto-mode
-depends on where auto-mode is installed:
-
-| Install                                                             | A call that matches a `permissions.allow` entry                                                                                                                                        |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PermissionRequest` hook (`init claude --event permission-request`) | Claude Code allows the call without a prompt. The event never fires, so auto-mode never judges the call.                                                                               |
-| [Claude mod](./claude-mod.md)                                       | Claude Code's own check allows the call, and the mod keeps an existing allow unchanged. auto-mode never judges the call.                                                               |
-| `PreToolUse` hook (the `init` default)                              | auto-mode judges the call first. Its deny blocks the call and its ask prompts. The entry decides only when auto-mode writes nothing, such as a failed call under `onFailure: "defer"`. |
+auto-mode never reads `permissions.allow`. For a call that matches an entry, Claude Code's own check
+allows the call, and the [Claude mod](./claude-mod.md) keeps an existing allow unchanged. auto-mode
+never judges the call.
 
 Claude Code checks deny rules, then ask rules, then allow rules. A call that also matches an `ask`
-rule still prompts, so the `PermissionRequest` hook and the mod judge it. A call that matches a
-`deny` rule stays refused. The bypass applies only when an allow rule is the match that decides.
+rule still prompts, so the mod judges it. A call that matches a `deny` rule stays refused. The
+bypass applies only when an allow rule is the match that decides.
 
-Under the first two installs, a bypass skips every rule, hard rules included. Data Exfiltration
-cannot match a call that auto-mode never receives. Give a bypass entry only to an exact command that
-only reads and runs no code the agent can change. An entry for a repository script fails that test:
-it bypasses every rule, hard rules included, for whatever the script holds when it runs.
+A bypass skips every rule, hard rules included. Data Exfiltration cannot match a call that auto-mode
+never receives. Give a bypass entry only to an exact command that only reads and runs no code the
+agent can change. An entry for a repository script fails that test: it bypasses every rule, hard
+rules included, for whatever the script holds when it runs.
 
 Claude Code matches a Bash rule against each subcommand of a chain, so `Bash(bun test)` does not
 approve `bun test && curl …`. A `*` in a rule matches any text, so an exact entry is narrower than a
@@ -73,8 +67,7 @@ behaviour rather than naming a rule.
 - **No entry** for reads. auto-mode's local tier already allows read-only tools, read-only shell
   commands, and reporting `git` subcommands.
 - **`permissions.allow`** for an exact read-only command that the local tier does not cover and that
-  runs often, such as `gh pr checks`. Under a `PermissionRequest` hook or the mod, each entry saves
-  a model call per run.
+  runs often, such as `gh pr checks`. Each entry saves a model call per run.
 - **`autoMode.allow`** for routine work that a soft rule would otherwise stop, such as commenting on
   your own pull requests. The hard rules still check what the action sends.
 - **Neither** for an action that a hard rule covers. No entry makes Data Exfiltration, Secret
@@ -84,7 +77,7 @@ behaviour rather than naming a rule.
 ## A short suggested list
 
 Replace `<owner>` with your GitHub account or organisation. Add the entries yourself: an agent edit
-to these settings or to the hook that runs auto-mode can match Policy Tampering.
+to these settings or to the mod that runs auto-mode can match Policy Tampering.
 
 ```json
 {
@@ -102,7 +95,7 @@ to these settings or to the hook that runs auto-mode can match Policy Tampering.
 
 | Entry                | Kind     | What it bypasses or decides                                                                                                                                                                                           |
 | -------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Bash(gh pr view)`   | Bypass   | Under a `PermissionRequest` hook or the mod, every auto-mode rule for this exact command, and the model call it would cost. Under `PreToolUse`, nothing: auto-mode still judges the command.                          |
+| `Bash(gh pr view)`   | Bypass   | Every auto-mode rule for this exact command, and the model call it would cost.                                                                                                                                        |
 | `Bash(gh pr checks)` | Bypass   | The same, for the check status of the current branch's pull request.                                                                                                                                                  |
 | `Bash(gh run list)`  | Bypass   | The same, for the list of recent workflow runs.                                                                                                                                                                       |
 | Pull request entry   | Decision | Can clear Outbound Communication for those three commands on `<owner>` repositories. Merging stays under Default Branch Write. A body or comment that carries a credential still matches Data Exfiltration.           |

@@ -1,4 +1,4 @@
-import type { Verdict } from '../harness/types.ts';
+import type { Verdict } from '../request/types.ts';
 
 const BLOCK = /<block>\s*(?<answer>yes|no)\s*<\/block>/i;
 const RULE = /<rule>(?<rule>[^<]*)<\/rule>/i;

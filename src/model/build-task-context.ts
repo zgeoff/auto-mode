@@ -1,4 +1,4 @@
-import type { DecisionContext } from '../harness/types.ts';
+import type { DecisionContext } from '../request/types.ts';
 
 export function buildTaskContext(context: DecisionContext): DecisionContext {
   const result = {

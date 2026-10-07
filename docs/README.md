@@ -1,12 +1,12 @@
 # auto-mode documentation
 
-auto-mode is a permission classifier that runs as a hook. The [root README](../README.md) covers
-install and everyday use.
+auto-mode is a permission classifier: a core library and a Claude Code mod. The
+[root README](../README.md) covers install and everyday use.
 
 ## Architecture
 
-- [Overview](./architecture/overview.md) — the two tiers, how a harness is identified, the verdict
-  contract, permission evidence, and failure handling.
+- [Overview](./architecture/overview.md) — the two tiers, the mod contract, permission evidence, and
+  failure handling.
 - [Decision model](./architecture/decision-model.md) — the approved design: the pipeline, deny with
   a reason, the denial budget, task scope, the edit bypass, Jev, the judge, and the evidence.
 
@@ -14,10 +14,8 @@ install and everyday use.
 
 - [Configuration](./guides/configuration.md) — every `config.json` field, the provider presets, and
   how the API key is found.
-- [Harnesses](./guides/harnesses.md) — installing into Claude Code, Codex, and Muse Code, and the
-  one thing each does differently.
-- [Claude permission mod](./guides/claude-mod.md) — Jev decisions before the dialog, time limits,
-  and a reversible session trial.
+- [Claude permission mod](./guides/claude-mod.md) — the request and verdict, Jev decisions before
+  the dialog, time limits, and a reversible session trial.
 - [Suggested allowlists](./guides/allowlists.md) — `permissions.allow` against `autoMode.allow`,
   which entries bypass auto-mode, and how to write exclusions.
 - [Writing a policy](./guides/policy.md) — the rule tiers, the consent bar, and how to change or

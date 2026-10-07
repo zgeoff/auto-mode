@@ -2,34 +2,24 @@
 import { randomUUID } from 'node:crypto';
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
+import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
-import { loadConfig, resolveConfigPath } from './config/config.ts';
-import { loadClaudeRules } from './config/load-claude-rules.ts';
+import { loadConfig } from './config/config.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
-import { parsePayload } from './harness/parse-payload.ts';
-import { renderVerdict } from './harness/render-verdict.ts';
-import type { HookEvent, Verdict } from './harness/types.ts';
-import {
-  EVENT_NOTES,
-  SETTINGS_PATHS,
-  SETUP_NOTES,
-  buildHookConfig,
-} from './install/hook-config.ts';
-import { classifyWithModel } from './model/classify-with-model.ts';
 import { loadPolicy } from './policy/load-policy.ts';
-import { classifyLocally } from './rules/classify-locally.ts';
+import { parseActionRequest } from './request/parse-action-request.ts';
+import { renderVerdict } from './request/render-verdict.ts';
+import type { Verdict } from './request/types.ts';
 
-const USAGE = `auto-mode — a permission classifier that runs as a hook
+const USAGE = `auto-mode — a permission classifier for the auto-mode Claude Code mod
 
 Usage:
-  auto-mode run              Read a hook payload on stdin, write a verdict on stdout
+  auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
-  auto-mode init <harness>   Print the hook entry to add: claude, codex or muse
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
   --rules <path>        Use this rule list instead of the shipped one
-  --event <event>       With init: pre-tool-use, the default, or permission-request
   --explain             With run: also write the reasoning to stderr
   --local-only          With run: skip the model tier
   --jev-only            With run: require Jev and cap its API timeout at 5 seconds
@@ -56,78 +46,32 @@ async function run(
     return printNote(explain, 'stdin is not JSON, so no verdict');
   }
 
-  const payload = parsePayload(body);
+  const request = parseActionRequest(body);
 
-  if (payload === null) {
-    return printNote(explain, 'not a tool gate this hook judges, so no verdict');
+  if (request === null) {
+    return printNote(explain, 'not an action request this classifier judges, so no verdict');
   }
 
   const invocationID = randomUUID();
 
-  await writeActionDiagnostic(payload, { invocationID, status: 'started' });
+  await writeActionDiagnostic(request, { invocationID, status: 'started' });
 
   let loaded;
 
   try {
     loaded = await loadConfig();
   } catch {
-    await writeActionDiagnostic(payload, { invocationID, status: 'failure', verdict: 'defer' });
+    await writeActionDiagnostic(request, { invocationID, status: 'failure', verdict: 'defer' });
 
-    return printNote(true, 'configuration unreadable; deferring to the harness');
+    return printNote(true, 'configuration unreadable; no verdict');
   }
 
   const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
 
   if (config === null) {
-    await writeActionDiagnostic(payload, { invocationID, status: 'failure', verdict: 'defer' });
+    await writeActionDiagnostic(request, { invocationID, status: 'failure', verdict: 'defer' });
 
-    return printNote(true, 'Jev-only evaluation requires system-one; deferring to the harness');
-  }
-
-  let configured = null;
-
-  if (config.provider.protocol === 'system-one') {
-    try {
-      configured = await loadClaudeRules(config.claudeSettingsPath);
-    } catch {
-      if (config.onFailure === 'deny') {
-        writeVerdict(payload.event, {
-          kind: 'deny',
-          rule: 'Classifier Unavailable',
-          reason: 'Claude settings unreadable',
-        });
-      }
-
-      await writeActionDiagnostic(payload, {
-        invocationID,
-        status: 'failure',
-        verdict: config.onFailure === 'deny' ? 'deny' : 'defer',
-      });
-
-      return printNote(true, 'Claude settings unreadable; classifier unavailable');
-    }
-  }
-
-  const local =
-    configured !== null && (configured.hard_deny.length > 0 || configured.soft_deny.length > 0)
-      ? { kind: 'escalate' as const }
-      : classifyLocally(payload);
-
-  if (local.kind === 'allow') {
-    writeVerdict(payload.event, { kind: 'allow' });
-
-    await writeActionDiagnostic(payload, { invocationID, status: 'allow', verdict: 'allow' });
-
-    return printNote(explain, `allowed by ${local.exception} (${payload.harness}, local)`);
-  }
-
-  if (localOnly) {
-    await writeActionDiagnostic(payload, { invocationID, status: 'skipped', verdict: 'defer' });
-
-    return printNote(
-      explain,
-      `${payload.toolName} needs the model tier, which --local-only skipped`,
-    );
+    return printNote(true, 'Jev-only evaluation requires system-one; no verdict');
   }
 
   const deadlineAt = deadline === undefined ? undefined : Number(deadline);
@@ -136,9 +80,9 @@ async function run(
     deadlineAt !== undefined &&
     (!jevOnly || !Number.isSafeInteger(deadlineAt) || deadlineAt <= 0)
   ) {
-    await writeActionDiagnostic(payload, { invocationID, status: 'failure', verdict: 'defer' });
+    await writeActionDiagnostic(request, { invocationID, status: 'failure', verdict: 'defer' });
 
-    return printNote(true, 'invalid Jev evaluation deadline; deferring to the harness');
+    return printNote(true, 'invalid Jev evaluation deadline; no verdict');
   }
 
   const controller = new AbortController();
@@ -153,18 +97,19 @@ async function run(
   }
 
   try {
-    const outcome = await classifyWithModel(payload, config, {
+    const outcome = await classifyAction(request, config, {
+      localOnly,
       deadlineAt,
       signal: controller.signal,
     });
 
     if (outcome.verdict !== null) {
-      writeVerdict(payload.event, outcome.verdict);
+      writeVerdict(outcome.verdict);
     }
 
-    await writeActionDiagnostic(payload, {
+    await writeActionDiagnostic(request, {
       invocationID,
-      status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
+      status: outcome.status,
       verdict: outcome.verdict?.kind ?? 'defer',
       ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
     });
@@ -176,10 +121,10 @@ async function run(
   }
 }
 
-// An event that cannot carry the verdict renders nothing, and writing nothing
-// is the answer: the harness falls back to asking.
-function writeVerdict(event: HookEvent, verdict: Verdict): void {
-  const rendered = renderVerdict(event, verdict);
+// An ask renders nothing, and writing nothing is the answer: the mod keeps the
+// prompt Claude Code was about to show.
+function writeVerdict(verdict: Verdict): void {
+  const rendered = renderVerdict(verdict);
 
   if (rendered !== null) {
     process.stdout.write(rendered);
@@ -194,13 +139,6 @@ function printNote(explain: boolean, message: string): number {
   return 0;
 }
 
-// The names the operator types, kebab-cased, against the names the harnesses
-// send on the wire.
-const HOOK_EVENTS: Readonly<Record<string, HookEvent | undefined>> = {
-  'pre-tool-use': 'PreToolUse',
-  'permission-request': 'PermissionRequest',
-};
-
 async function main(argv: readonly string[]): Promise<number> {
   const args = parseArgs({
     args: [...argv],
@@ -208,7 +146,6 @@ async function main(argv: readonly string[]): Promise<number> {
     options: {
       classifier: { type: 'string' },
       rules: { type: 'string' },
-      event: { type: 'string' },
       explain: { type: 'boolean' },
       'local-only': { type: 'boolean' },
       'jev-only': { type: 'boolean' },
@@ -234,49 +171,10 @@ async function main(argv: readonly string[]): Promise<number> {
         args.values['evaluation-deadline'],
       );
     } catch {
-      process.stderr.write('auto-mode: configuration unreadable; deferring to the harness\n');
+      process.stderr.write('auto-mode: configuration unreadable; no verdict\n');
 
       return 0;
     }
-  }
-
-  if (command === 'init') {
-    const [, harness] = args.positionals;
-
-    if (harness !== 'claude' && harness !== 'codex' && harness !== 'muse') {
-      process.stderr.write('auto-mode init: name a harness — claude, codex or muse\n');
-
-      return 2;
-    }
-
-    const event = HOOK_EVENTS[args.values.event ?? 'pre-tool-use'];
-
-    if (event === undefined) {
-      process.stderr.write('auto-mode init: --event takes pre-tool-use or permission-request\n');
-
-      return 2;
-    }
-
-    // Claude Code is the only harness that reports a permission request of its
-    // own, so the entry would install and never fire anywhere else.
-    if (event === 'PermissionRequest' && harness !== 'claude') {
-      process.stderr.write(`auto-mode init: only Claude Code sends PermissionRequest\n`);
-
-      return 2;
-    }
-
-    process.stdout.write(`# Add this to ${SETTINGS_PATHS[harness]}\n`);
-    process.stdout.write(`# Configuration lives at ${resolveConfigPath()}\n`);
-
-    process.stdout.write(
-      `${buildHookConfig(harness, `${process.execPath} ${process.argv[1] ?? 'auto-mode'} run`, event)}\n`,
-    );
-
-    for (const line of [...SETUP_NOTES[harness], ...EVENT_NOTES[event]]) {
-      process.stdout.write(`# ${line}\n`);
-    }
-
-    return 0;
   }
 
   if (command === 'print-prompt') {

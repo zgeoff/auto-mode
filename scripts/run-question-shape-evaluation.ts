@@ -120,13 +120,10 @@ async function main(): Promise<void> {
 
     const baseline = buildDecisionRequest(
       {
-        harness: 'claude',
-        event: 'PermissionRequest',
-        sessionId: 'question-shape-evaluation',
+        sessionID: 'question-shape-evaluation',
         cwd,
         toolName: entry.tool,
         toolInput: input,
-        raw: {},
       },
       policy,
       configuredRules,

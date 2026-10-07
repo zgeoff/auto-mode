@@ -7,13 +7,13 @@ import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
-import type { HookPayload } from '../src/harness/types.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
 import { DecisionRequestError } from '../src/model/decision-request-error.ts';
 import { pickDecisionVerdict } from '../src/model/pick-decision-verdict.ts';
 import { sendDecision } from '../src/model/send-decision.ts';
 import type { DecisionRequest } from '../src/model/types.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
+import type { ActionRequest } from '../src/request/types.ts';
 import { buildRelayConsentSummary } from './build-relay-consent-summary.ts';
 
 const THRESHOLD = 0.8;
@@ -74,10 +74,8 @@ async function main(): Promise<void> {
 
       // Mirrors the Claude mod payload for a main-agent call; the original task is
       // held unavailable in every cell so only the direct message varies.
-      const payload: HookPayload = {
-        harness: 'claude',
-        event: 'PermissionRequest',
-        sessionId: 'relay-consent-evaluation',
+      const payload: ActionRequest = {
+        sessionID: 'relay-consent-evaluation',
         cwd: corpus.cwd,
         toolName: action.tool,
         toolInput: action.input,
@@ -88,7 +86,6 @@ async function main(): Promise<void> {
           lastDirectUserMessage: text === null ? null : { text, origin: corpus.messageOrigin },
           omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
         },
-        raw: {},
       };
 
       const base = buildDecisionRequest(

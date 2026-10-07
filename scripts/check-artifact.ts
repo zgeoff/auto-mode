@@ -23,33 +23,20 @@ async function main() {
     };
 
     const cli = join(import.meta.dirname, '..', 'dist', 'cli.js');
-
-    const payload = JSON.stringify({
-      prompt_id: 'artifact-check',
-      hook_event_name: 'PermissionRequest',
-      tool_name: 'Read',
-      tool_input: { file_path: '/repo/file.ts' },
-    });
+    const payload = buildRequest('Read', { file_path: '/repo/file.ts' });
 
     const local = await Bun.$`node ${cli} run < ${new Response(payload)}`
       .env(env)
       .quiet()
       .nothrow();
 
-    const expected = JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
-    });
+    const expected = JSON.stringify({ decision: 'allow' });
 
     if (local.exitCode !== 0 || local.stdout.toString() !== expected) {
-      throw new Error('Node artifact did not return the nested local verdict');
+      throw new Error('Node artifact did not return the local verdict');
     }
 
-    const write = JSON.stringify({
-      prompt_id: 'artifact-check',
-      hook_event_name: 'PermissionRequest',
-      tool_name: 'Write',
-      tool_input: { file_path: '/repo/file.ts', content: 'green' },
-    });
+    const write = buildRequest('Write', { file_path: '/repo/file.ts', content: 'green' });
 
     const missingKey = await Bun.$`node ${cli} run < ${new Response(write)}`
       .env(env)
@@ -68,6 +55,22 @@ async function main() {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+function buildRequest(toolName: string, toolInput: Readonly<Record<string, unknown>>): string {
+  return JSON.stringify({
+    sessionID: 'artifact-check',
+    cwd: '/repo',
+    toolName,
+    toolInput,
+    context: {
+      agentID: null,
+      originalUserTask: null,
+      delegatedTask: null,
+      lastDirectUserMessage: null,
+      omittedTaskContext: [],
+    },
+  });
 }
 
 await main();

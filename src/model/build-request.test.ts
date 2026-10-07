@@ -1,15 +1,12 @@
 import { expect, test } from 'bun:test';
-import type { HookPayload } from '../harness/types.ts';
+import type { ActionRequest } from '../request/types.ts';
 import { buildUserMessage } from './build-request.ts';
 
-const PAYLOAD: HookPayload = {
-  harness: 'claude',
-  event: 'PreToolUse',
-  sessionId: 's-1',
+const PAYLOAD: ActionRequest = {
+  sessionID: 's-1',
   cwd: '/repo',
   toolName: 'Bash',
   toolInput: { command: 'git push --force origin main' },
-  raw: {},
 };
 
 // The policy tells the classifier to judge the most recent action and to read
@@ -29,7 +26,7 @@ test('it labels the tool, the working directory and the input', () => {
   expect(message).toInclude('git push --force origin main');
 });
 
-test('it says so when the harness supplied no transcript', () => {
+test('it says so when there is no direct user message', () => {
   const message = buildUserMessage(PAYLOAD, [], true);
 
   expect(message).toInclude('(no transcript available from this harness)');

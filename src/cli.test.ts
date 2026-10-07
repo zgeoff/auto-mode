@@ -7,8 +7,8 @@ import invariant from 'tiny-invariant';
 const CLI = join(import.meta.dirname, 'cli.ts');
 
 // XDG_CONFIG_HOME points at an empty directory so the run never reads the
-// operator's own config, and every run passes --local-only so it never reaches
-// a gateway.
+// operator's own config, and every run that could reach a model passes
+// --local-only or fails before the request.
 async function setupTest(): Promise<{ readonly dir: string; readonly env: NodeJS.ProcessEnv }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-cli-'));
 
@@ -32,6 +32,23 @@ async function setupTest(): Promise<{ readonly dir: string; readonly env: NodeJS
   };
 }
 
+function buildRequest(toolName: string, toolInput: Readonly<Record<string, unknown>>): string {
+  return JSON.stringify({
+    sessionID: 'cli-session',
+    toolUseID: 'cli-action',
+    cwd: '/repo',
+    toolName,
+    toolInput,
+    context: {
+      agentID: null,
+      originalUserTask: null,
+      delegatedTask: null,
+      lastDirectUserMessage: null,
+      omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+    },
+  });
+}
+
 test('it prints usage and exits 0 when given no command', async () => {
   const ctx = await setupTest();
   const result = await Bun.$`bun ${CLI}`.env(ctx.env).quiet().nothrow();
@@ -46,12 +63,7 @@ test('it refuses a traditional evaluator in Jev-only mode before a local allowan
   await mkdir(join(ctx.dir, 'auto-mode'));
   await writeFile(join(ctx.dir, 'auto-mode', 'config.json'), JSON.stringify({ preset: 'spark' }));
 
-  const payload = JSON.stringify({
-    prompt_id: 'jev-only-check',
-    hook_event_name: 'PermissionRequest',
-    tool_name: 'Read',
-    tool_input: { file_path: '/repo/file.ts' },
-  });
+  const payload = buildRequest('Read', { file_path: '/repo/file.ts' });
 
   const result = await Bun.$`bun ${CLI} run --jev-only < ${new Response(payload)}`
     .env(ctx.env)
@@ -66,12 +78,7 @@ test('it refuses a traditional evaluator in Jev-only mode before a local allowan
 test('it accepts a local allowance through Jev-only mode', async () => {
   const ctx = await setupTest();
 
-  const payload = JSON.stringify({
-    prompt_id: 'jev-only-check',
-    hook_event_name: 'PermissionRequest',
-    tool_name: 'Read',
-    tool_input: { file_path: '/repo/file.ts' },
-  });
+  const payload = buildRequest('Read', { file_path: '/repo/file.ts' });
 
   const result = await Bun.$`bun ${CLI} run --jev-only < ${new Response(payload)}`
     .env(ctx.env)
@@ -82,9 +89,7 @@ test('it accepts a local allowance through Jev-only mode', async () => {
 
   const output: unknown = JSON.parse(result.stdout.toString());
 
-  expect(output).toStrictEqual({
-    hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
-  });
+  expect(output).toStrictEqual({ decision: 'allow' });
 });
 
 test('it exits 2 on a command it does not know', async () => {
@@ -93,78 +98,6 @@ test('it exits 2 on a command it does not know', async () => {
 
   expect(result.exitCode).toBe(2);
   expect(result.stderr.toString()).toInclude("unknown command 'frobnicate'");
-});
-
-test('it exits 2 when init names no harness', async () => {
-  const ctx = await setupTest();
-  const result = await Bun.$`bun ${CLI} init`.env(ctx.env).quiet().nothrow();
-
-  expect(result.exitCode).toBe(2);
-  expect(result.stderr.toString()).toInclude('claude, codex or muse');
-});
-
-const HARNESSES: string[] = ['claude', 'codex', 'muse'];
-
-test.each(HARNESSES)('it prints a pasteable hook entry for %s', async (harness) => {
-  const ctx = await setupTest();
-  const result = await Bun.$`bun ${CLI} init ${harness}`.env(ctx.env).quiet().nothrow();
-
-  const entry: unknown = JSON.parse(
-    result.stdout
-      .toString()
-      .split('\n')
-      .filter((line) => !line.startsWith('#'))
-      .join('\n'),
-  );
-
-  expect(result.exitCode).toBe(0);
-  expect(entry).toMatchObject({ hooks: { PreToolUse: expect.toBeArray() } });
-});
-
-// Claude Code reports a permission request of its own, and the hook answers
-// only the calls that reach it; the other two harnesses never send the event.
-test('it prints a permission-request entry for Claude when asked for one', async () => {
-  const ctx = await setupTest();
-
-  const result = await Bun.$`bun ${CLI} init claude --event permission-request`
-    .env(ctx.env)
-    .quiet()
-    .nothrow();
-
-  const entry: unknown = JSON.parse(
-    result.stdout
-      .toString()
-      .split('\n')
-      .filter((line) => !line.startsWith('#'))
-      .join('\n'),
-  );
-
-  expect(result.exitCode).toBe(0);
-  expect(entry).toMatchObject({ hooks: { PermissionRequest: expect.toBeArray() } });
-});
-
-test('it exits 2 when asked for an event no harness sends', async () => {
-  const ctx = await setupTest();
-
-  const result = await Bun.$`bun ${CLI} init claude --event on-tuesday`
-    .env(ctx.env)
-    .quiet()
-    .nothrow();
-
-  expect(result.exitCode).toBe(2);
-  expect(result.stderr.toString()).toInclude('pre-tool-use or permission-request');
-});
-
-test('it exits 2 when a harness that sends no permission request is asked for one', async () => {
-  const ctx = await setupTest();
-
-  const result = await Bun.$`bun ${CLI} init muse --event permission-request`
-    .env(ctx.env)
-    .quiet()
-    .nothrow();
-
-  expect(result.exitCode).toBe(2);
-  expect(result.stderr.toString()).toInclude('only Claude Code');
 });
 
 test('it prints the assembled prompt with no marker left behind', async () => {
@@ -178,13 +111,15 @@ test('it prints the assembled prompt with no marker left behind', async () => {
   expect(prompt).toInclude('## HARD BLOCK rules');
 });
 
-// The hook always exits 0. A non-zero exit reads as a broken hook, and the JSON
-// on stdout is what decides the outcome.
+// The CLI always exits 0. The mod reads a non-zero exit as a failure, and the
+// JSON on stdout is what decides the outcome.
 const UNJUDGEABLE: [string, string][] = [
   ['stdin that is not JSON', 'not json at all'],
   ['a body that is not an object', '"a string"'],
-  ['a payload from no known harness', '{"hook_event_name":"PreToolUse","tool_name":"Read"}'],
-  ['an event that is not a tool gate', '{"prompt_id":"p","hook_event_name":"Stop"}'],
+  [
+    'a Claude Code hook payload',
+    '{"prompt_id":"p","hook_event_name":"PermissionRequest","tool_name":"Read","tool_input":{}}',
+  ],
 ];
 
 test.each(UNJUDGEABLE)('it writes nothing and exits 0 on %s', async (_label, stdin) => {
@@ -199,10 +134,12 @@ test.each(UNJUDGEABLE)('it writes nothing and exits 0 on %s', async (_label, std
   expect(result.stdout.toString()).toBe('');
 });
 
-test('it allows a read-only command from a real Muse payload', async () => {
+// Recorded from the mod in a live Claude Code session: Claude Code prompted for
+// the deletion, and the local tier allows regenerable build output.
+test('it allows a recorded mod request for regenerable output', async () => {
   const ctx = await setupTest();
 
-  const fixture = join(import.meta.dirname, '..', 'fixtures', 'muse-pre-tool-use.json');
+  const fixture = join(import.meta.dirname, '..', 'fixtures', 'mod-request-regenerable.json');
 
   const result = await Bun.$`bun ${CLI} run --local-only < ${fixture}`
     .env(ctx.env)
@@ -212,71 +149,41 @@ test('it allows a read-only command from a real Muse payload', async () => {
   const verdict: unknown = JSON.parse(result.stdout.toString());
 
   expect(result.exitCode).toBe(0);
-
-  expect(verdict).toStrictEqual({
-    hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' },
-  });
+  expect(verdict).toStrictEqual({ decision: 'allow' });
 });
 
-// Claude Code recorded this payload on a real permission request. The event
-// takes a nested decision, and the flat one the tool gate takes is dropped: an
-// allow spelled that way leaves the call waiting for the prompt.
-test('it allows a read-only command from a real Claude permission request', async () => {
+test('it writes nothing for a recorded mod request the local tier will not judge', async () => {
   const ctx = await setupTest();
 
-  const fixture = join(import.meta.dirname, '..', 'fixtures', 'claude-permission-request.json');
+  const fixture = join(import.meta.dirname, '..', 'fixtures', 'mod-request-write.json');
 
   const result = await Bun.$`bun ${CLI} run --local-only < ${fixture}`
     .env(ctx.env)
     .quiet()
     .nothrow();
 
-  const verdict: unknown = JSON.parse(result.stdout.toString());
-
   expect(result.exitCode).toBe(0);
-
-  expect(verdict).toStrictEqual({
-    hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
-  });
+  expect(result.stdout.toString()).toBe('');
 });
-
-const ESCALATING: string[] = ['claude', 'codex'];
-
-test.each(ESCALATING)(
-  'it writes nothing for a %s action the local tier will not judge',
-  async (harness) => {
-    const ctx = await setupTest();
-
-    const fixture = join(import.meta.dirname, '..', 'fixtures', `${harness}-pre-tool-use.json`);
-
-    const result = await Bun.$`bun ${CLI} run --local-only < ${fixture}`
-      .env(ctx.env)
-      .quiet()
-      .nothrow();
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString()).toBe('');
-  },
-);
 
 test('it explains its reasoning on stderr when asked, never on stdout', async () => {
   const ctx = await setupTest();
 
-  const fixture = join(import.meta.dirname, '..', 'fixtures', 'muse-pre-tool-use.json');
+  const fixture = join(import.meta.dirname, '..', 'fixtures', 'mod-request-regenerable.json');
 
   const result = await Bun.$`bun ${CLI} run --local-only --explain < ${fixture}`
     .env(ctx.env)
     .quiet()
     .nothrow();
 
-  expect(result.stderr.toString()).toInclude('allowed by Read-only actions');
+  expect(result.stderr.toString()).toInclude('allowed by Regenerable output');
   expect(result.stdout.toString()).not.toInclude('auto-mode:');
 });
 
 test('it stays silent on stderr when not asked to explain', async () => {
   const ctx = await setupTest();
 
-  const fixture = join(import.meta.dirname, '..', 'fixtures', 'muse-pre-tool-use.json');
+  const fixture = join(import.meta.dirname, '..', 'fixtures', 'mod-request-regenerable.json');
 
   const result = await Bun.$`bun ${CLI} run --local-only < ${fixture}`
     .env(ctx.env)
@@ -319,12 +226,7 @@ test('it escalates local allowances when imported deny rules need evaluation', a
     JSON.stringify({ autoMode: { hard_deny: ['Never read the private key'] } }),
   );
 
-  const payload = JSON.stringify({
-    prompt_id: 'p',
-    hook_event_name: 'PermissionRequest',
-    tool_name: 'Read',
-    tool_input: { file_path: '/repo/key.pem' },
-  });
+  const payload = buildRequest('Read', { file_path: '/repo/key.pem' });
 
   const result = await Bun.$`bun ${CLI} run --local-only < ${new Response(payload)}`
     .env(ctx.env)
@@ -347,12 +249,7 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
 
   await writeFile(join(ctx.dir, 'settings.json'), 'private-test-value {');
 
-  const payload = JSON.stringify({
-    prompt_id: 'p',
-    hook_event_name: 'PermissionRequest',
-    tool_name: 'Read',
-    tool_input: { file_path: '/repo/file.ts' },
-  });
+  const payload = buildRequest('Read', { file_path: '/repo/file.ts' });
 
   const result = await Bun.$`bun ${CLI} run < ${new Response(payload)}`
     .env(ctx.env)
@@ -364,13 +261,8 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
   expect(result.exitCode).toBe(0);
 
   expect(verdict).toStrictEqual({
-    hookSpecificOutput: {
-      hookEventName: 'PermissionRequest',
-      decision: {
-        behavior: 'deny',
-        message: '[Classifier Unavailable] Claude settings unreadable',
-      },
-    },
+    decision: 'deny',
+    reason: '[Classifier Unavailable] Claude settings unreadable',
   });
 
   expect(result.stderr.toString()).not.toInclude('private-test-value');
@@ -382,12 +274,7 @@ test('it exits successfully on malformed classifier configuration without echoin
   await mkdir(join(ctx.dir, 'auto-mode'));
   await writeFile(join(ctx.dir, 'auto-mode', 'config.json'), 'private-test-value {');
 
-  const payload = JSON.stringify({
-    prompt_id: 'p',
-    hook_event_name: 'PermissionRequest',
-    tool_name: 'Read',
-    tool_input: { file_path: '/repo/file.ts' },
-  });
+  const payload = buildRequest('Read', { file_path: '/repo/file.ts' });
 
   const result = await Bun.$`bun ${CLI} run < ${new Response(payload)}`
     .env(ctx.env)

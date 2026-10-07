@@ -1,5 +1,13 @@
 import { expect, test } from 'claude-code/testing';
 
+const NO_PROMPT_CONTEXT = {
+  agentID: null,
+  originalUserTask: null,
+  delegatedTask: null,
+  lastDirectUserMessage: null,
+  omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+};
+
 test('it preserves an existing denial and its rule', async ($, on) => {
   const decided = {
     decision: 'deny',
@@ -20,8 +28,7 @@ test('it preserves an existing denial and its rule', async ($, on) => {
     return {
       value: {
         exitCode: 0,
-        stdout:
-          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}',
+        stdout: '{"decision":"allow"}',
         stderr: 'synthetic-private-fragment',
         isStdoutTruncated: false,
         isStderrTruncated: false,
@@ -66,8 +73,7 @@ test('it preserves an existing allowance without a second evaluator', async ($, 
     return {
       value: {
         exitCode: 0,
-        stdout:
-          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"[Data Exfiltration] Refuse the transfer."}}}',
+        stdout: '{"decision":"deny","reason":"[Data Exfiltration] Refuse the transfer."}',
         stderr: 'synthetic-private-fragment',
         isStdoutTruncated: false,
         isStderrTruncated: false,
@@ -118,8 +124,7 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
     return {
       value: {
         exitCode: 0,
-        stdout:
-          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}',
+        stdout: '{"decision":"allow"}',
         stderr: 'synthetic-private-fragment',
         isStdoutTruncated: false,
         isStderrTruncated: false,
@@ -146,13 +151,11 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
@@ -187,8 +190,7 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
     return {
       value: {
         exitCode: 0,
-        stdout:
-          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"[Data Exfiltration] Refuse the transfer."}}}',
+        stdout: '{"decision":"deny","reason":"[Data Exfiltration] Refuse the transfer."}',
         stderr: 'synthetic-private-fragment',
         isStdoutTruncated: false,
         isStderrTruncated: false,
@@ -219,13 +221,11 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
@@ -287,13 +287,11 @@ test('it retains manual approval when Jev returns no opinion', async ($, on) => 
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
@@ -355,13 +353,11 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
@@ -370,7 +366,7 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
   });
 });
 
-test('it retains manual approval for a verdict from another event', async ($, on) => {
+test('it retains manual approval for a hook-shaped verdict', async ($, on) => {
   const decided = {
     decision: 'ask',
     reason: 'Existing permission decision',
@@ -424,19 +420,58 @@ test('it retains manual approval for a verdict from another event', async ($, on
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
     argv: ['auto-mode', 'run', '--jev-only', '--evaluation-deadline', expect.any(String)],
     init: { timeoutMs: expect.any(Number), stdin: expect.any(String) },
   });
+});
+
+test('it retains manual approval for a verdict with unknown or mistyped fields', async ($, on) => {
+  const outputs = [
+    '{"decision":"allow","reason":123}',
+    '{"decision":"allow","rule":"Read-only actions"}',
+    '{"decision":"deny","reason":"[Data Exfiltration] Refuse the transfer.","extra":true}',
+    '{"decision":"deny","reason":42}',
+    '["allow"]',
+  ];
+
+  let stdout = '';
+
+  on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => ({ decision: 'ask' }));
+
+  on('process.run', () => ({
+    value: {
+      exitCode: 0,
+      stdout,
+      stderr: '',
+      isStdoutTruncated: false,
+      isStderrTruncated: false,
+    },
+  }));
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ source: 'startup', session_id: 'session-1', cwd: '/repo' });
+
+  const results: unknown[] = [];
+
+  for (const output of outputs) {
+    stdout = output;
+
+    const result = await $.tool.check({ tool: 'Bash', input: { command: 'rm fixture.txt' } });
+
+    results.push(result);
+  }
+
+  expect(results).toStrictEqual(outputs.map(() => ({ decision: 'ask' })));
 });
 
 test('it retains manual approval for a malformed denial', async ($, on) => {
@@ -465,8 +500,7 @@ test('it retains manual approval for a malformed denial', async ($, on) => {
     return {
       value: {
         exitCode: 0,
-        stdout:
-          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny"}}}',
+        stdout: '{"decision":"deny"}',
         stderr: 'synthetic-private-fragment',
         isStdoutTruncated: false,
         isStderrTruncated: false,
@@ -493,13 +527,11 @@ test('it retains manual approval for a malformed denial', async ($, on) => {
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
@@ -534,8 +566,7 @@ test('it retains manual approval for a truncated response', async ($, on) => {
     return {
       value: {
         exitCode: 0,
-        stdout:
-          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}',
+        stdout: '{"decision":"allow"}',
         stderr: 'synthetic-private-fragment',
         isStdoutTruncated: true,
         isStderrTruncated: false,
@@ -562,13 +593,11 @@ test('it retains manual approval for a truncated response', async ($, on) => {
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
@@ -603,8 +632,7 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
     return {
       value: {
         exitCode: 1,
-        stdout:
-          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}',
+        stdout: '{"decision":"allow"}',
         stderr: 'synthetic-private-fragment',
         isStdoutTruncated: false,
         isStderrTruncated: false,
@@ -631,13 +659,11 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
@@ -690,13 +716,11 @@ test('it retains manual approval when the child times out', async ($, on) => {
   expect(timeoutMs).toBeLessThanOrEqual(8000);
 
   expect(JSON.parse(stdin)).toStrictEqual({
-    hook_event_name: 'PermissionRequest',
-    prompt_id: 'mod-check',
-    session_id: 'session-1',
+    sessionID: 'session-1',
     cwd: '/repo',
-    transcript_path: '/repo/transcript.jsonl',
-    tool_name: 'Bash',
-    tool_input: { command: 'git push origin feature', timeout: 120_000 },
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin feature', timeout: 120_000 },
+    context: NO_PROMPT_CONTEXT,
   });
 
   expect(invocation).toMatchObject({
@@ -724,8 +748,7 @@ test('it retains manual approval before the session context arrives', async ($, 
     return {
       value: {
         exitCode: 0,
-        stdout:
-          '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}',
+        stdout: '{"decision":"allow"}',
         stderr: 'synthetic-private-fragment',
         isStdoutTruncated: false,
         isStderrTruncated: false,
@@ -771,8 +794,7 @@ test(
       return {
         value: {
           exitCode: 0,
-          stdout:
-            '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}',
+          stdout: '{"decision":"allow"}',
           stderr: 'synthetic-private-fragment',
           isStdoutTruncated: false,
           isStderrTruncated: false,
@@ -799,13 +821,11 @@ test(
     expect(timeoutMs).toBeLessThanOrEqual(8000);
 
     expect(JSON.parse(stdin)).toStrictEqual({
-      hook_event_name: 'PermissionRequest',
-      prompt_id: 'mod-check',
-      session_id: 'session-1',
+      sessionID: 'session-1',
       cwd: '/repo',
-      transcript_path: '/repo/transcript.jsonl',
-      tool_name: 'Bash',
-      tool_input: { command: 'git push origin feature', timeout: 120_000 },
+      toolName: 'Bash',
+      toolInput: { command: 'git push origin feature', timeout: 120_000 },
+      context: NO_PROMPT_CONTEXT,
     });
 
     expect(invocation).toMatchObject({
@@ -856,11 +876,45 @@ test('it refreshes the context from the current user prompt after reload', async
   });
 
   expect(result).toStrictEqual({ decision: 'ask' });
+  expect(JSON.parse(stdin)).toMatchObject({ sessionID: 'new-session', cwd: '/new-repo' });
+  expect(stdin.includes('transcript')).toBe(false);
+});
+
+test('it carries the session identity and the direct user message', async ($, on) => {
+  let stdin = '';
+
+  on('classic.SessionStart', () => ({}));
+  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => ({ decision: 'ask' }));
+
+  on('process.run', (_api, e) => {
+    stdin = e.init?.stdin ?? '';
+
+    return {
+      value: {
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    };
+  });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ source: 'startup', session_id: 'session-1', cwd: '/repo' });
+  await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
+  await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf dist' } });
 
   expect(JSON.parse(stdin)).toMatchObject({
-    session_id: 'new-session',
-    cwd: '/new-repo',
-    transcript_path: '/new-repo/current.jsonl',
+    sessionID: 'session-1',
+    context: {
+      agentID: null,
+      originalUserTask: { text: 'Clean the build output.' },
+      lastDirectUserMessage: { text: 'Clean the build output.' },
+      omittedTaskContext: [],
+    },
   });
 });
 
@@ -892,7 +946,7 @@ test('it preserves the complete action without truncation', async ($, on) => {
   const result = await $.tool.check({ tool: 'Write', input: { file_path: '/repo/file', content } });
 
   expect(result).toStrictEqual({ decision: 'ask' });
-  expect(JSON.parse(stdin)).toMatchObject({ tool_input: { file_path: '/repo/file', content } });
+  expect(JSON.parse(stdin)).toMatchObject({ toolInput: { file_path: '/repo/file', content } });
 });
 
 test('it does not replace the main context with a subagent prompt', async ($, on) => {
@@ -940,12 +994,7 @@ test('it does not replace the main context with a subagent prompt', async ($, on
   });
 
   expect(result).toStrictEqual({ decision: 'ask' });
-
-  expect(JSON.parse(stdin)).toMatchObject({
-    cwd: '/main',
-    session_id: 'main-session',
-    transcript_path: '/main/user.jsonl',
-  });
+  expect(JSON.parse(stdin)).toMatchObject({ cwd: '/main', sessionID: 'main-session' });
 });
 
 test('it honors a configured fail-closed classifier verdict', async ($, on) => {
@@ -957,10 +1006,8 @@ test('it honors a configured fail-closed classifier verdict', async ($, on) => {
     value: {
       exitCode: 0,
       stdout: JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'PermissionRequest',
-          decision: { behavior: 'deny', message: '[Classifier Unavailable] Jev unavailable.' },
-        },
+        decision: 'deny',
+        reason: '[Classifier Unavailable] Jev unavailable.',
       }),
       stderr: '',
       isStdoutTruncated: false,

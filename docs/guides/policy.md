@@ -83,8 +83,8 @@ Your file replaces the shipped one whole. Three constraints:
 
 1. **Keep the three headings** — `HARD BLOCK rules`, `SOFT BLOCK rules`, `ALLOW exceptions`. The
    classifier refers to them by name.
-2. **Rule names are identifiers.** The hook includes the matching rule name in each denial. Renaming
-   a rule changes the denial message.
+2. **Rule names are identifiers.** auto-mode includes the matching rule name in each denial.
+   Renaming a rule changes the denial message.
 3. **No rule may share a name with an evaluation rule in the framework.** A verdict that quotes an
    evaluation rule has no matching block rule.
 
@@ -103,12 +103,11 @@ naming one contradicts that contract, and the model has to guess.
 auto-mode print-prompt | less
 ```
 
-Then run a payload through it:
+Then run an action request through it. `fixtures/mod-request-write.json` holds a request that the
+mod recorded; edit its `toolName` and `toolInput`:
 
 ```sh
-echo '{"hook_event_name":"PreToolUse","prompt_id":"x","tool_name":"Bash",
-       "cwd":"/repo","tool_input":{"command":"rm -rf node_modules"}}' \
-  | auto-mode run --explain
+auto-mode run --explain < fixtures/mod-request-write.json
 ```
 
 `--explain` writes which tier answered and which rule or exception it named. Test a rule change

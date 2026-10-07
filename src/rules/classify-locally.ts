@@ -1,6 +1,6 @@
 import { isAbsolute, normalize, relative } from 'node:path';
 import invariant from 'tiny-invariant';
-import type { HookPayload } from '../harness/types.ts';
+import type { ActionRequest } from '../request/types.ts';
 import {
   READ_ONLY_COMMANDS,
   READ_ONLY_GIT_SUBCOMMANDS,
@@ -16,7 +16,7 @@ export type LocalVerdict =
 
 const ESCALATE: LocalVerdict = { kind: 'escalate' };
 
-export function classifyLocally(payload: HookPayload): LocalVerdict {
+export function classifyLocally(payload: ActionRequest): LocalVerdict {
   if (READ_ONLY_TOOLS.has(payload.toolName)) {
     return { kind: 'allow', exception: 'Read-only actions' };
   }

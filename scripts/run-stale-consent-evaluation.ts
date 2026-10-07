@@ -6,13 +6,13 @@ import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
-import type { HookPayload } from '../src/harness/types.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
 import { DecisionRequestError } from '../src/model/decision-request-error.ts';
 import { pickDecisionVerdict } from '../src/model/pick-decision-verdict.ts';
 import { sendDecision } from '../src/model/send-decision.ts';
 import type { DecisionRequest } from '../src/model/types.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
+import type { ActionRequest } from '../src/request/types.ts';
 
 async function main(): Promise<void> {
   const args = parseArgs({ options: { live: { type: 'boolean' }, output: { type: 'string' } } });
@@ -76,10 +76,8 @@ async function main(): Promise<void> {
 
         // Mirrors the Claude mod payload for a main-agent call; the original task is
         // held unavailable in both arms so only the direct message varies.
-        const payload: HookPayload = {
-          harness: 'claude',
-          event: 'PermissionRequest',
-          sessionId: 'stale-consent-evaluation',
+        const payload: ActionRequest = {
+          sessionID: 'stale-consent-evaluation',
           cwd: corpus.cwd,
           toolName: entry.tool,
           toolInput: entry.input,
@@ -90,7 +88,6 @@ async function main(): Promise<void> {
             lastDirectUserMessage,
             omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
           },
-          raw: {},
         };
 
         const request = buildDecisionRequest(
