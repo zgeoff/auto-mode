@@ -106,10 +106,14 @@ The verdict is one JSON object or nothing:
 { "decision": "deny", "reason": "[Rule Name] text" }
 ```
 
-An allow is `{"decision":"allow"}`. The reason begins with the rule name in brackets, and Claude
-Code passes it to the agent verbatim. The mod's `parse-decision.ts` alone maps this output to Claude
-Code's permission decision. The CLI and the mod ship together, so each refuses the other's output in
-any other shape, and a refusal keeps the prompt. Exit 0; the JSON alone decides the outcome.
+An allow is `{"decision":"allow"}`. The reason begins with the rule name in brackets, then the harm
+the rule covers and what clears it, and ends with the instruction in `policy/denial.md`: do not
+reach the same result another way, continue on a safer path, and when none exists, finish the rest
+of the task before telling the user what the blocked step needs. Claude Code passes the reason to
+the agent verbatim, and the agent continues. The mod's `parse-decision.ts` alone maps this output to
+Claude Code's permission decision. The CLI and the mod ship together, so each refuses the other's
+output in any other shape, and a refusal keeps the prompt. Exit 0; the JSON alone decides the
+outcome.
 
 ## Permission evidence
 

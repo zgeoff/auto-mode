@@ -214,7 +214,8 @@ is configured to leave it alone: its bytes are the prompt and the cache prefix, 
 prompt change and belongs in a commit that reviews it as one.
 
 - `decision.md` is the Jev framework, `classifier.md` is the generative framework, and `rules.md` is
-  the rule list. `loadPolicy` splices the rules at the `<rules>` marker. `auto-mode print-prompt`
+  the rule list. `denial.md` is the instruction every deny reason ends with; it reaches the agent,
+  not a classifier. `loadPolicy` splices the rules at the `<rules>` marker. `auto-mode print-prompt`
   prints the selected base policy; configured rules and action evidence are separate request fields.
 - Every instruction to block must terminate at a rule name that exists in `rules.md` or an explicit
   configured deny entry. An evaluation rule in `classifier.md` may never order a block on its own —

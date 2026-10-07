@@ -262,7 +262,8 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
 
   expect(verdict).toStrictEqual({
     decision: 'deny',
-    reason: '[Classifier Unavailable] Claude settings unreadable',
+    reason:
+      '[Classifier Unavailable] Claude settings unreadable. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
   });
 
   expect(result.stderr.toString()).not.toInclude('private-test-value');

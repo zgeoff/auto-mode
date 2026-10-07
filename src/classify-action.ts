@@ -3,6 +3,7 @@ import { loadClaudeRules } from './config/load-claude-rules.ts';
 import type { EvaluationOptions } from './config/types.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
+import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 
@@ -29,11 +30,13 @@ export async function classifyAction(
     try {
       configured = await loadClaudeRules(config.claudeSettingsPath);
     } catch {
+      const guidance = config.onFailure === 'deny' ? await readDenialGuidance() : null;
+
       return {
         verdict:
-          config.onFailure === 'deny'
-            ? { kind: 'deny', rule: 'Classifier Unavailable', reason: 'Claude settings unreadable' }
-            : null,
+          guidance === null
+            ? null
+            : buildGuidedDeny('Classifier Unavailable', 'Claude settings unreadable.', guidance),
         note: 'Claude settings unreadable; classifier unavailable',
         status: 'failure',
         unavailable: true,
@@ -62,10 +65,23 @@ export async function classifyAction(
     };
   }
 
-  const outcome = await classifyWithModel(request, config, options);
+  const [outcome, guidance] = await Promise.all([
+    classifyWithModel(request, config, options),
+    readDenialGuidance(),
+  ]);
 
   return {
     ...outcome,
+    verdict:
+      outcome.verdict?.kind === 'deny'
+        ? buildGuidedDeny(outcome.verdict.rule, outcome.verdict.reason, guidance)
+        : outcome.verdict,
     status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
   };
+}
+
+function buildGuidedDeny(rule: string, reason: string, guidance: string): Verdict {
+  const sentence = /[.!?]$/u.test(reason) ? reason : `${reason}.`;
+
+  return { kind: 'deny', rule, reason: `${sentence} ${guidance}` };
 }

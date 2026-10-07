@@ -1,6 +1,6 @@
-import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { dirname, join, parse } from 'node:path';
+import { join } from 'node:path';
+import { resolveShippedPolicyDir } from './resolve-shipped-policy-dir.ts';
 
 const RULES_MARKER = '<rules>';
 
@@ -13,7 +13,7 @@ export async function loadPolicy(
   paths: PolicyPaths = {},
   framework: 'classifier.md' | 'decision.md' = 'classifier.md',
 ): Promise<string> {
-  const shipped = findShippedPolicyDir();
+  const shipped = resolveShippedPolicyDir();
   const classifierPath = paths.classifierPath ?? join(shipped, framework);
   const rulesPath = paths.rulesPath ?? join(shipped, 'rules.md');
 
@@ -27,24 +27,4 @@ export async function loadPolicy(
   }
 
   return classifier.replace(RULES_MARKER, rules.trim());
-}
-
-function findShippedPolicyDir(): string {
-  // tsdown flattens dist/ while the source stays nested, so a fixed `..` count
-  // is right for only one of the two layouts. Walk up instead.
-  let dir = import.meta.dirname;
-
-  for (;;) {
-    if (existsSync(join(dir, 'policy', 'classifier.md'))) {
-      return join(dir, 'policy');
-    }
-
-    const parent = dirname(dir);
-
-    if (parent === dir || dir === parse(dir).root) {
-      throw new Error('auto-mode cannot find its shipped policy/ directory');
-    }
-
-    dir = parent;
-  }
 }
