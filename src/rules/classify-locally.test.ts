@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
-import { createMockHookPayload } from '../../test-utils/factories/create-mock-hook-payload.ts';
+import { createMockActionRequest } from '../../test-utils/factories/create-mock-action-request.ts';
 import { classifyLocally } from './classify-locally.ts';
 
 test('it allows a read-only tool by name without reading a command', () => {
-  const payload = createMockHookPayload({ toolName: 'Read', toolInput: {} });
+  const payload = createMockActionRequest({ toolName: 'Read', toolInput: {} });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'allow', exception: 'Read-only actions' });
 });
@@ -20,7 +20,7 @@ const READ_ONLY: string[] = [
 ];
 
 test.each(READ_ONLY)('it allows the read-only command %s', (command) => {
-  const payload = createMockHookPayload({ cwd: '/repo', toolInput: { command } });
+  const payload = createMockActionRequest({ cwd: '/repo', toolInput: { command } });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'allow', exception: 'Read-only actions' });
 });
@@ -34,7 +34,7 @@ const REGENERABLE: string[] = [
 ];
 
 test.each(REGENERABLE)('it allows deleting regenerable output: %s', (command) => {
-  const payload = createMockHookPayload({ cwd: '/repo', toolInput: { command } });
+  const payload = createMockActionRequest({ cwd: '/repo', toolInput: { command } });
 
   expect(classifyLocally(payload)).toStrictEqual({
     kind: 'allow',
@@ -45,7 +45,7 @@ test.each(REGENERABLE)('it allows deleting regenerable output: %s', (command) =>
 // A chain is only as allowable as its least obvious part, and the reported
 // exception should name the part that needed one.
 test('it reports the exception that carried the chain, not the first one', () => {
-  const payload = createMockHookPayload({
+  const payload = createMockActionRequest({
     cwd: '/repo',
     toolInput: { command: 'ls && rm -rf dist' },
   });
@@ -76,7 +76,7 @@ const NEAR_MISSES: [string, string][] = [
 ];
 
 test.each(NEAR_MISSES)('it escalates %s (%s)', (command) => {
-  const payload = createMockHookPayload({ cwd: '/repo', toolInput: { command } });
+  const payload = createMockActionRequest({ cwd: '/repo', toolInput: { command } });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
@@ -93,19 +93,19 @@ const OPAQUE: string[] = [
 ];
 
 test.each(OPAQUE)('it escalates a command it cannot fully parse: %s', (command) => {
-  const payload = createMockHookPayload({ cwd: '/repo', toolInput: { command } });
+  const payload = createMockActionRequest({ cwd: '/repo', toolInput: { command } });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
 
 test('it escalates a shell tool that carries no command to read', () => {
-  const payload = createMockHookPayload({ toolInput: {} });
+  const payload = createMockActionRequest({ toolInput: {} });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
 
 test('it escalates any tool it does not recognise', () => {
-  const payload = createMockHookPayload({ toolName: 'Write', toolInput: {} });
+  const payload = createMockActionRequest({ toolName: 'Write', toolInput: {} });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
@@ -119,7 +119,7 @@ test('it never denies, whatever the command', () => {
     ...OPAQUE,
     ...NEAR_MISSES.map(([command]) => command),
   ]
-    .map((command) => createMockHookPayload({ cwd: '/repo', toolInput: { command } }))
+    .map((command) => createMockActionRequest({ cwd: '/repo', toolInput: { command } }))
     .map((payload) => classifyLocally(payload).kind);
 
   expect([...new Set(kinds)].toSorted()).toStrictEqual(['allow', 'escalate']);

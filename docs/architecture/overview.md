@@ -1,7 +1,8 @@
 # Overview
 
-auto-mode is a hook. The harness runs it before a tool executes, hands it the pending call on stdin,
-and reads a verdict on stdout.
+auto-mode is a core library and a Claude Code mod. When Claude Code is about to prompt for a tool
+call, the mod runs the auto-mode CLI, hands it the pending call on stdin, and reads a verdict on
+stdout. Other software calls `classifyAction` from the library directly.
 
 ## Why it exists
 
@@ -10,24 +11,21 @@ at what matters. It runs for Claude.
 
 Point the same harness at another model through an Anthropic-compatible gateway — GLM, Kimi, Muse
 Spark — and the judging stops. The harness still runs the tools and the agent still works, but every
-action needs approval again. auto-mode supplies that judging through an interface the harness
-already calls.
+action needs approval again. auto-mode supplies that judging through a Claude Code mod.
 
 The prompt targets models that are not Claude, so it has to survive a colder reader than Anthropic's
-own.
-
-auto-mode is a core library that other software can call, plus a Claude Code mod. Codex and Muse
-ship their own auto mode, so Claude Code is the only harness auto-mode targets. The
+own. Codex and Muse Code each ship a built-in auto mode of their own, so auto-mode targets Claude
+Code only, and a Muse model reaches it through the mod inside Claude Code. The
 [decision model](./decision-model.md) is the approved design for what each stage decides; this
 overview describes the code as it runs.
 
 ## The two tiers
 
 ```text
-payload on stdin
+mod request on stdin
       │
       ▼
- parse + identify harness ──► unknown ──► write nothing
+ parse ──► not a mod request ──► write nothing
       │
       ▼
  tier 1: local rules ──► allow ──► write allow          (< 1 ms)
@@ -55,10 +53,10 @@ It declines to judge anything it cannot account for. Command substitution, backt
 substitution, output redirection, and an unbalanced quote all escalate.
 
 **Tier two** uses Jev's typed decision API. The request includes the base policy, explicit user
-Claude rules, the complete proposed action, and the last direct user message. The optional
-[Claude mod](../guides/claude-mod.md) also supplies bounded task context with explicit origins. The
-request excludes other conversation entries, tool output, assistant claims, and the raw hook
-envelope. The client sends a Bearer-authenticated POST to `/v1/systemone`.
+Claude rules, the complete proposed action, and the last direct user message. The
+[Claude mod](../guides/claude-mod.md) supplies that message and bounded task context with explicit
+origins. The request excludes other conversation entries, tool output, and assistant claims. The
+client sends a Bearer-authenticated POST to `/v1/systemone`.
 
 For Git actions and Write/Edit calls, the evaluator also reads cwd branch references, including
 linked worktree metadata. It omits those references when inherited Git directory overrides exist.
@@ -81,54 +79,37 @@ The client refuses a request larger than 100,000 bytes before it calls the API. 
 task context to fit the request, with an explicit reason. It does not truncate the action or user
 message. The provider enforces its token limits; a rejected request follows `onFailure`.
 
-The Messages API presets use the generative framework and transcript reader. Their cache and
-output-token handling apply only to that protocol.
+The Messages API presets use the generative framework, with the mod's last direct user message as
+their only history. Their cache and output-token handling apply only to that protocol.
 
 ## Writing nothing
 
-Writing nothing is a verdict, not a failure. It means auto-mode has no opinion and the harness does
-whatever it would have done alone. That is the output for an unknown harness, for an event that is
-not a tool gate, for a body that is not JSON, and for a model call that failed under
+Writing nothing is a verdict, not a failure. It means auto-mode has no opinion, and the mod keeps
+the prompt Claude Code was about to show. That is the output for an ask, for a body that is not a
+mod request, for a body that is not JSON, and for a model call that failed under
 `onFailure: "defer"`.
 
-## Identifying the harness
+## The mod contract
 
-The hook identifies a Claude Code payload by its `prompt_id` field, not by an environment variable.
+The mod hooks `tool.check`, calls the rest of the permission chain first, and judges only an `ask`.
+An existing allow or deny is final, with its reason and rule. Claude Code reaches the mod only for a
+call it would prompt for, so auto-mode can only answer prompts; it never overrides the user's own
+permission settings.
 
-## The verdict contract
+The request carries the session identity, the tool-call identifier, the current directory, the
+complete action, and the task context. The mod reads `session_id` from `classic.SessionStart` and
+`classic.UserPromptSubmit`; Claude Code's `--resume` keeps it unless `--fork-session` is passed.
 
-Two events, two shapes. The tool gate takes a flat decision:
-
-```json
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "[Rule Name] one sentence."
-  }
-}
-```
-
-Claude Code's permission request takes a nested one, and drops the flat spelling without reporting
-it — an allow written that way leaves the call waiting for the prompt it was meant to answer:
+The verdict is one JSON object or nothing:
 
 ```json
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PermissionRequest",
-    "decision": { "behavior": "deny", "message": "[Rule Name] one sentence." }
-  }
-}
+{ "decision": "deny", "reason": "[Rule Name] one sentence." }
 ```
 
-That event carries allow and deny and nothing else, because it fires when the harness is already on
-its way to the prompt. An ask on it is that prompt, which is what happens when the hook writes
-nothing — so writing nothing is what auto-mode does with one.
-
-`hookSpecificOutput` wraps both. Exit 0; the JSON alone decides the outcome.
-
-The reason begins with the rule name in brackets, and that text reaches the agent verbatim on both
-of Claude Code's events.
+An allow is `{"decision":"allow"}`. The reason begins with the rule name in brackets, and Claude
+Code passes it to the agent verbatim. The mod's `parse-decision.ts` alone maps this output to Claude
+Code's permission decision. The CLI and the mod ship together, so each refuses the other's output in
+any other shape, and a refusal keeps the prompt. Exit 0; the JSON alone decides the outcome.
 
 ## Permission evidence
 
@@ -137,9 +118,11 @@ refers to the shipped policy. It imports no credential fields or shell permissio
 Configured hard and soft deny entries bypass local allowances so the model evaluates those
 restrictions even for a read-only action.
 
-The transcript reader selects the last direct user text. It ignores assistant messages, tool-result
-messages, metadata, subagent messages, and atc message envelopes. A missing transcript supplies no
-user message. It keeps the message whole; the request limit handles oversized input.
+The mod captures the last direct user message from Claude Code's prompt event, with its composer,
+Remote Control, or SDK origin. A message from another origin, such as a plugin delivery, does not
+replace it. A child agent's request carries no direct user message. auto-mode reads no transcript. A
+missing message supplies no user evidence. The message stays whole; the request limit handles
+oversized input.
 
 The last user message can supply specific consent required by a soft block. It cannot redefine the
 policy or supply an unseen proposal. Earlier conversation grants, restrictions, ownership, and
@@ -148,13 +131,14 @@ the supplied action are needed and absent; it does not ask about every possible 
 
 ## Failure modes
 
-- **A hook that cannot start fails open.** If the command is missing or crashes, the harness logs it
-  and carries on. `onFailure: "deny"` does not help, because the process never runs.
-- **auto-mode can only narrow what the harness already allows.** A tool the user's own permission
-  settings deny is refused before the hook sees it.
-- **The agent's own judgement comes first.** A model that refuses to issue a command means the hook
+- **A CLI that cannot start keeps the prompt.** If the executable is missing, crashes, or exits
+  non-zero, the mod keeps the prompt. `onFailure: "deny"` does not help, because the process never
+  runs.
+- **auto-mode can only answer prompts.** A tool the user's own permission settings allow or deny
+  never reaches the mod.
+- **The agent's own judgement comes first.** A model that refuses to issue a command means the mod
   is never consulted for it.
 - **A model call can time out.** The default is to write nothing, report the failure on stderr, and
-  let the harness decide. `onFailure: "deny"` fails closed instead.
-- **A harness timeout shorter than the model call makes every hard case a silent failure.** `init`
-  emits 90 seconds for this reason.
+  keep the prompt. `onFailure: "deny"` fails closed instead.
+- **The mod's time limit bounds the model call.** The child process has 8 seconds and Jev 5; a
+  slower call keeps the prompt. [Time limits](../guides/claude-mod.md#time-limits) has the detail.

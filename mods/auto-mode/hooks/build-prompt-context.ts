@@ -14,7 +14,6 @@ export function buildPromptContext(
     return {
       originalUserTask: null,
       lastDirectUserMessage: null,
-      hasPrompt: false,
       canCaptureOriginal: input.source === 'startup' || input.source === 'clear',
     };
   }
@@ -31,7 +30,6 @@ export function buildPromptContext(
       previous?.originalUserTask ??
       (previous?.canCaptureOriginal === true ? lastDirectUserMessage : null),
     lastDirectUserMessage,
-    hasPrompt: true,
     canCaptureOriginal: previous?.canCaptureOriginal ?? false,
   };
 }

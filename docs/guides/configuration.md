@@ -2,7 +2,7 @@
 
 auto-mode reads `~/.config/auto-mode/config.json`, or `$XDG_CONFIG_HOME/auto-mode/config.json` when
 that variable is set. A missing file uses the shipped defaults. An unreadable or malformed file
-leaves the hook without a verdict and writes a diagnostic.
+leaves the action without a verdict and writes a diagnostic.
 
 ## Configure Jev
 
@@ -25,12 +25,12 @@ provider.
 | `rulesPath`          | Shipped rules                | Replace the block rules and exceptions                        |
 | `claudeSettingsPath` | User Claude settings         | Import explicit `autoMode` entries                            |
 | `minConfidence`      | `0.8`                        | Require confidence and selected probability at this threshold |
-| `onFailure`          | `defer`                      | Defer to the harness or deny on classifier failure            |
-| `transcriptEntries`  | `40`                         | Limit history for Messages API presets                        |
+| `onFailure`          | `defer`                      | Keep the manual approval or deny on classifier failure        |
 
-`minConfidence` accepts values from `0.5` to `1`. The default is a starting threshold, not a
-measured accuracy guarantee. An uncertain Jev decision needs manual approval regardless of
-`onFailure`; uncertainty is a valid result, not a service failure.
+`minConfidence` accepts values from `0.5` to `1`. A `transcriptEntries` field from an older
+configuration still loads and has no effect. The default is a starting threshold, not a measured
+accuracy guarantee. An uncertain Jev decision needs manual approval regardless of `onFailure`;
+uncertainty is a valid result, not a service failure.
 
 ## Import Claude rules
 
@@ -65,8 +65,8 @@ exceptions in the configuration rather than an earlier conversational message.
 | `maxTokens`     | Output budget for Messages API providers                              |
 
 The key resolver tries the environment variable first, then the command. A command that fails,
-prints no key, or exceeds 5 seconds produces a missing-key failure. Muse Code scrubs exported
-variables from hooks, so use a key command there.
+prints no key, or exceeds 5 seconds produces a missing-key failure. Use a key command when the
+Claude Code process does not carry the key variable.
 
 ```json
 {
@@ -88,9 +88,10 @@ Existing generative presets remain available:
 | `claude` | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
 | `glm`    | `glm-5.3-flash`              | `ZAI_API_KEY`       |
 
-These providers use `/v1/messages`, the generative framework, and up to `transcriptEntries` entries.
-They do not import Claude's `autoMode` entries. Their reasoning and output budgets apply only to
-that protocol.
+These providers use `/v1/messages` and the generative framework. Their history is the last direct
+user message that the mod captured. They do not import Claude's `autoMode` entries. The mod passes
+`--jev-only`, so these presets serve library callers and `auto-mode run` without that flag. Their
+reasoning and output budgets apply only to that protocol.
 
 ## Replace the policy
 

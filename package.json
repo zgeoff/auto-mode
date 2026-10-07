@@ -1,13 +1,11 @@
 {
   "name": "auto-mode",
   "version": "0.4.4",
-  "description": "A permission classifier that runs as a hook, so agents that are not Claude can run unattended",
+  "description": "A permission classifier library and Claude Code mod, so agents that are not Claude can run unattended",
   "keywords": [
     "agent",
     "claude-code",
-    "codex",
-    "hook",
-    "muse",
+    "mod",
     "permissions"
   ],
   "homepage": "https://github.com/zgeoff/auto-mode#readme",

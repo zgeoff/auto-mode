@@ -1,7 +1,3 @@
-export type Harness = 'claude' | 'codex' | 'muse';
-
-export type HookEvent = 'PreToolUse' | 'PermissionRequest';
-
 interface UserTask {
   readonly text: string;
   readonly origin: 'composer' | 'bridge' | 'sdk';
@@ -18,16 +14,13 @@ export interface DecisionContext {
   }[];
 }
 
-export interface HookPayload {
-  readonly harness: Harness;
-  readonly event: HookEvent;
-  readonly sessionId: string;
+export interface ActionRequest {
+  readonly sessionID: string;
+  readonly toolUseID?: string | undefined;
   readonly cwd: string;
   readonly toolName: string;
   readonly toolInput: Readonly<Record<string, unknown>>;
-  readonly transcriptPath?: string | undefined;
   readonly decisionContext?: DecisionContext | undefined;
-  readonly raw: Readonly<Record<string, unknown>>;
 }
 
 export type Verdict =

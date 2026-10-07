@@ -74,30 +74,19 @@ jobs:
           rm prompt.txt
 
       # bun runs the suite, so nothing above proves the shipped bundle starts
-      # under node. This does, against a recorded payload from each harness.
-      - name: Run the built hook under node
+      # under node. This does, against the mod requests recorded in a live session.
+      - name: Run the built CLI under node
         run: |
           set -eu
 
-          allow='{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
-
-          verdict=$(node dist/cli.js run --local-only < fixtures/muse-pre-tool-use.json)
-          test "$verdict" = "$allow"
-
-          # a permission request takes a nested decision, and Claude Code drops
-          # the flat one the tool gate takes
-          nested='{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
-
-          verdict=$(node dist/cli.js run --local-only < fixtures/claude-permission-request.json)
-          test "$verdict" = "$nested"
+          verdict=$(node dist/cli.js run --local-only < fixtures/mod-request-regenerable.json)
+          test "$verdict" = '{"decision":"allow"}'
 
           # an action the local tier will not judge writes nothing, which leaves
-          # the harness to decide for itself
-          for payload in claude codex; do
-            quiet=$(node dist/cli.js run --local-only < "fixtures/$payload-pre-tool-use.json")
-            test -z "$quiet"
-          done
+          # the mod to keep the prompt Claude Code was about to show
+          quiet=$(node dist/cli.js run --local-only < fixtures/mod-request-write.json)
+          test -z "$quiet"
 
-          # a hook that cannot read its input still exits 0: a non-zero exit
-          # would make the harness treat a broken hook as a refusal
+          # a CLI that cannot read its input still exits 0: the mod reads a
+          # non-zero exit as a failure
           printf 'not json' | node dist/cli.js run

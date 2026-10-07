@@ -1,10 +1,10 @@
 import type { ClaudeRules } from '../config/load-claude-rules.ts';
-import type { HookPayload } from '../harness/types.ts';
+import type { ActionRequest } from '../request/types.ts';
 import { buildTaskContext } from './build-task-context.ts';
 import type { DecisionRequest, DecisionRule, RepositoryContext } from './types.ts';
 
 export function buildDecisionRequest(
-  payload: HookPayload,
+  payload: ActionRequest,
   policy: string,
   configuredRules: ClaudeRules,
   lastUserMessage: string | null,

@@ -20,7 +20,6 @@ export interface Config {
   readonly provider: ProviderConfig;
   readonly classifierPath?: string | undefined;
   readonly rulesPath?: string | undefined;
-  readonly transcriptEntries: number;
   readonly onFailure: 'defer' | 'deny';
   readonly claudeSettingsPath?: string | null | undefined;
   readonly minConfidence?: number | undefined;
@@ -36,7 +35,6 @@ export const DEFAULT_CONFIG: Config = {
     maxTokens: 3000,
     timeoutMs: 5000,
   },
-  transcriptEntries: 40,
   onFailure: 'defer',
   minConfidence: 0.8,
 };
@@ -105,6 +103,8 @@ const configFileSchema = z.strictObject({
     .optional(),
   classifierPath: text.optional(),
   rulesPath: text.optional(),
+
+  // Has no effect; accepted so that a config file that sets it still loads.
   transcriptEntries: z.number().nonnegative().optional(),
   onFailure: z.enum(['defer', 'deny']).optional(),
   claudeSettingsPath: text.nullable().optional(),
@@ -172,7 +172,6 @@ function merge(file: Readonly<ConfigFile>, path: string): Config {
     },
     classifierPath: file.classifierPath,
     rulesPath: file.rulesPath,
-    transcriptEntries: file.transcriptEntries ?? DEFAULT_CONFIG.transcriptEntries,
     onFailure: file.onFailure ?? DEFAULT_CONFIG.onFailure,
     claudeSettingsPath: file.claudeSettingsPath,
     minConfidence: file.minConfidence ?? DEFAULT_CONFIG.minConfidence,

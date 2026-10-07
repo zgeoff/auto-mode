@@ -79,13 +79,10 @@ async function main(): Promise<void> {
 
     const request = buildDecisionRequest(
       {
-        harness: 'claude',
-        event: 'PermissionRequest',
-        sessionId: 'answer-guidance-evaluation',
+        sessionID: 'answer-guidance-evaluation',
         cwd,
         toolName: entry.tool,
         toolInput: input,
-        raw: {},
       },
       policy,
       configuredRules,

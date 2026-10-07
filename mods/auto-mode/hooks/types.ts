@@ -45,7 +45,6 @@ export interface UserTask {
 export interface PromptContext {
   readonly originalUserTask: UserTask | null;
   readonly lastDirectUserMessage: UserTask | null;
-  readonly hasPrompt: boolean;
   readonly canCaptureOriginal: boolean;
 }
 
@@ -100,7 +99,7 @@ export interface ModAPI {
   readonly process: {
     readonly run: (argv: readonly string[], init?: ProcessInput['init']) => Promise<ProcessResult>;
   };
-  readonly prompt: { readonly submit: (input: Pick<PromptInput, 'text'>) => Promise<object> };
+  readonly prompt: { readonly submit: (input: PromptInput) => Promise<object> };
   readonly tool: { readonly check: (input: CheckInput) => Promise<PermissionDecision> };
   readonly classic: {
     readonly SessionStart: (

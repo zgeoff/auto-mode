@@ -50,13 +50,10 @@ async function setupTest() {
 
   const shipped = buildDecisionRequest(
     {
-      harness: 'claude',
-      event: 'PermissionRequest',
-      sessionId: 's',
+      sessionID: 's',
       cwd: '/repo',
       toolName: 'Bash',
       toolInput: {},
-      raw: {},
     },
     policy,
     { environment: [], allow: [], soft_deny: [], hard_deny: [] },

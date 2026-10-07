@@ -1,38 +1,37 @@
 # auto-mode
 
-auto-mode is a permission classifier: a core library that other software can call, plus a Claude
-Code mod. Claude Code calls it before a tool runs and reads allow, deny, or nothing. Its target is a
-model that is not Claude driving Claude Code.
+auto-mode is a permission classifier: a core library and a Claude Code mod. When Claude Code is
+about to prompt for a tool call, the mod runs the CLI, hands it the pending call on stdin, and reads
+allow, deny, or nothing on stdout. Its target is a model that is not Claude driving Claude Code.
 
 `docs/architecture/overview.md` is the authoritative account of how the pieces fit: the two tiers,
-the verdict contract, permission evidence, and the failure modes.
-`docs/architecture/decision-model.md` is the approved design for what each stage decides. Read both
-in full before changing the hook path, the policy, or the Claude Code integration — grep locates
-code, it does not teach the invariants.
+the mod contract, permission evidence, and the failure modes. `docs/architecture/decision-model.md`
+is the approved design for what each stage decides. Read both in full before changing the request
+path, the policy, or the mod — grep locates code, it does not teach the invariants.
 
 ## Layout
 
 Single package, no workspaces. `src/` groups modules by concern, one primary export per file:
-`harness/` normalises a payload and renders a verdict; `rules/` is the deterministic first tier;
+`request/` parses a mod request and renders a verdict; `rules/` is the deterministic first tier;
 `model/` is the second tier and its decision and Messages API clients; `policy/` assembles the
-prompt; `transcript/` reads the last direct user message for Jev and conversation history for
-generative providers; `config/` holds configuration and presets; `install/` prints the hook entry a
-harness needs. `cli.ts` is the entrypoint. `policy/` at the repo root holds the prompt itself.
-`fixtures/` holds one recorded payload per harness.
+prompt; `config/` holds configuration and presets. `classify-action.ts` runs both tiers and is the
+library entry point; `index.ts` is the public API; `cli.ts` is the entrypoint the mod runs.
+`mods/auto-mode/` is the Claude Code mod. `policy/` at the repo root holds the prompt itself.
+`fixtures/` holds mod requests recorded in a live Claude Code session.
 
 ## Runtime rules
 
 - Bun for development, node for the artifact. `bun test`, never vitest. The published `dist/` runs
-  under node 24 in a harness that has no bun, so a CI step runs the built CLI under real node
+  under node 24 on a machine that may have no bun, so a CI step runs the built CLI under real node
   against each fixture.
-- The hook always exits 0. A non-zero exit reads as a broken hook, and the JSON on stdout is what
+- The CLI always exits 0. The mod reads a non-zero exit as a failure, and the JSON on stdout is what
   decides the outcome.
-- Writing nothing is a verdict, not a failure: it means auto-mode has no opinion and the harness
-  does what it would have done alone. An unknown harness, a non-tool-gate event, a body that is not
-  JSON, and a failed model call under `onFailure: "defer"` all write nothing.
-- Runtime dependencies are bundled, not external. The hook starts once per tool call, so resolving a
-  package from `node_modules` is paid on every call.
-- Everything CI and the hooks run is a root `package.json` script; invoke a gate by script name,
+- Writing nothing is a verdict, not a failure: it means auto-mode has no opinion and the mod keeps
+  the prompt Claude Code was about to show. An ask, a body that is not a mod request, a body that is
+  not JSON, and a failed model call under `onFailure: "defer"` all write nothing.
+- Runtime dependencies are bundled, not external. The CLI starts once per prompted tool call, so
+  resolving a package from `node_modules` is paid on every call.
+- Everything CI and the git hooks run is a root `package.json` script; invoke a gate by script name,
   never by re-spelling the command.
 
 ## The policy
@@ -54,13 +53,21 @@ prompt change and belongs in a commit that reviews it as one.
   may deny only on a concrete scope finding: a write target outside the task scope, named in the
   deny. Everything else it allows or escalates.
 
-## Claude Code integration contract
+## Mod contract
 
 - Claude Code is the only harness auto-mode targets. Codex and Muse ship their own auto mode, so a
   feature may depend on what only Claude Code offers.
-- auto-mode never writes a Claude Code settings file. It prints the entry for the user to paste.
-- A change to the Claude Code contract is verified against Claude Code by hand before it merges. The
-  fixtures are recordings, not a substitute for running it.
+- The mod judges only an `ask` from the rest of Claude Code's permission chain. An existing allow or
+  deny is final.
+- The mod's request carries the session identity, the action, and the task context, including the
+  last direct user message. auto-mode reads no transcript.
+- The CLI and the mod ship together, so the request and the verdict are strict. A shape either side
+  does not know keeps the prompt.
+- `mods/auto-mode/hooks/parse-decision.ts` alone maps the CLI's verdict to Claude Code's permission
+  decision.
+- auto-mode never writes Claude Code's settings files.
+- A change to the mod contract is verified by hand in a live Claude Code session before it merges.
+  The fixtures are recordings, not a substitute for running it.
 
 ## Function naming — project verbs
 
@@ -69,8 +76,6 @@ Project additions to the shared taxonomy, declared in `.oxlintrc.json`:
 - `classify` — decide which category a value falls into, from a closed set the caller knows
   (`classifyLocally`, `classifySegment`). Distinct from `check`, which reports findings rather than
   returning a category.
-- `detect` — identify which of a closed set of known variants a value is, or null when none matches
-  (`detectHarness`). Distinct from `find`, which searches a collection.
 
 `main` is exempt.
 

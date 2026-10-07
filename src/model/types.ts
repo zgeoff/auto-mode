@@ -1,5 +1,5 @@
 import type { ClaudeRules } from '../config/load-claude-rules.ts';
-import type { DecisionContext } from '../harness/types.ts';
+import type { DecisionContext } from '../request/types.ts';
 
 export interface DecisionRule {
   readonly name: string;

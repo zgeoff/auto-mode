@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import type { HookPayload, Verdict } from '../harness/types.ts';
 import type { DecisionDiagnostics } from '../model/types.ts';
+import type { ActionRequest, Verdict } from '../request/types.ts';
 
 interface ActionDiagnostic {
   readonly invocationID: string;
@@ -19,7 +19,7 @@ interface ActionDiagnostic {
 }
 
 export async function writeActionDiagnostic(
-  payload: HookPayload,
+  payload: ActionRequest,
   entry: Readonly<ActionDiagnostic>,
 ): Promise<void> {
   const stateHome = process.env['XDG_STATE_HOME'];
@@ -34,16 +34,12 @@ export async function writeActionDiagnostic(
     return;
   }
 
-  const actionID = payload.raw['tool_use_id'] ?? payload.raw['prompt_id'] ?? payload.raw['turn_id'];
-
   const record = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
-    sessionHash: toHash(payload.sessionId),
-    actionHash: typeof actionID === 'string' ? toHash(actionID) : null,
-    harness: payload.harness,
-    event: payload.event,
+    sessionHash: toHash(payload.sessionID),
+    actionHash: payload.toolUseID === undefined ? null : toHash(payload.toolUseID),
     status: entry.status,
     verdict: entry.verdict ?? null,
     diagnostics: entry.diagnostics ?? null,

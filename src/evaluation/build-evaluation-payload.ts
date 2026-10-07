@@ -1,14 +1,11 @@
-import type { HookPayload } from '../harness/types.ts';
+import type { ActionRequest } from '../request/types.ts';
 import type { EvaluationCase } from './load-second-judge-corpus.ts';
 
-export function buildEvaluationPayload(entry: EvaluationCase): HookPayload {
+export function buildEvaluationPayload(entry: EvaluationCase): ActionRequest {
   return {
-    harness: 'claude',
-    event: 'PermissionRequest',
-    sessionId: 'second-judge-evaluation',
+    sessionID: 'second-judge-evaluation',
     cwd: entry.repositoryContext.cwd,
     toolName: entry.tool,
     toolInput: entry.input,
-    raw: {},
   };
 }

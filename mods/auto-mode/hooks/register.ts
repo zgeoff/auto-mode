@@ -3,10 +3,7 @@ import { parseDecision } from './parse-decision.ts';
 import type { ModOn, ModOptions, PromptContext } from './types.ts';
 
 export function register(on: ModOn, options: ModOptions): void {
-  let context: {
-    readonly sessionID: string;
-    readonly transcriptPath: string;
-  } | null = null;
+  let sessionID: string | null = null;
 
   const activeCalls = new Map<string, string | null>();
   const delegatedTasks = new Map<string, string>();
@@ -15,9 +12,9 @@ export function register(on: ModOn, options: ModOptions): void {
 
   on('classic.SessionStart', (_api, e, next) => {
     if (e.agent_id === undefined) {
-      const isCompact = e.source === 'compact' && context?.sessionID === e.session_id;
+      const isCompact = e.source === 'compact' && sessionID === e.session_id;
 
-      context = { sessionID: e.session_id, transcriptPath: e.transcript_path };
+      sessionID = e.session_id;
 
       const previousPrompts = isCompact ? prompts : null;
 
@@ -33,7 +30,7 @@ export function register(on: ModOn, options: ModOptions): void {
 
   on('classic.UserPromptSubmit', (_api, e, next) => {
     if (e.agent_id === undefined) {
-      context = { sessionID: e.session_id, transcriptPath: e.transcript_path };
+      sessionID = e.session_id;
     }
 
     return next(e);
@@ -83,7 +80,7 @@ export function register(on: ModOn, options: ModOptions): void {
       return decided;
     }
 
-    if (next.signal.aborted || context === null) {
+    if (next.signal.aborted || sessionID === null) {
       const status = next.signal.aborted ? 'cancelled' : 'missing session context';
 
       $.ui.log(`${logPrefix} evaluation skipped; ${status}`, { to: 'debug' });
@@ -140,31 +137,24 @@ export function register(on: ModOn, options: ModOptions): void {
 
       $.ui.log(`${logPrefix} evaluator invoked`, { to: 'debug' });
 
+      const request = {
+        sessionID,
+        ...(e.tool_use_id === undefined ? {} : { toolUseID: e.tool_use_id }),
+        cwd,
+        toolName: e.tool,
+        toolInput: e.input,
+        context: {
+          agentID: agentID ?? null,
+          originalUserTask: prompts.originalUserTask,
+          delegatedTask,
+          lastDirectUserMessage: isChild ? null : prompts.lastDirectUserMessage,
+          omittedTaskContext,
+        },
+      };
+
       const result = await $.process.run(
         [command, 'run', '--jev-only', '--evaluation-deadline', String(deadlineAt)],
-        {
-          timeoutMs: childTimeoutMs,
-          stdin: JSON.stringify({
-            hook_event_name: 'PermissionRequest',
-            prompt_id: e.tool_use_id ?? 'mod-check',
-            session_id: context.sessionID,
-            cwd,
-            ...(isChild ? {} : { transcript_path: context.transcriptPath }),
-            ...(prompts.hasPrompt || isChild
-              ? {
-                  auto_mode_context: {
-                    agentID: agentID ?? null,
-                    originalUserTask: prompts.originalUserTask,
-                    delegatedTask,
-                    lastDirectUserMessage: isChild ? null : prompts.lastDirectUserMessage,
-                    omittedTaskContext,
-                  },
-                }
-              : {}),
-            tool_name: e.tool,
-            tool_input: e.input,
-          }),
-        },
+        { timeoutMs: childTimeoutMs, stdin: JSON.stringify(request) },
       );
 
       if (result.exitCode !== 0 || result.isStdoutTruncated || next.signal.aborted) {

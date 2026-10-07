@@ -6,9 +6,10 @@
   </p>
 </div>
 
-**auto-mode** judges coding-agent tool calls through a permission hook. It returns allow, deny, or
-no verdict to Claude Code, Codex, and Muse Code. Local rules settle read-only actions and build
-cleanup; Jev evaluates the remaining actions against a written policy.
+**auto-mode** judges the tool calls that Claude Code would prompt for. It is a core library and a
+Claude Code mod. The mod returns allow, deny, or no verdict before the permission dialog appears.
+Local rules settle read-only actions and build cleanup; Jev evaluates the remaining actions against
+a written policy.
 
 The Jev request includes the policy, your configured environment and permissions, the complete
 proposed action, and the last direct user message. It excludes the rest of the session. Configure
@@ -19,12 +20,12 @@ classifier.
 
 ```sh
 npm i -g auto-mode
-auto-mode init claude --event permission-request
+claude --plugin-dir "$(npm root -g)/auto-mode/mods/auto-mode"
 ```
 
-Paste the printed hook entry into the file it identifies. `init` prints configuration and never
-writes into a harness's settings. [Harnesses](./docs/guides/harnesses.md) covers registration for
-each harness.
+The package ships the mod in `mods/auto-mode`. The mod runs the `auto-mode` executable on `PATH`;
+its `command` option takes another executable. [Claude permission mod](./docs/guides/claude-mod.md)
+covers the mod, its time limits, and a trial session.
 
 Create the classifier configuration:
 
@@ -35,8 +36,8 @@ Create the classifier configuration:
 }
 ```
 
-Save it as `~/.config/auto-mode/config.json` and export your TypeSafe API key. Hooks that run with a
-scrubbed environment need `provider.apiKeyCommand` instead.
+Save it as `~/.config/auto-mode/config.json` and export your TypeSafe API key, or set
+`provider.apiKeyCommand` to a command that prints it.
 [Configuration](./docs/guides/configuration.md) covers credentials and provider overrides.
 
 ## Standing permissions
@@ -51,7 +52,7 @@ consent. [False-positive clarification](./docs/guides/policy.md#false-positive-c
 clear Policy Tampering and Audit Tampering. The last direct user message can supply the exact action
 and target that a soft block needs; replies such as “go ahead” cannot supply an unseen proposal.
 
-Read [the policy](./policy/rules.md) before you enable the hook.
+Read [the policy](./policy/rules.md) before you enable the mod.
 [Writing a policy](./docs/guides/policy.md) covers the precedence and the limits of an action-only
 assessment.
 
@@ -62,33 +63,47 @@ approval when every rule confidently allows the action, and manual approval for 
 The confidence threshold is configurable and needs evaluation against your actions.
 
 A missing key, failed API call, malformed response, or oversized request follows `onFailure`. The
-default `defer` writes no verdict and leaves the harness to decide; `deny` fails closed. Failures
-write a diagnostic to stderr. auto-mode never truncates a Jev action to make it fit.
+default `defer` writes no verdict and keeps the prompt; `deny` fails closed. Failures write a
+diagnostic to stderr. auto-mode never truncates a Jev action to make it fit.
 
 ## Commands
 
 | Command                      | Effect                                    |
 | ---------------------------- | ----------------------------------------- |
-| `auto-mode run`              | Read a hook payload and write a verdict   |
+| `auto-mode run`              | Read a mod request and write a verdict    |
 | `auto-mode run --explain`    | Write decision details to stderr          |
 | `auto-mode run --local-only` | Skip the model tier                       |
 | `auto-mode run --jev-only`   | Require Jev with a 5-second API timeout   |
 | `auto-mode print-prompt`     | Print the selected provider's base policy |
-| `auto-mode init <harness>`   | Print a hook entry                        |
 
-Existing `spark`, `claude`, and `glm` presets use the Messages API and conversation history. Select
-`jev` explicitly to change an existing provider configuration.
+The mod evaluates only ask decisions and preserves existing allow and deny decisions. It runs the
+CLI as a bounded child process with `--jev-only`. The `spark`, `claude`, and `glm` presets use the
+Messages API and serve library callers.
 
-The optional [Claude permission mod](./docs/guides/claude-mod.md) evaluates ask decisions before the
-permission dialog. It preserves existing allow and deny decisions and has a bounded child process.
+## Library
+
+```ts
+import { classifyAction, loadConfig, parseActionRequest } from 'auto-mode';
+
+const request = parseActionRequest(body);
+
+if (request !== null) {
+  const outcome = await classifyAction(request, await loadConfig());
+}
+```
+
+`classifyAction` runs both tiers and returns the verdict, a note, and diagnostics. A request carries
+the session identity, the action, and the task context; `parseActionRequest` builds one from the
+mod's JSON.
 
 ## Documentation
 
-- [Architecture](./docs/architecture/overview.md) covers the request, decision combination, and wire
-  contract.
+- [Architecture](./docs/architecture/overview.md) covers the request, decision combination, and the
+  mod contract.
 - [Configuration](./docs/guides/configuration.md) covers every setting and the imported Claude
   rules.
-- [Harnesses](./docs/guides/harnesses.md) covers registration and hook trust.
+- [Claude permission mod](./docs/guides/claude-mod.md) covers the request, the verdict, and the time
+  limits.
 - [Writing a policy](./docs/guides/policy.md) covers rule edits and evaluation.
 
 ## Licence

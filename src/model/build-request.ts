@@ -1,10 +1,14 @@
-import type { HookPayload } from '../harness/types.ts';
-import type { TranscriptEntry } from '../transcript/read-transcript.ts';
+import type { ActionRequest } from '../request/types.ts';
 
 const MAX_INPUT_CHARS = 4000;
 
+export interface TranscriptEntry {
+  readonly role: string;
+  readonly text: string;
+}
+
 export function buildUserMessage(
-  payload: HookPayload,
+  payload: ActionRequest,
   transcript: readonly TranscriptEntry[],
   reasoning: boolean,
 ): string {

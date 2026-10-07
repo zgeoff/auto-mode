@@ -3,7 +3,7 @@ import { HttpResponse, http } from 'msw';
 import invariant from 'tiny-invariant';
 import { server } from '../../mocks/node.ts';
 import type { Config } from '../config/config.ts';
-import type { HookPayload } from '../harness/types.ts';
+import type { ActionRequest } from '../request/types.ts';
 import { classifyWithModel } from './classify-with-model.ts';
 
 const KEY_ENV = 'AUTO_MODE_CLASSIFY_KEY';
@@ -18,18 +18,14 @@ const CONFIG: Config = {
     maxTokens: 3000,
     timeoutMs: 5000,
   },
-  transcriptEntries: 40,
   onFailure: 'defer',
 };
 
-const PAYLOAD: HookPayload = {
-  harness: 'claude',
-  event: 'PreToolUse',
-  sessionId: 's-1',
+const PAYLOAD: ActionRequest = {
+  sessionID: 's-1',
   cwd: '/repo',
   toolName: 'Bash',
   toolInput: { command: 'git push --force origin main' },
-  raw: {},
 };
 
 function setupTest(): void {
@@ -101,7 +97,7 @@ test('it reports the cache counts alongside the verdict', async () => {
   expect(outcome.note).toInclude('7025 cached / 0 written / 42 new / 130 out');
 });
 
-// Writing nothing lets the harness do what it would have done alone.
+// Writing nothing keeps the prompt Claude Code was about to show.
 test('it has no opinion when no API key is configured', async () => {
   const outcome = await classifyWithModel(PAYLOAD, CONFIG);
 
@@ -117,7 +113,7 @@ test('it has no opinion when the model call fails', async () => {
   const outcome = await classifyWithModel(PAYLOAD, CONFIG);
 
   expect(outcome.verdict).toBeNull();
-  expect(outcome.note).toInclude('deferring to the harness');
+  expect(outcome.note).toInclude('no verdict');
 });
 
 test('it names the timeout when the model call outlives it', async () => {

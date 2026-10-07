@@ -7,22 +7,9 @@ export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   'WebFetch',
   'WebSearch',
   'TodoWrite',
-  'read',
-  'glob',
-  'grep',
-  'list_dir',
-  'read_file',
-  'file_search',
-  'view_image',
 ]);
 
-export const SHELL_TOOLS: ReadonlySet<string> = new Set([
-  'Bash',
-  'bash',
-  'shell',
-  'run_command',
-  'local_shell',
-]);
+export const SHELL_TOOLS: ReadonlySet<string> = new Set(['Bash']);
 
 export const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   'awk',
