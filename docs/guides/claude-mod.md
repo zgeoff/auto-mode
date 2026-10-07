@@ -5,7 +5,8 @@ appears. It uses `tool.check` in Claude Code 2.1.292 and runs the auto-mode CLI 
 release as a child process. The generative presets remain available to library callers.
 
 The mod calls `next(e)` first and keeps an existing allow or deny unchanged, including its reason
-and rule. It evaluates only ask decisions. An uncertain verdict, missing executable, child timeout,
+and rule. It evaluates only ask decisions. Every classifier decision is an allow or a denial with a
+reason, so an uncertain decision reaches the agent as a denial. A missing executable, child timeout,
 invalid output, or absent session context preserves the original ask. A configured classifier
 failure under `onFailure: "deny"` can still return a named denial.
 
@@ -56,9 +57,10 @@ and `classic.UserPromptSubmit`. Claude Code's `--resume` keeps the session ID un
 ```
 
 The CLI writes `{"decision":"allow"}`, `{"decision":"deny","reason":"[Rule Name] text"}`, or
-nothing. Nothing keeps the prompt. `parse-decision.ts` alone maps that output to Claude Code's
-permission decision. The CLI and the mod ship together, so the CLI refuses a request in any other
-shape, and the mod keeps the prompt.
+nothing. It writes nothing only for a body it cannot read or a classifier failure under
+`onFailure: "defer"`. Nothing keeps the prompt. `parse-decision.ts` alone maps that output to Claude
+Code's permission decision. The CLI and the mod ship together, so the CLI refuses a request in any
+other shape, and the mod keeps the prompt.
 
 Each optional task prompt has a 4,096-byte limit. An oversized task is omitted whole. If the
 complete request exceeds 100,000 bytes, the client omits optional tasks before it refuses the
@@ -112,10 +114,10 @@ Use an auto-mode executable from the same release as the mod; an older artifact 
 approval. The `auto-mode.command` plugin setting accepts an executable name or absolute path as one
 argument, without a shell. Point it at the reviewed artifact before the session test.
 
-Test known allow, deny, ask, and failure cases before wider use. Keep the existing Claude permission
-settings. Remove any auto-mode hook entry from Claude's settings: the CLI reads only the mod's
-request and writes nothing for a hook payload. To stop the mod, exit the test session and start the
-next session without `--plugin-dir`.
+Test known allow, deny, uncertain, and failure cases before wider use. Keep the existing Claude
+permission settings. Remove any auto-mode hook entry from Claude's settings: the CLI reads only the
+mod's request and writes nothing for a hook payload. To stop the mod, exit the test session and
+start the next session without `--plugin-dir`.
 
 [Claude event semantics](https://code.claude.com/docs/en/plugins/mods/events#approve-or-refuse-a-tool-call-before-the-user-is-asked)
 describe the permission chain and the decisions that mods can change.

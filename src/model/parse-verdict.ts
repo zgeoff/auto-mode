@@ -1,3 +1,5 @@
+import { buildDenyReason } from '../policy/build-deny-reason.ts';
+import { DENY_REASONS } from '../policy/deny-reasons.ts';
 import type { Verdict } from '../request/types.ts';
 
 const BLOCK = /<block>\s*(?<answer>yes|no)\s*<\/block>/i;
@@ -23,9 +25,18 @@ export function parseModelVerdict(text: string): Verdict {
   // renderer adds that prefix, so strip it rather than print it twice.
   const stripped = reason?.replace(/^\[[^\]]*\]\s*/, '') ?? '';
 
+  if (stripped !== '') {
+    return { kind: 'deny', rule, reason: stripped };
+  }
+
+  const template = DENY_REASONS[rule];
+
   return {
     kind: 'deny',
     rule,
-    reason: stripped === '' ? 'the policy blocks this action.' : stripped,
+    reason:
+      template === undefined
+        ? 'The action matches this rule.'
+        : buildDenyReason({ name: rule, tier: template.tier, source: 'shipped' }, 'matched'),
   };
 }

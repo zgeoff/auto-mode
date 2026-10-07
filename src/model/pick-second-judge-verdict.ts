@@ -1,11 +1,11 @@
-import type { Verdict } from '../request/types.ts';
+import type { EvaluationVerdict } from '../evaluation/pick-evaluation-verdict.ts';
+import { pickEvaluationVerdict } from '../evaluation/pick-evaluation-verdict.ts';
 import type { JudgeVerdict } from './parse-judge-verdict.ts';
-import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 import type { DecisionRequest, DecisionResult } from './types.ts';
 
 export interface SecondJudgeVerdict {
   readonly eligible: boolean;
-  readonly verdict: Verdict;
+  readonly verdict: EvaluationVerdict;
 }
 
 export function pickSecondJudgeVerdict(
@@ -14,7 +14,7 @@ export function pickSecondJudgeVerdict(
   minConfidence: number,
   judge: JudgeVerdict | null,
 ): SecondJudgeVerdict {
-  const first = pickDecisionVerdict(request, result, minConfidence);
+  const first = pickEvaluationVerdict(request, result, minConfidence);
 
   const eligible =
     first.kind === 'ask' &&

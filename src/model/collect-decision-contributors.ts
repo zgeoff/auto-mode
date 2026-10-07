@@ -1,12 +1,13 @@
-import type { Verdict } from '../request/types.ts';
+import { classifyDecisionAnswers } from './classify-decision-answers.ts';
 import type { DecisionDiagnostics, DecisionRequest, DecisionResult } from './types.ts';
 
 export function collectDecisionContributors(
   request: DecisionRequest,
   result: DecisionResult,
-  verdict: Verdict,
   minConfidence: number,
 ): DecisionDiagnostics['contributors'] {
+  const decision = classifyDecisionAnswers(request, result, minConfidence);
+
   return Object.entries(request.rules).flatMap(([id, rule]) => {
     const answer = result.answers[id];
 
@@ -15,9 +16,9 @@ export function collectDecisionContributors(
     }
 
     const contributes =
-      verdict.kind === 'deny'
-        ? rule.name === verdict.rule
-        : verdict.kind === 'ask' &&
+      decision.kind === 'block'
+        ? rule === decision.rule
+        : decision.kind === 'uncertain' &&
           (answer.choice !== 'allow' ||
             answer.confidence < minConfidence ||
             answer.probabilities.allow < minConfidence);

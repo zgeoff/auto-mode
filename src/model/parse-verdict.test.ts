@@ -39,10 +39,19 @@ test.each([
   expect(parseModelVerdict(text)).toStrictEqual({ kind: 'allow' });
 });
 
-test('it supplies a reason when the model names a rule but gives none', () => {
+test('it supplies the fixed reason when the model names a shipped rule but gives none', () => {
   expect(parseModelVerdict('<block>yes</block><rule>Irreversible Deletion</rule>')).toStrictEqual({
     kind: 'deny',
     rule: 'Irreversible Deletion',
-    reason: 'the policy blocks this action.',
+    reason:
+      'The action matches this rule: deleting data that no backup, remote, or build step can restore. A direct user instruction that asks for this deletion and names the path clears it.',
+  });
+});
+
+test('it supplies a generic reason when the model names an unknown rule but gives none', () => {
+  expect(parseModelVerdict('<block>yes</block><rule>Custom Rule</rule>')).toStrictEqual({
+    kind: 'deny',
+    rule: 'Custom Rule',
+    reason: 'The action matches this rule.',
   });
 });

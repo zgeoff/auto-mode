@@ -27,8 +27,9 @@ library entry point; `index.ts` is the public API; `cli.ts` is the entrypoint th
 - The CLI always exits 0. The mod reads a non-zero exit as a failure, and the JSON on stdout is what
   decides the outcome.
 - Writing nothing is a verdict, not a failure: it means auto-mode has no opinion and the mod keeps
-  the prompt Claude Code was about to show. An ask, a body that is not a mod request, a body that is
-  not JSON, and a failed model call under `onFailure: "defer"` all write nothing.
+  the prompt Claude Code was about to show. A body that is not a mod request, a body that is not
+  JSON, and a failed model call under `onFailure: "defer"` all write nothing. A classifier decision
+  is always an allow or a deny with a reason; it never asks.
 - Runtime dependencies are bundled, not external. The CLI starts once per prompted tool call, so
   resolving a package from `node_modules` is paid on every call.
 - Everything CI and the git hooks run is a root `package.json` script; invoke a gate by script name,
@@ -41,7 +42,8 @@ is configured to leave it alone: its bytes are the prompt and the cache prefix, 
 prompt change and belongs in a commit that reviews it as one.
 
 - `decision.md` is the Jev framework, `classifier.md` is the generative framework, and `rules.md` is
-  the rule list. `loadPolicy` splices the rules at the `<rules>` marker. `auto-mode print-prompt`
+  the rule list. `denial.md` is the instruction every deny reason ends with; it reaches the agent,
+  not a classifier. `loadPolicy` splices the rules at the `<rules>` marker. `auto-mode print-prompt`
   prints the selected base policy; configured rules and action evidence are separate request fields.
 - Every instruction to block must terminate at a rule name that exists in `rules.md` or an explicit
   configured deny entry. An evaluation rule in `classifier.md` may never order a block on its own —

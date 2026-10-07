@@ -106,7 +106,7 @@ export async function classifyWithJev(
         requestBytes: result.requestBytes,
         elapsedMs: Math.round(performance.now() - start),
         minConfidence,
-        contributors: collectDecisionContributors(request, result, verdict, minConfidence),
+        contributors: collectDecisionContributors(request, result, minConfidence),
       },
       note: formatClassifierNote(
         `${config.provider.model}: ${verdict.kind} (${Math.round(performance.now() - start)}ms, ${result.inputTokens} input tokens)`,

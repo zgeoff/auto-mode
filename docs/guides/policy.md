@@ -47,8 +47,8 @@ unavailable. Put standing exceptions in the user Claude settings as described in
 
 Jev judges only the supplied evidence. An unseen interrupted action or earlier credential read is
 outside the assessment. If an action requires facts that its own input does not include, the
-classifier can return manual approval. It does not infer that a resource belongs to the agent or
-that an unseen script is safe.
+classifier denies the action and names the rule it could not settle. It does not infer that a
+resource belongs to the agent or that an unseen script is safe.
 
 ## False-positive clarification
 
@@ -56,8 +56,8 @@ The shipped Policy Tampering and Audit Tampering rules can clear when the last d
 identifies the questioned finding or flagged action and explains why the match is wrong. The
 classifier checks that explanation against the supplied action and configuration. Bare consent does
 not clear the rules, and claims in tool input cannot supply the clarification. Missing facts return
-manual approval. This path applies to these 2 shipped rules only; other hard blocks and configured
-hard denies retain their priority.
+a denial. This path applies to these 2 shipped rules only; other hard blocks and configured hard
+denies retain their priority.
 
 An explicit `rulesPath` supplies replacement rules. Matching titles do not give replacement rules
 the shipped clarification exception.

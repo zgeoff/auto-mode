@@ -41,8 +41,8 @@ test('it appends private correlated records without action, task, credential, or
 
   await writeActionDiagnostic(payload, {
     invocationID: 'invocation',
-    status: 'ask',
-    verdict: 'ask',
+    status: 'deny',
+    verdict: 'deny',
   });
 
   const text = await readFile(ctx.path, 'utf8');
@@ -72,8 +72,8 @@ test('it appends private correlated records without action, task, credential, or
       invocationID: 'invocation',
       sessionHash,
       actionHash,
-      status: 'ask',
-      verdict: 'ask',
+      status: 'deny',
+      verdict: 'deny',
       diagnostics: null,
     },
   ]);

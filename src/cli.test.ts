@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
@@ -262,7 +262,8 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
 
   expect(verdict).toStrictEqual({
     decision: 'deny',
-    reason: '[Classifier Unavailable] Claude settings unreadable',
+    reason:
+      '[Classifier Unavailable] Claude settings unreadable. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
   });
 
   expect(result.stderr.toString()).not.toInclude('private-test-value');
@@ -293,4 +294,41 @@ test('it exits successfully on malformed classifier configuration without echoin
     .map((line) => JSON.parse(line) as unknown);
 
   expect(records).toMatchObject([{ status: 'started' }, { status: 'failure', verdict: 'defer' }]);
+});
+
+test('it keeps a fail-closed denial when the safer-path guidance is missing', async () => {
+  const ctx = await setupTest();
+
+  const root = join(import.meta.dirname, '..');
+  const copy = join(ctx.dir, 'package');
+
+  await cp(join(root, 'src'), join(copy, 'src'), { recursive: true });
+
+  for (const file of ['classifier.md', 'decision.md', 'rules.md']) {
+    await cp(join(root, 'policy', file), join(copy, 'policy', file));
+  }
+
+  await symlink(join(root, 'node_modules'), join(copy, 'node_modules'));
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({ preset: 'jev', onFailure: 'deny' }),
+  );
+
+  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+
+  const payload = buildRequest('Read', { file_path: '/repo/file.ts' });
+
+  const result = await Bun.$`bun ${join(copy, 'src', 'cli.ts')} run < ${new Response(payload)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(result.exitCode).toBe(0);
+
+  expect(JSON.parse(result.stdout.toString())).toStrictEqual({
+    decision: 'deny',
+    reason: '[Classifier Unavailable] Claude settings unreadable.',
+  });
 });

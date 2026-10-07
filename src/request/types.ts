@@ -25,5 +25,4 @@ export interface ActionRequest {
 
 export type Verdict =
   | { readonly kind: 'allow' }
-  | { readonly kind: 'ask' }
   | { readonly kind: 'deny'; readonly rule: string; readonly reason: string };

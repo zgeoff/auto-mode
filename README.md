@@ -59,8 +59,9 @@ assessment.
 ## Decisions and failures
 
 Jev evaluates each named rule with a typed choice. auto-mode returns a denial for a confident block,
-approval when every rule confidently allows the action, and manual approval for uncertain decisions.
-The confidence threshold is configurable and needs evaluation against your actions.
+approval when every rule confidently allows the action, and a denial for uncertain decisions. Every
+denial names its rule, the harm, and what clears it, and the agent continues on another path. The
+confidence threshold is configurable and needs evaluation against your actions.
 
 A missing key, failed API call, malformed response, or oversized request follows `onFailure`. The
 default `defer` writes no verdict and keeps the prompt; `deny` fails closed. Failures write a

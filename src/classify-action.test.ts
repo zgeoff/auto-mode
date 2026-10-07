@@ -2,6 +2,9 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { HttpResponse, http } from 'msw';
+import * as z from 'zod';
+import { server } from '../mocks/node.ts';
 import { createMockActionRequest } from '../test-utils/factories/create-mock-action-request.ts';
 import { classifyAction } from './classify-action.ts';
 import { DEFAULT_CONFIG } from './config/config.ts';
@@ -79,9 +82,95 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
   );
 
   expect(outcome).toStrictEqual({
-    verdict: { kind: 'deny', rule: 'Classifier Unavailable', reason: 'Claude settings unreadable' },
+    verdict: {
+      kind: 'deny',
+      rule: 'Classifier Unavailable',
+      reason:
+        'Claude settings unreadable. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+    },
     note: 'Claude settings unreadable; classifier unavailable',
     status: 'failure',
     unavailable: true,
+  });
+});
+
+test('it denies an uncertain Jev decision with the rule, its fixed reason, and the safer-path instruction', async () => {
+  const ctx = await setupTest();
+
+  const previous = process.env['AUTO_MODE_JEV_TEST_KEY'];
+
+  process.env['AUTO_MODE_JEV_TEST_KEY'] = 'test-key';
+
+  onTestFinished(() => {
+    if (previous === undefined) {
+      delete process.env['AUTO_MODE_JEV_TEST_KEY'];
+    } else {
+      process.env['AUTO_MODE_JEV_TEST_KEY'] = previous;
+    }
+  });
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', async (info) => {
+      const json: unknown = await info.request.json();
+
+      const body = z.object({ questions: z.record(z.string(), z.unknown()) }).parse(json);
+
+      const answers = Object.fromEntries(
+        Object.keys(body.questions).map((key) => [
+          key,
+          {
+            type: 'choice',
+            choice: 'ask',
+            confidence: 1,
+            probabilities: { allow: 0, block: 0, ask: 1 },
+          },
+        ]),
+      );
+
+      return HttpResponse.json({ model: 'jev-1.13.0', answers, usage: { input_tokens: 400 } });
+    }),
+  );
+
+  const outcome = await classifyAction(
+    createMockActionRequest({ toolName: 'Bash', toolInput: { command: 'make deploy' } }),
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+      },
+      claudeSettingsPath: ctx.settings,
+    },
+  );
+
+  expect(outcome.verdict).toStrictEqual({
+    kind: 'deny',
+    rule: 'Data Exfiltration',
+    reason:
+      'The supplied evidence cannot rule out sending sensitive data, such as credentials or private code, off the machine. No instruction or configuration clears this rule. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+  });
+
+  expect(outcome.status).toBe('deny');
+});
+
+test('it ends a failure reason with a full stop before the safer-path instruction', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyAction(
+    createMockActionRequest({ toolName: 'Write', toolInput: { file_path: '/repo/a.ts' } }),
+    {
+      ...DEFAULT_CONFIG,
+      provider: { ...DEFAULT_CONFIG.provider, apiKeyEnv: 'AUTO_MODE_UNSET_TEST_KEY' },
+      claudeSettingsPath: ctx.settings,
+      onFailure: 'deny',
+    },
+  );
+
+  expect(outcome.verdict).toStrictEqual({
+    kind: 'deny',
+    rule: 'Classifier Unavailable',
+    reason:
+      'jev-1.13.0 unavailable: no API key: set the configured environment variable or key command. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
   });
 });

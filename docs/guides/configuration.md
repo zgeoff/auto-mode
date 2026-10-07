@@ -29,7 +29,7 @@ provider.
 
 `minConfidence` accepts values from `0.5` to `1`. A `transcriptEntries` field from an older
 configuration still loads and has no effect. The default is a starting threshold, not a measured
-accuracy guarantee. An uncertain Jev decision needs manual approval regardless of `onFailure`;
+accuracy guarantee. An uncertain Jev decision is a denial with a reason regardless of `onFailure`;
 uncertainty is a valid result, not a service failure.
 
 ## Import Claude rules

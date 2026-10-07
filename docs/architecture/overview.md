@@ -32,7 +32,7 @@ mod request on stdin
       │
       │ escalate
       ▼
- tier 2: Jev ──► allow / deny / ask ──► write verdict
+ tier 2: Jev ──► allow / deny ──► write verdict
       │
       │ failure
       ▼
@@ -71,9 +71,10 @@ options. Questions share the same state. The response must contain every request
 probabilities, and a supported choice. An invalid answer set is a classifier failure.
 
 The caller combines the answers with hard blocks before soft blocks. A block needs both its
-confidence and selected probability at or above `minConfidence`. Any uncertain answer or explicit
-`ask` returns manual approval. Approval needs a confident allow from every question. Block messages
-include the matching rule; Jev supplies no generated explanation.
+confidence and selected probability at or above `minConfidence`. Approval needs a confident allow
+from every question. Any other combination, an uncertain answer or an explicit `ask`, is a deny that
+names the unsettled rule with the highest block probability. Jev supplies no generated explanation,
+so every deny carries a fixed reason for its rule: the harm the rule covers and what clears it.
 
 The client refuses a request larger than 100,000 bytes before it calls the API. It can omit optional
 task context to fit the request, with an explicit reason. It does not truncate the action or user
@@ -85,9 +86,8 @@ their only history. Their cache and output-token handling apply only to that pro
 ## Writing nothing
 
 Writing nothing is a verdict, not a failure. It means auto-mode has no opinion, and the mod keeps
-the prompt Claude Code was about to show. That is the output for an ask, for a body that is not a
-mod request, for a body that is not JSON, and for a model call that failed under
-`onFailure: "defer"`.
+the prompt Claude Code was about to show. That is the output for a body that is not a mod request,
+for a body that is not JSON, and for a model call that failed under `onFailure: "defer"`.
 
 ## The mod contract
 
@@ -103,13 +103,17 @@ complete action, and the task context. The mod reads `session_id` from `classic.
 The verdict is one JSON object or nothing:
 
 ```json
-{ "decision": "deny", "reason": "[Rule Name] one sentence." }
+{ "decision": "deny", "reason": "[Rule Name] text" }
 ```
 
-An allow is `{"decision":"allow"}`. The reason begins with the rule name in brackets, and Claude
-Code passes it to the agent verbatim. The mod's `parse-decision.ts` alone maps this output to Claude
-Code's permission decision. The CLI and the mod ship together, so each refuses the other's output in
-any other shape, and a refusal keeps the prompt. Exit 0; the JSON alone decides the outcome.
+An allow is `{"decision":"allow"}`. The reason begins with the rule name in brackets, then the harm
+the rule covers and what clears it, and ends with the instruction in `policy/denial.md`: do not
+reach the same result another way, continue on a safer path, and when none exists, finish the rest
+of the task before telling the user what the blocked step needs. Claude Code passes the reason to
+the agent verbatim, and the agent continues. The mod's `parse-decision.ts` alone maps this output to
+Claude Code's permission decision. The CLI and the mod ship together, so each refuses the other's
+output in any other shape, and a refusal keeps the prompt. Exit 0; the JSON alone decides the
+outcome.
 
 ## Permission evidence
 
@@ -126,8 +130,8 @@ oversized input.
 
 The last user message can supply specific consent required by a soft block. It cannot redefine the
 policy or supply an unseen proposal. Earlier conversation grants, restrictions, ownership, and
-interruptions are outside the assessment. The classifier asks for manual approval when facts about
-the supplied action are needed and absent; it does not ask about every possible unseen event.
+interruptions are outside the assessment. The classifier denies when facts about the supplied action
+are needed and absent; it does not deny over every possible unseen event.
 
 ## Failure modes
 
