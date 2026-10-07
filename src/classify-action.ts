@@ -30,13 +30,13 @@ export async function classifyAction(
     try {
       configured = await loadClaudeRules(config.claudeSettingsPath);
     } catch {
-      const guidance = config.onFailure === 'deny' ? await readDenialGuidance() : null;
+      const guidance = config.onFailure === 'deny' ? await tryReadDenialGuidance() : null;
 
       return {
         verdict:
-          guidance === null
-            ? null
-            : buildGuidedDeny('Classifier Unavailable', 'Claude settings unreadable.', guidance),
+          config.onFailure === 'deny'
+            ? buildGuidedDeny('Classifier Unavailable', 'Claude settings unreadable.', guidance)
+            : null,
         note: 'Claude settings unreadable; classifier unavailable',
         status: 'failure',
         unavailable: true,
@@ -67,7 +67,7 @@ export async function classifyAction(
 
   const [outcome, guidance] = await Promise.all([
     classifyWithModel(request, config, options),
-    readDenialGuidance(),
+    tryReadDenialGuidance(),
   ]);
 
   return {
@@ -80,8 +80,18 @@ export async function classifyAction(
   };
 }
 
-function buildGuidedDeny(rule: string, reason: string, guidance: string): Verdict {
+function buildGuidedDeny(rule: string, reason: string, guidance: string | null): Verdict {
   const sentence = /[.!?]$/u.test(reason) ? reason : `${reason}.`;
 
-  return { kind: 'deny', rule, reason: `${sentence} ${guidance}` };
+  return { kind: 'deny', rule, reason: guidance === null ? sentence : `${sentence} ${guidance}` };
+}
+
+// A verdict must still reach the mod when the guidance file is missing, or the
+// CLI exits without one and the prompt comes back.
+async function tryReadDenialGuidance(): Promise<string | null> {
+  try {
+    return await readDenialGuidance();
+  } catch {
+    return null;
+  }
 }
