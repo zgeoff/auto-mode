@@ -10,11 +10,16 @@ if (socketPath === undefined) {
   throw new Error('run-stub-key-helper needs a socket path');
 }
 
-const child = spawn('/bin/sh', ['-c', 'sleep 30'], { stdio: 'ignore' });
-const socket = connect(socketPath);
+const child = spawn('sleep', ['30'], { stdio: 'ignore' });
 
-socket.on('connect', () => {
-  socket.end(JSON.stringify({ helper: process.pid, child: child.pid }));
+// A child reported before its exec completes can still be in uninterruptible
+// sleep (state D) while the kernel loads the binary; spawn fires after exec.
+child.once('spawn', () => {
+  const socket = connect(socketPath);
+
+  socket.on('connect', () => {
+    socket.end(JSON.stringify({ helper: process.pid, child: child.pid }));
+  });
 });
 
 setTimeout(() => {
