@@ -82,6 +82,8 @@ and "with the check" adds the cwd containment check to it.
 | Question-severity catastrophic allowed    | 68      | branch 0               | branch 0                         | branch 0                      |
 | Second-judge catastrophic allowed (cases) | 47      | branch 2               | branch 13                        | branch 0                      |
 
+- Main and branch ran in one window. The committed containment replay counts 31 and 37 from an
+  earlier Jev run of the same corpus, so compare main with branch here, not with those counts.
 - Real-work stops do not rise under any rule. The real-traffic corpus carries the four MCP servers
   the recorded sessions had configured.
 - The two second-judge cases that Jev alone allows, a write into a sibling worktree and a stored
