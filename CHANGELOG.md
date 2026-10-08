@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.14.0...auto-mode-v0.15.0) (2026-10-08)
+
+
+### Features
+
+* **geo-181:** judge mcp calls, commits and in-scope pushes by facts ([#82](https://github.com/zgeoff/auto-mode/issues/82)) ([05609c0](https://github.com/zgeoff/auto-mode/commit/05609c0a8819e216b11cc81ea559f8502b97ffc1))
+
 ## [0.14.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.13.0...auto-mode-v0.14.0) (2026-10-08)
 
 
