@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.10.0...auto-mode-v0.11.0) (2026-10-08)
+
+
+### Features
+
+* **geo-156:** derive the task scope from pluggable scope sources ([#56](https://github.com/zgeoff/auto-mode/issues/56)) ([0bb9e47](https://github.com/zgeoff/auto-mode/commit/0bb9e47f002f36e8dd3d9e967ae7c559327dcb61))
+
 ## [0.10.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.9.0...auto-mode-v0.10.0) (2026-10-08)
 
 
