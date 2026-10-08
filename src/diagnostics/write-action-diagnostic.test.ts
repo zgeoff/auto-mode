@@ -93,19 +93,20 @@ test('it preserves the verdict path when the diagnostic destination is unavailab
 
   await writeFile(join(ctx.dir, 'private'), 'not a directory');
 
-  await writeActionDiagnostic(
-    {
-      sessionID: 's',
-      cwd: '/repo',
-      toolName: 'Bash',
-      toolInput: {},
-    },
+  const written = writeActionDiagnostic(
+    { sessionID: 's', cwd: ctx.dir, toolName: 'Bash', toolInput: {} },
     { invocationID: 'i', status: 'failure', verdict: 'defer' },
     {
       env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.dir, 'private', 'actions.jsonl') },
       home: ctx.dir,
     },
   );
+
+  await expect(written).toResolve();
+
+  const blocker = await readFile(join(ctx.dir, 'private'), 'utf8');
+
+  expect(blocker).toBe('not a directory');
 });
 
 test('it appends to the auto-mode state directory when no diagnostics path is set', async () => {
