@@ -65,6 +65,10 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
   allow.
 - The Messages handler answers from the `messagesReplies` queue (`mocks/messages-replies.ts`). An
   empty queue answers HTTP 500 with an `api_error` body.
+- A per-test `server.use` handler that records the request and returns nothing passes it on to the
+  default handler. Read the body from `request.clone()`, because the default handler reads it too.
+  When no later handler answers, MSW 2 sends the request to the real network instead of raising
+  `onUnhandledRequest`, so a capture test also asserts the outcome the default handler produced.
 - Provider keys come from the injected host's `env`. The factories name the key variable
   `AUTO_MODE_UNSET_TEST_KEY`, which no test environment sets, so a test that needs a key puts it in
   its host.
