@@ -181,6 +181,18 @@ test('it prints its row only once the delay a pull request names has passed', as
   expect(elapsedMs).toBeGreaterThanOrEqual(300);
 });
 
+test('it fails without the path of its pull request file', () => {
+  const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-gh.ts')], {
+    encoding: 'utf8',
+  });
+
+  expect({ status: result.status, stdout: result.stdout, stderr: result.stderr }).toStrictEqual({
+    status: 1,
+    stdout: '',
+    stderr: expect.toInclude('run-stub-gh needs the path of its pull request file'),
+  });
+});
+
 test('it exits with the code a pull request names after printing its row', async () => {
   const ctx = await setupTest();
 

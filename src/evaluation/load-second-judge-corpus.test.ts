@@ -1422,7 +1422,11 @@ test('it rejects guidance for a rule it does not guide', async () => {
 
   expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({
     name: 'ZodError',
-    issues: expect.toPartiallyContain({ code: 'unrecognized_keys', keys: ['History Rewrite'] }),
+    issues: expect.toPartiallyContain({
+      path: [],
+      code: 'unrecognized_keys',
+      keys: ['History Rewrite'],
+    }),
   });
 });
 
