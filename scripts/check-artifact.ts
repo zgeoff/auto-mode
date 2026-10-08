@@ -36,22 +36,38 @@ async function main() {
       throw new Error('Node artifact did not return the local verdict');
     }
 
-    const write = buildRequest('Write', { file_path: '/repo/file.ts', content: 'green' });
+    const edit = buildRequest('Write', { file_path: '/repo/file.ts', content: 'green' });
 
-    const missingKey = await Bun.$`node ${cli} run < ${new Response(write)}`
-      .env(env)
-      .quiet()
-      .nothrow();
+    const bypass = await Bun.$`node ${cli} run < ${new Response(edit)}`.env(env).quiet().nothrow();
 
-    if (
-      missingKey.exitCode !== 0 ||
-      missingKey.stdout.length > 0 ||
-      !missingKey.stderr.toString().includes('no API key')
-    ) {
-      throw new Error('Node artifact did not defer with a diagnostic for the missing Jev key');
+    if (bypass.exitCode !== 0 || bypass.stdout.toString() !== expected) {
+      throw new Error('Node artifact did not allow an in-scope edit through the edit bypass');
     }
 
-    console.log('Node artifact: local verdict and missing-key fallback passed');
+    // Joined at runtime so that the repository's own secret scan passes this file.
+    const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2Rl'].join('');
+
+    for (const [label, toolName, toolInput] of [
+      ['a shell write', 'Bash', { command: 'touch /repo/file.ts' }],
+      ['an edit with a secret', 'Write', { file_path: '/repo/token.ts', content: token }],
+    ] as const) {
+      const request = buildRequest(toolName, toolInput);
+
+      const missingKey = await Bun.$`node ${cli} run < ${new Response(request)}`
+        .env(env)
+        .quiet()
+        .nothrow();
+
+      if (
+        missingKey.exitCode !== 0 ||
+        missingKey.stdout.length > 0 ||
+        !missingKey.stderr.toString().includes('no API key')
+      ) {
+        throw new Error(`Node artifact did not send ${label} to Jev and defer on the missing key`);
+      }
+    }
+
+    console.log('Node artifact: local verdict, edit bypass, and missing-key fallback passed');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

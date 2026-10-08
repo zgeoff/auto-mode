@@ -14,3 +14,8 @@ paths = ['''\.test\.ts$''']
 targetRules = ["generic-api-key"]
 description = "fixtures are recorded mod requests and corpora with placeholder values"
 paths = ['''^fixtures/''']
+
+[[allowlists]]
+targetRules = ["sourcegraph-access-token", "aws-amazon-bedrock-api-key-short-lived"]
+description = "the bundled secret rule set holds detection patterns, which read as tokens"
+paths = ['''^src/secrets/betterleaks-rules\.json$''']

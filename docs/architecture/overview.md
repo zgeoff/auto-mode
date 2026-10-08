@@ -38,6 +38,9 @@ mod request on stdin
       ▼                                                        │
  local allow? ──► write allow                                  │
       │                                                        │
+      ▼                                                        │
+ edit bypass ──► in-scope file edit, no secret ──► write allow │
+      │                                                        │
       ▼                                                        ▼
  tier 2: Jev ──► allow / deny ──┐
       │                         │
@@ -79,6 +82,19 @@ globs. The `atc` source is reserved for atc's general session record and contrib
 source can hand a task the default branch. The checkout's remotes are always owned, and `/tmp` is
 scratch space that every task owns. [Configuration](../guides/configuration.md#scope-sources) lists
 the sources.
+
+**The edit bypass** allows an Edit, Write or NotebookEdit whose target, with links resolved, lies in
+an in-scope worktree and in that worktree's own checkout, without asking Jev. Shell writes still go
+to Jev, and so does an edit into a nested worktree or checkout the task does not own. These targets
+go to Jev even inside the scope, on the path as written or as resolved: `.git`, agent configuration
+(`.claude/`, `.codex/`, `.muse/`, `AGENTS.md`, `CLAUDE.md`), settings and hook files, CI workflows,
+env and credential files, and auto-mode's own configuration and state. The written content must pass
+a secret scan with the Betterleaks v1.9.0 rule set, compiled to a bundled JSON file; an Edit is
+scanned as the 12 lines around each replacement in the file it produces. Any match sends the edit to
+Jev, and so does content over 256 KiB or an Edit whose text is not in its file. The scan never
+validates a secret against its provider. When the user's Claude settings carry deny entries, the
+bypass is off, because only Jev reads those entries.
+[The bypass evidence](../evaluations/edit-bypass.md) records the port and its cost.
 
 **Tier two** uses Jev's typed decision API. The request includes the base policy, explicit user
 Claude rules, the complete proposed action, and the last direct user message. The
