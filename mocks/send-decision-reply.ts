@@ -1,4 +1,5 @@
 import { HttpResponse } from 'msw';
+import invariant from 'tiny-invariant';
 import type { DecisionResponse } from '../src/model/decision-response-schema.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
 import { decisionAnswers } from './decision-answers.ts';
@@ -26,8 +27,7 @@ interface DecisionValidationBody {
 type DecisionReplyBody = DecisionResponse | DecisionRefusalBody | DecisionValidationBody;
 
 // Most suites want Jev to clear every rule, so a question with no answer set
-// gets a certain allow. Jev checks only the top level of a request and the tag
-// of each question; the fields inside the state and a question pass unchecked.
+// gets a certain allow.
 export async function sendDecisionReply(
   info: Readonly<ResolverInfo>,
 ): Promise<HttpResponse<DecisionReplyBody>> {
@@ -69,14 +69,18 @@ export async function sendDecisionReply(
 
   const issues = collectValidationIssues(json);
 
-  if (issues.length > 0 || !isPlainObject(json['questions'])) {
+  if (issues.length > 0) {
     return HttpResponse.json<DecisionValidationBody>({ detail: issues }, { status: 422 });
   }
+
+  const questions = json['questions'];
+
+  invariant(isPlainObject(questions), 'a request with no issue carries a question map');
 
   const allow = buildMockDecisionAnswer({ choice: 'allow', confidence: 1 });
 
   const answers = Object.fromEntries(
-    Object.keys(json['questions']).map((id) => [id, decisionAnswers.get(id) ?? allow]),
+    Object.keys(questions).map((id) => [id, decisionAnswers.get(id) ?? allow]),
   );
 
   return HttpResponse.json<DecisionResponse>({

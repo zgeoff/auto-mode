@@ -90,10 +90,11 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
   question ID such as `rule_0` or `hard_deny_0`. A question with no seeded answer gets a certain
   allow.
 - The decision handler checks a request as Jev does, and only as far. An unknown top-level field or
-  a question type other than `choice` gets HTTP 400 with an `api_usage_error` body. A missing or
-  wrongly typed `model`, `state` or `questions`, an empty `questions` map, and a question without a
-  `type` get HTTP 422 with Jev's `detail` list. The fields inside the state and a question pass
-  unchecked, so the client's own tests pin the body it sends.
+  a question type other than `choice` gets HTTP 400 with an `api_usage_error` body. A body that is
+  not a JSON object, a missing or wrongly typed `model`, a missing or null `state`, a missing or
+  non-map `questions`, an empty `questions` map, and a question that is not an object or has no
+  `type` get HTTP 422 with Jev's `detail` list. The value of `state` and the fields inside a
+  question pass unchecked, so the client's own tests pin the body it sends.
 - The Messages handler answers from the `messagesReplies` queue (`mocks/messages-replies.ts`). An
   empty queue answers HTTP 500 with an `api_error` body.
 - A per-test `server.use` handler that records the request and returns nothing passes it on to the

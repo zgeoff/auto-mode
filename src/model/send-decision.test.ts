@@ -488,7 +488,7 @@ test('it removes optional tasks to keep a complete action near the request limit
   });
 });
 
-test('it reports the HTTP status when Jev refuses a request with no question', () => {
+test('it reports the HTTP status when Jev rejects a request with no question as invalid', () => {
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
