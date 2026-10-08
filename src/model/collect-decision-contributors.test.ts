@@ -1,17 +1,18 @@
 import { expect, test } from 'bun:test';
+import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
 import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
 
 test.each([
-  ['explicit ask', 'ask', 0.95, 0.95],
-  ['low confidence allow', 'allow', 0.29, 0.52],
-  ['low probability allow', 'allow', 0.9, 0.6],
-  ['uncertain block', 'block', 0.6, 0.7],
+  ['explicit ask', 'ask', 0.95, { allow: 0.03, block: 0.02, ask: 0.95 }, 0.95],
+  ['low confidence allow', 'allow', 0.29, { allow: 0.52, block: 0.18, ask: 0.3 }, 0.52],
+  ['low probability allow', 'allow', 0.9, { allow: 0.6, block: 0.1, ask: 0.3 }, 0.6],
+  ['uncertain block', 'block', 0.6, { allow: 0.2, block: 0.7, ask: 0.1 }, 0.7],
 ] as const)(
   'it identifies %s without changing the confidence threshold',
-  (_label, choice, confidence, probability) => {
+  (_label, choice, confidence, probabilities, probability) => {
     const request = buildMockDecisionRequest({
       rules: {
         rule_0: buildMockDecisionRule({
@@ -25,18 +26,12 @@ test.each([
 
     const result = buildMockDecisionResult({
       answers: {
-        rule_0: {
-          type: 'choice',
-          choice,
-          confidence,
-          probabilities: { allow: 0, block: 0, ask: 0, [choice]: probability },
-        },
-        soft_deny_0: {
-          type: 'choice',
+        rule_0: buildMockDecisionAnswer({ choice, confidence, probabilities }),
+        soft_deny_0: buildMockDecisionAnswer({
           choice: 'allow',
           confidence: 1,
           probabilities: { allow: 1, block: 0, ask: 0 },
-        },
+        }),
       },
     });
 
@@ -71,18 +66,16 @@ test('it records every uncertain rule and uses identifiers for private configure
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.7,
         probabilities: { allow: 0.9, block: 0, ask: 0.1 },
-      },
-      soft_deny_0: {
-        type: 'choice',
+      }),
+      soft_deny_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.7,
         probabilities: { allow: 0.9, block: 0, ask: 0.1 },
-      },
+      }),
     },
   });
 
@@ -120,18 +113,16 @@ test('it identifies the winning block when a denial takes precedence over uncert
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'ask',
         confidence: 1,
         probabilities: { allow: 0, block: 0, ask: 1 },
-      },
-      soft_deny_0: {
-        type: 'choice',
+      }),
+      soft_deny_0: buildMockDecisionAnswer({
         choice: 'block',
         confidence: 1,
         probabilities: { allow: 0, block: 1, ask: 0 },
-      },
+      }),
     },
   });
 
@@ -154,12 +145,11 @@ test('it records no contributor when every rule is a confident allow', () => {
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.95,
         probabilities: { allow: 0.95, block: 0.05, ask: 0 },
-      },
+      }),
     },
   });
 
@@ -189,12 +179,11 @@ test('it records the rule when the observed routine commit has outbound confiden
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.76,
         probabilities: { allow: 0.84, block: 0.03, ask: 0.13 },
-      },
+      }),
     },
   });
 
@@ -217,12 +206,11 @@ test('it throws when the result leaves a rule unanswered', () => {
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 1,
         probabilities: { allow: 1, block: 0, ask: 0 },
-      },
+      }),
     },
   });
 

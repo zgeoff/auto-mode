@@ -96,7 +96,7 @@ Options:
   });
 });
 
-test('it runs the artifact under node 24', async () => {
+test('it resolves node 24 as the runtime the artifact runs under', async () => {
   const ctx = await setupTest();
 
   const result =

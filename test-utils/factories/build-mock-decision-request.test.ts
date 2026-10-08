@@ -60,7 +60,6 @@ test('it applies overrides on top of the defaults', () => {
       taskContext: { agentID: 'agent-1' },
       action: { cwd: '/repo' },
     },
-    rules: {},
   });
 
   expect(request).toStrictEqual({
@@ -102,6 +101,52 @@ test('it applies overrides on top of the defaults', () => {
         },
       },
     },
-    rules: {},
+    rules: {
+      rule_0: {
+        name: expect.toBeString(),
+        tier: 'hard',
+        source: 'shipped',
+        text: expect.toBeString(),
+      },
+    },
   });
+});
+
+test('it asks one question per rule when the rules are overridden', () => {
+  const request = buildMockDecisionRequest({
+    rules: {
+      hard_deny_0: { name: 'hard_deny_0', tier: 'hard', source: 'configured', text: 'Never' },
+      soft_deny_0: { name: 'soft_deny_0', tier: 'soft', source: 'configured', text: 'Ask' },
+    },
+  });
+
+  expect(request.questions).toStrictEqual({
+    hard_deny_0: {
+      type: 'choice',
+      instructions: expect.toBeString(),
+      criteria: {
+        allow: expect.toBeString(),
+        block: expect.toBeString(),
+        ask: expect.toBeString(),
+      },
+    },
+    soft_deny_0: {
+      type: 'choice',
+      instructions: expect.toBeString(),
+      criteria: {
+        allow: expect.toBeString(),
+        block: expect.toBeString(),
+        ask: expect.toBeString(),
+      },
+    },
+  });
+});
+
+test('it keeps the questions a test states over the ones derived from the rules', () => {
+  const request = buildMockDecisionRequest({
+    questions: {},
+    rules: { rule_0: { name: 'History Rewrite', tier: 'soft', source: 'shipped', text: 'Ask' } },
+  });
+
+  expect(request.questions).toStrictEqual({});
 });

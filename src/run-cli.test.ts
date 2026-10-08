@@ -1,9 +1,10 @@
-import { expect, onTestFinished, test } from 'bun:test';
+import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, http } from 'msw';
 import invariant from 'tiny-invariant';
+import * as z from 'zod';
 import { decisionAnswers } from '../mocks/decision-answers.ts';
 import { DECISION_URL } from '../mocks/handlers.ts';
 import { server } from '../mocks/node.ts';
@@ -11,7 +12,9 @@ import type { StubOutput } from '../test-utils/build-stub-output.ts';
 import { buildStubOutput } from '../test-utils/build-stub-output.ts';
 import type { StubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
 import { buildStubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
+import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-request.ts';
+import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import type { HostEnvironment } from './config/types.ts';
 import { runCLI } from './run-cli.ts';
@@ -44,10 +47,16 @@ async function setupTest(): Promise<{
         // the scope readers start git, which the CLI finds through PATH
         PATH: process.env['PATH'],
 
-        // config, state, diagnostics and Claude settings all resolve under the temp root
+        // the CLI reads its config.json under this directory
         XDG_CONFIG_HOME: dir,
+
+        // the CLI keeps its denial counts under this directory
         XDG_STATE_HOME: dir,
+
+        // the CLI appends a diagnostic record per run to this file
         AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
+
+        // the CLI reads Claude Code's settings.json under this directory
         CLAUDE_CONFIG_DIR: dir,
       },
       home: dir,
@@ -1133,13 +1142,13 @@ test('it records a finished Bash call without writing a verdict', async () => {
 
   runGit(ctx.dir, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
-  const record = {
+  const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
     cwd: ctx.repo,
     startedAt,
     command: 'git worktree add .worktrees/x -b feat/x',
     resultText: '',
-  };
+  });
 
   const exitCode = await runCLI(['record'], {
     stdin: () => Promise.resolve(JSON.stringify(record)),
@@ -1184,13 +1193,13 @@ test('it keeps a branch the session created in its scope across runs', async () 
 
   runGit(ctx.dir, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
-  const record = {
+  const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
     cwd: ctx.repo,
     startedAt,
     command: 'git worktree add .worktrees/x -b feat/x',
     resultText: '',
-  };
+  });
 
   const push = buildMockModRequest({
     sessionID: 'cli-session',
@@ -1233,13 +1242,13 @@ test("it keeps a branch one session created out of another session's scope", asy
 
   runGit(ctx.dir, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
-  const record = {
+  const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
     cwd: ctx.repo,
     startedAt,
     command: 'git worktree add .worktrees/x -b feat/x',
     resultText: '',
-  };
+  });
 
   const push = buildMockModRequest({
     sessionID: 'other-session',
@@ -1351,12 +1360,24 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
     }),
   );
 
-  decisionAnswers.set('rule_0', {
-    type: 'choice',
-    choice: 'ask',
-    confidence: 1,
-    probabilities: { allow: 0, block: 0, ask: 1 },
-  });
+  decisionAnswers.set(
+    'rule_0',
+    buildMockDecisionAnswer({
+      choice: 'ask',
+      confidence: 1,
+      probabilities: { allow: 0, block: 0, ask: 1 },
+    }),
+  );
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,
@@ -1381,6 +1402,18 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
     }),
     stderr: '',
   });
+
+  const questionSchema = z.object({ instructions: z.string() });
+  const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const question = requestSchema.parse(call[0]).questions['rule_0'];
+
+  invariant(question, 'the request asks about rule_0');
+
+  expect(question.instructions).toInclude('### Data Exfiltration\n');
 });
 
 test('it writes no verdict and notes the failure when Jev fails under a defer setting', async () => {
@@ -1551,13 +1584,21 @@ test('it listens for stop signals during a Jev-only evaluation and stops listeni
     }),
   );
 
+  const evaluated = mock();
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      evaluated();
+    }),
+  );
+
   const payload = buildMockModRequest({
     cwd: ctx.repo,
     toolName: 'Bash',
     toolInput: { command: 'make deploy' },
   });
 
-  await runCLI(['run', '--jev-only'], {
+  const exitCode = await runCLI(['run', '--jev-only'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
@@ -1565,8 +1606,16 @@ test('it listens for stop signals during a Jev-only evaluation and stops listeni
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: JSON.stringify({ decision: 'allow' }),
+    stderr: '',
+  });
+
   expect(ctx.stopSignals.subscribeToStopSignals).toHaveBeenCalledOnce();
+  expect(ctx.stopSignals.subscribeToStopSignals).toHaveBeenCalledBefore(evaluated);
   expect(ctx.stopSignals.unsubscribe).toHaveBeenCalledOnce();
+  expect(ctx.stopSignals.unsubscribe).toHaveBeenCalledAfter(evaluated);
 });
 
 test('it leaves stop signals alone outside Jev-only mode', async () => {
