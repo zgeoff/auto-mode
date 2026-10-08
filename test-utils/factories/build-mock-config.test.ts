@@ -31,6 +31,7 @@ test('it applies overrides on top of the defaults', () => {
     judge: { protocol: 'messages', baseURL: 'https://gateway.test' },
     onFailure: 'deny',
     denialBudget: { consecutive: 1 },
+    scopeSources: { docs: { kind: 'globs', paths: ['/w/docs/**'] } },
   });
 
   expect(config).toStrictEqual({
@@ -54,7 +55,12 @@ test('it applies overrides on top of the defaults', () => {
       maxTokens: 3000,
       timeoutMs: 5000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      atc: { kind: 'atc' },
+      docs: { kind: 'globs', paths: ['/w/docs/**'] },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'deny',

@@ -62,8 +62,11 @@ test('it fails to read a file that is not listed', () => {
     files: { '/w/app/a.ts': 'export const a = 1;\n' },
   });
 
-  expect(reader.readFile('/w/app/b.ts')).rejects.toThrowWithMessage(
-    Error,
-    "ENOENT: no such file, open '/w/app/b.ts'",
-  );
+  expect(reader.readFile('/w/app/b.ts')).rejects.toMatchObject({
+    message: "ENOENT: no such file or directory, open '/w/app/b.ts'",
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/w/app/b.ts',
+  });
 });

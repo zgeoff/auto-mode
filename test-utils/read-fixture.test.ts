@@ -48,5 +48,5 @@ test('it reads the recorded file write', () => {
 });
 
 test('it fails loudly when no fixture is recorded under a name', () => {
-  expect(() => readFixture('nonesuch')).toThrow(expect.objectContaining({ code: 'ENOENT' }));
+  expect(Promise.try(() => readFixture('nonesuch'))).rejects.toMatchObject({ code: 'ENOENT' });
 });

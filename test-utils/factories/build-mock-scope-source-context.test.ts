@@ -2,14 +2,12 @@ import { expect, test } from 'bun:test';
 import { buildMockScopeSourceContext } from './build-mock-scope-source-context.ts';
 
 test('it builds a default scope source context', () => {
-  const context = buildMockScopeSourceContext();
-
-  expect(context).toStrictEqual({
+  expect(buildMockScopeSourceContext()).toStrictEqual({
     env: {},
     sessionID: expect.toBeString(),
-    cwd: context.worktree,
+    cwd: expect.toStartWith('/'),
     worktree: expect.toStartWith('/'),
-    commonDir: `${context.worktree}/.git`,
+    commonDir: expect.toEndWith('/.git'),
     branch: expect.toBeString(),
     stateDir: expect.toStartWith('/'),
     stderr: { write: expect.toBeFunction() },

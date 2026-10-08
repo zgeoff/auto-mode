@@ -1,13 +1,52 @@
 import { HttpResponse } from 'msw';
 import * as z from 'zod';
 import type { DecisionResponse } from '../src/model/decision-response-schema.ts';
+import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
 import { decisionAnswers } from './decision-answers.ts';
 
 interface ResolverInfo {
   readonly request: Readonly<Pick<Request, 'json'>>;
 }
 
-const requestSchema = z.object({ questions: z.record(z.string(), z.unknown()) });
+const ruleTextsSchema = z.array(z.string());
+
+const configuredRulesSchema = z.strictObject({
+  environment: ruleTextsSchema,
+  allow: ruleTextsSchema,
+  soft_deny: ruleTextsSchema,
+  hard_deny: ruleTextsSchema,
+});
+
+const actionSchema = z.strictObject({
+  tool: z.string(),
+  cwd: z.string(),
+  input: z.record(z.string(), z.unknown()),
+});
+
+const stateSchema = z.object({
+  policy: z.string(),
+  answerGuidance: z.string(),
+  rulesSource: z.enum(['shipped', 'replacement']),
+  configuredRules: configuredRulesSchema,
+  lastUserMessage: z.string().nullable(),
+  action: actionSchema,
+});
+
+const criteriaSchema = z.strictObject({ allow: z.string(), block: z.string(), ask: z.string() });
+
+const questionSchema = z.strictObject({
+  type: z.literal('choice'),
+  instructions: z.string(),
+  criteria: criteriaSchema,
+});
+
+// The wire form of a DecisionRequest: the client sends the model, the state, and
+// the questions, and leaves its rules out.
+const requestSchema = z.strictObject({
+  model: z.string(),
+  state: stateSchema,
+  questions: z.record(z.string(), questionSchema),
+});
 
 // Most suites want Jev to clear every rule, so a question with no answer set
 // gets a certain allow.
@@ -17,13 +56,7 @@ export async function sendDecisionReply(
   const json: unknown = await info.request.json();
 
   const body = requestSchema.parse(json);
-
-  const allow: DecisionResponse['answers'][string] = {
-    type: 'choice',
-    choice: 'allow',
-    confidence: 1,
-    probabilities: { allow: 1, block: 0, ask: 0 },
-  };
+  const allow = buildMockDecisionAnswer({ choice: 'allow', confidence: 1 });
 
   const answers = Object.fromEntries(
     Object.keys(body.questions).map((id) => [id, decisionAnswers.get(id) ?? allow]),

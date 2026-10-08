@@ -16,11 +16,12 @@ const GONE_CODES = new Set(['ENOENT', 'ESRCH']);
 export async function loadProcessState(
   pid: number,
   procDir = '/proc',
+  readStat: (path: string) => Promise<string> = (path) => readFile(path, 'utf8'),
 ): Promise<ProcessState | null> {
   let stat: string;
 
   try {
-    stat = await readFile(join(procDir, String(pid), 'stat'), 'utf8');
+    stat = await readStat(join(procDir, String(pid), 'stat'));
   } catch (error) {
     if (error instanceof Error && 'code' in error && GONE_CODES.has(String(error.code))) {
       return null;
