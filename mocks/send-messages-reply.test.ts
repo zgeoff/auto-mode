@@ -57,7 +57,7 @@ test('it returns a server error when no reply is queued', () => {
     baseURL: new URL(MESSAGES_URL).origin,
   });
 
-  expect(sendMessage(provider, 'key', { system: 'policy', user: 'action' })).rejects.toThrow(
-    'Messages API returned HTTP 500',
-  );
+  expect(
+    sendMessage(provider, 'key', { system: 'policy', user: 'action' }),
+  ).rejects.toThrowWithMessage(Error, /Messages API returned HTTP 500/u);
 });

@@ -12,8 +12,8 @@ test('it builds a default decision request', () => {
       repositoryContext: {
         cwd: expect.toStartWith('/'),
         branch: expect.toBeString(),
-        defaultBranch: 'main',
-        remotes: [{ name: 'origin', url: expect.toStartWith('https://github.com/') }],
+        defaultBranch: expect.toBeString(),
+        remotes: [{ name: expect.toBeString(), url: expect.toStartWith('https://github.com/') }],
         taskScope: { worktrees: [], branches: [], pullRequests: [] },
       },
       taskContext: {
@@ -78,8 +78,8 @@ test('it applies overrides on top of the defaults', () => {
       repositoryContext: {
         cwd: expect.toStartWith('/'),
         branch: 'feature',
-        defaultBranch: 'main',
-        remotes: [{ name: 'origin', url: expect.toStartWith('https://github.com/') }],
+        defaultBranch: expect.toBeString(),
+        remotes: [{ name: expect.toBeString(), url: expect.toStartWith('https://github.com/') }],
         taskScope: { worktrees: [], branches: [], pullRequests: [] },
       },
       taskContext: {

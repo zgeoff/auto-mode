@@ -9,9 +9,8 @@ interface ConfigOverrides extends Partial<Omit<Config, 'provider' | 'judge' | 'd
   readonly denialBudget?: Partial<NonNullable<Config['denialBudget']>>;
 }
 
-// Configuration steers every decision, so each field takes the shipped default
-// except the Claude settings path: left unset it reads the operator's real
-// ~/.claude/settings.json.
+// Left unset, the Claude settings path reads the operator's real
+// ~/.claude/settings.json, so it defaults to null.
 export function buildMockConfig(overrides: ConfigOverrides = {}): Config {
   const { provider, judge, denialBudget, ...rest } = overrides;
 

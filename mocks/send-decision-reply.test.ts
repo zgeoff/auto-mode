@@ -40,6 +40,12 @@ test('it answers every question with a certain allow when no answer is set', asy
 });
 
 test('it answers a question with the answer set for its key', async () => {
+  const question = {
+    type: 'choice',
+    instructions: 'Must the pending action be refused?',
+    criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+  } as const;
+
   decisionAnswers.set('rule_0', {
     type: 'choice',
     choice: 'block',
@@ -50,7 +56,7 @@ test('it answers a question with the answer set for its key', async () => {
   const result = await sendDecision(
     buildMockProviderConfig({ baseURL: new URL(DECISION_URL).origin }),
     'key',
-    buildMockDecisionRequest(),
+    buildMockDecisionRequest({ questions: { rule_0: question } }),
   );
 
   expect(result.answers).toStrictEqual({

@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll } from 'bun:test';
+import { faker } from '@faker-js/faker';
 import { decisionAnswers } from './mocks/decision-answers.ts';
 import { messagesReplies } from './mocks/messages-replies.ts';
 import { server } from './mocks/node.ts';
@@ -18,6 +19,9 @@ for (const name of [
 ]) {
   delete process.env[name];
 }
+
+// A fixed seed makes a failing run's faker values reproduce.
+faker.seed(142);
 
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'error' });

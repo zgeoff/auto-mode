@@ -17,10 +17,10 @@ export function buildMockRepositoryContext(
   return {
     cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
     branch: faker.git.branch(),
-    defaultBranch: 'main',
+    defaultBranch: faker.git.branch(),
     remotes: [
       {
-        name: 'origin',
+        name: faker.word.noun(),
         url: `https://github.com/${faker.internet.username()}/${faker.lorem.slug(2)}.git`,
       },
     ],

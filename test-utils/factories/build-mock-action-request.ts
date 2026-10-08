@@ -6,9 +6,6 @@ interface ActionRequestOverrides extends Partial<Omit<ActionRequest, 'decisionCo
   readonly decisionContext?: Parameters<typeof buildMockDecisionContext>[0];
 }
 
-// The tool is static because its value gives a request its meaning; everything
-// else is faker-driven, so a test that depends on a specific session id or
-// working directory fails rather than passing by luck.
 export function buildMockActionRequest(overrides: ActionRequestOverrides = {}): ActionRequest {
   const { decisionContext, ...rest } = overrides;
 

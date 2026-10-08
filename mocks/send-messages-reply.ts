@@ -9,7 +9,7 @@ interface MessagesError {
 
 // No generated text is a safe default verdict, so a request that finds the
 // queue empty fails loudly with the API's own error shape.
-export function resolveMessagesReply(): HttpResponse<MessagesResponse | MessagesError> {
+export function sendMessagesReply(): HttpResponse<MessagesResponse | MessagesError> {
   const reply = messagesReplies.shift();
 
   if (reply === undefined) {

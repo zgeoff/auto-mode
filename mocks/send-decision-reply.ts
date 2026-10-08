@@ -11,7 +11,7 @@ const requestSchema = z.object({ questions: z.record(z.string(), z.unknown()) })
 
 // Most suites want Jev to clear every rule, so a question with no answer set
 // gets a certain allow.
-export async function resolveDecisionReply(
+export async function sendDecisionReply(
   info: Readonly<ResolverInfo>,
 ): Promise<HttpResponse<DecisionResponse>> {
   const json: unknown = await info.request.json();
