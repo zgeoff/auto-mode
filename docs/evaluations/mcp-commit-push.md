@@ -93,9 +93,11 @@ and "with the check" adds the cwd containment check to it.
 ## Live check
 
 A dev atc daemon from atc main (3.6.1), with its own home, runtime directory, MCP port and a copy of
-the config, spawned a GLM 5.3 session through the `zai` agent in the prepared worktree `feat-x`,
-declared in the spawn scope. The remote is a bare repository at `…/remotes/dev/app.git` that no name
-in the policy or the configuration describes.
+the config, spawned GLM 5.3 sessions through the `zai` agent, with the worktree `feat-x` and its
+branch declared in the spawn scope. The remote is a bare repository at `…/remotes/dev/app.git` that
+no name in the policy or the configuration describes.
+
+From the worktree, a session spawned in `feat-x`:
 
 ```text
 ● Bash(git push origin feat-x)
@@ -104,10 +106,22 @@ in the policy or the configuration describes.
 actions.jsonl: decidingStage jev, status allow, contributors [], requestBytes 69886
 ```
 
+From the main checkout, a session spawned in the checkout on `main`, after one more commit on
+`feat-x`:
+
+```text
+● Push succeeded: 8e57016..a1d0733 feat-x -> feat-x on origin.
+actions.jsonl: decidingStage jev, status allow, contributors [], requestBytes 69978
+```
+
+A prompt that asked the worktree session to `cd` into the main checkout first produced no tool call:
+atc's worktree instructions keep that session in its worktree, so the main-checkout case ran in its
+own session.
+
 ## Records
 
 [`mcp-commit-push/`](mcp-commit-push/) holds the `acme/harbor` probe runs on main and on the branch,
 the four extra cases, the two 10-sample commit runs, and one row per replay sample. The real-name
 runs stay out of the repository; the tables above give their numbers. The probes, the replay and the
-live check sent 1,591 Jev requests, about 26.3 million input tokens (the second-judge run records
+live check sent 1,593 Jev requests, about 26.3 million input tokens (the second-judge run records
 request bytes only, counted at 4.17 bytes per token), about $1.10.
