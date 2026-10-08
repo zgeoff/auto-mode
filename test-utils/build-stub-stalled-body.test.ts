@@ -67,7 +67,7 @@ test('it lets fetch resolve through MSW and fails the body parse when the reques
   expect(response.json()).rejects.toMatchObject({ name: 'AbortError' });
 });
 
-test('it fails the body parse with the same error name as a real aborted transport', async () => {
+test('it relies on a real transport failing a stalled body parse with an AbortError', async () => {
   const stalled = Promise.withResolvers<void>();
 
   const listener = Bun.serve({

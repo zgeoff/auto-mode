@@ -128,6 +128,8 @@ test('it answers a valid hand-built request with the queued reply', async () => 
   const response = await sendMessagesReply({ request });
   const body: unknown = await response.json();
 
+  expect(response.status).toBe(200);
+
   expect(body).toStrictEqual({
     content: [{ type: 'text', text: '<block>no</block>' }],
     usage: {
@@ -160,7 +162,7 @@ test('it answers HTTP 400 for a request that carries a field the API does not kn
     type: 'error',
     error: {
       type: 'invalid_request_error',
-      message: expect.toStartWith('body: Unrecognized key: "temperature"'),
+      message: 'temperature: Extra inputs are not permitted',
     },
   });
 });

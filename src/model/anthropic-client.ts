@@ -136,11 +136,14 @@ export interface MessagesErrorBody {
     readonly type:
       | 'invalid_request_error'
       | 'authentication_error'
+      | 'billing_error'
       | 'permission_error'
       | 'not_found_error'
+      | 'conflict_error'
       | 'request_too_large'
       | 'rate_limit_error'
       | 'api_error'
+      | 'timeout_error'
       | 'overloaded_error';
     readonly message: string;
   };

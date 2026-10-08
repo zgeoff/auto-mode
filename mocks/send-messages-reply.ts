@@ -37,8 +37,15 @@ export async function sendMessagesReply(
   const parsed = requestSchema.safeParse(json);
 
   if (!parsed.success) {
+    // The API names an unknown field with this text in its published errors.
     const message = parsed.error.issues
-      .map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`)
+      .flatMap((issue) =>
+        issue.code === 'unrecognized_keys'
+          ? issue.keys.map(
+              (key) => `${[...issue.path, key].join('.')}: Extra inputs are not permitted`,
+            )
+          : [`${issue.path.join('.') || 'body'}: ${issue.message}`],
+      )
       .join('; ');
 
     return HttpResponse.json<MessagesErrorBody>(

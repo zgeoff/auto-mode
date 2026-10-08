@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import invariant from 'tiny-invariant';
 import { stopProcessGroup } from './stop-process-group.ts';
 
-test('it kills every process in a running group', async () => {
+test('it kills the leader of a running group with SIGKILL', async () => {
   const leader = spawn('sleep', ['30'], { detached: true, stdio: 'ignore' });
 
   invariant(leader.pid !== undefined, 'the leader started');
