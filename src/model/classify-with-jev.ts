@@ -54,7 +54,7 @@ export async function classifyWithJev(
         'decision.md',
       ),
       loadClaudeRules(config.claudeSettingsPath),
-      loadRepositoryEvidence(payload.cwd, options.taskScope),
+      loadRepositoryEvidence(payload.cwd, options.taskScope).catch(() => null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';

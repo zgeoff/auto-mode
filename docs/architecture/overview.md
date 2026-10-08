@@ -104,15 +104,16 @@ client sends a Bearer-authenticated POST to `/v1/systemone`.
 
 For every action, the evaluator also reads the cwd checkout's facts: its branch references,
 including linked worktree metadata, and its configured remotes. It drops the user info from each
-remote URL, because a URL can hold a token. The request adds the task scope summary: the worktrees,
-branches, and pull requests the task owns. Jev reads these facts as `repositoryContext`, and the
-Messages classifier reads them in a `<repository>` block, so a destination is compared with the
-remotes rather than judged by its name. The evaluator omits the facts when inherited Git directory
-overrides exist. The branch references describe cwd only, not the edited file's checkout or a
-generated script's future execution cwd. Ordinary non-Git source edits need no branch evidence to
-settle Default Branch Write; delayed Git effects need evidence for their actual targets. The local
-`origin/HEAD` reference can be stale; the evaluator does not refresh the remote. Branch evidence
-supplies no consent and never removes the named main/master/trunk/develop restrictions.
+remote URL, because a URL can hold a token. When the task scope loads, the request adds its summary:
+the worktrees, branches, and pull requests the task owns. Jev reads these facts as
+`repositoryContext`, and the Messages classifier reads them in a `<repository>` block, so a
+destination is compared with the remotes rather than judged by its name. The evaluator omits the
+facts when inherited Git directory overrides exist. The branch references describe cwd only, not the
+edited file's checkout or a generated script's future execution cwd. Ordinary non-Git source edits
+need no branch evidence to settle Default Branch Write; delayed Git effects need evidence for their
+actual targets. The local `origin/HEAD` reference can be stale; the evaluator does not refresh the
+remote. Branch evidence supplies no consent and never removes the named main/master/trunk/develop
+restrictions.
 
 Each named shipped or configured block rule has a Choice question with `allow`, `block`, and `ask`
 options. Questions share the same state. The response must contain every requested answer, valid

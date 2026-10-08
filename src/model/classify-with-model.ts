@@ -54,7 +54,9 @@ export async function classifyWithModel(
 
   const transcript = directMessage === null ? [] : [{ role: 'user', text: directMessage.text }];
 
-  const repositoryContext = await loadRepositoryEvidence(payload.cwd, options.taskScope);
+  const repositoryContext = await loadRepositoryEvidence(payload.cwd, options.taskScope).catch(
+    () => null,
+  );
 
   const user = buildUserMessage(payload, transcript, config.provider.reasoning, repositoryContext);
 
