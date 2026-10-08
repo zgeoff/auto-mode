@@ -101,7 +101,7 @@ entry's answer, and the containment check denies a write outside it.
 | `cwd`     | none                      | The worktree that holds the action's directory |
 | `session` | none                      | What the session itself created                |
 | `globs`   | `paths`, a non-empty list | Path globs that every task owns                |
-| `atc`     | none                      | atc's general session record for the session   |
+| `atc`     | none                      | Reserved for atc's general session record      |
 
 A file without `scopeSources` runs `cwd` and `session`. A file with the block runs exactly its
 entries, and warns when none of them is `cwd`, because the task then owns only what the other
@@ -117,9 +117,9 @@ sources name.
 - `globs` owns every path that matches one of `paths`; a leading `~/` is the home directory. A glob
   that covers every worktree, such as `.worktrees/**`, defeats the containment check, and the file
   warns about any glob that names `.worktrees`.
-- `atc` reads the record that atc publishes for each session it spawns, found through an environment
-  variable that atc sets. atc owns the record's format, and the agent cannot extend it. A session
-  without a record gets nothing from this source.
+- `atc` is reserved for the record that atc publishes for each session it spawns, found through an
+  environment variable that atc sets. atc owns the record's format, and the agent cannot extend it.
+  The source contributes nothing until atc publishes that record.
 
 No source can hand a task the default branch, or `main`, `master`, `trunk` or `develop` when the
 default branch is unknown. `/tmp` is scratch space that every task owns.

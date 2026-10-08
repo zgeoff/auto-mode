@@ -75,9 +75,10 @@ the action's directory (outside a checkout, the directory itself) and its branch
 source owns the worktrees and branches the session created and the pull requests it opened whose
 head branch is in scope; the mod reports each Bash call that can create one after it runs, and the
 CLI keeps what the call made in a file per session ID. The `globs` source owns configured path
-globs. No source can hand a task the default branch. The checkout's remotes are always owned, and
-`/tmp` is scratch space that every task owns.
-[Configuration](../guides/configuration.md#scope-sources) lists the sources.
+globs. The `atc` source is reserved for atc's general session record and contributes nothing yet. No
+source can hand a task the default branch. The checkout's remotes are always owned, and `/tmp` is
+scratch space that every task owns. [Configuration](../guides/configuration.md#scope-sources) lists
+the sources.
 
 **Tier two** uses Jev's typed decision API. The request includes the base policy, explicit user
 Claude rules, the complete proposed action, and the last direct user message. The
