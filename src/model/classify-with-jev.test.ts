@@ -65,6 +65,8 @@ test('it sends the configured rules and the direct user message without the sett
     },
   });
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     payload,
     buildMockConfig({
@@ -82,6 +84,8 @@ test('it sends the configured rules and the direct user message without the sett
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(outcome).toStrictEqual({
     verdict: { kind: 'allow' },
     note: expect.toBeString(),
@@ -92,7 +96,7 @@ test('it sends the configured rules and the direct user message without the sett
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -142,6 +146,8 @@ test.each([
 
   server.use(http.post(DECISION_URL, () => HttpResponse.text('failure', { status: 529 })));
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({ cwd: ctx.dir, toolName: 'Bash', toolInput: { command: 'git push' } }),
     buildMockConfig({
@@ -158,6 +164,8 @@ test.each([
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(outcome).toStrictEqual({
     verdict,
     note: 'jev-1.13.0 unavailable: Decision API returned HTTP 529',
@@ -169,7 +177,7 @@ test.each([
       keySource: 'environment',
       failureReason: 'http-status',
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -214,12 +222,16 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
       minConfidence: 0.8,
     });
 
+    const startedAt = performance.now();
+
     const outcome = await classifyWithJev(payload, config, {
       host: buildMockHostEnvironment({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
     });
+
+    const elapsedMs = performance.now() - startedAt;
 
     const questionSchema = z.object({
       instructions: z.string(),
@@ -252,7 +264,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         keySource: 'environment',
         failureReason: null,
         requestBytes: expect.toBePositive(),
-        elapsedMs: expect.toBeWithin(0, Infinity),
+        elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
         minConfidence: 0.8,
         contributors: [],
       },
@@ -311,6 +323,8 @@ test('it keeps a separate shipped hard block after the self-protection finding c
     }),
   );
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({
       cwd: ctx.dir,
@@ -341,6 +355,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
   const questionSchema = z.object({ instructions: z.string() });
   const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
 
@@ -371,7 +386,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [
         {
@@ -433,6 +448,8 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
       },
     });
 
+    const startedAt = performance.now();
+
     const outcome = await classifyWithJev(
       payload,
       buildMockConfig({
@@ -450,6 +467,8 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
       },
     );
 
+    const elapsedMs = performance.now() - startedAt;
+
     expect(outcome).toStrictEqual({
       verdict: {
         kind: 'deny',
@@ -465,7 +484,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         keySource: 'environment',
         failureReason: null,
         requestBytes: expect.toBePositive(),
-        elapsedMs: expect.toBeWithin(0, Infinity),
+        elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
         minConfidence: 0.8,
         contributors: [
           {
@@ -534,6 +553,8 @@ test('it returns the configured denial when the deadline passes during the reque
     }),
   );
 
+  const startedAt = performance.now();
+
   const pending = classifyWithJev(
     buildMockActionRequest({
       cwd: ctx.dir,
@@ -569,6 +590,8 @@ test('it returns the configured denial when the deadline passes during the reque
 
   const outcome = await pending;
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(timer.timeout).toHaveBeenCalledTimes(2);
   expect(timer.timeout).toHaveBeenNthCalledWith(1, 5000);
   expect(timer.timeout).toHaveBeenNthCalledWith(2, 3500);
@@ -594,7 +617,7 @@ test('it returns the configured denial when the deadline passes during the reque
       keySource: 'command',
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -639,6 +662,8 @@ test('it evaluates a subagent on its task context without the parent consent', a
     }),
   );
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({
       cwd: join(ctx.dir, 'child'),
@@ -667,6 +692,8 @@ test('it evaluates a subagent on its task context without the parent consent', a
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(outcome).toStrictEqual({
     verdict: {
       kind: 'deny',
@@ -682,7 +709,7 @@ test('it evaluates a subagent on its task context without the parent consent', a
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [
         {
@@ -776,6 +803,8 @@ test('it separates missing credentials from a classifier ask without calling the
     }),
   );
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({
       cwd: ctx.dir,
@@ -796,6 +825,8 @@ test('it separates missing credentials from a classifier ask without calling the
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(requested).not.toHaveBeenCalled();
 
   expect(outcome).toStrictEqual({
@@ -809,7 +840,7 @@ test('it separates missing credentials from a classifier ask without calling the
       keySource: 'none',
       failureReason: null,
       requestBytes: null,
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -841,6 +872,8 @@ test('it sends checked branch evidence for a routine feature commit and allows i
     },
   });
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     payload,
     buildMockConfig({
@@ -858,6 +891,8 @@ test('it sends checked branch evidence for a routine feature commit and allows i
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(outcome).toStrictEqual({
     verdict: { kind: 'allow' },
     note: expect.toBeString(),
@@ -868,7 +903,7 @@ test('it sends checked branch evidence for a routine feature commit and allows i
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -964,6 +999,8 @@ test.each([
       toolInput: { command, repositoryContext: { branch: 'forged-feature' } },
     });
 
+    const startedAt = performance.now();
+
     const outcome = await classifyWithJev(
       payload,
       buildMockConfig({
@@ -981,6 +1018,8 @@ test.each([
       },
     );
 
+    const elapsedMs = performance.now() - startedAt;
+
     expect(outcome).toStrictEqual({
       verdict: {
         kind: 'deny',
@@ -996,7 +1035,7 @@ test.each([
         keySource: 'environment',
         failureReason: null,
         requestBytes: expect.toBePositive(),
-        elapsedMs: expect.toBeWithin(0, Infinity),
+        elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
         minConfidence: 0.8,
         contributors: [
           {
@@ -1099,6 +1138,8 @@ test.each(['Write', 'Edit'])(
       toolInput: { file_path: join(ctx.dir, 'test/fixture.ts'), new_string: 'sensitive material' },
     });
 
+    const startedAt = performance.now();
+
     const outcome = await classifyWithJev(
       payload,
       buildMockConfig({
@@ -1116,6 +1157,8 @@ test.each(['Write', 'Edit'])(
       },
     );
 
+    const elapsedMs = performance.now() - startedAt;
+
     expect(outcome).toStrictEqual({
       verdict: {
         kind: 'deny',
@@ -1131,7 +1174,7 @@ test.each(['Write', 'Edit'])(
         keySource: 'environment',
         failureReason: null,
         requestBytes: expect.toBePositive(),
-        elapsedMs: expect.toBeWithin(0, Infinity),
+        elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
         minConfidence: 0.8,
         contributors: [
           {
@@ -1241,6 +1284,8 @@ test.each([
       toolInput: { file_path: join(ctx.dir, 'test/fixture.ts'), new_string: 'sensitive material' },
     });
 
+    const startedAt = performance.now();
+
     const outcome = await classifyWithJev(
       payload,
       buildMockConfig({
@@ -1258,6 +1303,8 @@ test.each([
       },
     );
 
+    const elapsedMs = performance.now() - startedAt;
+
     expect(outcome).toStrictEqual({
       verdict: {
         kind: 'deny',
@@ -1273,7 +1320,7 @@ test.each([
         keySource: 'environment',
         failureReason: null,
         requestBytes: expect.toBePositive(),
-        elapsedMs: expect.toBeWithin(0, Infinity),
+        elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
         minConfidence: 0.8,
         contributors: [
           {
@@ -1366,6 +1413,8 @@ test('it denies an uncertain answer and keeps every contributing confidence', as
     }),
   );
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({
       cwd: ctx.dir,
@@ -1387,6 +1436,8 @@ test('it denies an uncertain answer and keeps every contributing confidence', as
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(outcome).toStrictEqual({
     verdict: {
       kind: 'deny',
@@ -1402,7 +1453,7 @@ test('it denies an uncertain answer and keeps every contributing confidence', as
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [
         {
@@ -1466,6 +1517,8 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
       `  expect(renderRow(session, ${index})).toContain('\\u001B[90m│\\u001B[0m testsess  claude  model');`,
   ).join('\n');
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({
       cwd: ctx.dir,
@@ -1491,6 +1544,8 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   invariant(outcome.diagnostics, 'the decision has diagnostics');
 
   expect(outcome).toStrictEqual({
@@ -1503,7 +1558,7 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBeWithin(80_001, 100_001),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -1523,6 +1578,8 @@ test('it defers an oversized Edit before any request and records only the failur
       requested();
     }),
   );
+
+  const startedAt = performance.now();
 
   const outcome = await classifyWithJev(
     buildMockActionRequest({
@@ -1548,6 +1605,8 @@ test('it defers an oversized Edit before any request and records only the failur
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(requested).not.toHaveBeenCalled();
 
   expect(outcome).toStrictEqual({
@@ -1561,7 +1620,7 @@ test('it defers an oversized Edit before any request and records only the failur
       keySource: 'environment',
       failureReason: 'request-too-large',
       requestBytes: expect.toBeWithin(100_001, Infinity),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -1583,6 +1642,8 @@ test('it reports a provider timeout as a timeout with the request size', async (
     }),
   );
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({ cwd: ctx.dir, toolName: 'Bash', toolInput: { command: 'git push' } }),
     buildMockConfig({
@@ -1600,6 +1661,8 @@ test('it reports a provider timeout as a timeout with the request size', async (
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(20);
 
   expect(outcome).toStrictEqual({
@@ -1613,7 +1676,7 @@ test('it reports a provider timeout as a timeout with the request size', async (
       keySource: 'environment',
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -1637,6 +1700,8 @@ test('it times out on the provider deadline with the real timer', async () => {
     }),
   );
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({ cwd: ctx.dir, toolName: 'Bash', toolInput: { command: 'git push' } }),
     buildMockConfig({
@@ -1653,6 +1718,8 @@ test('it times out on the provider deadline with the real timer', async () => {
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(reached).toHaveBeenCalledOnce();
 
   expect(outcome).toStrictEqual({
@@ -1666,7 +1733,7 @@ test('it times out on the provider deadline with the real timer', async () => {
       keySource: 'environment',
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -1688,6 +1755,8 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
     }),
   );
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     buildMockActionRequest({ cwd: ctx.dir, toolName: 'Bash', toolInput: { command: 'git push' } }),
     buildMockConfig({
@@ -1705,6 +1774,8 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(1001);
 
   expect(outcome).toStrictEqual({
@@ -1718,7 +1789,7 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
       keySource: 'environment',
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -1747,6 +1818,8 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
     toolInput: { command: 'gh pr view 7' },
   });
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithJev(
     payload,
     buildMockConfig({
@@ -1769,6 +1842,8 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(outcome).toStrictEqual({
     verdict: { kind: 'allow' },
     note: expect.toBeString(),
@@ -1779,7 +1854,7 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -1810,5 +1885,261 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       action: { tool: 'Bash', cwd: ctx.dir, input: { command: 'gh pr view 7' } },
     },
     questions: expect.toBeObject(),
+  });
+});
+
+test('it sends Jev the configured MCP servers by name and host, with no credential', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, '.claude.json'),
+    JSON.stringify({
+      mcpServers: {
+        linear: {
+          type: 'http',
+          url: 'https://user:planted-userinfo@mcp.linear.app/planted-path?token=planted-query',
+          headers: { Authorization: 'Bearer planted-header' },
+        },
+        tool: { command: 'tool', args: ['--token', 'planted-arg'], env: { KEY: 'planted-env' } },
+      },
+    }),
+  );
+
+  const received = mock<(mcpServers: unknown, body: string) => void>();
+  const bodySchema = z.object({ state: z.object({ mcpServers: z.unknown() }) });
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body = await info.request.clone().text();
+
+      received(bodySchema.parse(JSON.parse(body)).state.mcpServers, body);
+    }),
+  );
+
+  const startedAt = performance.now();
+
+  const outcome = await classifyWithJev(
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'mcp__linear__list_issues',
+      toolInput: { query: 'refusal detail' },
+    }),
+    buildMockConfig({
+      provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+      claudeSettingsPath: null,
+      minConfidence: 0.8,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
+  );
+
+  const elapsedMs = performance.now() - startedAt;
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    note: expect.toBeString(),
+    diagnostics: {
+      status: 'allow',
+      stage: 'response',
+      keyResolved: true,
+      keySource: 'environment',
+      failureReason: null,
+      requestBytes: expect.toBePositive(),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
+      minConfidence: 0.8,
+      contributors: [],
+    },
+  });
+
+  expect(outcome.note).toMatch(/^jev-1\.13\.0: allow \(\d+ms, 400 input tokens\)$/u);
+
+  expect(received).toHaveBeenCalledExactlyOnceWith(
+    [
+      { name: 'linear', scope: 'user', transport: 'http', host: 'mcp.linear.app' },
+      { name: 'tool', scope: 'user', transport: 'stdio', host: null },
+    ],
+    expect.not.stringContaining('planted'),
+  );
+});
+
+test('it returns the configured denial without a request when the deadline passed before the request', async () => {
+  const ctx = await setupTest();
+
+  const requested = mock();
+  const timer = buildStubTimeout();
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      requested();
+    }),
+  );
+
+  const startedAt = performance.now();
+
+  const outcome = await classifyWithJev(
+    buildMockActionRequest({ cwd: ctx.dir, toolName: 'Bash', toolInput: { command: 'git push' } }),
+    buildMockConfig({
+      onFailure: 'deny',
+      provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY', timeoutMs: 5000 },
+      claudeSettingsPath: null,
+      minConfidence: 0.8,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+      deadlineAt: 1_700_000_000_000,
+      now: () => 1_700_000_000_000,
+      timeout: timer.timeout,
+    },
+  );
+
+  const elapsedMs = performance.now() - startedAt;
+
+  expect(requested).not.toHaveBeenCalled();
+  expect(timer.timeout).not.toHaveBeenCalled();
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Classifier Unavailable',
+      reason: 'jev-1.13.0 unavailable: evaluation deadline expired',
+    },
+    note: 'jev-1.13.0 unavailable: evaluation deadline expired',
+    unavailable: true,
+    diagnostics: {
+      status: 'timeout',
+      stage: 'evidence',
+      keyResolved: true,
+      keySource: 'environment',
+      failureReason: null,
+      requestBytes: null,
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
+      minConfidence: 0.8,
+      contributors: [],
+    },
+  });
+});
+
+test('it returns the configured denial without a request when the caller cancelled before the request', async () => {
+  const ctx = await setupTest();
+
+  const requested = mock();
+
+  const controller = new AbortController();
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      requested();
+    }),
+  );
+
+  controller.abort();
+
+  const startedAt = performance.now();
+
+  const outcome = await classifyWithJev(
+    buildMockActionRequest({ cwd: ctx.dir, toolName: 'Bash', toolInput: { command: 'git push' } }),
+    buildMockConfig({
+      onFailure: 'deny',
+      provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+      claudeSettingsPath: null,
+      minConfidence: 0.8,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+      signal: controller.signal,
+    },
+  );
+
+  const elapsedMs = performance.now() - startedAt;
+
+  expect(requested).not.toHaveBeenCalled();
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Classifier Unavailable',
+      reason: 'jev-1.13.0 unavailable: evaluation cancelled',
+    },
+    note: 'jev-1.13.0 unavailable: evaluation cancelled',
+    unavailable: true,
+    diagnostics: {
+      status: 'cancelled',
+      stage: 'evidence',
+      keyResolved: true,
+      keySource: 'environment',
+      failureReason: null,
+      requestBytes: null,
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
+      minConfidence: 0.8,
+      contributors: [],
+    },
+  });
+});
+
+test('it returns the configured denial as cancelled when the caller aborts during the request', async () => {
+  const ctx = await setupTest();
+
+  const controller = new AbortController();
+
+  server.use(
+    http.post(DECISION_URL, async () => {
+      controller.abort();
+
+      await delay('infinite');
+
+      return HttpResponse.json({});
+    }),
+  );
+
+  const startedAt = performance.now();
+
+  const outcome = await classifyWithJev(
+    buildMockActionRequest({ cwd: ctx.dir, toolName: 'Bash', toolInput: { command: 'git push' } }),
+    buildMockConfig({
+      onFailure: 'deny',
+      provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+      claudeSettingsPath: null,
+      minConfidence: 0.8,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+      signal: controller.signal,
+    },
+  );
+
+  const elapsedMs = performance.now() - startedAt;
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Classifier Unavailable',
+      reason: 'jev-1.13.0 unavailable: evaluation cancelled',
+    },
+    note: 'jev-1.13.0 unavailable: evaluation cancelled',
+    unavailable: true,
+    diagnostics: {
+      status: 'cancelled',
+      stage: 'request',
+      keyResolved: true,
+      keySource: 'environment',
+      failureReason: 'aborted',
+      requestBytes: expect.toBePositive(),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
+      minConfidence: 0.8,
+      contributors: [],
+    },
   });
 });

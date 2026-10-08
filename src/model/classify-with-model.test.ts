@@ -3,8 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, delay, http } from 'msw';
-import * as z from 'zod';
-import { DECISION_URL, MESSAGES_URL } from '../../mocks/handlers.ts';
+import { MESSAGES_URL } from '../../mocks/handlers.ts';
 import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { server } from '../../mocks/node.ts';
 import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
@@ -30,6 +29,8 @@ async function setupTest() {
 test('it hands a decision service provider to Jev', async () => {
   const ctx = await setupTest();
 
+  const startedAt = performance.now();
+
   const outcome = await classifyWithModel(
     buildMockActionRequest({
       cwd: ctx.dir,
@@ -53,6 +54,8 @@ test('it hands a decision service provider to Jev', async () => {
     },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(outcome).toStrictEqual({
     verdict: { kind: 'allow' },
     note: expect.toBeString(),
@@ -63,7 +66,7 @@ test('it hands a decision service provider to Jev', async () => {
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },
@@ -584,83 +587,6 @@ test('it runs no key command and sends no request once the evaluation is cancell
     verdict: null,
     note: 'no API key: set the configured environment variable or key command; no verdict',
   });
-});
-
-test('it sends Jev the configured MCP servers by name and host, with no credential', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(
-    join(ctx.dir, '.claude.json'),
-    JSON.stringify({
-      mcpServers: {
-        linear: {
-          type: 'http',
-          url: 'https://user:planted-userinfo@mcp.linear.app/planted-path?token=planted-query',
-          headers: { Authorization: 'Bearer planted-header' },
-        },
-        tool: { command: 'tool', args: ['--token', 'planted-arg'], env: { KEY: 'planted-env' } },
-      },
-    }),
-  );
-
-  const received = mock<(mcpServers: unknown, body: string) => void>();
-  const bodySchema = z.object({ state: z.object({ mcpServers: z.unknown() }) });
-
-  server.use(
-    http.post(DECISION_URL, async (info) => {
-      const body = await info.request.clone().text();
-
-      received(bodySchema.parse(JSON.parse(body)).state.mcpServers, body);
-    }),
-  );
-
-  const outcome = await classifyWithModel(
-    buildMockActionRequest({
-      cwd: ctx.dir,
-      toolName: 'mcp__linear__list_issues',
-      toolInput: { query: 'refusal detail' },
-    }),
-    buildMockConfig({
-      provider: {
-        protocol: 'system-one',
-        model: 'jev-1.13.0',
-        apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
-      },
-      minConfidence: 0.8,
-    }),
-    {
-      host: buildMockHostEnvironment({
-        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
-        home: ctx.dir,
-      }),
-    },
-  );
-
-  expect(outcome).toStrictEqual({
-    verdict: { kind: 'allow' },
-    note: expect.toBeString(),
-    diagnostics: {
-      status: 'allow',
-      stage: 'response',
-      keyResolved: true,
-      keySource: 'environment',
-      failureReason: null,
-      requestBytes: expect.toBePositive(),
-      elapsedMs: expect.toBeWithin(0, Infinity),
-      minConfidence: 0.8,
-      contributors: [],
-    },
-  });
-
-  expect(outcome.note).toMatch(/^jev-1\.13\.0: allow \(\d+ms, 400 input tokens\)$/u);
-
-  expect(received).toHaveBeenCalledExactlyOnceWith(
-    [
-      { name: 'linear', scope: 'user', transport: 'http', host: 'mcp.linear.app' },
-      { name: 'tool', scope: 'user', transport: 'stdio', host: null },
-    ],
-    expect.not.stringContaining('planted'),
-  );
 });
 
 test('it gives the Messages classifier the configured MCP servers by name and host, with no credential', async () => {

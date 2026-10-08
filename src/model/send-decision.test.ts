@@ -4,9 +4,11 @@ import { decisionAnswers } from '../../mocks/decision-answers.ts';
 import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockDecisionContext } from '../../test-utils/factories/build-mock-decision-context.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { buildMockRepositoryContext } from '../../test-utils/factories/build-mock-repository-context.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import type { DecisionResponse } from './decision-response-schema.ts';
 import { sendDecision } from './send-decision.ts';
@@ -370,6 +372,21 @@ test('it removes optional tasks to keep a complete action near the request limit
 
   const provider = buildMockProviderConfig({ model: 'jev-test-model' });
 
+  const repositoryContext = buildMockRepositoryContext({
+    cwd: '/repo',
+    branch: 'feature',
+    defaultBranch: 'main',
+    remotes: [],
+  });
+
+  const taskContext = buildMockDecisionContext({
+    agentID: null,
+    originalUserTask: { text: 't'.repeat(3000) },
+    delegatedTask: { text: 'd'.repeat(3000) },
+    lastDirectUserMessage: { text: 'Do not push' },
+    omittedTaskContext: [],
+  });
+
   const request = buildMockDecisionRequest({
     questions: {},
     rules: {},
@@ -379,21 +396,9 @@ test('it removes optional tasks to keep a complete action near the request limit
       rulesSource: 'shipped',
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       lastUserMessage: 'Do not push',
-      repositoryContext: {
-        cwd: '/repo',
-        branch: 'feature',
-        defaultBranch: 'main',
-        remotes: [],
-        taskScope: { worktrees: [], branches: [], pullRequests: [] },
-      },
+      repositoryContext,
       action: { tool: 'Write', cwd: '/repo', input: { content: 'x'.repeat(99_000) } },
-      taskContext: {
-        agentID: null,
-        originalUserTask: { text: 't'.repeat(3000), origin: 'composer' },
-        delegatedTask: { text: 'd'.repeat(3000), origin: 'agent.spawn' },
-        lastDirectUserMessage: { text: 'Do not push', origin: 'composer' },
-        omittedTaskContext: [],
-      },
+      taskContext,
     },
   });
 
@@ -414,19 +419,12 @@ test('it removes optional tasks to keep a complete action near the request limit
       rulesSource: 'shipped',
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       lastUserMessage: 'Do not push',
-      repositoryContext: {
-        cwd: '/repo',
-        branch: 'feature',
-        defaultBranch: 'main',
-        remotes: [],
-        taskScope: { worktrees: [], branches: [], pullRequests: [] },
-      },
+      repositoryContext,
       action: { tool: 'Write', cwd: '/repo', input: { content: 'x'.repeat(99_000) } },
       taskContext: {
-        agentID: null,
+        ...taskContext,
         originalUserTask: null,
         delegatedTask: null,
-        lastDirectUserMessage: { text: 'Do not push', origin: 'composer' },
         omittedTaskContext: [
           { field: 'delegatedTask', reason: 'budget' },
           { field: 'originalUserTask', reason: 'budget' },

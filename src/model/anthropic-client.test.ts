@@ -137,31 +137,23 @@ test('it joins the text blocks of the answer', async () => {
 // The verdict is in the text block, and a reasoning model puts a lot of
 // near-miss wording in the thinking.
 test('it drops a thinking block', async () => {
-  server.use(
-    http.post(MESSAGES_URL, () =>
-      HttpResponse.json({
-        id: 'msg_01',
-        type: 'message',
-        role: 'assistant',
-        model: 'test-model',
-        content: [
-          {
-            type: 'thinking',
-            thinking: 'this might be <block>yes</block>',
-            signature: 'EqQBCkYIBxgCKkBthinking-signature',
-          },
-          { type: 'text', text: '<block>no</block>' },
-        ],
-        stop_reason: 'end_turn',
-        stop_sequence: null,
-        usage: {
-          cache_read_input_tokens: 7025,
-          cache_creation_input_tokens: 12,
-          input_tokens: 42,
-          output_tokens: 130,
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [
+        {
+          type: 'thinking',
+          thinking: 'this might be <block>yes</block>',
+          signature: 'EqQBCkYIBxgCKkBthinking-signature',
         },
-      }),
-    ),
+        { type: 'text', text: '<block>no</block>' },
+      ],
+      usage: {
+        cache_read_input_tokens: 7025,
+        cache_creation_input_tokens: 12,
+        input_tokens: 42,
+        output_tokens: 130,
+      },
+    }),
   );
 
   const result = await sendMessage(

@@ -156,7 +156,7 @@ test('it records no contributor when every rule is a confident allow', () => {
   expect(collectDecisionContributors(request, result, 0.8)).toStrictEqual([]);
 });
 
-test('it records the rule when the observed routine commit has outbound confidence below the threshold', () => {
+test("it records a soft rule's allow answer whose confidence is below the threshold", () => {
   const request = buildMockDecisionRequest({
     rules: {
       rule_0: buildMockDecisionRule({
@@ -164,16 +164,6 @@ test('it records the rule when the observed routine commit has outbound confiden
         source: 'shipped',
         tier: 'soft',
       }),
-    },
-    state: {
-      action: {
-        tool: 'Bash',
-        cwd: '/repo/.worktrees/fix-detail',
-        input: {
-          command:
-            'git add src/parser.ts && git commit -m "fix: repair parser" && git log --oneline -2',
-        },
-      },
     },
   });
 

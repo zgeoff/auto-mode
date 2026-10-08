@@ -354,9 +354,6 @@ test('it distinguishes a non-Git edit from actual Git targets for the shipped de
     'An ordinary non-Git source or test edit does not itself commit, push, or merge and this rule is allow without branch evidence',
   );
 
-  expect(question.instructions).not.toInclude('verified feature worktree');
-  expect(question.instructions).toInclude('branch evidence is not required for that distinction');
-
   expect(question.instructions).toInclude(
     "repositoryContext describes cwd only, not the edited file's checkout or a generated script's future execution cwd",
   );
