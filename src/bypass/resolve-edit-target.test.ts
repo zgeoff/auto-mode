@@ -15,6 +15,7 @@ async function setupTest() {
   await mkdir(join(root, 'repo', 'src'), { recursive: true });
   await mkdir(join(root, 'outside'));
   await symlink(join(root, 'outside'), join(root, 'repo', 'link'));
+  await symlink(join(root, 'outside', 'missing.ts'), join(root, 'repo', 'dangling.ts'));
 
   return { root };
 }
@@ -31,4 +32,11 @@ test('it keeps the parts of a target that do not exist yet', async () => {
   const target = await resolveEditTarget(join(ctx.root, 'repo', 'src', 'new', 'b.ts'));
 
   expect(target).toBe(join(ctx.root, 'repo', 'src', 'new', 'b.ts'));
+});
+
+test('it resolves a dangling link to nothing, since its target cannot be compared', async () => {
+  const ctx = await setupTest();
+  const target = await resolveEditTarget(join(ctx.root, 'repo', 'dangling.ts'));
+
+  expect(target).toBeNull();
 });

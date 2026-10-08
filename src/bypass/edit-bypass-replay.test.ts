@@ -33,7 +33,12 @@ test('it lets 83 of the 232 real actions skip Jev and sends 3 secret-shaped edit
     const outcome =
       typeof path === 'string'
         ? classifyEdit(
-            { toolName: entry.tool, toolInput: entry.input, target: resolve(entry.cwd, path) },
+            {
+              toolName: entry.tool,
+              toolInput: entry.input,
+              requested: resolve(entry.cwd, path),
+              target: resolve(entry.cwd, path),
+            },
             { worktrees: [entry.cwd], protectedDirs: [] },
           )
         : null;

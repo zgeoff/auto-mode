@@ -155,20 +155,28 @@ async function tryClassifyEdit(
 
   try {
     const ownDirs = [dirname(resolveConfigPath()), resolveStateDir()];
+    const requested = resolve(request.cwd, path);
 
     const [target, worktrees, protectedDirs] = await Promise.all([
-      resolveEditTarget(resolve(request.cwd, path)),
+      resolveEditTarget(requested),
       Promise.all(scope.worktrees.map((worktree) => resolveEditTarget(worktree))),
       Promise.all(ownDirs.map((dir) => resolveEditTarget(dir))),
     ]);
+
+    if (target === null) {
+      return null;
+    }
 
     // The rule set and its regex engine add about 10 ms to a CLI start, so
     // only an edit that reaches this point loads them.
     const bypass = await import('./bypass/classify-edit.ts');
 
     return bypass.classifyEdit(
-      { toolName: request.toolName, toolInput: request.toolInput, target },
-      { worktrees, protectedDirs },
+      { toolName: request.toolName, toolInput: request.toolInput, requested, target },
+      {
+        worktrees: worktrees.filter((worktree) => worktree !== null),
+        protectedDirs: [...ownDirs, ...protectedDirs.filter((dir) => dir !== null)],
+      },
     );
   } catch {
     return null;

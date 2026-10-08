@@ -12,16 +12,19 @@ test('it bypasses Edit, Write, and NotebookEdit into an in-scope worktree', () =
       {
         toolName: 'Edit',
         toolInput: { file_path: 'x', new_string: 'const a = 1;' },
+        requested: '/repo/src/a.ts',
         target: '/repo/src/a.ts',
       },
       {
         toolName: 'Write',
         toolInput: { file_path: 'x', content: '# notes' },
+        requested: '/repo/.worktrees/feat/README.md',
         target: '/repo/.worktrees/feat/README.md',
       },
       {
         toolName: 'NotebookEdit',
         toolInput: { notebook_path: 'x', new_source: 'print(1)' },
+        requested: '/repo/n.ipynb',
         target: '/repo/n.ipynb',
       },
     ].map((action) => classifyEdit(action, scope)),
@@ -36,7 +39,10 @@ test('it sends a target outside the scope, or in a nested worktree the task does
   expect(
     ['/elsewhere/a.ts', '/repo/.worktrees/other/a.ts', '/repository/a.ts'].map(
       (target) =>
-        classifyEdit({ toolName: 'Write', toolInput: { content: 'x' }, target }, scope).kind,
+        classifyEdit(
+          { toolName: 'Write', toolInput: { content: 'x' }, requested: target, target },
+          scope,
+        ).kind,
     ),
   ).toStrictEqual(['jev', 'jev', 'jev']);
 });
@@ -72,7 +78,12 @@ test('it sends configuration, hooks, CI, git metadata, and credential files to J
     excluded.map(
       (path) =>
         classifyEdit(
-          { toolName: 'Write', toolInput: { content: 'x' }, target: `/repo/${path}` },
+          {
+            toolName: 'Write',
+            toolInput: { content: 'x' },
+            requested: `/repo/${path}`,
+            target: `/repo/${path}`,
+          },
           scope,
         ).kind,
     ),
@@ -85,6 +96,7 @@ test("it sends a write into auto-mode's configuration or state to Jev", () => {
       {
         toolName: 'Write',
         toolInput: { content: '{}' },
+        requested: '/home/dev/.config/auto-mode/config.json',
         target: '/home/dev/.config/auto-mode/config.json',
       },
       { worktrees: ['/home/dev'], protectedDirs: scope.protectedDirs },
@@ -100,6 +112,7 @@ test('it sends content with a secret to Jev and names the rule', () => {
       {
         toolName: 'Edit',
         toolInput: { new_string: `aws_access_key_id = "${key}"` },
+        requested: '/repo/src/aws.ts',
         target: '/repo/src/aws.ts',
       },
       scope,
@@ -113,6 +126,7 @@ test('it sends content larger than the scan reads to Jev without scanning part o
       {
         toolName: 'Write',
         toolInput: { content: 'a'.repeat(MAX_SCANNED_BYTES + 1) },
+        requested: '/repo/big.txt',
         target: '/repo/big.txt',
       },
       scope,
@@ -123,8 +137,39 @@ test('it sends content larger than the scan reads to Jev without scanning part o
 test('it sends another tool, or content that is not text, to Jev', () => {
   expect(
     [
-      { toolName: 'Bash', toolInput: { command: 'echo x > a' }, target: '/repo/a' },
-      { toolName: 'Write', toolInput: { content: 42 }, target: '/repo/a' },
+      {
+        toolName: 'Bash',
+        toolInput: { command: 'echo x > a' },
+        requested: '/repo/a',
+        target: '/repo/a',
+      },
+      { toolName: 'Write', toolInput: { content: 42 }, requested: '/repo/a', target: '/repo/a' },
     ].map((action) => classifyEdit(action, scope).kind),
   ).toStrictEqual(['jev', 'jev']);
+});
+
+test('it sends an edit to Jev when the path as written or the path it resolves to is excluded', () => {
+  expect(
+    [
+      { requested: '/repo/.claude/settings.json', target: '/repo/config/permissions.json' },
+      { requested: '/repo/notes.md', target: '/repo/.git/hooks/pre-commit' },
+    ].map(
+      (paths) =>
+        classifyEdit({ toolName: 'Write', toolInput: { content: '{}' }, ...paths }, scope).kind,
+    ),
+  ).toStrictEqual(['jev', 'jev']);
+});
+
+test("it sends a write to a linked worktree's .git file to Jev", () => {
+  expect(
+    classifyEdit(
+      {
+        toolName: 'Write',
+        toolInput: { content: 'gitdir: /elsewhere/.git/worktrees/x' },
+        requested: '/repo/.worktrees/feat/.git',
+        target: '/repo/.worktrees/feat/.git',
+      },
+      scope,
+    ),
+  ).toStrictEqual({ kind: 'jev', reason: 'target is git metadata' });
 });

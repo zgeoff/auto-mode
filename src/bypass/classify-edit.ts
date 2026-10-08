@@ -6,6 +6,7 @@ import { getEditFields } from './get-edit-fields.ts';
 export interface EditAction {
   readonly toolName: string;
   readonly toolInput: Readonly<Record<string, unknown>>;
+  readonly requested: string;
   readonly target: string;
 }
 
@@ -50,9 +51,13 @@ export function classifyEdit(
     return { kind: 'jev', reason: 'target in a nested worktree outside the scope' };
   }
 
-  const exclusion = scope.protectedDirs.some((dir) => isWithin(action.target, dir))
+  // A link can give an excluded name an ordinary target, or the reverse, so
+  // both the path as written and the path it resolves to must pass.
+  const paths = [action.target, action.requested];
+
+  const exclusion = paths.some((each) => scope.protectedDirs.some((dir) => isWithin(each, dir)))
     ? 'auto-mode configuration or state'
-    : findExclusion(path);
+    : (findExclusion(path) ?? findExclusion(action.requested));
 
   if (exclusion !== null) {
     return { kind: 'jev', reason: `target is ${exclusion}` };
@@ -117,7 +122,11 @@ function findExclusion(path: string): string | null {
   const lower = path.toLowerCase();
 
   const dir = EXCLUDED_DIRS.find(
-    ([prefix]) => lower.startsWith(`${prefix}/`) || lower.includes(`/${prefix}/`),
+    ([prefix]) =>
+      lower === prefix ||
+      lower.endsWith(`/${prefix}`) ||
+      lower.startsWith(`${prefix}/`) ||
+      lower.includes(`/${prefix}/`),
   );
 
   if (dir !== undefined) {
