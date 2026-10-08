@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
 import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
@@ -27,24 +28,21 @@ test('it gives a hard block priority over a soft block and an uncertain answer',
 
   const result = buildMockDecisionResult({
     answers: {
-      soft: {
-        type: 'choice',
+      soft: buildMockDecisionAnswer({
         choice: 'block',
         confidence: 1,
         probabilities: { allow: 0, block: 1, ask: 0 },
-      },
-      hard: {
-        type: 'choice',
+      }),
+      hard: buildMockDecisionAnswer({
         choice: 'block',
         confidence: 1,
         probabilities: { allow: 0, block: 1, ask: 0 },
-      },
-      uncertain: {
-        type: 'choice',
+      }),
+      uncertain: buildMockDecisionAnswer({
         choice: 'ask',
         confidence: 1,
         probabilities: { allow: 0, block: 0, ask: 1 },
-      },
+      }),
     },
   });
 
@@ -57,38 +55,36 @@ test('it gives a hard block priority over a soft block and an uncertain answer',
 });
 
 test.each([
-  ['an uncertain allow', 'allow', 0.6, 0.75],
-  ['an uncertain block', 'block', 0.6, 0.25],
-  ['an ask for missing context', 'ask', 0.95, 0.02],
-] as const)('it denies with an unresolved reason for %s', (_label, choice, confidence, allow) => {
-  const request = buildMockDecisionRequest({
-    rules: {
-      rule: buildMockDecisionRule({
-        name: 'Shared Infrastructure',
-        tier: 'soft',
-        source: 'replacement',
-      }),
-    },
-  });
-
-  const result = buildMockDecisionResult({
-    answers: {
-      rule: {
-        type: 'choice',
-        choice,
-        confidence,
-        probabilities: { allow, block: 1 - allow, ask: 0 },
+  ['an uncertain allow', 'allow', 0.6, { allow: 0.75, block: 0.25, ask: 0 }],
+  ['an uncertain block', 'block', 0.6, { allow: 0.25, block: 0.75, ask: 0 }],
+  ['an ask for missing context', 'ask', 0.95, { allow: 0.02, block: 0.03, ask: 0.95 }],
+] as const)(
+  'it denies with an unresolved reason for %s',
+  (_label, choice, confidence, probabilities) => {
+    const request = buildMockDecisionRequest({
+      rules: {
+        rule: buildMockDecisionRule({
+          name: 'Shared Infrastructure',
+          tier: 'soft',
+          source: 'replacement',
+        }),
       },
-    },
-  });
+    });
 
-  expect(pickDecisionVerdict(request, result, 0.8)).toStrictEqual({
-    kind: 'deny',
-    rule: 'Shared Infrastructure',
-    reason:
-      'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
-  });
-});
+    const result = buildMockDecisionResult({
+      answers: {
+        rule: buildMockDecisionAnswer({ choice, confidence, probabilities }),
+      },
+    });
+
+    expect(pickDecisionVerdict(request, result, 0.8)).toStrictEqual({
+      kind: 'deny',
+      rule: 'Shared Infrastructure',
+      reason:
+        'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
+    });
+  },
+);
 
 test('it allows when every rule is a confident allow', () => {
   const request = buildMockDecisionRequest({
@@ -99,12 +95,11 @@ test('it allows when every rule is a confident allow', () => {
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.95,
         probabilities: { allow: 0.95, block: 0.05, ask: 0 },
-      },
+      }),
     },
   });
 
@@ -120,12 +115,11 @@ test('it names the shipped rule and its fixed reason when a block is confident',
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'block',
         confidence: 0.95,
         probabilities: { allow: 0.02, block: 0.95, ask: 0.03 },
-      },
+      }),
     },
   });
 
@@ -152,24 +146,21 @@ test('it names the uncertain rule with the highest block probability', () => {
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'ask',
         confidence: 0.9,
         probabilities: { allow: 0.1, block: 0.05, ask: 0.85 },
-      },
-      rule_1: {
-        type: 'choice',
+      }),
+      rule_1: buildMockDecisionAnswer({
         choice: 'block',
         confidence: 0.6,
         probabilities: { allow: 0.3, block: 0.6, ask: 0.1 },
-      },
-      rule_2: {
-        type: 'choice',
+      }),
+      rule_2: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.99,
         probabilities: { allow: 0.99, block: 0.01, ask: 0 },
-      },
+      }),
     },
   });
 
@@ -204,12 +195,11 @@ test('it denies the observed routine commit when outbound confidence is below th
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.76,
         probabilities: { allow: 0.84, block: 0.03, ask: 0.13 },
-      },
+      }),
     },
   });
 

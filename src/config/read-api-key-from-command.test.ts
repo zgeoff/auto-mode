@@ -1,4 +1,4 @@
-import { expect, mock, onTestFinished, test } from 'bun:test';
+import { expect, onTestFinished, test } from 'bun:test';
 import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
@@ -7,8 +7,10 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { loadProcessState } from '../../test-utils/load-process-state.ts';
+import { waitFor } from '../../test-utils/wait-for.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 
 async function setupTest() {
@@ -63,8 +65,23 @@ test('it stops a key helper and its child on cancellation', async () => {
   controller.abort();
 
   const key = await result;
-  const helperAfter = await loadProcessState(pids.helper);
-  const childAfter = await loadProcessState(pids.child);
+
+  // The kill returns before the kernel finishes it, so a process can still read
+  // as running for a moment after the reader resolves.
+  const after = await waitFor(
+    async () => {
+      const [helperState, childState] = await Promise.all([
+        loadProcessState(pids.helper),
+        loadProcessState(pids.child),
+      ]);
+
+      return { helper: helperState, child: childState };
+    },
+    (states) =>
+      [states.helper, states.child].every(
+        (state) => state === null || state.state === 'Z' || state.state === 'X',
+      ),
+  );
 
   expect(key).toBeNull();
   expect(helperBefore.state).toBeOneOf(['R', 'S']);
@@ -72,13 +89,13 @@ test('it stops a key helper and its child on cancellation', async () => {
 
   // A stopped process is gone or a zombie awaiting its reaper; the start time
   // keeps a reused process ID from passing as the stopped one.
-  expect(helperAfter).toBeOneOf([
+  expect(after.helper).toBeOneOf([
     null,
     { ...helperBefore, state: 'Z' },
     { ...helperBefore, state: 'X' },
   ]);
 
-  expect(childAfter).toBeOneOf([
+  expect(after.child).toBeOneOf([
     null,
     { ...childBefore, state: 'Z' },
     { ...childBefore, state: 'X' },
@@ -127,68 +144,83 @@ test('it runs the helper with the given home', async () => {
 
 test('it limits a key helper to the shared deadline', async () => {
   const now = Date.now();
-
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   const result = readApiKeyFromCommand('sleep 30; printf offline-test-key', {
     deadlineAt: now + 100,
     now: () => now,
-    timeout,
+    timeout: timer.timeout,
   });
 
-  timer.abort();
+  timer.emitTimeout(1);
 
   const key = await result;
 
   expect(key).toBeNull();
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(100);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(100);
+});
+
+// The stand-in timer never runs AbortSignal.timeout, so this helper, which would
+// sleep for 30 s, can stop only on the real default timer.
+test('it stops a key helper on the real default timer at the shared deadline', async () => {
+  const startedAt = performance.now();
+
+  const key = await readApiKeyFromCommand('sleep 30; printf offline-test-key', {
+    deadlineAt: Date.now() + 50,
+  });
+
+  expect(key).toBeNull();
+  expect(performance.now() - startedAt).toBeWithin(40, 5000);
 });
 
 test('it limits a key helper to 5 s without a shared deadline', async () => {
-  const timer = new AbortController();
+  const timer = buildStubTimeout();
 
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
-  const result = readApiKeyFromCommand('sleep 30; printf offline-test-key', { timeout });
+  const result = readApiKeyFromCommand('sleep 30; printf offline-test-key', {
+    timeout: timer.timeout,
+  });
 
-  timer.abort();
+  timer.emitTimeout(1);
 
   const key = await result;
 
   expect(key).toBeNull();
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(5000);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(5000);
 });
 
 test('it starts no key helper once the shared deadline has passed', async () => {
   const now = Date.now();
-  const timeout = mock<(ms: number) => AbortSignal>(() => new AbortController().signal);
+  const timer = buildStubTimeout();
 
   const key = await readApiKeyFromCommand('printf offline-test-key', {
     deadlineAt: now,
     now: () => now,
-    timeout,
+    timeout: timer.timeout,
   });
 
   expect(key).toBeNull();
-  expect(timeout).not.toHaveBeenCalled();
+  expect(timer.timeout).not.toHaveBeenCalled();
 });
 
 test('it starts no key helper once the caller has cancelled', async () => {
-  const timeout = mock<(ms: number) => AbortSignal>(() => new AbortController().signal);
+  const timer = buildStubTimeout();
 
   const key = await readApiKeyFromCommand('printf offline-test-key', {
     signal: AbortSignal.abort(),
-    timeout,
+    timeout: timer.timeout,
   });
 
   expect(key).toBeNull();
-  expect(timeout).not.toHaveBeenCalled();
+  expect(timer.timeout).not.toHaveBeenCalled();
 });
 
 test('it stops a key helper at once when its timer has already fired', async () => {
+  const timer = buildStubTimeout();
+
+  timer.emitTimeout(1);
+
   const key = await readApiKeyFromCommand('sleep 30; printf offline-test-key', {
-    timeout: () => AbortSignal.abort(),
+    timeout: timer.timeout,
   });
 
   expect(key).toBeNull();

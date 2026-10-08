@@ -31,7 +31,7 @@ test('it posts to the Messages endpoint with the key and version headers', async
     }),
   );
 
-  await sendMessage(
+  const result = await sendMessage(
     buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),
     'secret-key',
     { system: 'policy', user: 'action' },
@@ -39,6 +39,14 @@ test('it posts to the Messages endpoint with the key and version headers', async
   );
 
   expect(received).toHaveBeenCalledExactlyOnceWith('secret-key', '2023-06-01');
+
+  expect(result).toStrictEqual({
+    text: 'ok',
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    newInputTokens: 0,
+    outputTokens: 0,
+  });
 });
 
 // The policy is identical on every call, so it is the cache prefix and carries
@@ -66,7 +74,7 @@ test('it marks the system prompt for caching', async () => {
     }),
   );
 
-  await sendMessage(
+  const result = await sendMessage(
     buildMockProviderConfig({
       protocol: 'messages',
       baseURL: 'https://gateway.test',
@@ -83,6 +91,14 @@ test('it marks the system prompt for caching', async () => {
     max_tokens: 3000,
     system: [{ type: 'text', text: 'the policy', cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: 'the action' }],
+  });
+
+  expect(result).toStrictEqual({
+    text: '',
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    newInputTokens: 0,
+    outputTokens: 0,
   });
 });
 
@@ -124,10 +140,26 @@ test('it drops a thinking block', async () => {
   server.use(
     http.post(MESSAGES_URL, () =>
       HttpResponse.json({
+        id: 'msg_01',
+        type: 'message',
+        role: 'assistant',
+        model: 'test-model',
         content: [
-          { type: 'thinking', thinking: 'this might be <block>yes</block>' },
+          {
+            type: 'thinking',
+            thinking: 'this might be <block>yes</block>',
+            signature: 'EqQBCkYIBxgCKkBthinking-signature',
+          },
           { type: 'text', text: '<block>no</block>' },
         ],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: {
+          cache_read_input_tokens: 7025,
+          cache_creation_input_tokens: 12,
+          input_tokens: 42,
+          output_tokens: 130,
+        },
       }),
     ),
   );
@@ -141,10 +173,10 @@ test('it drops a thinking block', async () => {
 
   expect(result).toStrictEqual({
     text: '<block>no</block>',
-    cachedInputTokens: 0,
-    cacheWriteTokens: 0,
-    newInputTokens: 0,
-    outputTokens: 0,
+    cachedInputTokens: 7025,
+    cacheWriteTokens: 12,
+    newInputTokens: 42,
+    outputTokens: 130,
   });
 });
 
@@ -216,7 +248,17 @@ test('it reads a response it cannot understand as empty rather than failing', as
 });
 
 test('it reports the status without the private body of a failed call', () => {
-  server.use(http.post(MESSAGES_URL, () => HttpResponse.text('over quota', { status: 429 })));
+  server.use(
+    http.post(MESSAGES_URL, () =>
+      HttpResponse.json(
+        {
+          type: 'error',
+          error: { type: 'rate_limit_error', message: 'private over-quota detail' },
+        },
+        { status: 429 },
+      ),
+    ),
+  );
 
   const response = sendMessage(
     buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),
@@ -274,7 +316,7 @@ test('it reaches the same endpoint whether the base URL ends in a slash', async 
     }),
   );
 
-  await sendMessage(
+  const result = await sendMessage(
     buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test/' }),
     'k',
     { system: 's', user: 'u' },
@@ -282,6 +324,14 @@ test('it reaches the same endpoint whether the base URL ends in a slash', async 
   );
 
   expect(received).toHaveBeenCalledExactlyOnceWith('https://gateway.test/v1/messages');
+
+  expect(result).toStrictEqual({
+    text: '',
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    newInputTokens: 0,
+    outputTokens: 0,
+  });
 });
 
 test('it discards malformed response text instead of exposing credential fragments', () => {

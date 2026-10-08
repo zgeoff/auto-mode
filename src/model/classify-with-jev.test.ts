@@ -8,9 +8,11 @@ import * as z from 'zod';
 import { decisionAnswers } from '../../mocks/decision-answers.ts';
 import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';
+import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockTaskScopeSummary } from '../../test-utils/factories/build-mock-task-scope-summary.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
@@ -72,7 +74,12 @@ test('it sends the configured rules and the direct user message without the sett
       onFailure: 'defer',
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -143,7 +150,12 @@ test.each([
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -203,7 +215,10 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
     });
 
     const outcome = await classifyWithJev(payload, config, {
-      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
     });
 
     const questionSchema = z.object({
@@ -212,6 +227,9 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
     });
 
     const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+
+    expect(received).toHaveBeenCalledOnce();
+
     const [call] = received.mock.calls;
 
     invariant(call, 'the decision service received the request');
@@ -315,11 +333,19 @@ test('it keeps a separate shipped hard block after the self-protection finding c
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   const questionSchema = z.object({ instructions: z.string() });
   const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+
+  expect(received).toHaveBeenCalledOnce();
+
   const [call] = received.mock.calls;
 
   invariant(call, 'the decision service received the request');
@@ -416,7 +442,12 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         claudeSettingsPath: null,
         minConfidence: 0.8,
       }),
-      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+      {
+        host: buildMockHostEnvironment({
+          env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+          home: ctx.dir,
+        }),
+      },
     );
 
     expect(outcome).toStrictEqual({
@@ -490,14 +521,7 @@ test('it returns the configured denial when the deadline passes during the reque
 
   let now = Date.now();
   const deadlineAt = now + 7500;
-
-  const helperTimer = new AbortController();
-  const requestTimer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>()
-    .mockReturnValueOnce(helperTimer.signal)
-    .mockReturnValueOnce(requestTimer.signal);
-
+  const timer = buildStubTimeout();
   const requestSent = Promise.withResolvers<void>();
 
   server.use(
@@ -527,7 +551,12 @@ test('it returns the configured denial when the deadline passes during the reque
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: {}, home: ctx.dir }, deadlineAt, now: () => now, timeout },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+      deadlineAt,
+      now: () => now,
+      timeout: timer.timeout,
+    },
   );
 
   now += 4000;
@@ -536,14 +565,19 @@ test('it returns the configured denial when the deadline passes during the reque
 
   now = deadlineAt;
 
-  requestTimer.abort();
+  timer.emitTimeout(2);
 
   const outcome = await pending;
 
-  expect(timeout).toHaveBeenCalledTimes(2);
-  expect(timeout).toHaveBeenNthCalledWith(1, 5000);
-  expect(timeout).toHaveBeenNthCalledWith(2, 3500);
-  expect(helperTimer.signal.aborted).toBe(false);
+  expect(timer.timeout).toHaveBeenCalledTimes(2);
+  expect(timer.timeout).toHaveBeenNthCalledWith(1, 5000);
+  expect(timer.timeout).toHaveBeenNthCalledWith(2, 3500);
+
+  const [helperTimer] = timer.timeout.mock.results;
+
+  invariant(helperTimer?.type === 'return', 'the key helper started its timer');
+
+  expect(helperTimer.value.aborted).toBeFalse();
 
   expect(outcome).toStrictEqual({
     verdict: {
@@ -625,7 +659,12 @@ test('it evaluates a subagent on its task context without the parent consent', a
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -749,7 +788,12 @@ test('it separates missing credentials from a classifier ask without calling the
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(requested).not.toHaveBeenCalled();
@@ -806,7 +850,12 @@ test('it sends checked branch evidence for a routine feature commit and allows i
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -924,7 +973,12 @@ test.each([
         claudeSettingsPath: null,
         minConfidence: 0.8,
       }),
-      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+      {
+        host: buildMockHostEnvironment({
+          env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+          home: ctx.dir,
+        }),
+      },
     );
 
     expect(outcome).toStrictEqual({
@@ -1054,7 +1108,12 @@ test.each(['Write', 'Edit'])(
         claudeSettingsPath: null,
         minConfidence: 0.8,
       }),
-      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+      {
+        host: buildMockHostEnvironment({
+          env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+          home: ctx.dir,
+        }),
+      },
     );
 
     expect(outcome).toStrictEqual({
@@ -1192,10 +1251,10 @@ test.each([
         minConfidence: 0.8,
       }),
       {
-        host: {
+        host: buildMockHostEnvironment({
           env: { AUTO_MODE_JEV_TEST_KEY: 'test-key', [override]: join(ctx.dir, 'another') },
           home: ctx.dir,
-        },
+        }),
       },
     );
 
@@ -1279,7 +1338,7 @@ test.each([
   },
 );
 
-test('it denies an uncertain answer, distinct from a timeout, and keeps every contributing confidence', async () => {
+test('it denies an uncertain answer and keeps every contributing confidence', async () => {
   const ctx = await setupTest();
 
   const rules = join(ctx.dir, 'rules.md');
@@ -1320,7 +1379,12 @@ test('it denies an uncertain answer, distinct from a timeout, and keeps every co
       onFailure: 'defer',
       claudeSettingsPath: null,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -1419,7 +1483,12 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
       onFailure: 'defer',
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   invariant(outcome.diagnostics, 'the decision has diagnostics');
@@ -1471,7 +1540,12 @@ test('it defers an oversized Edit before any request and records only the failur
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(requested).not.toHaveBeenCalled();
@@ -1497,13 +1571,11 @@ test('it defers an oversized Edit before any request and records only the failur
 test('it reports a provider timeout as a timeout with the request size', async () => {
   const ctx = await setupTest();
 
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   server.use(
     http.post(DECISION_URL, async () => {
-      timer.abort();
+      timer.emitTimeout(1);
 
       await delay('infinite');
 
@@ -1519,10 +1591,16 @@ test('it reports a provider timeout as a timeout with the request size', async (
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, timeout },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+      timeout: timer.timeout,
+    },
   );
 
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(20);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(20);
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -1542,12 +1620,17 @@ test('it reports a provider timeout as a timeout with the request size', async (
   });
 });
 
-// The handler never answers, so only the real provider timer can end the request.
+// The stand-in timer never runs AbortSignal.timeout; the handler below never
+// answers, so only that real default timer can end the request.
 test('it times out on the provider deadline with the real timer', async () => {
   const ctx = await setupTest();
 
+  const reached = mock();
+
   server.use(
     http.post(DECISION_URL, async () => {
+      reached();
+
       await delay('infinite');
 
       return HttpResponse.json({});
@@ -1562,8 +1645,15 @@ test('it times out on the provider deadline with the real timer', async () => {
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
+
+  expect(reached).toHaveBeenCalledOnce();
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -1586,13 +1676,11 @@ test('it times out on the provider deadline with the real timer', async () => {
 test('it starts the provider timer at the next whole millisecond for a fractional timeout', async () => {
   const ctx = await setupTest();
 
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   server.use(
     http.post(DECISION_URL, async () => {
-      timer.abort();
+      timer.emitTimeout(1);
 
       await delay('infinite');
 
@@ -1608,10 +1696,16 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, timeout },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+      timeout: timer.timeout,
+    },
   );
 
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(1001);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(1001);
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -1663,7 +1757,10 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       minConfidence: 0.8,
     }),
     {
-      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
       taskScope: buildMockTaskScopeSummary({
         worktrees: [ctx.dir],
         branches: ['feature'],

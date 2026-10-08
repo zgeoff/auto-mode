@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
 import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
@@ -9,12 +10,11 @@ test('it classifies the answers as allow when every rule is a confident allow', 
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.8,
         probabilities: { allow: 0.8, block: 0.1, ask: 0.1 },
-      },
+      }),
     },
   });
 
@@ -28,18 +28,16 @@ test('it classifies a confident block on a hard rule ahead of an earlier soft bl
 
   const result = buildMockDecisionResult({
     answers: {
-      soft: {
-        type: 'choice',
+      soft: buildMockDecisionAnswer({
         choice: 'block',
         confidence: 1,
         probabilities: { allow: 0, block: 1, ask: 0 },
-      },
-      hard: {
-        type: 'choice',
+      }),
+      hard: buildMockDecisionAnswer({
         choice: 'block',
         confidence: 1,
         probabilities: { allow: 0, block: 1, ask: 0 },
-      },
+      }),
     },
   });
 
@@ -50,20 +48,15 @@ test('it classifies a confident block on a hard rule ahead of an earlier soft bl
 });
 
 test.each([
-  ['a block below the confidence threshold', 0.79, 0.9],
-  ['a block below the probability threshold', 0.9, 0.79],
-] as const)('it classifies %s as uncertain', (_label, confidence, block) => {
+  ['a block below the confidence threshold', 0.79, { allow: 0, block: 0.9, ask: 0.1 }],
+  ['a block below the probability threshold', 0.9, { allow: 0, block: 0.79, ask: 0.21 }],
+] as const)('it classifies %s as uncertain', (_label, confidence, probabilities) => {
   const rule = buildMockDecisionRule();
   const request = buildMockDecisionRequest({ rules: { rule_0: rule } });
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
-        choice: 'block',
-        confidence,
-        probabilities: { allow: 0, block, ask: 1 - block },
-      },
+      rule_0: buildMockDecisionAnswer({ choice: 'block', confidence, probabilities }),
     },
   });
 
@@ -77,18 +70,16 @@ test('it names the uncertain rule with the highest block probability', () => {
 
   const result = buildMockDecisionResult({
     answers: {
-      ask: {
-        type: 'choice',
+      ask: buildMockDecisionAnswer({
         choice: 'ask',
         confidence: 0.9,
         probabilities: { allow: 0.1, block: 0.05, ask: 0.85 },
-      },
-      doubtful: {
-        type: 'choice',
+      }),
+      doubtful: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 0.5,
         probabilities: { allow: 0.5, block: 0.4, ask: 0.1 },
-      },
+      }),
     },
   });
 
@@ -105,12 +96,11 @@ test('it throws when the result leaves a rule unanswered', () => {
 
   const result = buildMockDecisionResult({
     answers: {
-      rule_0: {
-        type: 'choice',
+      rule_0: buildMockDecisionAnswer({
         choice: 'allow',
         confidence: 1,
         probabilities: { allow: 1, block: 0, ask: 0 },
-      },
+      }),
     },
   });
 

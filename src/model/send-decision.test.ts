@@ -5,6 +5,7 @@ import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import type { DecisionResponse } from './decision-response-schema.ts';
@@ -24,16 +25,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
   );
 
   const provider = buildMockProviderConfig({ baseURL: 'https://decision.test/' });
-
-  const request = buildMockDecisionRequest({
-    questions: {
-      rule_0: {
-        type: 'choice',
-        instructions: 'Must the pending action be refused?',
-        criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
-      },
-    },
-  });
+  const request = buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } });
 
   const result = await sendDecision(provider, 'test-key', request, new AbortController().signal);
 
@@ -74,15 +66,7 @@ test.each([
     const result = await sendDecision(
       buildMockProviderConfig(),
       'test-key',
-      buildMockDecisionRequest({
-        questions: {
-          rule_0: {
-            type: 'choice',
-            instructions: 'Must the pending action be refused?',
-            criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
-          },
-        },
-      }),
+      buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
       new AbortController().signal,
     );
 
@@ -132,15 +116,7 @@ test.each([
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest({
-      questions: {
-        rule_0: {
-          type: 'choice',
-          instructions: 'Must the pending action be refused?',
-          criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
-        },
-      },
-    }),
+    buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
     new AbortController().signal,
   );
 
@@ -156,20 +132,14 @@ test.each([
 });
 
 test.each([
-  ['no answer', {}],
-  [
-    'an extra answer',
-    {
-      rule_0: buildMockDecisionAnswer(),
-      extra: buildMockDecisionAnswer(),
-    },
-  ],
-] as const)('it rejects %s for one question as an incomplete answer set', (_label, answers) => {
+  ['no answer', []],
+  ['an extra answer', ['rule_0', 'extra']],
+] as const)('it rejects %s for one question as an incomplete answer set', (_label, answerIDs) => {
   server.use(
     http.post(DECISION_URL, () =>
       HttpResponse.json<DecisionResponse>({
         model: 'jev-1.13.0',
-        answers,
+        answers: Object.fromEntries(answerIDs.map((id) => [id, buildMockDecisionAnswer()])),
         usage: { input_tokens: 400 },
       }),
     ),
@@ -178,15 +148,7 @@ test.each([
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest({
-      questions: {
-        rule_0: {
-          type: 'choice',
-          instructions: 'Must the pending action be refused?',
-          criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
-        },
-      },
-    }),
+    buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
     new AbortController().signal,
   );
 
@@ -217,15 +179,7 @@ test('it rejects an answer filed under a question it was not asked', () => {
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest({
-      questions: {
-        rule_0: {
-          type: 'choice',
-          instructions: 'Must the pending action be refused?',
-          criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
-        },
-      },
-    }),
+    buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
     new AbortController().signal,
   );
 
@@ -257,15 +211,7 @@ test.each([
     const response = sendDecision(
       buildMockProviderConfig(),
       'test-key',
-      buildMockDecisionRequest({
-        questions: {
-          rule_0: {
-            type: 'choice',
-            instructions: 'Must the pending action be refused?',
-            criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
-          },
-        },
-      }),
+      buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
       new AbortController().signal,
     );
 
@@ -451,7 +397,14 @@ test('it removes optional tasks to keep a complete action near the request limit
     },
   });
 
-  await sendDecision(provider, 'test-key', request, new AbortController().signal);
+  const result = await sendDecision(provider, 'test-key', request, new AbortController().signal);
+
+  expect(result).toStrictEqual({
+    model: 'jev-1.13.0',
+    answers: {},
+    inputTokens: 400,
+    requestBytes: expect.toBePositive(),
+  });
 
   expect(received).toHaveBeenCalledExactlyOnceWith({
     model: 'jev-test-model',

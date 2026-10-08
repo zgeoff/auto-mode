@@ -21,18 +21,21 @@ interface DecisionRequestOverrides extends Partial<Omit<DecisionRequest, 'state'
   readonly state?: StateOverrides;
 }
 
-// One question about one shipped rule under the same key, the shape the request
-// builder gives each rule; the action is a Bash command.
+// The client refuses an answer set that does not match the questions, so every
+// rule gets a question under its own key unless a test states the questions.
 export function buildMockDecisionRequest(
   overrides: DecisionRequestOverrides = {},
 ): DecisionRequest {
-  const { state, ...rest } = overrides;
-  const { configuredRules, repositoryContext, taskContext, action, ...stateRest } = state ?? {};
+  const { configuredRules, repositoryContext, taskContext, action, ...stateRest } =
+    overrides.state ?? {};
+
+  const rules = overrides.rules ?? { rule_0: buildMockDecisionRule() };
 
   return {
-    questions: { rule_0: buildMockDecisionQuestion() },
-    rules: { rule_0: buildMockDecisionRule() },
-    ...rest,
+    questions:
+      overrides.questions ??
+      Object.fromEntries(Object.keys(rules).map((id) => [id, buildMockDecisionQuestion()])),
+    rules,
     state: {
       policy: faker.lorem.paragraphs(2),
       answerGuidance: faker.lorem.paragraph(),

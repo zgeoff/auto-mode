@@ -3,11 +3,14 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, delay, http } from 'msw';
+import * as z from 'zod';
 import { DECISION_URL, MESSAGES_URL } from '../../mocks/handlers.ts';
 import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { server } from '../../mocks/node.ts';
+import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { classifyWithModel } from './classify-with-model.ts';
@@ -40,8 +43,14 @@ test('it hands a decision service provider to Jev', async () => {
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
       onFailure: 'defer',
+      minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -93,7 +102,12 @@ test('it reads an allow out of the model answer', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -137,7 +151,12 @@ test('it reads a deny with its rule and reason out of the model answer', async (
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -176,7 +195,12 @@ test('it reports the cache counts alongside the verdict', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -203,7 +227,7 @@ test('it has no opinion when no API key is configured', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: {}, home: ctx.dir } },
+    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
   );
 
   expect(outcome).toStrictEqual({
@@ -215,7 +239,14 @@ test('it has no opinion when no API key is configured', async () => {
 test('it has no opinion when the model call fails', async () => {
   const ctx = await setupTest();
 
-  server.use(http.post(MESSAGES_URL, () => HttpResponse.text('boom', { status: 500 })));
+  server.use(
+    http.post(MESSAGES_URL, () =>
+      HttpResponse.json(
+        { type: 'error', error: { type: 'api_error', message: 'Internal server error' } },
+        { status: 500 },
+      ),
+    ),
+  );
 
   const outcome = await classifyWithModel(
     buildMockActionRequest({
@@ -232,7 +263,12 @@ test('it has no opinion when the model call fails', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -244,13 +280,11 @@ test('it has no opinion when the model call fails', async () => {
 test('it names the timeout when the model call outlives it', async () => {
   const ctx = await setupTest();
 
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   server.use(
     http.post(MESSAGES_URL, async () => {
-      timer.abort();
+      timer.emitTimeout(1);
 
       await delay('infinite');
 
@@ -274,10 +308,16 @@ test('it names the timeout when the model call outlives it', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir }, timeout },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+      timeout: timer.timeout,
+    },
   );
 
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(20);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(20);
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -285,12 +325,17 @@ test('it names the timeout when the model call outlives it', async () => {
   });
 });
 
-// The handler never answers, so only the real timer can end the model call.
+// The stand-in timer never runs AbortSignal.timeout; the handler below never
+// answers, so only that real default timer can end the model call.
 test('it times out on the model call deadline with the real timer', async () => {
   const ctx = await setupTest();
 
+  const reached = mock();
+
   server.use(
     http.post(MESSAGES_URL, async () => {
+      reached();
+
       await delay('infinite');
 
       return HttpResponse.json({ content: [] });
@@ -313,8 +358,15 @@ test('it times out on the model call deadline with the real timer', async () => 
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
+
+  expect(reached).toHaveBeenCalledOnce();
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -325,13 +377,11 @@ test('it times out on the model call deadline with the real timer', async () => 
 test('it starts the model call timer at the next whole millisecond for a fractional timeout', async () => {
   const ctx = await setupTest();
 
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   server.use(
     http.post(MESSAGES_URL, async () => {
-      timer.abort();
+      timer.emitTimeout(1);
 
       await delay('infinite');
 
@@ -355,10 +405,16 @@ test('it starts the model call timer at the next whole millisecond for a fractio
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir }, timeout },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+      timeout: timer.timeout,
+    },
   );
 
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(1001);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(1001);
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -398,7 +454,12 @@ test('it treats an empty answer as a failure rather than an allow', async () => 
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -410,7 +471,14 @@ test('it treats an empty answer as a failure rather than an allow', async () => 
 test('it denies rather than deferring when configured to fail closed', async () => {
   const ctx = await setupTest();
 
-  server.use(http.post(MESSAGES_URL, () => HttpResponse.text('boom', { status: 500 })));
+  server.use(
+    http.post(MESSAGES_URL, () =>
+      HttpResponse.json(
+        { type: 'error', error: { type: 'api_error', message: 'Internal server error' } },
+        { status: 500 },
+      ),
+    ),
+  );
 
   const outcome = await classifyWithModel(
     buildMockActionRequest({
@@ -427,7 +495,12 @@ test('it denies rather than deferring when configured to fail closed', async () 
       },
       onFailure: 'deny',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -459,7 +532,12 @@ test('it has no opinion when the policy file cannot be read', async () => {
       classifierPath: join(ctx.dir, 'missing', 'classifier.md'),
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({ verdict: null, note: expect.toBeString() });
@@ -497,7 +575,7 @@ test('it runs no key command and sends no request once the evaluation is cancell
       },
       onFailure: 'defer',
     }),
-    { signal: controller.signal, host: { env: {}, home: ctx.dir } },
+    { signal: controller.signal, host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
   );
 
   expect(requested).not.toHaveBeenCalled();
@@ -525,11 +603,14 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
     }),
   );
 
-  let body: unknown = null;
+  const received = mock<(mcpServers: unknown, body: string) => void>();
+  const bodySchema = z.object({ state: z.object({ mcpServers: z.unknown() }) });
 
   server.use(
     http.post(DECISION_URL, async (info) => {
-      body = await info.request.clone().json();
+      const body = await info.request.clone().text();
+
+      received(bodySchema.parse(JSON.parse(body)).state.mcpServers, body);
     }),
   );
 
@@ -539,22 +620,47 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
       toolName: 'mcp__linear__list_issues',
       toolInput: { query: 'refusal detail' },
     }),
-    buildMockConfig({ provider: { apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY' } }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    buildMockConfig({
+      provider: {
+        protocol: 'system-one',
+        model: 'jev-1.13.0',
+        apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
+      },
+      minConfidence: 0.8,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
-  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
-
-  expect(body).toMatchObject({
-    state: {
-      mcpServers: [
-        { name: 'linear', scope: 'user', transport: 'http', host: 'mcp.linear.app' },
-        { name: 'tool', scope: 'user', transport: 'stdio', host: null },
-      ],
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    note: expect.toBeString(),
+    diagnostics: {
+      status: 'allow',
+      stage: 'response',
+      keyResolved: true,
+      keySource: 'environment',
+      failureReason: null,
+      requestBytes: expect.toBePositive(),
+      elapsedMs: expect.toBeWithin(0, Infinity),
+      minConfidence: 0.8,
+      contributors: [],
     },
   });
 
-  expect(JSON.stringify(body)).not.toInclude('planted');
+  expect(outcome.note).toMatch(/^jev-1\.13\.0: allow \(\d+ms, 400 input tokens\)$/u);
+
+  expect(received).toHaveBeenCalledExactlyOnceWith(
+    [
+      { name: 'linear', scope: 'user', transport: 'http', host: 'mcp.linear.app' },
+      { name: 'tool', scope: 'user', transport: 'stdio', host: null },
+    ],
+    expect.not.stringContaining('planted'),
+  );
 });
 
 test('it gives the Messages classifier the configured MCP servers by name and host, with no credential', async () => {
@@ -574,14 +680,24 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
   );
 
   messagesReplies.push(
-    buildMockMessagesResponse({ content: [{ type: 'text', text: '<block>no</block>' }] }),
+    buildMockMessagesResponse({
+      content: [{ type: 'text', text: '<block>no</block>' }],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
   );
 
-  let body = '';
+  const received = mock<(body: string) => void>();
 
   server.use(
     http.post(MESSAGES_URL, async (info) => {
-      body = await info.request.clone().text();
+      const body = await info.request.clone().text();
+
+      received(body);
     }),
   );
 
@@ -599,11 +715,22 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
-  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
-  expect(body).toInclude('<mcp-servers>');
-  expect(body).toInclude(String.raw`\"host\": \"mcp.linear.app\"`);
-  expect(body).not.toInclude('planted');
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    note: 'test-model allowed it (0 cached / 0 written / 0 new / 0 out)',
+  });
+
+  expect(received).toHaveBeenCalledExactlyOnceWith(
+    expect.toIncludeMultiple(['<mcp-servers>', String.raw`\"host\": \"mcp.linear.app\"`]),
+  );
+
+  expect(received).not.toHaveBeenCalledWith(expect.toInclude('planted'));
 });
