@@ -4,6 +4,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
+import * as z from 'zod';
 import { loadPolicy } from '../src/policy/load-policy.ts';
 
 async function setupTest(): Promise<{
@@ -24,19 +25,21 @@ async function setupTest(): Promise<{
 
   // A version manager's node shim reads its config under the user's HOME, which
   // the child does not get, so the child runs the binary the shim resolves to.
-  const resolved = await Bun.$`node -p ${"process.execPath + ' ' + process.versions.node"}`
-    .quiet()
-    .text();
+  const resolved: unknown =
+    await Bun.$`node -p ${'JSON.stringify({ node: process.execPath, version: process.versions.node })'}`
+      .quiet()
+      .json();
 
-  const [node, version] = resolved.trim().split(' ');
-
-  invariant(node !== undefined, 'node reported its executable path');
+  const runtime = z.object({ node: z.string(), version: z.string() }).parse(resolved);
 
   // The published artifact claims node 24 as the oldest node it supports.
-  invariant(version?.startsWith('24.') === true, `node 24 runs this suite, not node ${version}`);
+  invariant(
+    runtime.version.startsWith('24.'),
+    `node 24 runs this suite, not node ${runtime.version}`,
+  );
 
   return {
-    node,
+    node: runtime.node,
     cli,
 
     // No API key reaches the child, so no run can reach a model.
