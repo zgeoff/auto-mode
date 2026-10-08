@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { readProcessState } from './read-process-state.ts';
+import { loadProcessState } from './load-process-state.ts';
 
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-stub-key-helper-'));
@@ -56,7 +56,7 @@ test('it reports its own and its running child process IDs on the socket', async
 
   const report = z.object({ helper: z.number(), child: z.number() }).parse(JSON.parse(body));
 
-  const child = await readProcessState(report.child);
+  const child = await loadProcessState(report.child);
 
   expect(report).toStrictEqual({ helper: group, child: expect.toBeNumber() });
 
@@ -64,4 +64,43 @@ test('it reports its own and its running child process IDs on the socket', async
     state: expect.toBeOneOf(['R', 'S']),
     startTime: expect.toBeString(),
   });
+});
+
+test('it prints no key by the time it reports', async () => {
+  const ctx = await setupTest();
+
+  const helper = spawn(
+    process.execPath,
+    [join(import.meta.dir, 'run-stub-key-helper.ts'), ctx.socketPath],
+    { detached: true, stdio: ['ignore', 'pipe', 'ignore'] },
+  );
+
+  invariant(helper.pid !== undefined, 'the stub started');
+
+  const group = helper.pid;
+
+  onTestFinished(() => {
+    process.kill(-group, 'SIGKILL');
+  });
+
+  let output = '';
+
+  helper.stdout.setEncoding('utf8');
+
+  helper.stdout.on('data', (chunk: string) => {
+    output += chunk;
+  });
+
+  await ctx.report;
+
+  expect(output).toBe('');
+});
+
+test('it refuses to start without a socket path', () => {
+  const run = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-key-helper.ts')], {
+    encoding: 'utf8',
+  });
+
+  expect(run.status).not.toBe(0);
+  expect(run.stderr).toInclude('run-stub-key-helper needs a socket path');
 });

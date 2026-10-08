@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { buildStubLockClock } from '../../test-utils/build-stub-lock-clock.ts';
-import { buildStubPullRequestReader } from '../../test-utils/build-stub-pull-request-reader.ts';
 import { buildMockScopeRecordRequest } from '../../test-utils/factories/build-mock-scope-record-request.ts';
+import { makeStubPullRequestReader } from '../../test-utils/make-stub-pull-request-reader.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
@@ -44,7 +44,7 @@ test('it records a worktree and its branch made during the call and writes them 
     stateDir: join(ctx.root, 'state'),
     home: ctx.root,
     env: {},
-    readPullRequest: buildStubPullRequestReader([]),
+    readPullRequest: makeStubPullRequestReader([]),
   });
 
   const written = await loadSessionScope(
@@ -88,7 +88,7 @@ test('it ties a recorded branch to the repository the session made it in', async
     stateDir: join(ctx.root, 'state'),
     home: ctx.root,
     env: {},
-    readPullRequest: buildStubPullRequestReader([]),
+    readPullRequest: makeStubPullRequestReader([]),
   });
 
   expect(scope).toStrictEqual({
@@ -115,7 +115,7 @@ test('it records no worktree or branch that existed before the call started', as
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([]),
+      readPullRequest: makeStubPullRequestReader([]),
     },
   );
 
@@ -141,7 +141,7 @@ test('it records nothing when the command fails on a worktree made just before t
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([]),
+      readPullRequest: makeStubPullRequestReader([]),
     },
   );
 
@@ -164,7 +164,7 @@ test('it records a branch reset by checkout -B as nothing, since it already exis
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([]),
+      readPullRequest: makeStubPullRequestReader([]),
     },
   );
 
@@ -190,7 +190,7 @@ test('it records a PR the forge dates from the call, with the head branch it rep
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([
+      readPullRequest: makeStubPullRequestReader([
         {
           repository: 'github.com/dev/app',
           number: 12,
@@ -228,7 +228,7 @@ test('it records no PR that already existed when gh pr create printed its addres
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([
+      readPullRequest: makeStubPullRequestReader([
         {
           repository: 'github.com/dev/app',
           number: 12,
@@ -261,7 +261,7 @@ test('it records no PR printed for another repository', async () => {
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([
+      readPullRequest: makeStubPullRequestReader([
         { repository: 'github.com/someone/app', number: 12, head: 'feat/x', createdAt: startedAt },
       ]),
     },
@@ -287,7 +287,7 @@ test('it records no PR the forge does not know', async () => {
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([]),
+      readPullRequest: makeStubPullRequestReader([]),
     },
   );
 
@@ -324,7 +324,7 @@ test('it keeps every branch when calls of one session record at the same time', 
           stateDir: join(ctx.root, 'state'),
           home: ctx.root,
           env: {},
-          readPullRequest: buildStubPullRequestReader([]),
+          readPullRequest: makeStubPullRequestReader([]),
           lockClock,
         },
       ),
@@ -342,9 +342,13 @@ test('it keeps every branch when calls of one session record at the same time', 
 
   expect(waitsWhileHeld).toBeGreaterThan(0);
 
-  expect(written.branches).toIncludeSameMembers(
-    names.map((name) => ({ name, commonDir: join(ctx.repo, '.git') })),
-  );
+  expect(written).toStrictEqual({
+    worktrees: [],
+    branches: expect.toIncludeSameMembers(
+      names.map((name) => ({ name, commonDir: join(ctx.repo, '.git') })),
+    ),
+    pullRequests: [],
+  });
 });
 
 test('it records nothing for a call that claims to have started long ago', async () => {
@@ -359,7 +363,7 @@ test('it records nothing for a call that claims to have started long ago', async
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([]),
+      readPullRequest: makeStubPullRequestReader([]),
     },
   );
 
@@ -385,7 +389,7 @@ test('it records every PR one call created', async () => {
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: buildStubPullRequestReader([
+      readPullRequest: makeStubPullRequestReader([
         { repository: 'github.com/dev/app', number: 3, head: 'feat/a', createdAt: startedAt },
         { repository: 'github.com/dev/app', number: 4, head: 'feat/b', createdAt: startedAt },
       ]),

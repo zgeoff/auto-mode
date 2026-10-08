@@ -7,7 +7,7 @@ export interface StubPullRequest extends PullRequestFacts {
 
 // Stands in for `gh pr view`: the forge answers for the pull requests it holds,
 // keyed by repository and number, and knows no other.
-export function buildStubPullRequestReader(
+export function makeStubPullRequestReader(
   pulls: readonly StubPullRequest[],
 ): (repository: string, number: number) => Promise<PullRequestFacts | null> {
   return (repository, number) => {

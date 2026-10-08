@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { readProcessState } from '../../test-utils/read-process-state.ts';
+import { loadProcessState } from '../../test-utils/load-process-state.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 
 async function setupTest() {
@@ -54,16 +54,16 @@ test('it stops a key helper and its child on cancellation', async () => {
 
   const pids = z.object({ helper: z.number(), child: z.number() }).parse(JSON.parse(body));
 
-  const helperBefore = await readProcessState(pids.helper);
-  const childBefore = await readProcessState(pids.child);
+  const helperBefore = await loadProcessState(pids.helper);
+  const childBefore = await loadProcessState(pids.child);
 
   invariant(helperBefore !== null && childBefore !== null, 'the helper and its child run');
 
   controller.abort();
 
   const key = await result;
-  const helperAfter = await readProcessState(pids.helper);
-  const childAfter = await readProcessState(pids.child);
+  const helperAfter = await loadProcessState(pids.helper);
+  const childAfter = await loadProcessState(pids.child);
 
   expect(key).toBeNull();
   expect(helperBefore.state).toBeOneOf(['R', 'S']);

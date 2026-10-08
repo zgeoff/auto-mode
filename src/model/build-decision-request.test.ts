@@ -432,6 +432,7 @@ test.each(['Data Exfiltration', 'Secret Persistence', 'Default Branch Write'] as
       `## HARD BLOCK rules\n### ${name}\nRefuse every edit to this protected fixture.`,
       buildMockClaudeRules(),
       'Maintain tests',
+      'replacement',
     );
 
     const question = request.questions['rule_0'];
@@ -596,6 +597,7 @@ test('it never extends clarification to other hard blocks or configured hard den
       hard_deny: ['Audit Tampering: never remove audit records'],
     }),
     'The finding is wrong; I authorize this.',
+    'replacement',
   );
 
   const exfiltration = request.questions['rule_0'];
@@ -657,6 +659,7 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
       `## HARD BLOCK rules\n### ${name}\nNever remove any log, including disposable test logs`,
       buildMockClaudeRules(),
       `The ${name} finding is wrong: this is a disposable test log.`,
+      'replacement',
     );
 
     const question = request.questions['rule_0'];

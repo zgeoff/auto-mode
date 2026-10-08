@@ -12,9 +12,6 @@ async function setupTest() {
   const repo = join(dir, 'repo');
   const gitDir = join(repo, '.git');
 
-  // every test builds its checkout's metadata inside this Git directory
-  await mkdir(gitDir, { recursive: true });
-
   return { dir, repo, gitDir };
 }
 
@@ -68,6 +65,7 @@ test('it reports main even when the worktree directory has a feature name', asyn
 test('it keeps detached and unknown default branches unknown', async () => {
   const ctx = await setupTest();
 
+  await mkdir(ctx.gitDir, { recursive: true });
   await writeFile(join(ctx.gitDir, 'HEAD'), `${'a'.repeat(40)}\n`);
 
   const context = await loadRepositoryContext(ctx.repo, {});
@@ -83,8 +81,8 @@ test('it keeps detached and unknown default branches unknown', async () => {
 test('it reads a custom default branch without assuming main', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/stable\n');
   await mkdir(join(ctx.gitDir, 'refs', 'remotes', 'origin'), { recursive: true });
+  await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/stable\n');
 
   await writeFile(
     join(ctx.gitDir, 'refs', 'remotes', 'origin', 'HEAD'),
@@ -110,6 +108,9 @@ test('it returns no evidence when no directory up to the root holds Git metadata
 
 test('it returns no evidence when the checkout has no readable HEAD', async () => {
   const ctx = await setupTest();
+
+  await mkdir(ctx.gitDir, { recursive: true });
+
   const context = await loadRepositoryContext(ctx.repo, {});
 
   expect(context).toBeNull();
@@ -118,6 +119,7 @@ test('it returns no evidence when the checkout has no readable HEAD', async () =
 test('it never borrows parent branch evidence when a linked worktree has broken metadata', async () => {
   const ctx = await setupTest();
 
+  await mkdir(ctx.gitDir, { recursive: true });
   await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/parent-feature\n');
 
   const worktree = join(ctx.repo, '.worktrees', 'broken');
@@ -135,6 +137,7 @@ test.each(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'] as const)(
   async (name) => {
     const ctx = await setupTest();
 
+    await mkdir(ctx.gitDir, { recursive: true });
     await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/feature\n');
 
     const context = await loadRepositoryContext(ctx.repo, { [name]: join(ctx.dir, 'another') });
@@ -147,6 +150,8 @@ test('it reads the checkout remotes without the user info a URL can carry', asyn
   const ctx = await setupTest();
 
   const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2Rl'].join('');
+
+  await mkdir(ctx.gitDir, { recursive: true });
 
   await writeFile(
     join(ctx.gitDir, 'config'),
