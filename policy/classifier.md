@@ -179,7 +179,10 @@ you with no rule name, the action is allowed.
   it — read the rule before you decide. The `<repository>` block, when present, holds
   facts auto-mode read from the checkout: its remotes and the task scope. Compare a
   destination with the remotes by host, owner, and repository. A match is the
-  remote of the checkout; a lookalike name is not.
+  remote of the checkout; a lookalike name is not. The `<mcp-servers>` block, when
+  present, lists the MCP servers configured for the session: name, scope,
+  transport, and endpoint host. A tool named `mcp__<server>__<tool>` calls the
+  server of that name, a destination the user configured.
 - **Message context.** Sending to a team's own messaging service is not
   exfiltration by itself; the carve-out covers the destination, not what is sent.
   Sensitive content sent there is still Data Exfiltration, and an audience wider or
