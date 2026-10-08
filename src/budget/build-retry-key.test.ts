@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { createMockActionRequest } from '../../test-utils/factories/create-mock-action-request.ts';
+import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildRetryKey } from './build-retry-key.ts';
 
 const CONTEXT = {
@@ -11,12 +11,12 @@ const CONTEXT = {
 } as const;
 
 test('it keys the same action the same way whatever its key order', () => {
-  const first = createMockActionRequest({
+  const first = buildMockActionRequest({
     cwd: '/repo',
     toolInput: { command: 'git push', other: 1 },
   });
 
-  const second = createMockActionRequest({
+  const second = buildMockActionRequest({
     cwd: '/repo',
     toolInput: { other: 1, command: 'git push' },
   });
@@ -25,19 +25,19 @@ test('it keys the same action the same way whatever its key order', () => {
 });
 
 test('it keys the same command in another directory as another action', () => {
-  const here = createMockActionRequest({ cwd: '/repo/a', toolInput: { command: 'rm x' } });
-  const there = createMockActionRequest({ cwd: '/repo/b', toolInput: { command: 'rm x' } });
+  const here = buildMockActionRequest({ cwd: '/repo/a', toolInput: { command: 'rm x' } });
+  const there = buildMockActionRequest({ cwd: '/repo/b', toolInput: { command: 'rm x' } });
 
   expect(buildRetryKey(here)).not.toBe(buildRetryKey(there));
 });
 
 test('it keys a Bash retry with a new description or timeout as the same action', () => {
-  const denied = createMockActionRequest({
+  const denied = buildMockActionRequest({
     cwd: '/repo',
     toolInput: { command: 'git push', description: 'push the branch' },
   });
 
-  const retried = createMockActionRequest({
+  const retried = buildMockActionRequest({
     cwd: '/repo',
     toolInput: {
       command: 'git push',
@@ -51,13 +51,13 @@ test('it keys a Bash retry with a new description or timeout as the same action'
 });
 
 test('it keys the same action after a new direct user message as another action', () => {
-  const before = createMockActionRequest({
+  const before = buildMockActionRequest({
     cwd: '/repo',
     toolInput: { command: 'git push' },
     decisionContext: CONTEXT,
   });
 
-  const after = createMockActionRequest({
+  const after = buildMockActionRequest({
     cwd: '/repo',
     toolInput: { command: 'git push' },
     decisionContext: {

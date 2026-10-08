@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { HttpResponse, http } from 'msw';
 import * as z from 'zod';
 import { server } from '../mocks/node.ts';
-import { createMockActionRequest } from '../test-utils/factories/create-mock-action-request.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
 import { classifyAction } from './classify-action.ts';
 import { DEFAULT_CONFIG } from './config/config.ts';
 
@@ -25,7 +25,7 @@ test('it allows a read-only tool in the local tier', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/a.ts' } }),
+    buildMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/a.ts' } }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
     { host: { env: {}, home: ctx.dir } },
   );
@@ -42,7 +42,7 @@ test('it gives no verdict for an escalated action when the model tier is skipped
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({
+    buildMockActionRequest({
       cwd: '/repo',
       toolName: 'Bash',
       toolInput: { command: 'touch /repo/a.ts' },
@@ -68,7 +68,7 @@ test('it sends a local allowance to the model tier when configured deny rules ex
   );
 
   const outcome = await classifyAction(
-    createMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/key.pem' } }),
+    buildMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/key.pem' } }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
     { host: { env: {}, home: ctx.dir }, localOnly: true },
   );
@@ -82,7 +82,7 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
   await writeFile(ctx.settings, 'not json {');
 
   const outcome = await classifyAction(
-    createMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/a.ts' } }),
+    buildMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/a.ts' } }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings, onFailure: 'deny' },
     { host: { env: {}, home: ctx.dir } },
   );
@@ -127,7 +127,7 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
   );
 
   const outcome = await classifyAction(
-    createMockActionRequest({ toolName: 'Bash', toolInput: { command: 'make deploy' } }),
+    buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'make deploy' } }),
     {
       ...DEFAULT_CONFIG,
       provider: {
@@ -154,7 +154,7 @@ test('it ends a failure reason with a full stop before the safer-path instructio
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({
+    buildMockActionRequest({
       cwd: '/repo',
       toolName: 'Bash',
       toolInput: { command: 'touch /repo/a.ts' },
@@ -199,7 +199,7 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
   const judge = { ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' };
 
   const outcome = await classifyAction(
-    createMockActionRequest({
+    buildMockActionRequest({
       cwd: '/repo/.worktrees/feature',
       toolName: 'Bash',
       toolInput: { command: 'git worktree remove --force ../other' },
@@ -232,7 +232,7 @@ test('it passes a target it cannot resolve to the classifier', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({
+    buildMockActionRequest({
       cwd: '/repo/.worktrees/feature',
       toolName: 'Bash',
       toolInput: { command: 'rm -rf "$OTHER_WORKTREE"' },
@@ -249,7 +249,7 @@ test('it denies a local regenerable-output removal in another worktree', async (
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({
+    buildMockActionRequest({
       cwd: '/repo',
       toolName: 'Bash',
       toolInput: { command: 'rm -rf .worktrees/other/dist' },
@@ -269,7 +269,7 @@ test('it still allows a local regenerable-output removal inside the task worktre
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({
+    buildMockActionRequest({
       cwd: '/repo',
       toolName: 'Bash',
       toolInput: { command: 'rm -rf dist' },
@@ -290,7 +290,7 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({
+    buildMockActionRequest({
       cwd: '/repo',
       toolName: 'Write',
       toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
@@ -318,7 +318,7 @@ test('it sends an in-scope edit to the model tier when it writes an env file or 
       { file_path: '/repo/src/token.ts', content: `export const token = '${token}';` },
     ].map((toolInput) =>
       classifyAction(
-        createMockActionRequest({ cwd: '/repo', toolName: 'Write', toolInput }),
+        buildMockActionRequest({ cwd: '/repo', toolName: 'Write', toolInput }),
         { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
         { host: { env: {}, home: ctx.dir }, localOnly: true },
       ),
@@ -334,7 +334,7 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
   await writeFile(ctx.settings, JSON.stringify({ autoMode: { soft_deny: ['Never edit a.ts'] } }));
 
   const outcome = await classifyAction(
-    createMockActionRequest({
+    buildMockActionRequest({
       cwd: '/repo',
       toolName: 'Write',
       toolInput: { file_path: '/repo/a.ts', content: 'x' },

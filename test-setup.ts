@@ -1,4 +1,7 @@
 import { afterAll, afterEach, beforeAll } from 'bun:test';
+import { faker } from '@faker-js/faker';
+import { decisionAnswers } from './mocks/decision-answers.ts';
+import { messagesReplies } from './mocks/messages-replies.ts';
 import { server } from './mocks/node.ts';
 
 // A git hook exports the GIT_* names and an atc session the ATC_* ones. This
@@ -17,12 +20,17 @@ for (const name of [
   delete process.env[name];
 }
 
+// A fixed seed makes a failing run's faker values reproduce.
+faker.seed(142);
+
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'error' });
 });
 
 afterEach(() => {
   server.resetHandlers();
+  decisionAnswers.clear();
+  messagesReplies.splice(0);
 });
 
 afterAll(() => {
