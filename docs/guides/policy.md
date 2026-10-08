@@ -76,7 +76,7 @@ rule and is routine, so it is where a classifier most easily goes wrong in the e
 Copy the shipped file, edit it, and point at it:
 
 ```json
-{ "rulesPath": "/home/you/my-rules.md" }
+{ "policy": { "rulesPath": "/home/you/my-rules.md" } }
 ```
 
 Your file replaces the shipped one whole. Three constraints:

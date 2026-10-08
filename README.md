@@ -31,14 +31,14 @@ Create the classifier configuration:
 
 ```json
 {
-  "preset": "jev",
-  "provider": { "apiKeyEnv": "TYPESAFE_API_KEY" }
+  "classifiers": { "jev": { "apiKeyEnv": "TYPESAFE_API_KEY" } },
+  "decision": { "classifier": "jev" }
 }
 ```
 
-Save it as `~/.config/auto-mode/config.json` and export your TypeSafe API key, or set
-`provider.apiKeyCommand` to a command that prints it.
-[Configuration](./docs/guides/configuration.md) covers credentials and provider overrides.
+Save it as `~/.config/auto-mode/config.json` and export your TypeSafe API key, or set the entry's
+`apiKeyCommand` to a command that prints it. [Configuration](./docs/guides/configuration.md) covers
+the registries, credentials, and migrating an older file.
 
 ## Standing permissions
 
@@ -63,9 +63,10 @@ approval when every rule confidently allows the action, and a denial for uncerta
 denial names its rule, the harm, and what clears it, and the agent continues on another path. The
 confidence threshold is configurable and needs evaluation against your actions.
 
-A missing key, failed API call, malformed response, or oversized request follows `onFailure`. The
-default `defer` writes no verdict and keeps the prompt; `deny` fails closed. Failures write a
-diagnostic to stderr. auto-mode never truncates a Jev action to make it fit.
+A missing key, failed API call, malformed response, or oversized request follows
+`decision.onFailure`. The default `defer` writes no verdict and keeps the prompt; `deny` fails
+closed. Failures write a diagnostic to stderr. auto-mode never truncates a Jev action to make it
+fit.
 
 ## Commands
 
@@ -76,10 +77,11 @@ diagnostic to stderr. auto-mode never truncates a Jev action to make it fit.
 | `auto-mode run --local-only` | Skip the model tier                       |
 | `auto-mode run --jev-only`   | Require Jev with a 5-second API timeout   |
 | `auto-mode print-prompt`     | Print the selected provider's base policy |
+| `auto-mode config migrate`   | Rewrite an older config file in place     |
 
 The mod evaluates only ask decisions and preserves existing allow and deny decisions. It runs the
-CLI as a bounded child process with `--jev-only`. The `spark`, `claude`, and `glm` presets use the
-Messages API and serve library callers.
+CLI as a bounded child process with `--jev-only`. The `spark`, `claude`, `glm`, and `messages`
+classifier kinds use the Messages API and serve library callers.
 
 ## Library
 

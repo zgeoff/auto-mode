@@ -8,6 +8,7 @@ export {
   resolveApiKey,
   type Config,
   type ProviderConfig,
+  type ScopeSource,
 } from './config/config.ts';
 
 export { classifyWithModel, type ModelOutcome } from './model/classify-with-model.ts';

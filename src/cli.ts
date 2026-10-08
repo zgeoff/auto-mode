@@ -4,7 +4,8 @@ import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
-import { loadConfig } from './config/config.ts';
+import { loadConfig, resolveConfigPath } from './config/config.ts';
+import { writeMigratedConfig } from './config/write-migrated-config.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { parseActionRequest } from './request/parse-action-request.ts';
@@ -16,6 +17,7 @@ const USAGE = `auto-mode — a permission classifier for the auto-mode Claude Co
 Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
+  auto-mode config migrate   Rewrite the config file from the old keys into the current shape
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -65,6 +67,8 @@ async function run(
 
     return printNote(true, 'configuration unreadable; no verdict');
   }
+
+  printWarnings(loaded.warnings);
 
   const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
 
@@ -125,6 +129,12 @@ function writeVerdict(verdict: Verdict): void {
   process.stdout.write(renderVerdict(verdict));
 }
 
+function printWarnings(warnings: readonly string[] = []): void {
+  for (const warning of warnings) {
+    process.stderr.write(`auto-mode: ${warning}\n`);
+  }
+}
+
 function printNote(explain: boolean, message: string): number {
   if (explain) {
     process.stderr.write(`auto-mode: ${message}\n`);
@@ -174,6 +184,8 @@ async function main(argv: readonly string[]): Promise<number> {
   if (command === 'print-prompt') {
     const config = await loadConfig();
 
+    printWarnings(config.warnings);
+
     const framework = config.provider.protocol === 'system-one' ? 'decision.md' : 'classifier.md';
 
     const prompt = await loadPolicy(
@@ -189,9 +201,31 @@ async function main(argv: readonly string[]): Promise<number> {
     return 0;
   }
 
+  if (command === 'config' && args.positionals[1] === 'migrate') {
+    return runConfigMigration();
+  }
+
   process.stderr.write(`auto-mode: unknown command '${command}'\n\n${USAGE}`);
 
   return 2;
+}
+
+async function runConfigMigration(): Promise<number> {
+  const path = resolveConfigPath();
+
+  try {
+    const result = await writeMigratedConfig(path);
+
+    process.stdout.write(`${result}\n`);
+
+    return 0;
+  } catch (error) {
+    process.stderr.write(
+      `auto-mode: ${error instanceof Error ? error.message : 'config migration failed'}\n`,
+    );
+
+    return 1;
+  }
 }
 
 process.exitCode = await main(process.argv.slice(2));

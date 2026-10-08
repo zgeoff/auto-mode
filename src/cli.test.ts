@@ -332,3 +332,42 @@ test('it keeps a fail-closed denial when the safer-path guidance is missing', as
     reason: '[Classifier Unavailable] Claude settings unreadable.',
   });
 });
+
+test('it migrates the config file in place with config migrate', async () => {
+  const ctx = await setupTest();
+
+  const configFile = join(ctx.dir, 'auto-mode', 'config.json');
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+  await writeFile(configFile, JSON.stringify({ preset: 'jev', claudeSettingsPath: null }));
+
+  const result = await Bun.$`bun ${CLI} config migrate`.env(ctx.env).quiet().nothrow();
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout.toString()).toInclude(`rewrote ${configFile}`);
+
+  const rewritten = await readFile(configFile, 'utf8');
+
+  expect(JSON.parse(rewritten)).toStrictEqual({
+    classifiers: { jev: {} },
+    decision: { classifier: 'jev' },
+    policy: { claudeSettingsPath: null },
+  });
+});
+
+test('it warns on stderr when the config file uses the old keys', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+  await writeFile(join(ctx.dir, 'auto-mode', 'config.json'), JSON.stringify({ preset: 'jev' }));
+
+  const fixture = join(import.meta.dirname, '..', 'fixtures', 'mod-request-regenerable.json');
+
+  const result = await Bun.$`bun ${CLI} run --local-only < ${fixture}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(JSON.parse(result.stdout.toString())).toStrictEqual({ decision: 'allow' });
+  expect(result.stderr.toString()).toInclude('run `auto-mode config migrate`');
+});

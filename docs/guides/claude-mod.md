@@ -99,7 +99,8 @@ from that Claude Code version.
    bun run build
    ```
 
-2. Select the Jev preset and the existing private key helper in the auto-mode configuration.
+2. Point `decision.classifier` at a Jev entry with the existing private key helper in the auto-mode
+   configuration.
 3. Start a separate test session with the mod.
 
    ```bash
