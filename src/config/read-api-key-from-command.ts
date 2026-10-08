@@ -1,11 +1,13 @@
 import { spawn } from 'node:child_process';
+import { toTimerDelay } from './to-timer-delay.ts';
 import type { EvaluationOptions } from './types.ts';
 
 export function readApiKeyFromCommand(
   command: string,
   options: EvaluationOptions = {},
 ): Promise<string | null> {
-  const remainingMs = options.deadlineAt === undefined ? 5000 : options.deadlineAt - Date.now();
+  const now = options.now ?? Date.now;
+  const remainingMs = options.deadlineAt === undefined ? 5000 : options.deadlineAt - now();
 
   if (remainingMs <= 0 || options.signal?.aborted === true) {
     return Promise.resolve(null);
@@ -30,7 +32,7 @@ export function readApiKeyFromCommand(
       if (!settled) {
         settled = true;
 
-        clearTimeout(timer);
+        timer.removeEventListener('abort', stopChild);
         options.signal?.removeEventListener('abort', stopChild);
         resolve(value);
       }
@@ -54,9 +56,16 @@ export function readApiKeyFromCommand(
       }
     };
 
-    const timer = setTimeout(stopChild, Math.min(5000, remainingMs));
+    const timeout = options.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
+    const timer = timeout(toTimerDelay(Math.min(5000, remainingMs)));
 
+    timer.addEventListener('abort', stopChild, { once: true });
     options.signal?.addEventListener('abort', stopChild, { once: true });
+
+    if (timer.aborted) {
+      stopChild();
+    }
+
     child.stdout.setEncoding('utf8');
 
     child.stdout.on('data', (chunk: string) => {

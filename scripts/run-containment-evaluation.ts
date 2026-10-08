@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
+import { toTimerDelay } from '../src/config/to-timer-delay.ts';
 import type { OwnedScope } from '../src/containment/collect-scope-findings.ts';
 import { collectScopeFindings } from '../src/containment/collect-scope-findings.ts';
 import { buildEvaluationRequest } from '../src/evaluation/build-evaluation-request.ts';
@@ -137,7 +138,12 @@ async function main(): Promise<void> {
       let record: JevReport['records'][number];
 
       try {
-        const result = await sendDecision(config.provider, key, request);
+        const result = await sendDecision(
+          config.provider,
+          key,
+          request,
+          AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
+        );
 
         const verdict = pickEvaluationVerdict(request, result, THRESHOLD);
 

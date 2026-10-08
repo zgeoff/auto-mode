@@ -1,6 +1,7 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { readHostEnvironment } from '../config/read-host-environment.ts';
+import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions } from '../config/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
@@ -66,7 +67,14 @@ export async function classifyWithModel(
   const user = buildUserMessage(payload, transcript, config.provider.reasoning, repositoryContext);
 
   try {
-    const result = await sendMessage(config.provider, apiKey, { system, user });
+    const timeout = options.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
+
+    const result = await sendMessage(
+      config.provider,
+      apiKey,
+      { system, user },
+      timeout(toTimerDelay(config.provider.timeoutMs)),
+    );
 
     if (result.text.trim() === '') {
       // Spark returns nothing at all when max_tokens is too low for it to

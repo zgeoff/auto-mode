@@ -63,6 +63,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
         },
       },
     },
+    new AbortController().signal,
   );
 
   expect(authorizations).toStrictEqual(['Bearer test-key']);
@@ -159,6 +160,7 @@ test.each([
         },
       },
     },
+    new AbortController().signal,
   );
 
   expect(result.answers).toStrictEqual({ rule: answer });
@@ -299,6 +301,7 @@ test.each([
         },
       },
     },
+    new AbortController().signal,
   );
 
   const rejection: unknown = await response.catch((error: unknown) => error);
@@ -307,17 +310,21 @@ test.each([
   expect(rejection).toMatchObject({ reason: 'invalid-response' });
 });
 
-test('it aborts a request at its deadline and reports the request size', async () => {
+test('it aborts a request when its signal fires and reports the request size', async () => {
+  const timer = new AbortController();
+
   server.use(
     http.post('https://decision.test/v1/systemone', async () => {
-      await delay(100);
+      timer.abort();
+
+      await delay('infinite');
 
       return HttpResponse.json({});
     }),
   );
 
   const response = sendDecision(
-    { ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test', timeoutMs: 10 },
+    { ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' },
     'test-key',
     {
       state: {
@@ -331,6 +338,7 @@ test('it aborts a request at its deadline and reports the request size', async (
       questions: {},
       rules: {},
     },
+    timer.signal,
   );
 
   const rejection: unknown = await response.catch((error: unknown) => error);
@@ -362,6 +370,7 @@ test('it refuses oversized input before a request without truncating it', async 
       questions: {},
       rules: {},
     },
+    new AbortController().signal,
   );
 
   const rejection: unknown = await response.catch((error: unknown) => error);
@@ -394,6 +403,7 @@ test('it omits response bodies from HTTP errors', () => {
       questions: {},
       rules: {},
     },
+    new AbortController().signal,
   );
 
   expect(response).rejects.toThrow('Decision API returned HTTP 401');
@@ -421,6 +431,7 @@ test('it discards malformed JSON bodies instead of exposing credential fragments
       questions: {},
       rules: {},
     },
+    new AbortController().signal,
   );
 
   expect(response).rejects.toThrow('Decision API returned invalid JSON');
@@ -439,25 +450,30 @@ test('it removes optional tasks to preserve a complete action near the request l
 
   const content = 'x'.repeat(99_000);
 
-  await sendDecision({ ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' }, 'test-key', {
-    state: {
-      policy: 'complete policy',
-      answerGuidance: 'Apply the policy.',
-      rulesSource: 'replacement',
-      configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
-      lastUserMessage: 'Do not push',
-      action: { tool: 'Write', cwd: '/repo', input: { content } },
-      taskContext: {
-        agentID: null,
-        originalUserTask: { text: 't'.repeat(3000), origin: 'composer' },
-        delegatedTask: { text: 'd'.repeat(3000), origin: 'agent.spawn' },
-        lastDirectUserMessage: { text: 'Do not push', origin: 'composer' },
-        omittedTaskContext: [],
+  await sendDecision(
+    { ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' },
+    'test-key',
+    {
+      state: {
+        policy: 'complete policy',
+        answerGuidance: 'Apply the policy.',
+        rulesSource: 'replacement',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: 'Do not push',
+        action: { tool: 'Write', cwd: '/repo', input: { content } },
+        taskContext: {
+          agentID: null,
+          originalUserTask: { text: 't'.repeat(3000), origin: 'composer' },
+          delegatedTask: { text: 'd'.repeat(3000), origin: 'agent.spawn' },
+          lastDirectUserMessage: { text: 'Do not push', origin: 'composer' },
+          omittedTaskContext: [],
+        },
       },
+      questions: {},
+      rules: {},
     },
-    questions: {},
-    rules: {},
-  });
+    new AbortController().signal,
+  );
 
   expect(body).toMatchObject({
     state: {

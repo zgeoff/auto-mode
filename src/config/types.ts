@@ -10,4 +10,6 @@ export interface EvaluationOptions {
   readonly signal?: Readonly<AbortSignal> | undefined;
   readonly taskScope?: TaskScopeSummary | undefined;
   readonly host?: Readonly<HostEnvironment> | undefined;
+  readonly now?: (() => number) | undefined;
+  readonly timeout?: ((ms: number) => AbortSignal) | undefined;
 }

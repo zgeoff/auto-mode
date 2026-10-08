@@ -13,6 +13,7 @@ import type { PullRequestFacts } from './read-pull-request.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import type { ScopeEvent, SessionScope } from './types.ts';
 import { EMPTY_SESSION_SCOPE } from './types.ts';
+import type { LockClock } from './write-session-scope.ts';
 import { writeSessionScope } from './write-session-scope.ts';
 
 export interface ScopeRecordRequest {
@@ -32,6 +33,7 @@ export interface ScopeRecordOptions {
     repository: string,
     number: number,
   ) => Promise<PullRequestFacts | null>;
+  readonly lockClock?: LockClock | undefined;
 }
 
 // A Bash call runs for at most ten minutes, so a record that claims an older
@@ -61,7 +63,11 @@ export async function updateSessionScope(
   const scope = mergeSessionScope(verified);
 
   if (scope.worktrees.length + scope.branches.length + scope.pullRequests.length > 0) {
-    await writeSessionScope(resolveSessionScopePath(options.stateDir, request.sessionID), scope);
+    await writeSessionScope(
+      resolveSessionScopePath(options.stateDir, request.sessionID),
+      scope,
+      options.lockClock,
+    );
   }
 
   return scope;

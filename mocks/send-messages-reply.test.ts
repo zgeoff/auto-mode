@@ -31,8 +31,19 @@ test('it replies with the queued responses in order', async () => {
     },
   );
 
-  const first = await sendMessage(provider, 'key', { system: 'policy', user: 'first' });
-  const second = await sendMessage(provider, 'key', { system: 'policy', user: 'second' });
+  const first = await sendMessage(
+    provider,
+    'key',
+    { system: 'policy', user: 'first' },
+    new AbortController().signal,
+  );
+
+  const second = await sendMessage(
+    provider,
+    'key',
+    { system: 'policy', user: 'second' },
+    new AbortController().signal,
+  );
 
   expect(first).toStrictEqual({
     text: '<block>no</block>',
@@ -58,6 +69,11 @@ test('it returns a server error when no reply is queued', () => {
   });
 
   expect(
-    sendMessage(provider, 'key', { system: 'policy', user: 'action' }),
+    sendMessage(
+      provider,
+      'key',
+      { system: 'policy', user: 'action' },
+      new AbortController().signal,
+    ),
   ).rejects.toThrowWithMessage(Error, /Messages API returned HTTP 500/u);
 });
