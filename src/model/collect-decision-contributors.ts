@@ -1,3 +1,4 @@
+import invariant from 'tiny-invariant';
 import { classifyDecisionAnswers } from './classify-decision-answers.ts';
 import type { DecisionDiagnostics, DecisionRequest, DecisionResult } from './types.ts';
 
@@ -11,9 +12,7 @@ export function collectDecisionContributors(
   return Object.entries(request.rules).flatMap(([id, rule]) => {
     const answer = result.answers[id];
 
-    if (answer === undefined) {
-      throw new Error('Decision answer missing');
-    }
+    invariant(answer, 'the classification refused a result with a rule unanswered');
 
     const contributes =
       decision.kind === 'block'

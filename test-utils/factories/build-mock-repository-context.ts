@@ -1,10 +1,9 @@
 import { faker } from '@faker-js/faker';
 import type { RepositoryContext } from '../../src/model/types.ts';
-
-type TaskScopeSummary = NonNullable<RepositoryContext['taskScope']>;
+import { buildMockTaskScopeSummary } from './build-mock-task-scope-summary.ts';
 
 interface RepositoryContextOverrides extends Partial<Omit<RepositoryContext, 'taskScope'>> {
-  readonly taskScope?: Partial<TaskScopeSummary>;
+  readonly taskScope?: Parameters<typeof buildMockTaskScopeSummary>[0];
 }
 
 // The task scope is empty because each entry hands the task ownership of a
@@ -25,6 +24,6 @@ export function buildMockRepositoryContext(
       },
     ],
     ...rest,
-    taskScope: { worktrees: [], branches: [], pullRequests: [], ...taskScope },
+    taskScope: buildMockTaskScopeSummary(taskScope),
   };
 }

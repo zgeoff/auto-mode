@@ -2,29 +2,28 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import invariant from 'tiny-invariant';
 import { loadRepositoryContext } from './load-repository-context.ts';
 
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'repository-context-'));
 
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+
   const repo = join(dir, 'repo');
   const gitDir = join(repo, '.git');
-
-  await mkdir(join(gitDir, 'refs', 'remotes', 'origin'), { recursive: true });
-
-  await writeFile(
-    join(gitDir, 'refs', 'remotes', 'origin', 'HEAD'),
-    'ref: refs/remotes/origin/main\n',
-  );
-
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
   return { dir, repo, gitDir };
 }
 
-test('it reads a feature branch from a linked worktree without running Git or its hooks', async () => {
+test("it reads a feature branch from a linked worktree's metadata", async () => {
   const ctx = await setupTest();
+
+  await mkdir(join(ctx.gitDir, 'refs', 'remotes', 'origin'), { recursive: true });
+
+  await writeFile(
+    join(ctx.gitDir, 'refs', 'remotes', 'origin', 'HEAD'),
+    'ref: refs/remotes/origin/main\n',
+  );
 
   const worktree = join(ctx.repo, '.worktrees', 'fix-detail');
   const worktreeGit = join(ctx.gitDir, 'worktrees', 'fix-detail');
@@ -66,8 +65,8 @@ test('it reports main even when the worktree directory has a feature name', asyn
 test('it keeps detached and unknown default branches unknown', async () => {
   const ctx = await setupTest();
 
+  await mkdir(ctx.gitDir, { recursive: true });
   await writeFile(join(ctx.gitDir, 'HEAD'), `${'a'.repeat(40)}\n`);
-  await rm(join(ctx.gitDir, 'refs', 'remotes', 'origin', 'HEAD'));
 
   const context = await loadRepositoryContext(ctx.repo, {});
 
@@ -82,6 +81,7 @@ test('it keeps detached and unknown default branches unknown', async () => {
 test('it reads a custom default branch without assuming main', async () => {
   const ctx = await setupTest();
 
+  await mkdir(join(ctx.gitDir, 'refs', 'remotes', 'origin'), { recursive: true });
   await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/stable\n');
 
   await writeFile(
@@ -99,9 +99,19 @@ test('it reads a custom default branch without assuming main', async () => {
   });
 });
 
-test('it returns no evidence when the checkout has no readable Git metadata', async () => {
+test('it returns no evidence when no directory up to the root holds Git metadata', async () => {
   const ctx = await setupTest();
   const context = await loadRepositoryContext(ctx.dir, {});
+
+  expect(context).toBeNull();
+});
+
+test('it returns no evidence when the checkout has no readable HEAD', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(ctx.gitDir, { recursive: true });
+
+  const context = await loadRepositoryContext(ctx.repo, {});
 
   expect(context).toBeNull();
 });
@@ -109,6 +119,7 @@ test('it returns no evidence when the checkout has no readable Git metadata', as
 test('it never borrows parent branch evidence when a linked worktree has broken metadata', async () => {
   const ctx = await setupTest();
 
+  await mkdir(ctx.gitDir, { recursive: true });
   await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/parent-feature\n');
 
   const worktree = join(ctx.repo, '.worktrees', 'broken');
@@ -126,6 +137,7 @@ test.each(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'] as const)(
   async (name) => {
     const ctx = await setupTest();
 
+    await mkdir(ctx.gitDir, { recursive: true });
     await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/feature\n');
 
     const context = await loadRepositoryContext(ctx.repo, { [name]: join(ctx.dir, 'another') });
@@ -138,6 +150,8 @@ test('it reads the checkout remotes without the user info a URL can carry', asyn
   const ctx = await setupTest();
 
   const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2Rl'].join('');
+
+  await mkdir(ctx.gitDir, { recursive: true });
 
   await writeFile(
     join(ctx.gitDir, 'config'),
@@ -160,13 +174,16 @@ test('it reads the checkout remotes without the user info a URL can carry', asyn
 
   const context = await loadRepositoryContext(ctx.repo, {});
 
-  invariant(context !== null, 'the checkout has Git metadata');
-
-  expect(context.remotes).toStrictEqual([
-    { name: 'origin', url: 'github.com:dev/app.git' },
-    { name: 'mirror', url: 'https://git.example.com/dev/app.git' },
-    { name: 'quoted', url: 'https://git.example.com/dev/app.git' },
-    { name: 'odd', url: 'git.example.com:dev/app.git' },
-    { name: 'token', url: 'git.example.com:dev/app.git' },
-  ]);
+  expect(context).toStrictEqual({
+    cwd: ctx.repo,
+    branch: 'main',
+    defaultBranch: null,
+    remotes: [
+      { name: 'origin', url: 'github.com:dev/app.git' },
+      { name: 'mirror', url: 'https://git.example.com/dev/app.git' },
+      { name: 'quoted', url: 'https://git.example.com/dev/app.git' },
+      { name: 'odd', url: 'git.example.com:dev/app.git' },
+      { name: 'token', url: 'git.example.com:dev/app.git' },
+    ],
+  });
 });
