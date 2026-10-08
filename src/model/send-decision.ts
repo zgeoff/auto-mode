@@ -7,7 +7,7 @@ export async function sendDecision(
   provider: ProviderConfig,
   apiKey: string,
   request: DecisionRequest,
-  signal?: Readonly<AbortSignal>,
+  signal: Readonly<AbortSignal>,
 ): Promise<DecisionResult> {
   const input = {
     model: provider.model,
@@ -52,15 +52,11 @@ export async function sendDecision(
     controller.abort();
   };
 
-  signal?.addEventListener('abort', stopRequest, { once: true });
+  signal.addEventListener('abort', stopRequest, { once: true });
 
-  if (signal?.aborted === true) {
+  if (signal.aborted) {
     controller.abort();
   }
-
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, provider.timeoutMs);
 
   try {
     let response: Response;
@@ -167,7 +163,6 @@ export async function sendDecision(
       requestBytes,
     };
   } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener('abort', stopRequest);
+    signal.removeEventListener('abort', stopRequest);
   }
 }

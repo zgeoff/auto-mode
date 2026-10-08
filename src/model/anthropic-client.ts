@@ -21,12 +21,19 @@ export async function sendMessage(
   provider: ProviderConfig,
   apiKey: string,
   request: ModelRequest,
+  signal: Readonly<AbortSignal>,
 ): Promise<ModelResult> {
   const controller = new AbortController();
 
-  const timer = setTimeout(() => {
+  const stopRequest = () => {
     controller.abort();
-  }, provider.timeoutMs);
+  };
+
+  signal.addEventListener('abort', stopRequest, { once: true });
+
+  if (signal.aborted) {
+    controller.abort();
+  }
 
   try {
     const response = await fetch(`${provider.baseURL.replace(/\/$/, '')}/v1/messages`, {
@@ -60,7 +67,7 @@ export async function sendMessage(
 
     return readResult(body);
   } finally {
-    clearTimeout(timer);
+    signal.removeEventListener('abort', stopRequest);
   }
 }
 

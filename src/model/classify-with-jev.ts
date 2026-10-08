@@ -1,6 +1,7 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { loadClaudeRules } from '../config/load-claude-rules.ts';
+import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
@@ -20,6 +21,7 @@ export async function classifyWithJev(
   options: Readonly<EvaluationOptions & { readonly host: Readonly<HostEnvironment> }>,
 ): Promise<ModelOutcome> {
   const start = performance.now();
+  const now = options.now ?? Date.now;
   let key: string | null = null;
   let stage: DecisionDiagnostics['stage'] = 'credential';
   const minConfidence = config.minConfidence ?? 0.8;
@@ -71,22 +73,19 @@ export async function classifyWithJev(
     );
 
     const remainingMs =
-      options.deadlineAt === undefined
-        ? config.provider.timeoutMs
-        : options.deadlineAt - Date.now();
+      options.deadlineAt === undefined ? config.provider.timeoutMs : options.deadlineAt - now();
 
     if (remainingMs <= 0 || options.signal?.aborted === true) {
       throw new DOMException('Evaluation deadline expired', 'AbortError');
     }
 
-    const provider = {
-      ...config.provider,
-      timeoutMs: Math.min(config.provider.timeoutMs, remainingMs),
-    };
+    const timeout = options.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
+    const timer = timeout(toTimerDelay(Math.min(config.provider.timeoutMs, remainingMs)));
+    const signal = options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]);
 
     stage = 'request';
 
-    const result = await sendDecision(provider, key, request, options.signal);
+    const result = await sendDecision(config.provider, key, request, signal);
 
     stage = 'response';
 
@@ -117,7 +116,7 @@ export async function classifyWithJev(
     if (options.signal?.aborted === true) {
       reason = 'evaluation cancelled';
       status = 'cancelled';
-    } else if (options.deadlineAt !== undefined && Date.now() >= options.deadlineAt) {
+    } else if (options.deadlineAt !== undefined && now() >= options.deadlineAt) {
       reason = 'evaluation deadline expired';
       status = 'timeout';
     } else if (error instanceof Error) {

@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
 import { readHostEnvironment } from '../src/config/read-host-environment.ts';
+import { toTimerDelay } from '../src/config/to-timer-delay.ts';
 import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
 import { loadRepositoryContext } from '../src/model/load-repository-context.ts';
@@ -152,7 +153,12 @@ async function main(): Promise<void> {
       const started = performance.now();
 
       try {
-        const result = await sendDecision(config.provider, key, request);
+        const result = await sendDecision(
+          config.provider,
+          key,
+          request,
+          AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
+        );
 
         const verdict = pickEvaluationVerdict(request, result, 0.8);
 

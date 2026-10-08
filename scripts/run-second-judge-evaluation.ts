@@ -9,6 +9,7 @@ import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { PRESETS, loadConfig, resolveApiKey } from '../src/config/config.ts';
+import { toTimerDelay } from '../src/config/to-timer-delay.ts';
 import { buildEvaluationPayload } from '../src/evaluation/build-evaluation-payload.ts';
 import { buildEvaluationRequest } from '../src/evaluation/build-evaluation-request.ts';
 import { buildSecondJudgeSummary } from '../src/evaluation/build-second-judge-summary.ts';
@@ -164,7 +165,12 @@ async function runJevStage(
       let record: JevReport['records'][number];
 
       try {
-        const result = await sendDecision(config.provider, key, request);
+        const result = await sendDecision(
+          config.provider,
+          key,
+          request,
+          AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
+        );
 
         const verdict = pickEvaluationVerdict(request, result, THRESHOLD);
 
@@ -319,7 +325,12 @@ async function runJudgeStage(
           const reply =
             key === null
               ? await runClaudeCode(provider.model, systemPath, user, provider.timeoutMs, workDir)
-              : await sendMessage(provider, key, { system, user });
+              : await sendMessage(
+                  provider,
+                  key,
+                  { system, user },
+                  AbortSignal.timeout(toTimerDelay(provider.timeoutMs)),
+                );
 
           const text = formatClassifierNote(reply.text, key);
           const verdict = parseJudgeVerdict(text);
