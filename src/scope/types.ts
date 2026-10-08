@@ -18,7 +18,7 @@ export const EMPTY_SCOPE_FACTS: ScopeFacts = {
   pathGlobs: [],
 };
 
-export interface ScopeSourceContext {
+interface ScopeSourceContext {
   readonly sessionID: string;
   readonly cwd: string;
   readonly worktree: string;
