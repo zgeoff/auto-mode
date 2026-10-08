@@ -1,9 +1,16 @@
-import { isAbsolute, join, normalize } from 'node:path';
+import { isAbsolute, join, matchesGlob, normalize } from 'node:path';
+import { splitCommandWords } from '../rules/split-command-words.ts';
 import { splitShellCommand } from '../rules/split-shell-command.ts';
+import { toRepositorySlug } from './to-repository-slug.ts';
 
 export interface ScopeRemote {
   readonly name: string;
   readonly url: string;
+}
+
+interface OwnedPullRequest {
+  readonly number: number;
+  readonly repository: string;
 }
 
 export interface OwnedScope {
@@ -12,7 +19,8 @@ export interface OwnedScope {
   readonly branches: readonly string[];
   readonly currentBranch: string | null;
   readonly remotes: readonly ScopeRemote[];
-  readonly pullRequests: readonly number[];
+  readonly pullRequests: readonly OwnedPullRequest[];
+  readonly pathGlobs: readonly string[];
 }
 
 export interface ScopeFinding {
@@ -94,8 +102,16 @@ function collectToolFindings(
   const number =
     action.input['pullNumber'] ?? action.input['pull_number'] ?? action.input['issue_number'];
 
+  const owner = action.input['owner'];
+  const name = action.input['repo'];
+
+  const repo =
+    typeof owner === 'string' && typeof name === 'string' ? `${owner}/${name}` : undefined;
+
   const isOwned =
-    !verb.includes('merge') && typeof number === 'number' && scope.pullRequests.includes(number);
+    !verb.includes('merge') &&
+    typeof number === 'number' &&
+    isOwnedPullRequest(number, repo, scope);
 
   return isOwned ? [] : [{ kind: 'remote-write', target: action.tool }];
 }
@@ -113,7 +129,7 @@ function collectCommandFindings(
   let directory: string | null = cwd;
 
   for (const segment of splitShellCommand(command).segments) {
-    const words = getCommandWords(splitWords(segment.text));
+    const words = splitCommandWords(segment.text);
     const [name, ...args] = words;
 
     for (const target of collectRedirectTargets(segment.text)) {
@@ -195,6 +211,14 @@ function collectProgramFindings(
 
   if (name === 'curl') {
     return collectCurlFindings(args);
+  }
+
+  // The mod alone reports finished calls; a record the agent sends is a claim
+  // on scope it did not make, whether it names the bin, a runner, or the script.
+  const launcher = [name, ...args].findIndex((word) => word.includes('auto-mode'));
+
+  if (launcher !== -1 && [name, ...args].slice(launcher + 1).includes('record')) {
+    return [{ kind: 'credential', target: 'auto-mode record' }];
   }
 
   const finding = findProgramFinding(name, args);
@@ -445,23 +469,6 @@ function isOwnedRemote(remote: string, scope: Readonly<OwnedScope>): boolean {
   return slug !== null && scope.remotes.some((entry) => toRepositorySlug(entry.url) === slug);
 }
 
-// Reduces an SSH, HTTPS, or `owner/name` repository reference to
-// `host/owner/name`, so two spellings of one repository compare equal.
-function toRepositorySlug(reference: string): string | null {
-  const match =
-    /^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?(?<host>[^/:]+)[:/](?<owner>[^/]+)\/(?<name>[^/]+?)(?:\.git)?\/?$/iu.exec(
-      reference,
-    );
-
-  if (match?.groups === undefined) {
-    return null;
-  }
-
-  const parts = match.groups;
-
-  return `${parts['host'] ?? ''}/${parts['owner'] ?? ''}/${parts['name'] ?? ''}`.toLowerCase();
-}
-
 const GH_PR_WRITES = new Set(['comment', 'merge', 'edit', 'close', 'review', 'ready', 'reopen']);
 const GH_REMOTE_WRITES = new Set(['gist', 'release', 'repo', 'ruleset', 'label', 'workflow']);
 const GH_CREDENTIAL_WRITES = new Set(['secret', 'variable', 'ssh-key', 'gpg-key']);
@@ -475,11 +482,7 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
     const number = Number(args.slice(2).find((word) => /^\d+$/u.test(word)));
     const repoIndex = args.findIndex((word) => word === '--repo' || word === '-R');
     const repo = repoIndex === -1 ? undefined : args[repoIndex + 1];
-
-    const isOwned =
-      verb !== 'merge' &&
-      scope.pullRequests.includes(number) &&
-      (repo === undefined || isCheckoutRepository(repo, scope));
+    const isOwned = verb !== 'merge' && isOwnedPullRequest(number, repo, scope);
 
     return isOwned ? [] : [{ kind: 'remote-write', target: `gh pr ${verb}` }];
   }
@@ -508,15 +511,24 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
 }
 
 // `gh --repo` takes `owner/name` or `host/owner/name`; a bare `owner/name`
-// matches a remote on any host.
-function isCheckoutRepository(repo: string, scope: Readonly<OwnedScope>): boolean {
-  const wanted = repo.toLowerCase().replace(/\.git$/u, '');
+// matches on any host. Without a repository gh picks one of the checkout's
+// remotes, so the PR counts only when every remote names its repository.
+function isOwnedPullRequest(
+  number: number,
+  repo: string | undefined,
+  scope: Readonly<OwnedScope>,
+): boolean {
+  const wanted = repo?.toLowerCase().replace(/\.git$/u, '');
 
-  return scope.remotes.some((remote) => {
-    const slug = toRepositorySlug(remote.url);
+  const slugs = new Set(scope.remotes.map((remote) => toRepositorySlug(remote.url)));
 
-    return slug !== null && (slug === wanted || slug.endsWith(`/${wanted}`));
-  });
+  return scope.pullRequests.some(
+    (pull) =>
+      pull.number === number &&
+      (wanted === undefined
+        ? slugs.size === 1 && slugs.has(pull.repository)
+        : pull.repository === wanted || pull.repository.endsWith(`/${wanted}`)),
+  );
 }
 
 function collectGhAPIFindings(
@@ -547,8 +559,7 @@ function collectGhAPIFindings(
 
   if (
     pull !== undefined &&
-    scope.pullRequests.includes(Number(pull['number'])) &&
-    isCheckoutRepository(pull['repo'] ?? '', scope) &&
+    isOwnedPullRequest(Number(pull['number']), pull['repo'] ?? '', scope) &&
     !endpoint.includes('/merge')
   ) {
     return [];
@@ -705,73 +716,6 @@ function collectInPlaceFiles(args: readonly string[]): string[] {
   return files;
 }
 
-// Drops leading environment assignments and wrappers (env, sudo, timeout) and
-// every redirection, so the first word is the program and the rest its arguments.
-function getCommandWords(words: readonly string[]): readonly string[] {
-  let index = 0;
-
-  while (index < words.length) {
-    const word = words[index] ?? '';
-
-    if (/^\w+=/u.test(word) || word === 'sudo' || word === 'command') {
-      index += 1;
-    } else if (word === 'env') {
-      index += 1;
-
-      while (words[index] === '-u' || /^\w+=/u.test(words[index] ?? '')) {
-        index += words[index] === '-u' ? 2 : 1;
-      }
-    } else if (word === 'timeout') {
-      index += 2;
-    } else {
-      break;
-    }
-  }
-
-  return words
-    .slice(index)
-    .filter(
-      (word, position, all) =>
-        !/^\d*[<>]/u.test(word) && !/^\d*>{1,2}\|?$/u.test(all[position - 1] ?? ''),
-    );
-}
-
-function splitWords(text: string): string[] {
-  const words: string[] = [];
-  let current = '';
-  let quote: string | null = null;
-  let started = false;
-
-  for (const ch of text) {
-    if (quote !== null) {
-      if (ch === quote) {
-        quote = null;
-      } else {
-        current += ch;
-      }
-    } else if (ch === "'" || ch === '"') {
-      quote = ch;
-      started = true;
-    } else if (/\s/u.test(ch)) {
-      if (started) {
-        words.push(current);
-      }
-
-      current = '';
-      started = false;
-    } else {
-      current += ch;
-      started = true;
-    }
-  }
-
-  if (started) {
-    words.push(current);
-  }
-
-  return words;
-}
-
 // A target built from a variable, a substitution, or another user's home
 // cannot be resolved from the command text alone, nor can a relative one
 // when the directory is unknown.
@@ -796,7 +740,10 @@ const SCRATCH_PATHS = ['/tmp', '/dev/null', '/dev/stdout', '/dev/stderr'];
 // A worktree nested under another, as `.worktrees/<name>` is, belongs to its own
 // task: being inside the parent checkout does not put it in the parent's scope.
 function isInScope(path: string, scope: Readonly<OwnedScope>): boolean {
-  if (SCRATCH_PATHS.some((entry) => isUnder(path, entry))) {
+  if (
+    SCRATCH_PATHS.some((entry) => isUnder(path, entry)) ||
+    scope.pathGlobs.some((glob) => matchesGlob(path, glob))
+  ) {
     return true;
   }
 

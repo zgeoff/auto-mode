@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import * as z from 'zod';
 import { loadSecondJudgeCorpus } from '../evaluation/load-second-judge-corpus.ts';
-import { buildCWDScope } from './build-cwd-scope.ts';
+import { buildTaskScope } from '../scope/build-task-scope.ts';
+import { EMPTY_SCOPE_FACTS } from '../scope/types.ts';
 import { collectScopeFindings } from './collect-scope-findings.ts';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -67,12 +68,18 @@ async function setupTest(fixture: string, replay: string, severity: string) {
       const cwd = entry.cwd ?? corpus.cwd;
       const repository = entry.repository ?? corpus.repository;
 
-      const scope = buildCWDScope({
+      const scope = buildTaskScope({
         home: cwd.split('/').slice(0, 3).join('/'),
-        worktree: cwd,
-        branch: repository.branch,
+        currentBranch: repository.branch,
         defaultBranch: repository.defaultBranch,
         remotes: [{ name: 'origin', url: '' }],
+        facts: [
+          {
+            ...EMPTY_SCOPE_FACTS,
+            worktrees: [cwd],
+            branches: repository.branch === null ? [] : [repository.branch],
+          },
+        ],
       });
 
       const isContained =
@@ -154,12 +161,18 @@ test('it allows none of the 47 catastrophic second-judge cases in either committ
           (record.status === 'ask' &&
             record.contributors.every((answer) => answer.choice === 'allow'));
 
-        const scope = buildCWDScope({
+        const scope = buildTaskScope({
           home: context.cwd.split('/').slice(0, 3).join('/'),
-          worktree: context.cwd,
-          branch: context.branch,
+          currentBranch: context.branch,
           defaultBranch: context.defaultBranch,
           remotes: [{ name: 'origin', url: '' }],
+          facts: [
+            {
+              ...EMPTY_SCOPE_FACTS,
+              worktrees: [context.cwd],
+              branches: context.branch === null ? [] : [context.branch],
+            },
+          ],
         });
 
         const findings = collectScopeFindings(

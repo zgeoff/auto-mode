@@ -1,4 +1,5 @@
 import type { Config } from './config/config.ts';
+import { DEFAULT_SCOPE_SOURCES } from './config/config.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
 import type { EvaluationOptions } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
@@ -60,7 +61,7 @@ export async function classifyAction(
     return buildLocalAllow(local.exception);
   }
 
-  const containment = await checkContainment(request);
+  const containment = await checkContainment(request, config.scopeSources ?? DEFAULT_SCOPE_SOURCES);
 
   if (containment !== null) {
     const guidance = await tryReadDenialGuidance();

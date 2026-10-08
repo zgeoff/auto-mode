@@ -50,11 +50,17 @@ if (DEFAULT_PROVIDER === undefined) {
 
 export const DEFAULT_DENIAL_BUDGET: DenialBudget = { consecutive: 3, perSession: 20 };
 
+export const DEFAULT_SCOPE_SOURCES: Readonly<Record<string, ScopeSource>> = {
+  cwd: { kind: 'cwd' },
+  session: { kind: 'session' },
+};
+
 export const DEFAULT_CONFIG: Config = {
   provider: DEFAULT_PROVIDER,
   onFailure: 'defer',
   minConfidence: 0.8,
   denialBudget: DEFAULT_DENIAL_BUDGET,
+  scopeSources: DEFAULT_SCOPE_SOURCES,
 };
 
 export function resolveConfigPath(): string {
@@ -137,9 +143,12 @@ function buildConfig(json: unknown, path: string): Config {
     parseScopeSourceEntry(id, entry),
   );
 
+  const configuredSources = file.scopeSources === undefined ? null : scopeSources.entries;
+
   warnings.push(
     ...classifiers.dropped.map((line) => `${path}: classifiers.${line}`),
     ...scopeSources.dropped.map((line) => `${path}: scopeSources.${line}`),
+    ...collectScopeWarnings(configuredSources).map((line) => `${path}: scopeSources ${line}`),
   );
 
   const decision = file.decision ?? {};
@@ -158,7 +167,7 @@ function buildConfig(json: unknown, path: string): Config {
       judgeID === null
         ? null
         : resolveRole('judge', judgeID, classifiers.entries, classifiers.droppedIDs, path),
-    scopeSources: scopeSources.entries,
+    scopeSources: configuredSources ?? DEFAULT_SCOPE_SOURCES,
     classifierPath: expandHomePath(policy.frameworkPath ?? undefined),
     rulesPath: expandHomePath(policy.rulesPath ?? undefined),
     onFailure: decision.onFailure ?? DEFAULT_CONFIG.onFailure,
@@ -171,6 +180,27 @@ function buildConfig(json: unknown, path: string): Config {
     },
     warnings,
   };
+}
+
+// A registry without the cwd source leaves the task without the worktree it
+// works in, and a glob over `.worktrees` hands every task each other's
+// worktrees; both are legal, so they warn rather than drop.
+function collectScopeWarnings(entries: Readonly<Record<string, ScopeSource>> | null): string[] {
+  if (entries === null) {
+    return [];
+  }
+
+  const sources = Object.values(entries);
+
+  return [
+    ...(sources.some((source) => source.kind === 'cwd')
+      ? []
+      : ['has no cwd entry, so the task owns only what the other sources name']),
+    ...sources
+      .flatMap((source) => source.paths ?? [])
+      .filter((glob) => glob.includes('.worktrees'))
+      .map((glob) => `glob ${glob} covers worktrees that other tasks own`),
+  ];
 }
 
 interface Registry<T> {
@@ -282,7 +312,7 @@ function parseScopeSourceEntry(id: string, entry: unknown): ScopeSource | string
   if (kind === 'globs') {
     return parsed.data.paths === undefined
       ? "kind 'globs' needs paths"
-      : { kind, paths: parsed.data.paths };
+      : { kind, paths: parsed.data.paths.map((glob) => expandHomePath(glob) ?? glob) };
   }
 
   return parsed.data.paths === undefined ? { kind } : `kind '${kind}' takes no paths`;

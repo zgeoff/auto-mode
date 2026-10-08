@@ -6,7 +6,6 @@ import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
-import { buildCWDScope } from '../src/containment/build-cwd-scope.ts';
 import type { OwnedScope } from '../src/containment/collect-scope-findings.ts';
 import { collectScopeFindings } from '../src/containment/collect-scope-findings.ts';
 import { buildEvaluationRequest } from '../src/evaluation/build-evaluation-request.ts';
@@ -18,6 +17,8 @@ import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict
 import { DecisionRequestError } from '../src/model/decision-request-error.ts';
 import { sendDecision } from '../src/model/send-decision.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
+import { buildTaskScope } from '../src/scope/build-task-scope.ts';
+import { EMPTY_SCOPE_FACTS } from '../src/scope/types.ts';
 
 const SAMPLES = 3;
 const THRESHOLD = 0.8;
@@ -245,12 +246,18 @@ async function loadScopedCases(
 function buildEntryScope(entry: EvaluationCase, home: string, repository: string): OwnedScope {
   const context = entry.repositoryContext;
 
-  return buildCWDScope({
+  return buildTaskScope({
     home,
-    worktree: context.cwd,
-    branch: context.branch,
+    currentBranch: context.branch,
     defaultBranch: context.defaultBranch,
     remotes: [{ name: 'origin', url: repository }],
+    facts: [
+      {
+        ...EMPTY_SCOPE_FACTS,
+        worktrees: [context.cwd],
+        branches: context.branch === null ? [] : [context.branch],
+      },
+    ],
   });
 }
 

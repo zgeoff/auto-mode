@@ -69,10 +69,16 @@ configured allow entry can clear that deny. It never allows: an action with no f
 so does a target it cannot resolve from the command text, such as a path held in a variable, which
 Jev judges. It reads `gh api graphql` as a read unless the query carries `mutation`.
 
-The task scope is the cwd scope: the worktree that holds the action's directory, its branch unless
-that is the default branch, and the checkout's remotes. Outside a checkout it is the directory
-itself. `/tmp` is scratch space that every task owns. The `scopeSources` registry does not extend it
-yet.
+The task scope is the union of the scope sources in the `scopeSources` registry; each source answers
+from the action's context alone, behind one interface. The `cwd` source owns the worktree that holds
+the action's directory (outside a checkout, the directory itself) and its branch. The `session`
+source owns the worktrees and branches the session created and the pull requests it opened whose
+head branch is in scope; the mod reports each Bash call that can create one after it runs, and the
+CLI keeps what the call made in a file per session ID. The `globs` source owns configured path
+globs. The `atc` source is reserved for atc's general session record and contributes nothing yet. No
+source can hand a task the default branch. The checkout's remotes are always owned, and `/tmp` is
+scratch space that every task owns. [Configuration](../guides/configuration.md#scope-sources) lists
+the sources.
 
 **Tier two** uses Jev's typed decision API. The request includes the base policy, explicit user
 Claude rules, the complete proposed action, and the last direct user message. The

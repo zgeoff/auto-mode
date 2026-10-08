@@ -15,7 +15,7 @@ export function buildScopeEvidenceRequest(
     scopeEvidence: {
       ownedWorktrees: scope.worktrees,
       ownedBranches: scope.branches,
-      ownedPullRequests: scope.pullRequests,
+      ownedPullRequests: scope.pullRequests.map((pull) => pull.number),
       findings,
     },
   };

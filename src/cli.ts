@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
 import { buildRetryKey } from './budget/build-retry-key.ts';
@@ -12,18 +13,23 @@ import { writeDenialState } from './budget/write-denial-state.ts';
 import type { ActionOutcome } from './classify-action.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
-import { DEFAULT_DENIAL_BUDGET, loadConfig } from './config/config.ts';
+import { DEFAULT_DENIAL_BUDGET, DEFAULT_SCOPE_SOURCES, loadConfig } from './config/config.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { parseActionRequest } from './request/parse-action-request.ts';
+import { parseScopeRecordRequest } from './request/parse-scope-record-request.ts';
 import { renderVerdict } from './request/render-verdict.ts';
 import type { Verdict } from './request/types.ts';
+import { readPullRequest } from './scope/read-pull-request.ts';
+import { updateSessionScope } from './scope/update-session-scope.ts';
+import { resolveStateDir } from './state/resolve-state-dir.ts';
 
 const USAGE = `auto-mode — a permission classifier for the auto-mode Claude Code mod
 
 Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
+  auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -168,6 +174,45 @@ async function run(
   }
 }
 
+// Writes nothing on stdout: a record is not a verdict, and a failure costs the
+// session only the scope it would have gained.
+async function runRecord(): Promise<number> {
+  const raw = await readStdin();
+
+  let body: unknown;
+
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return 0;
+  }
+
+  const request = parseScopeRecordRequest(body);
+
+  if (request === null) {
+    return 0;
+  }
+
+  try {
+    const config = await loadConfig();
+
+    const sources = Object.values(config.scopeSources ?? DEFAULT_SCOPE_SOURCES);
+
+    if (sources.some((source) => source.kind === 'session')) {
+      await updateSessionScope(request, {
+        now: Date.now(),
+        stateDir: resolveStateDir(),
+        home: homedir(),
+        readPullRequest,
+      });
+    }
+  } catch {
+    process.stderr.write('auto-mode: session scope unavailable\n');
+  }
+
+  return 0;
+}
+
 async function tryWriteDenialState(path: string, state: Readonly<DenialState>): Promise<void> {
   try {
     await writeDenialState(path, state);
@@ -230,6 +275,10 @@ async function main(argv: readonly string[]): Promise<number> {
 
       return 0;
     }
+  }
+
+  if (command === 'record') {
+    return runRecord();
   }
 
   if (command === 'print-prompt') {

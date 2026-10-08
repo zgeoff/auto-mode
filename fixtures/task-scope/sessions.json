@@ -1,0 +1,769 @@
+{
+  "source": "The four GEO-104 sessions, in transcript order: every corpus action by case id, and every Bash call whose command can create a worktree, a branch, or a PR, with the PR address it printed. Names are those of fixtures/decision-rules/real-traffic.json. Derived from the GEO-100 D17 replay archive (SHA-256 5a7b8f908f42bf21f673a57386d46214b349956c73b7d34d1cf112129f097a86).",
+  "home": "/home/robin",
+  "remotes": [
+    {
+      "name": "origin",
+      "url": "git@github.com:zrobin/harbor.git"
+    }
+  ],
+  "worktreeBranches": {
+    "/home/robin/projects/harbor/.worktrees/fix-imp-session-name": "fix/imp-session-name"
+  },
+  "pullRequestHeads": {
+    "290": "fix/imp-session-name",
+    "298": "feat/session-list-columns-glm",
+    "308": "fix-281-refusal-detail"
+  },
+  "atc": {
+    "root-B": {
+      "worktrees": [
+        "/home/robin/projects/harbor/.worktrees/fix-281-refusal-detail",
+        "/home/robin/projects/harbor/.worktrees/live-042-file-check"
+      ],
+      "branches": ["fix-281-refusal-detail"]
+    }
+  },
+  "sessions": [
+    {
+      "name": "glm-A",
+      "entries": [
+        {
+          "case": "T070"
+        },
+        {
+          "case": "T071"
+        },
+        {
+          "case": "T072"
+        },
+        {
+          "case": "T073"
+        },
+        {
+          "case": "T074"
+        },
+        {
+          "case": "T075"
+        },
+        {
+          "case": "T076"
+        },
+        {
+          "case": "T077"
+        },
+        {
+          "case": "T078"
+        },
+        {
+          "case": "T079"
+        },
+        {
+          "case": "T080"
+        },
+        {
+          "case": "T081"
+        },
+        {
+          "case": "T082"
+        },
+        {
+          "case": "T083"
+        },
+        {
+          "case": "T084"
+        },
+        {
+          "case": "T085"
+        },
+        {
+          "case": "T086"
+        },
+        {
+          "case": "T087"
+        },
+        {
+          "case": "T088"
+        },
+        {
+          "case": "T089"
+        },
+        {
+          "case": "T090"
+        },
+        {
+          "case": "T091"
+        },
+        {
+          "case": "T092"
+        },
+        {
+          "case": "T093"
+        },
+        {
+          "case": "T094"
+        },
+        {
+          "case": "T095"
+        },
+        {
+          "case": "T096"
+        },
+        {
+          "case": "T097"
+        },
+        {
+          "case": "T098"
+        },
+        {
+          "case": "T099"
+        },
+        {
+          "case": "T100"
+        },
+        {
+          "case": "T101"
+        },
+        {
+          "case": "T102"
+        },
+        {
+          "case": "T103"
+        },
+        {
+          "case": "T104"
+        },
+        {
+          "case": "T105"
+        },
+        {
+          "case": "T106"
+        },
+        {
+          "case": "T107"
+        },
+        {
+          "case": "T108"
+        },
+        {
+          "case": "T109"
+        },
+        {
+          "case": "T110"
+        },
+        {
+          "case": "T111"
+        },
+        {
+          "case": "T112"
+        },
+        {
+          "case": "T113"
+        },
+        {
+          "case": "T114"
+        },
+        {
+          "case": "T115"
+        },
+        {
+          "case": "T116"
+        },
+        {
+          "case": "T117"
+        },
+        {
+          "case": "T118"
+        },
+        {
+          "case": "T119"
+        },
+        {
+          "case": "T120"
+        },
+        {
+          "case": "T121"
+        },
+        {
+          "case": "T122"
+        },
+        {
+          "case": "T123"
+        },
+        {
+          "case": "T124"
+        },
+        {
+          "case": "T125"
+        },
+        {
+          "case": "T126"
+        },
+        {
+          "case": "T127"
+        },
+        {
+          "case": "T128"
+        },
+        {
+          "case": "T129"
+        },
+        {
+          "case": "T130"
+        },
+        {
+          "case": "T131"
+        },
+        {
+          "case": "T132"
+        },
+        {
+          "case": "T133"
+        },
+        {
+          "case": "T134"
+        },
+        {
+          "case": "T135"
+        },
+        {
+          "case": "T136"
+        },
+        {
+          "case": "T137"
+        },
+        {
+          "case": "T138"
+        },
+        {
+          "case": "T139"
+        },
+        {
+          "case": "T140"
+        },
+        {
+          "case": "T141"
+        },
+        {
+          "case": "T142"
+        },
+        {
+          "case": "T143"
+        },
+        {
+          "case": "T144"
+        },
+        {
+          "case": "T145"
+        },
+        {
+          "case": "T146"
+        },
+        {
+          "case": "T147"
+        },
+        {
+          "case": "T148"
+        },
+        {
+          "case": "T149"
+        },
+        {
+          "case": "T150"
+        },
+        {
+          "case": "T151"
+        },
+        {
+          "case": "T152"
+        },
+        {
+          "case": "T153"
+        },
+        {
+          "case": "T154"
+        },
+        {
+          "case": "T155"
+        },
+        {
+          "case": "T156"
+        },
+        {
+          "case": "T157"
+        },
+        {
+          "case": "T158"
+        },
+        {
+          "case": "T159"
+        },
+        {
+          "case": "T160"
+        },
+        {
+          "case": "T161"
+        },
+        {
+          "case": "T162"
+        },
+        {
+          "case": "T163"
+        },
+        {
+          "case": "T164"
+        },
+        {
+          "case": "T165"
+        },
+        {
+          "case": "T166"
+        },
+        {
+          "case": "T167"
+        },
+        {
+          "case": "T168"
+        },
+        {
+          "case": "T169"
+        },
+        {
+          "case": "T170"
+        },
+        {
+          "case": "T171"
+        },
+        {
+          "case": "T172"
+        },
+        {
+          "case": "T173"
+        },
+        {
+          "case": "T174"
+        },
+        {
+          "cwd": "/home/robin/projects/harbor/.worktrees/session-list-columns-glm",
+          "command": "gh pr create --base main --head feat/session-list-columns-glm --title \"feat: show target, harness, model, lifecycle columns in session list\" --body-file /tmp/col-pr-body.md",
+          "resultText": "https://github.com/zrobin/harbor/pull/298",
+          "succeeded": true
+        },
+        {
+          "case": "T175"
+        },
+        {
+          "case": "T176"
+        },
+        {
+          "case": "T177"
+        },
+        {
+          "case": "T178"
+        },
+        {
+          "case": "T179"
+        },
+        {
+          "case": "T180"
+        },
+        {
+          "case": "T181"
+        },
+        {
+          "case": "T182"
+        },
+        {
+          "case": "T183"
+        },
+        {
+          "case": "T184"
+        },
+        {
+          "case": "T185"
+        },
+        {
+          "case": "T186"
+        },
+        {
+          "case": "T187"
+        },
+        {
+          "case": "T188"
+        },
+        {
+          "case": "T189"
+        },
+        {
+          "case": "T190"
+        },
+        {
+          "case": "T191"
+        },
+        {
+          "case": "T192"
+        },
+        {
+          "case": "T193"
+        },
+        {
+          "case": "T194"
+        },
+        {
+          "case": "T195"
+        },
+        {
+          "case": "T196"
+        },
+        {
+          "case": "T197"
+        },
+        {
+          "case": "T198"
+        },
+        {
+          "case": "T199"
+        },
+        {
+          "case": "T200"
+        },
+        {
+          "case": "T201"
+        },
+        {
+          "case": "T202"
+        },
+        {
+          "case": "T203"
+        },
+        {
+          "case": "T204"
+        },
+        {
+          "case": "T205"
+        },
+        {
+          "case": "T206"
+        },
+        {
+          "case": "T207"
+        },
+        {
+          "case": "T208"
+        },
+        {
+          "case": "T209"
+        },
+        {
+          "case": "T210"
+        },
+        {
+          "case": "T211"
+        },
+        {
+          "case": "T212"
+        },
+        {
+          "case": "T213"
+        },
+        {
+          "case": "T214"
+        },
+        {
+          "case": "T215"
+        },
+        {
+          "case": "T216"
+        },
+        {
+          "case": "T217"
+        }
+      ]
+    },
+    {
+      "name": "glm-B",
+      "entries": [
+        {
+          "case": "T029"
+        },
+        {
+          "case": "T030"
+        },
+        {
+          "case": "T031"
+        },
+        {
+          "case": "T032"
+        },
+        {
+          "case": "T033"
+        },
+        {
+          "case": "T034"
+        },
+        {
+          "case": "T035"
+        },
+        {
+          "case": "T036"
+        },
+        {
+          "case": "T037"
+        },
+        {
+          "case": "T038"
+        },
+        {
+          "case": "T039"
+        },
+        {
+          "case": "T040"
+        },
+        {
+          "case": "T041"
+        },
+        {
+          "case": "T042"
+        },
+        {
+          "case": "T043"
+        },
+        {
+          "case": "T044"
+        },
+        {
+          "case": "T045"
+        },
+        {
+          "case": "T046"
+        },
+        {
+          "case": "T047"
+        },
+        {
+          "case": "T048"
+        },
+        {
+          "case": "T049"
+        },
+        {
+          "case": "T050"
+        },
+        {
+          "case": "T051"
+        },
+        {
+          "case": "T052"
+        },
+        {
+          "case": "T053"
+        },
+        {
+          "case": "T054"
+        },
+        {
+          "case": "T055"
+        },
+        {
+          "case": "T056"
+        },
+        {
+          "case": "T057"
+        },
+        {
+          "case": "T058"
+        },
+        {
+          "case": "T059"
+        },
+        {
+          "case": "T060"
+        },
+        {
+          "case": "T061"
+        },
+        {
+          "case": "T062"
+        },
+        {
+          "case": "T063"
+        },
+        {
+          "case": "T064"
+        },
+        {
+          "case": "T065"
+        },
+        {
+          "case": "T066"
+        },
+        {
+          "case": "T067"
+        },
+        {
+          "case": "T068"
+        },
+        {
+          "case": "T069"
+        }
+      ]
+    },
+    {
+      "name": "root-A",
+      "entries": [
+        {
+          "cwd": "/home/robin/projects/harbor",
+          "command": "git worktree add .worktrees/fix-imp-session-name -b fix/imp-session-name 2>&1 | tail -2",
+          "resultText": "",
+          "succeeded": true
+        },
+        {
+          "cwd": "/home/robin/projects/harbor/.worktrees/fix-imp-session-name",
+          "command": "env -u GITHUB_TOKEN -u GH_TOKEN gh pr create --draft --base main --head fix/imp-session-name --title \"fix(#273): keep imp session names inside the session limit\" --body \"## Description\n\nImp session names exceeded the deployed 32-char session limit, so impd rejected every harness start before audit with an uncoded error.\n\n- Truncate the stripped session part to 28 chars, keeping 112 bits of the session id against collisions\n- Regression pins a full UUID inside the deployed 0.32.1 schema and deterministic per-session naming\n\n## Testing\n\n- [x] \\`bun run typecheck\\` passes\n- [x] \\`bun run test src/daemon/imp-provider.test.ts src/daemon/imp-client-port.test.ts\\` passes (41/0)\n- [x] \\`bun run lint\\` passes\n- [x] New tests added for new functionality\n\n## Context\n\nSeparate from the message-preservation diagnostics change. Schema checked against imp v0.32.1 session-schema.\" 2>&1 | tail -3",
+          "resultText": "https://github.com/zrobin/harbor/pull/290",
+          "succeeded": true
+        },
+        {
+          "case": "T001"
+        },
+        {
+          "case": "T003"
+        },
+        {
+          "case": "T005"
+        },
+        {
+          "case": "T006"
+        },
+        {
+          "case": "T007"
+        },
+        {
+          "case": "T008"
+        }
+      ]
+    },
+    {
+      "name": "root-B",
+      "entries": [
+        {
+          "case": "T002"
+        },
+        {
+          "case": "T004"
+        },
+        {
+          "case": "T009"
+        },
+        {
+          "case": "T010"
+        },
+        {
+          "case": "T011"
+        },
+        {
+          "case": "T012"
+        },
+        {
+          "case": "T013"
+        },
+        {
+          "case": "T014"
+        },
+        {
+          "case": "T015"
+        },
+        {
+          "case": "T016"
+        },
+        {
+          "case": "T017"
+        },
+        {
+          "case": "T018"
+        },
+        {
+          "case": "T019"
+        },
+        {
+          "case": "T020"
+        },
+        {
+          "case": "T021"
+        },
+        {
+          "case": "T022"
+        },
+        {
+          "case": "T023"
+        },
+        {
+          "case": "T024"
+        },
+        {
+          "case": "T025"
+        },
+        {
+          "case": "T026"
+        },
+        {
+          "case": "T027"
+        },
+        {
+          "case": "T028"
+        },
+        {
+          "case": "T218"
+        },
+        {
+          "case": "T219"
+        },
+        {
+          "case": "T220"
+        },
+        {
+          "case": "T221"
+        },
+        {
+          "case": "T222"
+        },
+        {
+          "case": "T223"
+        },
+        {
+          "case": "T224"
+        },
+        {
+          "cwd": "/home/robin/projects/harbor",
+          "command": "gh pr create --repo zrobin/harbor --base main --head fix-281-refusal-detail --draft --title \"fix(#281): keep redacted imp refusal detail in the end message\" --body-file /tmp/pr-281-body.md",
+          "resultText": "https://github.com/zrobin/harbor/pull/308",
+          "succeeded": true
+        },
+        {
+          "case": "T225"
+        },
+        {
+          "case": "T226"
+        },
+        {
+          "case": "T227"
+        },
+        {
+          "case": "T228"
+        },
+        {
+          "case": "T229"
+        },
+        {
+          "case": "T230"
+        },
+        {
+          "case": "T231"
+        },
+        {
+          "case": "T232"
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,9 @@
+import type { ScopeSource } from '../config/config.ts';
 import type { ActionRequest } from '../request/types.ts';
+import { loadTaskScope } from '../scope/load-task-scope.ts';
+import { resolveStateDir } from '../state/resolve-state-dir.ts';
 import { collectScopeFindings } from './collect-scope-findings.ts';
 import type { OwnedScope, ScopeFinding } from './collect-scope-findings.ts';
-import { loadTaskScope } from './load-task-scope.ts';
 
 export interface ContainmentDeny {
   readonly rule: string;
@@ -15,11 +17,15 @@ const CONTAINMENT_RULE = 'Outside Task Scope';
 // a target the detector cannot resolve.
 export async function checkContainment(
   request: Readonly<ActionRequest>,
+  sources: Readonly<Record<string, ScopeSource>>,
 ): Promise<ContainmentDeny | null> {
   let scope: OwnedScope;
 
   try {
-    scope = await loadTaskScope(request.cwd);
+    scope = await loadTaskScope(
+      { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveStateDir() },
+      sources,
+    );
   } catch {
     return null;
   }
@@ -54,8 +60,15 @@ function formatContainmentReason(
     .join(', ');
 
   const more = findings.length > 5 ? ` and ${findings.length - 5} more` : '';
-  const [branch] = scope.branches;
-  const owned = `the worktree ${scope.worktrees.join(', ')}${branch === undefined ? '' : ` and the branch ${branch}`}`;
+
+  const branches =
+    scope.branches.length === 0 ? '' : ` and ${formatList('branch', 'branches', scope.branches)}`;
+
+  const owned = `${formatList('worktree', 'worktrees', scope.worktrees)}${branches}`;
 
   return `This action writes outside the task scope: ${targets}${more}. The task owns ${owned}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.`;
+}
+
+function formatList(one: string, many: string, values: readonly string[]): string {
+  return `the ${values.length === 1 ? one : many} ${values.join(', ')}`;
 }

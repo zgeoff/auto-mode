@@ -2,6 +2,15 @@ import { buildPromptContext } from './build-prompt-context.ts';
 import { parseDecision } from './parse-decision.ts';
 import type { ModOn, ModOptions, PromptContext } from './types.ts';
 
+// Commands that can create a worktree, a branch, or a PR. Any other call skips
+// the record subprocess, so ordinary calls pay nothing for the session scope.
+const SCOPE_COMMAND =
+  /\bgit\s[^\n]*?\b(?:worktree\s+add|checkout|switch|branch)\b|\bgh\s+pr\s+create\b/u;
+
+// The record may look up a created PR's head branch with gh, which the CLI
+// bounds at 5 seconds.
+const RECORD_TIMEOUT_MS = 8000;
+
 export function register(on: ModOn, options: ModOptions): void {
   let sessionID: string | null = null;
 
@@ -52,18 +61,43 @@ export function register(on: ModOn, options: ModOptions): void {
     return result;
   });
 
-  on('tool.call', async (_api, e, next) => {
+  on('tool.call', async ($, e, next) => {
     if (e.tool_use_id === undefined) {
       return next(e);
     }
 
     activeCalls.set(e.tool_use_id, e.agentId ?? null);
 
+    const command =
+      e.tool === 'Bash' && typeof e.command === 'string' && SCOPE_COMMAND.test(e.command)
+        ? e.command
+        : null;
+
+    const startedAt = Date.now();
+    const cwd = command === null || sessionID === null ? null : await $.session.cwd();
+    let result;
+
     try {
-      return await next(e);
+      result = await next(e);
     } finally {
       activeCalls.delete(e.tool_use_id);
     }
+
+    if (command !== null && cwd !== null && sessionID !== null && result.deny === undefined) {
+      const executable = typeof options.command === 'string' ? options.command : 'auto-mode';
+      const request = { sessionID, cwd, startedAt, command, resultText: result.text ?? '' };
+
+      try {
+        await $.process.run([executable, 'record'], {
+          timeoutMs: RECORD_TIMEOUT_MS,
+          stdin: JSON.stringify(request),
+        });
+      } catch {
+        $.ui.log('auto-mode: session scope not recorded; subprocess failure', { to: 'debug' });
+      }
+    }
+
+    return result;
   });
 
   on('tool.check', async ($, e, next) => {
