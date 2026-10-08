@@ -17,7 +17,11 @@ test('it sends the first chunk on the first read', async () => {
 });
 
 test('it stalls on the second read and reports the stall', async () => {
-  const onStall = mock<() => void>();
+  const stalled = Promise.withResolvers<void>();
+
+  const onStall = mock(() => {
+    stalled.resolve();
+  });
 
   const reader = buildStubStalledBody(
     '{"model":',
@@ -29,7 +33,7 @@ test('it stalls on the second read and reports the stall', async () => {
 
   const second = reader.read();
 
-  await Promise.resolve();
+  await stalled.promise;
 
   expect(onStall).toHaveBeenCalledOnce();
   expect(Promise.race([second, Promise.resolve('pending')])).resolves.toBe('pending');
