@@ -53,6 +53,7 @@ export const DEFAULT_DENIAL_BUDGET: DenialBudget = { consecutive: 3, perSession:
 export const DEFAULT_SCOPE_SOURCES: Readonly<Record<string, ScopeSource>> = {
   cwd: { kind: 'cwd' },
   session: { kind: 'session' },
+  atc: { kind: 'atc' },
 };
 
 export const DEFAULT_CONFIG: Config = {

@@ -17,11 +17,27 @@
   },
   "atc": {
     "root-B": {
-      "worktrees": [
-        "/home/robin/projects/harbor/.worktrees/fix-281-refusal-detail",
-        "/home/robin/projects/harbor/.worktrees/live-042-file-check"
-      ],
-      "branches": ["fix-281-refusal-detail"]
+      "format": "atc.session-record",
+      "version": 1,
+      "session": "root-B",
+      "daemonID": "replay",
+      "target": "local",
+      "revision": 1,
+      "updatedAt": "2026-10-05T00:00:00.000Z",
+      "scope": {
+        "workspace": {
+          "path": "/home/robin/projects/harbor/.worktrees/fix-281-refusal-detail",
+          "branch": "fix-281-refusal-detail"
+        },
+        "worktrees": [
+          {
+            "path": "/home/robin/projects/harbor/.worktrees/live-042-file-check",
+            "branch": null
+          }
+        ],
+        "branches": [],
+        "pullRequests": []
+      }
     }
   },
   "sessions": [

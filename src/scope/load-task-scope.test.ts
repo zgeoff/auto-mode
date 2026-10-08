@@ -198,3 +198,46 @@ test('it adds the configured path globs', async () => {
 
   expect(scope.pathGlobs).toStrictEqual(['/scratch/**']);
 });
+
+test('it owns the worktree and branch in the atc record from the main checkout', async () => {
+  const ctx = await setupTest();
+
+  const recordPath = join(ctx.root, 'record.json');
+
+  const previousAtcEnv = ['ATC_SESSION_RECORD', 'ATC_SESSION_ID'].map(
+    (name) => [name, process.env[name]] as const,
+  );
+
+  process.env['ATC_SESSION_RECORD'] = recordPath;
+  process.env['ATC_SESSION_ID'] = 'atc-1';
+
+  onTestFinished(() => {
+    for (const [name, value] of previousAtcEnv) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
+  });
+
+  const scope = {
+    workspace: { path: ctx.worktree, branch: 'feature' },
+    worktrees: [],
+    branches: [],
+  };
+
+  const record = { format: 'atc.session-record', version: 1, session: 'atc-1', scope };
+  const request = { sessionID: 'session-1', cwd: ctx.root, stateDir: ctx.stateDir };
+
+  await writeFile(recordPath, JSON.stringify({ ...record, scope: { ...scope, pullRequests: [] } }));
+
+  const owned = await loadTaskScope(request, { atc: { kind: 'atc' } });
+
+  await writeFile(recordPath, JSON.stringify({ ...record, version: 2 }));
+
+  const malformed = await loadTaskScope(request, { atc: { kind: 'atc' } });
+
+  expect([owned.worktrees, owned.branches]).toStrictEqual([[ctx.worktree], ['feature']]);
+  expect([malformed.worktrees, malformed.branches]).toStrictEqual([[], []]);
+});

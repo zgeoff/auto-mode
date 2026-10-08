@@ -33,6 +33,8 @@ export async function loadTaskScope(
     commonDir: checkout?.commonDir ?? null,
     branch,
     stateDir: request.stateDir,
+    atcRecordPath: process.env['ATC_SESSION_RECORD'],
+    atcSessionID: process.env['ATC_SESSION_ID'],
   };
 
   const [remotes, ...facts] = await Promise.all([

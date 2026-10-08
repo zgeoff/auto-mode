@@ -101,10 +101,10 @@ entry's answer, and the containment check denies a write outside it.
 | `cwd`     | none                      | The worktree that holds the action's directory |
 | `session` | none                      | What the session itself created                |
 | `globs`   | `paths`, a non-empty list | Path globs that every task owns                |
-| `atc`     | none                      | Reserved for atc's general session record      |
+| `atc`     | none                      | What atc's session record declares             |
 
-A file without `scopeSources` runs `cwd` and `session`. A file with the block runs exactly its
-entries, and warns when none of them is `cwd`, because the task then owns only what the other
+A file without `scopeSources` runs `cwd`, `session` and `atc`. A file with the block runs exactly
+its entries, and warns when none of them is `cwd`, because the task then owns only what the other
 sources name.
 
 - `cwd` owns the worktree that holds the action's directory, and its branch unless that is the
@@ -117,9 +117,13 @@ sources name.
 - `globs` owns every path that matches one of `paths`; a leading `~/` is the home directory. A glob
   that covers every worktree, such as `.worktrees/**`, defeats the containment check, and the file
   warns about any glob that names `.worktrees`.
-- `atc` is reserved for the record that atc publishes for each session it spawns, found through an
-  environment variable that atc sets. atc owns the record's format, and the agent cannot extend it.
-  The source contributes nothing until atc publishes that record.
+- `atc` owns what atc's session record declares: the workspace atc prepared and the extra worktrees
+  as worktrees; their branches and the declared branches when they sit in the action's repository;
+  and the declared pull requests whose head branch is in scope. It reads version 1 of the
+  `atc.session-record` format at `$ATC_SESSION_RECORD` and never writes it. Without the variable or
+  the file the source contributes nothing; a record that does not parse, holds another version, or
+  names another session than `$ATC_SESSION_ID` contributes nothing and prints one line to stderr.
+  atc owns the format, and only a caller outside the session can extend the record.
 
 No source can hand a task the default branch, or `main`, `master`, `trunk` or `develop` when the
 default branch is unknown. `/tmp` is scratch space that every task owns.
