@@ -35,6 +35,14 @@ interface CallInput {
   readonly tool: string;
   readonly tool_use_id?: string;
   readonly agentId?: string;
+  readonly command?: unknown;
+}
+
+interface CallResult {
+  readonly result?: unknown;
+  readonly deny?: string;
+  readonly text?: string;
+  readonly isError?: true;
 }
 
 export interface UserTask {
@@ -70,7 +78,7 @@ interface ModEvents {
     readonly input: SpawnInput;
     readonly result: { readonly agentId?: string; readonly model?: string; readonly deny?: string };
   };
-  readonly 'tool.call': { readonly input: CallInput; readonly result: object };
+  readonly 'tool.call': { readonly input: CallInput; readonly result: CallResult };
   readonly 'tool.check': { readonly input: CheckInput; readonly result: PermissionDecision };
   readonly 'process.run': {
     readonly input: ProcessInput;
@@ -100,7 +108,10 @@ export interface ModAPI {
     readonly run: (argv: readonly string[], init?: ProcessInput['init']) => Promise<ProcessResult>;
   };
   readonly prompt: { readonly submit: (input: PromptInput) => Promise<object> };
-  readonly tool: { readonly check: (input: CheckInput) => Promise<PermissionDecision> };
+  readonly tool: {
+    readonly check: (input: CheckInput) => Promise<PermissionDecision>;
+    readonly call: (input: CallInput) => Promise<CallResult>;
+  };
   readonly classic: {
     readonly SessionStart: (
       input: Partial<SessionContext> & { readonly source: string },

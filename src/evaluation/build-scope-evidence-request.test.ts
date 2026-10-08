@@ -30,6 +30,7 @@ function setupTest() {
     currentBranch: 'feat/a',
     remotes: [{ name: 'origin', url: 'github.com/dev/app' }],
     pullRequests: [7],
+    pathGlobs: [],
   };
 
   return { request, scope };

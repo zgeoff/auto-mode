@@ -470,3 +470,69 @@ test('it keeps the count across processes for a resumed session and apart for a 
   expect(fromChild.stdout.toString()).toInclude('This is the last denial');
   expect(second.stdout.toString()).toBe('');
 });
+
+test('it keeps a branch the session created in its scope across processes, for that session only', async () => {
+  const ctx = await setupTest();
+
+  const repo = join(ctx.dir, 'repo');
+
+  const env = Object.fromEntries(
+    Object.entries({ ...ctx.env, GIT_CONFIG_GLOBAL: '/dev/null' }).filter(
+      ([name]) => !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE'].includes(name),
+    ),
+  );
+
+  await Bun.$`git init -q -b main ${repo}`.env(env).quiet();
+  await Bun.$`git -C ${repo} remote add origin git@github.com:dev/app.git`.env(env).quiet();
+
+  await Bun.$`git -C ${repo} -c user.name=dev -c user.email=dev@example.com -c commit.gpgsign=false commit -q --allow-empty -m init`
+    .env(env)
+    .quiet();
+
+  const startedAt = Date.now();
+
+  await Bun.$`git -C ${repo} worktree add -q .worktrees/x -b feat/x`.env(env).quiet();
+
+  const record = JSON.stringify({
+    sessionID: 'cli-session',
+    cwd: repo,
+    startedAt,
+    command: 'git worktree add .worktrees/x -b feat/x',
+    resultText: '',
+  });
+
+  const buildPush = (sessionID: string): string =>
+    JSON.stringify({
+      sessionID,
+      cwd: repo,
+      toolName: 'Bash',
+      toolInput: { command: 'git push origin feat/x' },
+      context: {
+        agentID: null,
+        originalUserTask: null,
+        delegatedTask: null,
+        lastDirectUserMessage: null,
+        omittedTaskContext: [],
+      },
+    });
+
+  const recorded = await Bun.$`bun ${CLI} record < ${new Response(record)}`
+    .env(env)
+    .quiet()
+    .nothrow();
+
+  const own = await Bun.$`bun ${CLI} run --local-only < ${new Response(buildPush('cli-session'))}`
+    .env(env)
+    .quiet()
+    .nothrow();
+
+  const other =
+    await Bun.$`bun ${CLI} run --local-only < ${new Response(buildPush('other-session'))}`
+      .env(env)
+      .quiet()
+      .nothrow();
+
+  expect([recorded.exitCode, recorded.stdout.toString()]).toStrictEqual([0, '']);
+  expect(own.stdout.toString()).toBe('');
+  expect(other.stdout.toString()).toInclude('branch feat/x');
+});

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildCWDScope } from './build-cwd-scope.ts';
+import { buildTaskScope } from '../scope/build-task-scope.ts';
 import { collectScopeFindings } from './collect-scope-findings.ts';
 
 function setupTest() {
@@ -13,6 +13,7 @@ function setupTest() {
     worktrees: [worktree],
     branches: ['feature'],
     pullRequests: [12],
+    pathGlobs: [],
   };
 
   return { root, worktree, scope };
@@ -265,12 +266,12 @@ test('it resolves ssh-keygen -f against the directory and skips a fingerprint re
 test('it finds a bare push of the default branch checked out in the cwd', () => {
   const ctx = setupTest();
 
-  const scope = buildCWDScope({
+  const scope = buildTaskScope({
     home: '/home/dev',
-    worktree: ctx.root,
-    branch: 'main',
+    currentBranch: 'main',
     defaultBranch: 'main',
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    facts: [{ worktrees: [ctx.root], branches: ['main'], pullRequests: [], pathGlobs: [] }],
   });
 
   const findings = collectScopeFindings(
@@ -507,4 +508,36 @@ test('it finds an ssh command that writes through a listed program, a newline, o
       ctx.scope,
     ),
   ).toStrictEqual([{ kind: 'credential', target: '/home/dev/.ssh/log' }]);
+});
+
+test('it finds nothing in a write a configured path glob covers', () => {
+  const ctx = setupTest();
+  const scope = { ...ctx.scope, pathGlobs: ['/home/dev/scratch/**'] };
+
+  expect(
+    collectScopeFindings(
+      {
+        tool: 'Write',
+        cwd: ctx.worktree,
+        input: { file_path: '/home/dev/scratch/n.md', content: '' },
+      },
+      scope,
+    ),
+  ).toStrictEqual([]);
+});
+
+test('it finds a write to the session scope that auto-mode records', () => {
+  const ctx = setupTest();
+  const file = '/home/dev/.local/state/auto-mode/session-scope/0a1b.json';
+
+  expect(
+    collectScopeFindings(
+      {
+        tool: 'Bash',
+        cwd: ctx.worktree,
+        input: { command: `echo '{"worktrees":["/"]}' > ${file}` },
+      },
+      ctx.scope,
+    ),
+  ).toStrictEqual([{ kind: 'path', target: file }]);
 });

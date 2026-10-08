@@ -92,8 +92,9 @@ diagnostic names the field but never its value.
 
 ## Scope sources
 
-Each entry names one source of the task scope: the worktrees, branches and paths the task owns. As
-with classifiers, `kind` defaults to the id.
+Each entry names one source of the task scope: the worktrees, branches, pull requests and paths the
+task owns. As with classifiers, `kind` defaults to the id. The task scope is the union of every
+entry's answer, and the containment check denies a write outside it.
 
 | Kind      | Fields                    | Source                                         |
 | --------- | ------------------------- | ---------------------------------------------- |
@@ -102,13 +103,26 @@ with classifiers, `kind` defaults to the id.
 | `globs`   | `paths`, a non-empty list | Path globs that every task owns                |
 | `atc`     | none                      | atc's general session record for the session   |
 
-The `atc` source reads the record that atc publishes for each session it spawns, found through an
-environment variable that atc sets. atc owns the record's format, and the agent cannot extend it. A
-session without a record gets nothing from this source.
+A file without `scopeSources` runs `cwd` and `session`. A file with the block runs exactly its
+entries, and warns when none of them is `cwd`, because the task then owns only what the other
+sources name.
 
-A glob that covers every worktree, such as `.worktrees/**`, defeats the containment check. The
-registry holds entries today; the containment check reads only the cwd scope, and the scope work
-that follows it reads the registry.
+- `cwd` owns the worktree that holds the action's directory, and its branch unless that is the
+  default branch.
+- `session` owns the worktrees and branches the session created and the pull requests it opened
+  whose head branch is in scope. The mod reports each Bash call that can create one, and auto-mode
+  keeps what the call made in `$XDG_STATE_HOME/auto-mode/session-scope/`, one file per session ID,
+  so the scope survives a reload of the mod and a `--resume` of the session. A subagent's worktree
+  belongs to its session.
+- `globs` owns every path that matches one of `paths`; a leading `~/` is the home directory. A glob
+  that covers every worktree, such as `.worktrees/**`, defeats the containment check, and the file
+  warns about any glob that names `.worktrees`.
+- `atc` reads the record that atc publishes for each session it spawns, found through an environment
+  variable that atc sets. atc owns the record's format, and the agent cannot extend it. A session
+  without a record gets nothing from this source.
+
+No source can hand a task the default branch, or `main`, `master`, `trunk` or `develop` when the
+default branch is unknown. `/tmp` is scratch space that every task owns.
 
 ## Decision
 

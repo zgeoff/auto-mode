@@ -1127,3 +1127,100 @@ test('it identifies a subprocess failure without copying the exception', async (
     'auto-mode action unavailable: manual approval retained; subprocess failure',
   ]);
 });
+
+test('it records a finished scope-creating Bash call with its result', async ($, on) => {
+  let invocation: unknown;
+  let stdin = '';
+
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('classic.SessionStart', () => ({}));
+
+  on('tool.call', () => ({
+    result: { stdout: 'https://github.com/dev/app/pull/3\n', stderr: '' },
+    text: 'https://github.com/dev/app/pull/3\n',
+  }));
+
+  on('process.run', (_api, e) => {
+    invocation = e;
+    stdin = e.init?.stdin ?? '';
+
+    return {
+      value: {
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    };
+  });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    source: 'startup',
+    session_id: 'session-1',
+    cwd: '/repo',
+    transcript_path: '/repo/transcript.jsonl',
+  });
+
+  const result = await $.tool.call({
+    tool: 'Bash',
+    tool_use_id: 'call-1',
+    command: 'gh pr create --fill',
+  });
+
+  expect(result).toMatchObject({ text: 'https://github.com/dev/app/pull/3\n' });
+
+  expect(invocation).toMatchObject({
+    argv: ['auto-mode', 'record'],
+    init: { timeoutMs: 8000, stdin: expect.any(String) },
+  });
+
+  expect(JSON.parse(stdin)).toStrictEqual({
+    sessionID: 'session-1',
+    cwd: '/repo',
+    startedAt: expect.any(Number),
+    command: 'gh pr create --fill',
+    resultText: 'https://github.com/dev/app/pull/3\n',
+  });
+});
+
+test('it records nothing for a Bash call that cannot create scope or a call that was denied', async ($, on) => {
+  let calls = 0;
+
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('classic.SessionStart', () => ({}));
+
+  on('tool.call', (_api, e) =>
+    e.command === 'git checkout -b x'
+      ? { deny: 'no' }
+      : { result: { stdout: '', stderr: '' }, text: '' },
+  );
+
+  on('process.run', () => {
+    calls += 1;
+
+    return {
+      value: {
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    };
+  });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    source: 'startup',
+    session_id: 'session-1',
+    cwd: '/repo',
+    transcript_path: '/repo/transcript.jsonl',
+  });
+
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'call-1', command: 'bun test' });
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'call-2', command: 'git checkout -b x' });
+
+  expect(calls).toBe(0);
+});

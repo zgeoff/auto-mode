@@ -215,7 +215,7 @@ test('it drops a bad registry entry with one diagnostic line and loads the other
 
   expect(config.scopeSources).toStrictEqual({
     cwd: { kind: 'cwd' },
-    scratch: { kind: 'globs', paths: ['~/scratch/**'] },
+    scratch: { kind: 'globs', paths: [join(homedir(), 'scratch/**')] },
   });
 
   expect(config.warnings).toStrictEqual([
@@ -376,4 +376,35 @@ test('it defaults the denial budget to 3 in a row and 20 per session', async () 
 
   expect(config.denialBudget).toStrictEqual({ consecutive: 3, perSession: 20 });
   expect(DEFAULT_CONFIG.denialBudget).toStrictEqual({ consecutive: 3, perSession: 20 });
+});
+
+test('it runs the cwd and session sources when the file has no scope sources', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { onFailure: 'defer' } }));
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.scopeSources).toStrictEqual({
+    cwd: { kind: 'cwd' },
+    session: { kind: 'session' },
+  });
+});
+
+test('it warns about a registry without the cwd source and a glob over worktrees', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({
+      scopeSources: { all: { kind: 'globs', paths: ['/repo/.worktrees/**', '/scratch/**'] } },
+    }),
+  );
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.warnings).toStrictEqual([
+    `${ctx.configFile}: scopeSources has no cwd entry, so the task owns only what the other sources name`,
+    `${ctx.configFile}: scopeSources glob /repo/.worktrees/** covers worktrees that other tasks own`,
+  ]);
 });

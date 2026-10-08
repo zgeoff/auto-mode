@@ -62,28 +62,32 @@ a reload.
 ## Task scope
 
 The task scope is the set of worktrees, branches, PRs and remotes that the task owns. It is the
-union of these sources:
+union of pluggable scope sources behind one interface in auto-mode's core: given the action's
+context, a source answers with scope facts (worktrees, branches, PRs, path globs) or nothing.
+Configuration chooses which sources run.
 
 - The cwd scope: the worktree that holds the action's current directory, and its branch unless that
   branch is the default branch.
-- The home worktree: the worktree that holds the session's first current directory, and its branch
-  unless that branch is the default branch.
-- What the session created: worktrees and branches recorded from the session's own allowed actions,
-  and PRs whose head branch is in scope.
+- What the session created: worktrees and branches the session's own calls made, and PRs whose head
+  branch is in scope. The mod reports each finished call that can create one, and auto-mode keeps
+  what it made on disk per session ID, because the mod's memory does not survive a reload.
 - The checkout's remotes.
 - Static path globs in auto-mode's configuration that every task owns, such as a scratch directory.
   A glob that covers every worktree, such as `.worktrees/**`, defeats the check.
-- A scope file that atc writes in auto-mode's state directory, keyed by worktree path. It lists
-  extra worktrees, their branches, and PRs. atc writes it at spawn and may extend it during the
-  task. The agent cannot write it, because the file is outside the task scope and Policy Tampering
-  covers it.
+- atc's general session record. atc publishes one record per session it spawns, outside anything the
+  agent can write, and names its location in an environment variable. The record lists the workspace
+  atc prepared and its branch, plus extra worktrees, branches and PRs; a trusted caller may extend
+  it through atc during the task. atc owns the record's format, and auto-mode reads it through an
+  adapter. A session without a record gets nothing from this source.
 
-The user-named grant is the fifth source and the only one decided per call. When the last direct
-user message contains the exact target (a path, a branch name, a PR number), the containment check
-hands the call to the judge. The judge allows the call only when the user, in that message, asks for
-this action (write, delete, merge) on this target. A name alone is not consent: "port the formatter
-from the export-csv worktree" names a read source, not a write target. The grant never covers the
-default branch, a protected branch, or an `--admin` merge.
+No source can hand a task the default branch or a protected branch.
+
+The user-named grant is the last source and the only one decided per call. When the last direct user
+message contains the exact target (a path, a branch name, a PR number), the containment check hands
+the call to the judge. The judge allows the call only when the user, in that message, asks for this
+action (write, delete, merge) on this target. A name alone is not consent: "port the formatter from
+the export-csv worktree" names a read source, not a write target. The grant never covers the default
+branch, a protected branch, or an `--admin` merge.
 
 The containment check reads write targets only: paths written, moved or deleted, branches deleted or
 pushed, PRs merged, closed or commented on, and remotes pushed to. It reads `gh api graphql` as a

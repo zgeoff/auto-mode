@@ -62,6 +62,28 @@ nothing. It writes nothing only for a body it cannot read or a classifier failur
 Code's permission decision. The CLI and the mod ship together, so the CLI refuses a request in any
 other shape, and the mod keeps the prompt.
 
+## The scope record
+
+The mod also watches every finished tool call. When a Bash command can create a worktree, a branch,
+or a pull request (`git worktree add`, `git checkout -b`, `git switch -c`, `git branch <name>`,
+`gh pr create`), the mod runs `auto-mode record` after the call with this body on stdin:
+
+```json
+{
+  "sessionID": "ad77ccd8-9f10-4b62-b299-1a9f2f444c54",
+  "cwd": "/repo",
+  "startedAt": 1791429830731,
+  "command": "git worktree add .worktrees/fix -b fix",
+  "resultText": "Preparing worktree (new branch 'fix')"
+}
+```
+
+`cwd` is the directory before the call ran, and `resultText` is the output the agent read. The CLI
+writes nothing on stdout. It adds to the session's scope only what the call made: a worktree whose
+link file and a branch whose first reflog entry date from after `startedAt`, and a pull request
+whose head branch `gh pr view` reports. Any other Bash call and any denied call run no subprocess.
+The record body is strict, as the request is.
+
 Each optional task prompt has a 4,096-byte limit. An oversized task is omitted whole. If the
 complete request exceeds 100,000 bytes, the client omits optional tasks before it refuses the
 request. Policy, action, and current direct user evidence remain complete. The provider's token
