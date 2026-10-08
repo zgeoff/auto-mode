@@ -9,7 +9,7 @@ export interface ContainmentDeny {
   readonly findings: readonly ScopeFinding[];
 }
 
-export const CONTAINMENT_RULE = 'Outside Task Scope';
+const CONTAINMENT_RULE = 'Outside Task Scope';
 
 // A scope that cannot be read leaves the action to the classifier, the same as
 // a target the detector cannot resolve.

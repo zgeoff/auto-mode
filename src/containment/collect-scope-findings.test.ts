@@ -378,3 +378,94 @@ test('it leaves a target held in a variable or a substitution to the classifier'
 
   expect(findings).toStrictEqual([]);
 });
+
+test('it reads gh api with an explicit GET method as a read, even with fields', () => {
+  const ctx = setupTest();
+
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: ctx.worktree,
+      input: { command: 'gh api repos/dev/app/actions/runs -X GET -f per_page=100' },
+    },
+    ctx.scope,
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it leaves a push to a branch or remote held in a variable to the classifier', () => {
+  const ctx = setupTest();
+
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: ctx.worktree,
+      input: { command: 'git push origin "$BRANCH"; git push "$REMOTE" feature' },
+    },
+    ctx.scope,
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it leaves the directory unknown after a cd inside a pipeline', () => {
+  const ctx = setupTest();
+
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: ctx.worktree, input: { command: 'cd /opt | cat; rm local.txt' } },
+    ctx.scope,
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it finds no write in an ssh read or an scp download into the worktree', () => {
+  const ctx = setupTest();
+
+  const reads = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: ctx.worktree,
+      input: {
+        command:
+          'ssh host cat /etc/os-release; ssh host ls -l /var/log; scp host:/var/log/app.log ./app.log',
+      },
+    },
+    ctx.scope,
+  );
+
+  const writes = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: ctx.worktree,
+      input: { command: "ssh host 'cat a > b'; scp ./app.log host:/tmp/; scp host:/a ../other/a" },
+    },
+    ctx.scope,
+  );
+
+  expect(reads).toStrictEqual([]);
+
+  expect(writes).toStrictEqual([
+    { kind: 'remote-write', target: 'ssh' },
+    { kind: 'remote-write', target: 'scp' },
+    { kind: 'path', target: `${ctx.root}/.worktrees/other/a` },
+  ]);
+});
+
+test('it finds an IAM change but not an IAM read', () => {
+  const ctx = setupTest();
+
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: ctx.worktree,
+      input: {
+        command: 'aws iam get-user; aws iam list-roles; aws iam attach-user-policy --user-name x',
+      },
+    },
+    ctx.scope,
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'credential', target: 'aws iam attach-user-policy' }]);
+});

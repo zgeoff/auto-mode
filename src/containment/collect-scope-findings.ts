@@ -109,6 +109,7 @@ function collectCommandFindings(
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
   const findings: ScopeFinding[] = [];
+  const hasPipe = /(?<!\|)\|(?!\|)/u.test(command);
   let directory: string | null = cwd;
 
   for (const segment of splitShellCommand(command).segments) {
@@ -129,7 +130,11 @@ function collectCommandFindings(
       continue;
     }
 
-    if (name === 'cd') {
+    // A `cd` inside a pipeline runs in a subshell, and the segments do not
+    // keep their separators, so a pipe leaves the directory unknown.
+    if (name === 'cd' && hasPipe) {
+      directory = null;
+    } else if (name === 'cd') {
       directory = args[0] === undefined ? scope.home : resolvePath(directory, args[0], scope.home);
     } else {
       findings.push(...collectProgramFindings(name, args, directory, cwd, scope));
@@ -177,8 +182,18 @@ function collectProgramFindings(
     return collectKeygenFiles(args).flatMap((path) => resolve(path));
   }
 
-  if (name === 'ssh' || name === 'scp') {
-    return collectRemoteShellFindings(name, args);
+  if (name === 'ssh') {
+    return collectSSHFindings(args);
+  }
+
+  if (name === 'scp') {
+    const destination = collectSSHOperands(args).at(-1);
+
+    if (destination === undefined || /^[^/]+:/u.test(destination)) {
+      return destination === undefined ? [] : [{ kind: 'remote-write', target: 'scp' }];
+    }
+
+    return resolve(destination);
   }
 
   if (name === 'curl') {
@@ -234,23 +249,55 @@ function collectKeygenFiles(args: readonly string[]): string[] {
 const SSH_VALUE_OPTIONS = new Set(['-b', '-c', '-D', '-E', '-F', '-i', '-J', '-l', '-L', '-m']);
 const SSH_MORE_VALUE_OPTIONS = new Set(['-o', '-p', '-P', '-Q', '-R', '-S', '-W', '-w']);
 
-function collectRemoteShellFindings(name: string, args: readonly string[]): ScopeFinding[] {
+function collectSSHOperands(args: readonly string[]): string[] {
   const operands: string[] = [];
 
   for (let index = 0; index < args.length; index += 1) {
     const word = args[index] ?? '';
 
-    if (SSH_VALUE_OPTIONS.has(word) || SSH_MORE_VALUE_OPTIONS.has(word)) {
-      index += 1;
-    } else if (!word.startsWith('-')) {
+    if (operands.length > 0 || !word.startsWith('-')) {
       operands.push(word);
+    } else if (SSH_VALUE_OPTIONS.has(word) || SSH_MORE_VALUE_OPTIONS.has(word)) {
+      index += 1;
     }
   }
 
-  const reachesHost =
-    name === 'ssh' ? operands.length > 0 : operands.some((word) => /^[^/]+:/u.test(word));
+  return operands;
+}
 
-  return reachesHost ? [{ kind: 'remote-write', target: name }] : [];
+const SSH_READS = new Set([
+  'cat',
+  'df',
+  'du',
+  'free',
+  'head',
+  'hostname',
+  'id',
+  'journalctl',
+  'ls',
+  'ps',
+  'pwd',
+  'stat',
+  'tail',
+  'uname',
+  'uptime',
+  'whoami',
+]);
+
+// A remote command that is one read-only program, with no shell operators,
+// changes nothing on the host. Every other remote session counts as a write.
+function collectSSHFindings(args: readonly string[]): ScopeFinding[] {
+  const [host, ...remote] = collectSSHOperands(args);
+
+  if (host === undefined) {
+    return [];
+  }
+
+  const command = remote.join(' ');
+  const [program] = command.trim().split(/\s+/u);
+  const isRead = SSH_READS.has(program ?? '') && !/[;&|<>`]|\$\(/u.test(command);
+
+  return isRead ? [] : [{ kind: 'remote-write', target: 'ssh' }];
 }
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
@@ -365,7 +412,7 @@ function collectPushFindings(
     findings.push({ kind: 'branch', target: '--all' });
   }
 
-  if (remote !== undefined && !isOwnedRemote(remote, scope)) {
+  if (remote !== undefined && !isUnresolved(remote) && !isOwnedRemote(remote, scope)) {
     findings.push({ kind: 'remote-write', target: remote });
   }
 
@@ -376,12 +423,21 @@ function collectPushFindings(
     const named = destination.replace(/^refs\/heads\//u, '');
     const branch = named === 'HEAD' ? currentBranch : named;
 
-    if (branch !== null && !branch.startsWith('refs/tags/') && !scope.branches.includes(branch)) {
+    if (
+      branch !== null &&
+      !isUnresolved(branch) &&
+      !branch.startsWith('refs/tags/') &&
+      !scope.branches.includes(branch)
+    ) {
       findings.push({ kind: 'branch', target: branch });
     }
   }
 
   return findings;
+}
+
+function isUnresolved(word: string): boolean {
+  return /[$`]/u.test(word);
 }
 
 function isOwnedRemote(remote: string, scope: Readonly<OwnedScope>): boolean {
@@ -481,10 +537,12 @@ function collectGhAPIFindings(
   }
 
   const methodIndex = args.findIndex((word) => word === '-X' || word === '--method');
-  const method = methodIndex === -1 ? 'GET' : (args[methodIndex + 1] ?? '').toUpperCase();
+  const method = methodIndex === -1 ? null : (args[methodIndex + 1] ?? '').toUpperCase();
   const hasFields = args.some((word) => /^(?:-f|-F|--field|--raw-field|--input)$/u.test(word));
 
-  if (!hasFields && method === 'GET') {
+  // `gh api` sends fields as a POST body unless the method is GET, which turns
+  // them into query parameters.
+  if (method === 'GET' || (method === null && !hasFields)) {
     return [];
   }
 
@@ -506,6 +564,9 @@ function collectGhAPIFindings(
   return [{ kind: isCredential ? 'credential' : 'remote-write', target: `gh api ${endpoint}` }];
 }
 
+const IAM_WRITE =
+  /^(?:add|attach|change|create|deactivate|delete|detach|enable|put|remove|reset|set|tag|untag|update|upload)-/u;
+
 function findProgramFinding(name: string, args: readonly string[]): ScopeFinding | null {
   const joined = args.join(' ');
 
@@ -513,7 +574,7 @@ function findProgramFinding(name: string, args: readonly string[]): ScopeFinding
     return { kind: 'credential', target: `op ${args[0] ?? ''} ${args[1] ?? ''}` };
   }
 
-  if (name === 'aws' && args[0] === 'iam') {
+  if (name === 'aws' && args[0] === 'iam' && IAM_WRITE.test(args[1] ?? '')) {
     return { kind: 'credential', target: `aws iam ${args[1] ?? ''}` };
   }
 
