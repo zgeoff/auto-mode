@@ -1,33 +1,48 @@
-import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { expect, mock, onTestFinished, test } from 'bun:test';
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { HttpResponse, http } from 'msw';
-import * as z from 'zod';
+import { http } from 'msw';
+import { decisionAnswers } from '../mocks/decision-answers.ts';
+import { DECISION_URL } from '../mocks/handlers.ts';
 import { server } from '../mocks/node.ts';
+import { sendDecisionReply } from '../mocks/send-decision-reply.ts';
 import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { classifyAction } from './classify-action.ts';
-import { DEFAULT_CONFIG } from './config/config.ts';
 
-async function setupTest(): Promise<{ readonly dir: string; readonly settings: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-classify-action-'));
+// Each test's host carries its own scratch paths, because the default treats every
+// path under /tmp, which usually holds this temp root, as scratch space.
+async function setupTest(): Promise<{ readonly dir: string }> {
+  const created = await mkdtemp(join(tmpdir(), 'auto-mode-classify-action-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const settings = join(dir, 'settings.json');
+  const dir = await realpath(created);
 
-  await writeFile(settings, '{}');
+  // The checkout search walks up from the cwd and would stop at any .git
+  // above the temp root, so the repo is a checkout of its own.
+  runGit(dir, ['init', '-q', '-b', 'main', join(dir, 'repo')]);
 
-  return { dir, settings };
+  return { dir };
 }
 
 test('it allows a read-only tool in the local tier', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    buildMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/a.ts' } }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { host: { env: {}, home: ctx.dir } },
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Read',
+      toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts') },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
   );
 
   expect(outcome).toStrictEqual({
@@ -43,12 +58,16 @@ test('it gives no verdict for an escalated action when the model tier is skipped
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: '/repo',
+      cwd: join(ctx.dir, 'repo'),
       toolName: 'Bash',
-      toolInput: { command: 'touch /repo/a.ts' },
+      toolInput: { command: `touch ${join(ctx.dir, 'repo', 'a.ts')}` },
     }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { host: { env: {}, home: ctx.dir }, localOnly: true },
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
   expect(outcome).toStrictEqual({
@@ -63,28 +82,50 @@ test('it sends a local allowance to the model tier when configured deny rules ex
   const ctx = await setupTest();
 
   await writeFile(
-    ctx.settings,
+    join(ctx.dir, 'settings.json'),
     JSON.stringify({ autoMode: { hard_deny: ['Never read the private key'] } }),
   );
 
   const outcome = await classifyAction(
-    buildMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/key.pem' } }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { host: { env: {}, home: ctx.dir }, localOnly: true },
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Read',
+      toolInput: { file_path: join(ctx.dir, 'repo', 'key.pem') },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
-  expect(outcome.status).toBe('skipped');
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    decidingStage: 'local',
+    note: 'Read needs the model tier, which this run skipped',
+    status: 'skipped',
+  });
 });
 
 test('it fails closed on unreadable Claude settings when configured to deny', async () => {
   const ctx = await setupTest();
 
-  await writeFile(ctx.settings, 'not json {');
+  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
 
   const outcome = await classifyAction(
-    buildMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/a.ts' } }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings, onFailure: 'deny' },
-    { host: { env: {}, home: ctx.dir } },
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Read',
+      toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts') },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+      onFailure: 'deny',
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
   );
 
   expect(outcome).toStrictEqual({
@@ -104,50 +145,59 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
 test('it denies an uncertain Jev decision with the rule, its fixed reason, and the safer-path instruction', async () => {
   const ctx = await setupTest();
 
-  server.use(
-    http.post('https://decision.test/v1/systemone', async (info) => {
-      const json: unknown = await info.request.json();
-
-      const body = z.object({ questions: z.record(z.string(), z.unknown()) }).parse(json);
-
-      const answers = Object.fromEntries(
-        Object.keys(body.questions).map((key) => [
-          key,
-          {
-            type: 'choice',
-            choice: 'ask',
-            confidence: 1,
-            probabilities: { allow: 0, block: 0, ask: 1 },
-          },
-        ]),
-      );
-
-      return HttpResponse.json({ model: 'jev-1.13.0', answers, usage: { input_tokens: 400 } });
-    }),
-  );
-
-  const outcome = await classifyAction(
-    buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'make deploy' } }),
-    {
-      ...DEFAULT_CONFIG,
-      provider: {
-        ...DEFAULT_CONFIG.provider,
-        baseURL: 'https://decision.test',
-        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
-      },
-      claudeSettingsPath: ctx.settings,
-    },
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
-  );
-
-  expect(outcome.verdict).toStrictEqual({
-    kind: 'deny',
-    rule: 'Data Exfiltration',
-    reason:
-      'The supplied evidence cannot rule out sending sensitive data, such as credentials or private code, off the machine. No instruction or configuration clears this rule. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+  decisionAnswers.set('rule_0', {
+    type: 'choice',
+    choice: 'ask',
+    confidence: 1,
+    probabilities: { allow: 0, block: 0, ask: 1 },
   });
 
-  expect(outcome.status).toBe('deny');
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make deploy' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+      minConfidence: 0.8,
+    }),
+    { host: { env: { TYPESAFE_API_KEY: 'test-key' }, home: ctx.dir, scratchPaths: [] } },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Data Exfiltration',
+      reason:
+        'The supplied evidence cannot rule out sending sensitive data, such as credentials or private code, off the machine. No instruction or configuration clears this rule. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+    },
+    decidingStage: 'jev',
+    note: expect.toStartWith('jev-1.13.0: deny ('),
+    status: 'deny',
+    diagnostics: {
+      contributors: [
+        {
+          choice: 'ask',
+          confidence: 1,
+          probability: 1,
+          rule: 'Data Exfiltration',
+          source: 'shipped',
+          tier: 'hard',
+        },
+      ],
+      elapsedMs: expect.toBeNumber(),
+      failureReason: null,
+      keyResolved: true,
+      keySource: 'environment',
+      minConfidence: 0.8,
+      requestBytes: expect.toBeNumber(),
+      stage: 'response',
+      status: 'deny',
+    },
+  });
 });
 
 test('it ends a failure reason with a full stop before the safer-path instruction', async () => {
@@ -155,77 +205,104 @@ test('it ends a failure reason with a full stop before the safer-path instructio
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: '/repo',
+      cwd: join(ctx.dir, 'repo'),
       toolName: 'Bash',
-      toolInput: { command: 'touch /repo/a.ts' },
+      toolInput: { command: `touch ${join(ctx.dir, 'repo', 'a.ts')}` },
     }),
-    {
-      ...DEFAULT_CONFIG,
-      provider: { ...DEFAULT_CONFIG.provider, apiKeyEnv: 'AUTO_MODE_UNSET_TEST_KEY' },
-      claudeSettingsPath: ctx.settings,
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
       onFailure: 'deny',
-    },
-    { host: { env: {}, home: ctx.dir } },
+      minConfidence: 0.8,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
   );
 
-  expect(outcome.verdict).toStrictEqual({
-    kind: 'deny',
-    rule: 'Classifier Unavailable',
-    reason:
-      'jev-1.13.0 unavailable: no API key: set the configured environment variable or key command. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Classifier Unavailable',
+      reason:
+        'jev-1.13.0 unavailable: no API key: set the configured environment variable or key command. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+    },
+    decidingStage: 'jev',
+    note: 'jev-1.13.0 unavailable: no API key: set the configured environment variable or key command',
+    status: 'failure',
+    unavailable: true,
+    diagnostics: {
+      contributors: [],
+      elapsedMs: expect.toBeNumber(),
+      failureReason: null,
+      keyResolved: false,
+      keySource: 'none',
+      minConfidence: 0.8,
+      requestBytes: null,
+      stage: 'credential',
+      status: 'failure',
+    },
   });
 });
 
 test('it denies a write outside the task scope before a configured allow, Jev, or the judge can clear it', async () => {
   const ctx = await setupTest();
 
-  let requests = 0;
+  const received = mock();
+
+  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  runGit(ctx.dir, [
+    '-C',
+    join(ctx.dir, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/feature',
+    '-b',
+    'feature',
+  ]);
 
   await writeFile(
-    ctx.settings,
+    join(ctx.dir, 'settings.json'),
     JSON.stringify({
       autoMode: { allow: ['Removing any worktree under .worktrees/ is routine cleanup.'] },
     }),
   );
 
   server.use(
-    http.post('https://decision.test/v1/systemone', () => {
-      requests += 1;
+    http.post(DECISION_URL, (info) => {
+      received();
 
-      return HttpResponse.json({ model: 'jev-1.13.0', answers: {}, usage: { input_tokens: 1 } });
+      return sendDecisionReply(info);
     }),
   );
 
-  const judge = { ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' };
-
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: '/repo/.worktrees/feature',
+      cwd: join(ctx.dir, 'repo', '.worktrees', 'feature'),
       toolName: 'Bash',
       toolInput: { command: 'git worktree remove --force ../other' },
     }),
-    {
-      ...DEFAULT_CONFIG,
-      provider: { ...judge, apiKeyEnv: 'AUTO_MODE_UNSET_TEST_KEY' },
-      judge,
-      claudeSettingsPath: ctx.settings,
-    },
-    { host: { env: {}, home: ctx.dir } },
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+    }),
+    { host: { env: { TYPESAFE_API_KEY: 'test-key' }, home: ctx.dir, scratchPaths: [] } },
   );
 
   expect(outcome).toStrictEqual({
     verdict: {
       kind: 'deny',
       rule: 'Outside Task Scope',
-      reason:
-        "This action writes outside the task scope: path /repo/.worktrees/other. The task owns the worktree /repo/.worktrees/feature. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.",
+      reason: `This action writes outside the task scope: path ${join(ctx.dir, 'repo', '.worktrees', 'other')}. The task owns the worktree ${join(ctx.dir, 'repo', '.worktrees', 'feature')} and the branch feature. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
     },
     decidingStage: 'containment',
-    note: 'denied by the containment check: /repo/.worktrees/other',
+    note: `denied by the containment check: ${join(ctx.dir, 'repo', '.worktrees', 'other')}`,
     status: 'deny',
   });
 
-  expect(requests).toBe(0);
+  expect(received).not.toHaveBeenCalled();
 });
 
 test('it passes a target it cannot resolve to the classifier', async () => {
@@ -233,16 +310,24 @@ test('it passes a target it cannot resolve to the classifier', async () => {
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: '/repo/.worktrees/feature',
+      cwd: join(ctx.dir, 'repo', '.worktrees', 'feature'),
       toolName: 'Bash',
       toolInput: { command: 'rm -rf "$OTHER_WORKTREE"' },
     }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { host: { env: {}, home: ctx.dir }, localOnly: true },
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
-  expect(outcome.decidingStage).toBe('local');
-  expect(outcome.status).toBe('skipped');
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    decidingStage: 'local',
+    note: 'Bash needs the model tier, which this run skipped',
+    status: 'skipped',
+  });
 });
 
 test('it denies a local regenerable-output removal in another worktree', async () => {
@@ -250,19 +335,28 @@ test('it denies a local regenerable-output removal in another worktree', async (
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: '/repo',
+      cwd: join(ctx.dir, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'rm -rf .worktrees/other/dist' },
     }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { host: { env: {}, home: ctx.dir }, localOnly: true },
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
-  expect([outcome.decidingStage, outcome.status, outcome.note]).toStrictEqual([
-    'containment',
-    'deny',
-    'denied by the containment check: /repo/.worktrees/other/dist',
-  ]);
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outside Task Scope',
+      reason: `This action writes outside the task scope: path ${join(ctx.dir, 'repo', '.worktrees', 'other', 'dist')}. The task owns the worktree ${join(ctx.dir, 'repo')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
+    },
+    decidingStage: 'containment',
+    note: `denied by the containment check: ${join(ctx.dir, 'repo', '.worktrees', 'other', 'dist')}`,
+    status: 'deny',
+  });
 });
 
 test('it still allows a local regenerable-output removal inside the task worktree', async () => {
@@ -270,12 +364,16 @@ test('it still allows a local regenerable-output removal inside the task worktre
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: '/repo',
+      cwd: join(ctx.dir, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'rm -rf dist' },
     }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { host: { env: {}, home: ctx.dir }, localOnly: true },
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
   expect(outcome).toStrictEqual({
@@ -291,57 +389,107 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: '/repo',
+      cwd: join(ctx.dir, 'repo'),
       toolName: 'Write',
       toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
     }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { host: { env: {}, home: ctx.dir }, localOnly: true },
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
   expect(outcome).toStrictEqual({
     verdict: { kind: 'allow' },
     decidingStage: 'bypass',
-    note: 'allowed by the edit bypass: /repo/src/a.ts',
+    note: `allowed by the edit bypass: ${join(ctx.dir, 'repo', 'src', 'a.ts')}`,
     status: 'allow',
   });
 });
 
-test('it sends an in-scope edit to the model tier when it writes an env file or a secret', async () => {
+test('it sends an in-scope edit to the model tier when it writes an env file', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: join(ctx.dir, 'repo', '.env'), content: 'PORT=3000' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    decidingStage: 'local',
+    note: 'Write needs the model tier, which this run skipped',
+    status: 'skipped',
+  });
+});
+
+test('it sends an in-scope edit to the model tier when it writes a secret', async () => {
   const ctx = await setupTest();
 
   const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2RlZmdo'].join('');
 
-  const outcomes = await Promise.all(
-    [
-      { file_path: '/repo/.env', content: 'PORT=3000' },
-      { file_path: '/repo/src/token.ts', content: `export const token = '${token}';` },
-    ].map((toolInput) =>
-      classifyAction(
-        buildMockActionRequest({ cwd: '/repo', toolName: 'Write', toolInput }),
-        { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-        { host: { env: {}, home: ctx.dir }, localOnly: true },
-      ),
-    ),
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Write',
+      toolInput: {
+        file_path: join(ctx.dir, 'repo', 'src', 'token.ts'),
+        content: `export const token = '${token}';`,
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
-  expect(outcomes.map((outcome) => outcome.status)).toStrictEqual(['skipped', 'skipped']);
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    decidingStage: 'local',
+    note: 'Write needs the model tier, which this run skipped',
+    status: 'skipped',
+  });
 });
 
 test('it sends an in-scope edit to the model tier when the user configured deny entries', async () => {
   const ctx = await setupTest();
 
-  await writeFile(ctx.settings, JSON.stringify({ autoMode: { soft_deny: ['Never edit a.ts'] } }));
+  await writeFile(
+    join(ctx.dir, 'settings.json'),
+    JSON.stringify({ autoMode: { soft_deny: ['Never edit a.ts'] } }),
+  );
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: '/repo',
+      cwd: join(ctx.dir, 'repo'),
       toolName: 'Write',
-      toolInput: { file_path: '/repo/a.ts', content: 'x' },
+      toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts'), content: 'x' },
     }),
-    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { host: { env: {}, home: ctx.dir }, localOnly: true },
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+    }),
+    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
-  expect(outcome.status).toBe('skipped');
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    decidingStage: 'local',
+    note: 'Write needs the model tier, which this run skipped',
+    status: 'skipped',
+  });
 });

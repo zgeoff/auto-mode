@@ -94,13 +94,45 @@ test('it disables importing Claude settings when the path is null', async () => 
   expect(rules).toStrictEqual({ environment: [], allow: [], soft_deny: [], hard_deny: [] });
 });
 
-test.each(['{', '{"autoMode":{"allow":"not-an-array"}}'])(
-  'it refuses malformed settings %s',
-  async (body) => {
-    const ctx = await setupTest();
+test('it refuses settings it cannot read', async () => {
+  const ctx = await setupTest();
 
-    await writeFile(ctx.path, body);
+  await mkdir(ctx.path);
 
-    await expect(loadClaudeRules(ctx.path, { env: {}, home: ctx.dir })).toReject();
-  },
-);
+  expect(loadClaudeRules(ctx.path, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    'Claude settings unreadable',
+  );
+});
+
+test('it refuses settings that are not JSON', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.path, '{');
+
+  expect(loadClaudeRules(ctx.path, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    'Claude settings contain invalid JSON',
+  );
+});
+
+test('it refuses autoMode settings whose allow entries are not a list', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.path,
+    JSON.stringify({
+      autoMode: {
+        environment: ['Host: example.test'],
+        allow: 'Local cleanup is routine',
+        soft_deny: ['Require a named database'],
+        hard_deny: ['Never send keys'],
+      },
+    }),
+  );
+
+  expect(loadClaudeRules(ctx.path, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    'Claude autoMode settings are invalid',
+  );
+});

@@ -75,7 +75,7 @@ export async function classifyAction(
 
   const scope = await tryLoadTaskScope(request, config, host);
 
-  const containment = scope === null ? null : checkContainment(request, scope);
+  const containment = scope === null ? null : checkContainment(request, scope, host.scratchPaths);
 
   if (containment !== null) {
     const guidance = await tryReadDenialGuidance();
