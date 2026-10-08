@@ -1,1 +1,3 @@
 .claude-plugin/types/
+hooks/test-utils/
+hooks/**/*.claude-check.ts

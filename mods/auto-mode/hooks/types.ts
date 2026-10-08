@@ -38,7 +38,7 @@ interface CallInput {
   readonly command?: unknown;
 }
 
-interface CallResult {
+export interface CallResult {
   readonly result?: unknown;
   readonly deny?: string;
   readonly text?: string;
