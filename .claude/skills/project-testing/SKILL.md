@@ -59,12 +59,17 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
   `bun run test` rebuilds `dist/`, so a bare `bun test e2e/…` runs whatever `dist/` already holds.
   The child runs the binary that `node -p process.execPath` resolves, because a version manager's
   node shim needs the user's HOME.
+- `src/cli.test.ts` spawns `dist/cli.js` the same way to check the stop-signal wiring. Its config
+  names `test-utils/run-stub-key-helper.ts` as the key command, so the child waits for a key and
+  sends no request; the test sends the signal once the helper reports on its socket.
 
 ## Git
 
 - Run git through `runGit(dir, args)` from `test-utils/run-git.ts`. It gives the child a minimal
   environment: `PATH`, `HOME` set to the temp dir, no global or system config, and a fixed identity.
   A pre-push hook's `GIT_DIR` and the host's signing or template config cannot reach it.
+- `readPullRequest` takes the gh command to run. `test-utils/run-stub-gh.ts` stands in for
+  `gh pr view`: its first argument names a JSON file of the pull requests it holds.
 
 ## Time
 

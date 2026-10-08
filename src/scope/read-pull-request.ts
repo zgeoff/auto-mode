@@ -5,13 +5,21 @@ export interface PullRequestFacts {
   readonly createdAt: number;
 }
 
+interface ReadPullRequestOptions {
+  readonly command?: readonly [string, ...string[]];
+  readonly timeoutMs?: number;
+}
+
 const LOOKUP_TIMEOUT_MS = 5000;
 
 // `repository` is `host/owner/name`, which `gh --repo` accepts as written.
 export function readPullRequest(
   repository: string,
   number: number,
+  options: Readonly<ReadPullRequestOptions> = {},
 ): Promise<PullRequestFacts | null> {
+  const [file, ...prefix] = options.command ?? ['gh'];
+
   const args = [
     'pr',
     'view',
@@ -23,9 +31,9 @@ export function readPullRequest(
   ];
 
   return new Promise((resolve) => {
-    const child = spawn('gh', [...args, '--jq', '[.headRefName, .createdAt] | @tsv'], {
+    const child = spawn(file, [...prefix, ...args, '--jq', '[.headRefName, .createdAt] | @tsv'], {
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: LOOKUP_TIMEOUT_MS,
+      timeout: options.timeoutMs ?? LOOKUP_TIMEOUT_MS,
     });
 
     let output = '';

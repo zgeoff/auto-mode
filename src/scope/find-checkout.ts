@@ -1,5 +1,5 @@
 import { readFile, stat } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, parse, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
 
 export interface Checkout {
@@ -12,6 +12,7 @@ const GIT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
 export async function findCheckout(
   start: string,
   env: HostEnvironment['env'],
+  stopDir: string = parse(start).root,
 ): Promise<Checkout | null> {
   if (GIT_OVERRIDES.some((name) => env[name] !== undefined)) {
     return null;
@@ -30,7 +31,7 @@ export async function findCheckout(
         : { worktree: directory, commonDir: await findCommonDir(gitDir) };
     }
 
-    if (dirname(directory) === directory) {
+    if (dirname(directory) === directory || directory === stopDir) {
       return null;
     }
   }
