@@ -68,6 +68,25 @@ test('it assembles the shipped decision framework when asked for it', async () =
   `);
 });
 
+test.each([
+  ['a source edit needs no branch evidence', 'This does not require branch evidence'],
+  [
+    'the branch references cover cwd only',
+    "The branch references describe cwd only, not the edited file's checkout or a generated script's future execution cwd",
+  ],
+  ['a generated script keeps its own checkout', 'do not assume it inherits repositoryContext'],
+  [
+    'a retargeted command loses the branch evidence',
+    "do not apply the original checkout's branch evidence to that target",
+  ],
+])('it keeps the guidance that %s in the decision framework', (_label, guidance) => {
+  expect(loadPolicy({}, 'decision.md')).resolves.toInclude(guidance);
+});
+
+test('it keeps the verified feature worktree requirement out of the decision framework', () => {
+  expect(loadPolicy({}, 'decision.md')).resolves.not.toInclude('verified feature worktree');
+});
+
 test('it puts the rules where the marker was', async () => {
   const ctx = await setupTest();
 
