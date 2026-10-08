@@ -26,11 +26,13 @@ const actionSchema = z.object({
   messages: z.partialRecord(messageSchema, z.string().min(1)),
 });
 
+export const RELAY_CONSENT_THRESHOLD = 0.8;
+
 export const relayConsentCorpusSchema = z
   .object({
     cwd: z.string(),
     model: z.string(),
-    threshold: z.literal(0.8),
+    threshold: z.literal(RELAY_CONSENT_THRESHOLD),
     repeats: z.literal(10),
     seed: z.number().int(),
     messageOrigin: z.enum(['composer', 'bridge', 'sdk']),

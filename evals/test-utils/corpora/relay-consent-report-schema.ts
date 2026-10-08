@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { relayConsentSegmentSchema } from '../../../scripts/relay-consent-segment-schema.ts';
 import { recordedAnswerSchema } from './recorded-answer-schema.ts';
 
 const common = {
@@ -30,12 +31,6 @@ const failedSchema = z.object({
   answers: z.null(),
 });
 
-const segmentSchema = z.object({
-  firstIndex: z.number().int(),
-  lastIndex: z.number().int(),
-  stoppedEarly: z.enum(['failure', 'model-changed']).nullable(),
-});
-
 export const relayConsentReportSchema = z.object({
   model: z.string(),
   threshold: z.number(),
@@ -44,7 +39,7 @@ export const relayConsentReportSchema = z.object({
   redirects: z.string(),
   planned: z.number().int(),
   attemptedRequests: z.number().int(),
-  segments: z.array(segmentSchema),
+  segments: z.array(relayConsentSegmentSchema),
   corpusHash: z.string(),
   controlHashes: z.record(z.string(), z.string()),
   summary: z.unknown(),

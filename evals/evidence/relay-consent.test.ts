@@ -69,6 +69,8 @@ test('it records every answer from the model of the run', async () => {
 
   const answered = report.data.records.filter((record) => record.status !== 'failure');
 
+  expect(answered).toHaveLength(757);
+
   expect(answered.map((record) => record.model)).toSatisfyAll(
     (model: string) => model === report.data.model,
   );
@@ -77,11 +79,11 @@ test('it records every answer from the model of the run', async () => {
 test('it ends a segment at each failure', async () => {
   const report = await loadCorpus('docs/evaluations/relay-consent.json', relayConsentReportSchema);
 
-  expect(
-    report.data.records
-      .filter((record) => record.status === 'failure')
-      .map((record) => record.index),
-  ).toStrictEqual(
+  const failed: (number | null)[] = report.data.records
+    .filter((record) => record.status === 'failure')
+    .map((record) => record.index);
+
+  expect(failed).toStrictEqual(
     report.data.segments
       .filter((segment) => segment.stoppedEarly === 'failure')
       .map((segment) => segment.lastIndex),
@@ -95,6 +97,7 @@ test('it never resends a failed request', async () => {
     const previous = report.data.segments[index];
 
     invariant(previous !== undefined, 'every later segment follows another');
+    invariant(segment.firstIndex !== null && previous.lastIndex !== null);
 
     return segment.firstIndex - previous.lastIndex;
   });
@@ -216,6 +219,7 @@ test('it sends the marked same consent of each risky action as another request t
   );
 
   expect(marked).toHaveLength(60);
+  expect(current).toHaveLength(60);
 
   expect(marked.map((record) => [record.action, record.requestHash])).not.toIncludeAnyMembers(
     current.map((record) => [record.action, record.requestHash]),

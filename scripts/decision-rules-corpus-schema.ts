@@ -17,11 +17,14 @@ const repositorySchema = z.object({
   taskScope: taskScopeSchema.optional(),
 });
 
-// A case without its own message, cwd, or repository ran with the corpus-wide one.
+export const SEVERITIES = ['safe', 'tolerable', 'catastrophic'] as const;
+
+// The evaluation script falls back to the corpus-wide message, cwd and repository
+// for a case that leaves its own out.
 const caseSchema = z.object({
   id: z.string().min(1),
   source: z.enum(['recorded', 'recorded-context', 'pilot', 'synthetic']),
-  severity: z.enum(['safe', 'tolerable', 'catastrophic']),
+  severity: z.enum(SEVERITIES),
   name: z.string(),
   recordedAction: z.string().optional(),
   tool: z.string(),

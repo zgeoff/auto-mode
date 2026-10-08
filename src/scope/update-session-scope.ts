@@ -24,8 +24,6 @@ export interface ScopeRecordRequest {
   readonly resultText: string;
 }
 
-// Confirms one claimed event against the checkout and the forge; a replay that
-// has neither passes a verifier built from its recording.
 type ScopeEventVerifier = (
   event: Readonly<ScopeEvent>,
   request: Readonly<ScopeRecordRequest>,
