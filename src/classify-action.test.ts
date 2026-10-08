@@ -37,7 +37,11 @@ test('it allows a read-only tool in the local tier', async () => {
       toolName: 'Read',
       toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts') },
     }),
-    buildMockConfig(),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
   );
 
@@ -58,7 +62,11 @@ test('it gives no verdict for an escalated action when the model tier is skipped
       toolName: 'Bash',
       toolInput: { command: `touch ${join(ctx.dir, 'repo', 'a.ts')}` },
     }),
-    buildMockConfig(),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
@@ -84,7 +92,11 @@ test('it sends a local allowance to the model tier when configured deny rules ex
       toolName: 'Read',
       toolInput: { file_path: join(ctx.dir, 'repo', 'key.pem') },
     }),
-    buildMockConfig({ claudeSettingsPath: join(ctx.dir, 'settings.json') }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
@@ -107,7 +119,12 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
       toolName: 'Read',
       toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts') },
     }),
-    buildMockConfig({ claudeSettingsPath: join(ctx.dir, 'settings.json'), onFailure: 'deny' }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+      onFailure: 'deny',
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
   );
 
@@ -141,7 +158,12 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
       toolName: 'Bash',
       toolInput: { command: 'make deploy' },
     }),
-    buildMockConfig({ provider: { apiKeyEnv: 'TYPESAFE_API_KEY' } }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+      minConfidence: 0.8,
+    }),
     { host: { env: { TYPESAFE_API_KEY: 'test-key' }, home: ctx.dir, scratchPaths: [] } },
   );
 
@@ -153,9 +175,28 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
         'The supplied evidence cannot rule out sending sensitive data, such as credentials or private code, off the machine. No instruction or configuration clears this rule. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
     },
     decidingStage: 'jev',
-    note: expect.toBeString(),
+    note: expect.toStartWith('jev-1.13.0: deny ('),
     status: 'deny',
-    diagnostics: expect.toBeObject(),
+    diagnostics: {
+      contributors: [
+        {
+          choice: 'ask',
+          confidence: 1,
+          probability: 1,
+          rule: 'Data Exfiltration',
+          source: 'shipped',
+          tier: 'hard',
+        },
+      ],
+      elapsedMs: expect.toBeNumber(),
+      failureReason: null,
+      keyResolved: true,
+      keySource: 'environment',
+      minConfidence: 0.8,
+      requestBytes: expect.toBeNumber(),
+      stage: 'response',
+      status: 'deny',
+    },
   });
 });
 
@@ -169,8 +210,11 @@ test('it ends a failure reason with a full stop before the safer-path instructio
       toolInput: { command: `touch ${join(ctx.dir, 'repo', 'a.ts')}` },
     }),
     buildMockConfig({
-      provider: { model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
       onFailure: 'deny',
+      minConfidence: 0.8,
     }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
   );
@@ -183,10 +227,20 @@ test('it ends a failure reason with a full stop before the safer-path instructio
         'jev-1.13.0 unavailable: no API key: set the configured environment variable or key command. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
     },
     decidingStage: 'jev',
-    note: expect.toBeString(),
+    note: 'jev-1.13.0 unavailable: no API key: set the configured environment variable or key command',
     status: 'failure',
     unavailable: true,
-    diagnostics: expect.toBeObject(),
+    diagnostics: {
+      contributors: [],
+      elapsedMs: expect.toBeNumber(),
+      failureReason: null,
+      keyResolved: false,
+      keySource: 'none',
+      minConfidence: 0.8,
+      requestBytes: null,
+      stage: 'credential',
+      status: 'failure',
+    },
   });
 });
 
@@ -230,8 +284,8 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
       toolInput: { command: 'git worktree remove --force ../other' },
     }),
     buildMockConfig({
-      provider: { apiKeyEnv: 'TYPESAFE_API_KEY' },
-      judge: { apiKeyEnv: 'TYPESAFE_API_KEY' },
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
     { host: { env: { TYPESAFE_API_KEY: 'test-key' }, home: ctx.dir, scratchPaths: [] } },
@@ -260,7 +314,11 @@ test('it passes a target it cannot resolve to the classifier', async () => {
       toolName: 'Bash',
       toolInput: { command: 'rm -rf "$OTHER_WORKTREE"' },
     }),
-    buildMockConfig(),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
@@ -281,7 +339,11 @@ test('it denies a local regenerable-output removal in another worktree', async (
       toolName: 'Bash',
       toolInput: { command: 'rm -rf .worktrees/other/dist' },
     }),
-    buildMockConfig(),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
@@ -306,7 +368,11 @@ test('it still allows a local regenerable-output removal inside the task worktre
       toolName: 'Bash',
       toolInput: { command: 'rm -rf dist' },
     }),
-    buildMockConfig(),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
@@ -327,7 +393,11 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
       toolName: 'Write',
       toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
     }),
-    buildMockConfig({ claudeSettingsPath: null }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
@@ -348,7 +418,11 @@ test('it sends an in-scope edit to the model tier when it writes an env file', a
       toolName: 'Write',
       toolInput: { file_path: join(ctx.dir, 'repo', '.env'), content: 'PORT=3000' },
     }),
-    buildMockConfig(),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
@@ -374,7 +448,11 @@ test('it sends an in-scope edit to the model tier when it writes a secret', asyn
         content: `export const token = '${token}';`,
       },
     }),
-    buildMockConfig(),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 
@@ -400,7 +478,11 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
       toolName: 'Write',
       toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts'), content: 'x' },
     }),
-    buildMockConfig({ claudeSettingsPath: join(ctx.dir, 'settings.json') }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+    }),
     { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
   );
 

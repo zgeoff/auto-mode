@@ -1,8 +1,7 @@
-import type { ActionRequest, DecisionContext } from '../../src/request/types.ts';
+import type * as z from 'zod';
+import type { actionRequestSchema } from '../../src/request/action-request-schema.ts';
 import { buildMockActionRequest } from './build-mock-action-request.ts';
 import { buildMockDecisionContext } from './build-mock-decision-context.ts';
-
-type ModRequest = Omit<ActionRequest, 'decisionContext'> & { readonly context: DecisionContext };
 
 type ModRequestOverrides = Omit<
   NonNullable<Parameters<typeof buildMockActionRequest>[0]>,
@@ -13,9 +12,12 @@ type ModRequestOverrides = Omit<
 
 // The body the mod writes to the CLI's stdin: an action request whose task
 // context sits under `context`.
-export function buildMockModRequest(overrides: ModRequestOverrides = {}): ModRequest {
+export function buildMockModRequest(
+  overrides: ModRequestOverrides = {},
+): z.input<typeof actionRequestSchema> {
   const { context, ...rest } = overrides;
   const request = buildMockActionRequest(rest);
+  const decisionContext = buildMockDecisionContext(context);
 
   return {
     sessionID: request.sessionID,
@@ -23,6 +25,9 @@ export function buildMockModRequest(overrides: ModRequestOverrides = {}): ModReq
     cwd: request.cwd,
     toolName: request.toolName,
     toolInput: request.toolInput,
-    context: buildMockDecisionContext(context),
+    context: {
+      ...decisionContext,
+      omittedTaskContext: [...decisionContext.omittedTaskContext],
+    },
   };
 }

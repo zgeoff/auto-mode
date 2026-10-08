@@ -2,6 +2,7 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as z from 'zod';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { writeActionDiagnostic } from './write-action-diagnostic.ts';
 
@@ -27,7 +28,6 @@ test('it appends private correlated records without action, task, credential, or
 
   const path = join(ctx.dir, 'private', 'actions.jsonl');
   const host = { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir };
-  const startedAt = Date.now();
 
   await writeActionDiagnostic(payload, { invocationID: 'invocation', status: 'started' }, host);
 
@@ -54,7 +54,7 @@ test('it appends private correlated records without action, task, credential, or
   ).toStrictEqual([
     {
       schemaVersion: 3,
-      time: expect.toSatisfy((time: string) => Date.parse(time) >= startedAt - 1000),
+      time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
       actionHash: 'f5d171dc69611257',
@@ -67,7 +67,7 @@ test('it appends private correlated records without action, task, credential, or
     },
     {
       schemaVersion: 3,
-      time: expect.toSatisfy((time: string) => Date.parse(time) >= startedAt - 1000),
+      time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
       actionHash: 'f5d171dc69611257',
@@ -81,6 +81,27 @@ test('it appends private correlated records without action, task, credential, or
   ]);
 
   expect(text).not.toInclude('private-');
+});
+
+test('it stamps a record with the time it was written', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.dir, 'actions.jsonl');
+  const before = Date.now();
+
+  await writeActionDiagnostic(
+    buildMockActionRequest(),
+    { invocationID: 'invocation', status: 'started' },
+    { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir },
+  );
+
+  const after = Date.now();
+
+  const text = await readFile(path, 'utf8');
+
+  const record = z.object({ time: z.iso.datetime() }).parse(JSON.parse(text));
+
+  expect(Date.parse(record.time)).toBeWithin(before, after + 1);
 });
 
 test('it creates the record file readable by its owner only', async () => {

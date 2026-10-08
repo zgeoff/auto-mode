@@ -7,12 +7,14 @@ test('it keys the same action the same way whatever its key order', () => {
     cwd: '/repo',
     toolName: 'Bash',
     toolInput: { command: 'git push', other: 1 },
+    decisionContext: { lastDirectUserMessage: null },
   });
 
   const second = buildMockActionRequest({
     cwd: '/repo',
     toolName: 'Bash',
     toolInput: { other: 1, command: 'git push' },
+    decisionContext: { lastDirectUserMessage: null },
   });
 
   expect(buildRetryKey(first)).toBe(buildRetryKey(second));
@@ -23,12 +25,14 @@ test('it keys the same command in another directory as another action', () => {
     cwd: '/repo/a',
     toolName: 'Bash',
     toolInput: { command: 'rm x' },
+    decisionContext: { lastDirectUserMessage: null },
   });
 
   const there = buildMockActionRequest({
     cwd: '/repo/b',
     toolName: 'Bash',
     toolInput: { command: 'rm x' },
+    decisionContext: { lastDirectUserMessage: null },
   });
 
   expect(buildRetryKey(here)).not.toBe(buildRetryKey(there));
@@ -39,6 +43,7 @@ test('it keys a Bash retry with a new description or timeout as the same action'
     cwd: '/repo',
     toolName: 'Bash',
     toolInput: { command: 'git push', description: 'push the branch' },
+    decisionContext: { lastDirectUserMessage: null },
   });
 
   const retried = buildMockActionRequest({
@@ -50,6 +55,7 @@ test('it keys a Bash retry with a new description or timeout as the same action'
       timeout: 60_000,
       run_in_background: true,
     },
+    decisionContext: { lastDirectUserMessage: null },
   });
 
   expect(buildRetryKey(retried)).toBe(buildRetryKey(denied));
@@ -60,12 +66,14 @@ test('it keys a retry of another tool with a new description as another action',
     cwd: '/repo',
     toolName: 'mcp__deploy__run',
     toolInput: { target: 'staging', description: 'deploy the branch' },
+    decisionContext: { lastDirectUserMessage: null },
   });
 
   const retried = buildMockActionRequest({
     cwd: '/repo',
     toolName: 'mcp__deploy__run',
     toolInput: { target: 'staging', description: 'publish the work' },
+    decisionContext: { lastDirectUserMessage: null },
   });
 
   expect(buildRetryKey(retried)).not.toBe(buildRetryKey(denied));

@@ -101,6 +101,13 @@ test('it refuses a traditional evaluator in Jev-only mode before a local allowan
 test('it accepts a local allowance through Jev-only mode', async () => {
   const ctx = await setupTest();
 
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({ decision: { classifier: 'jev' } }),
+  );
+
   const payload = buildMockModRequest({
     cwd: ctx.repo,
     toolName: 'Read',
@@ -114,6 +121,25 @@ test('it accepts a local allowance through Jev-only mode', async () => {
 
   expect(result.exitCode).toBe(0);
   expect(JSON.parse(result.stdout.toString())).toStrictEqual({ decision: 'allow' });
+});
+
+test('it allows a local allowance without a model call when a provider key is configured', async () => {
+  const ctx = await setupTest();
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Read',
+    toolInput: { file_path: join(ctx.repo, 'file.ts') },
+  });
+
+  const result = await Bun.$`bun ${ctx.cli} run --explain < ${Response.json(payload)}`
+    .env({ ...ctx.env, TYPESAFE_API_KEY: 'cli-test-key' })
+    .quiet()
+    .nothrow();
+
+  expect(result.exitCode).toBe(0);
+  expect(JSON.parse(result.stdout.toString())).toStrictEqual({ decision: 'allow' });
+  expect(result.stderr.toString()).toBe('auto-mode: allowed by Read-only actions (local)\n');
 });
 
 test('it refuses an evaluation deadline outside Jev-only mode', async () => {
@@ -224,7 +250,11 @@ test('it writes nothing for a recorded mod request the local tier will not judge
 test('it explains its reasoning on stderr when asked, never on stdout', async () => {
   const ctx = await setupTest();
 
-  const payload = { ...readFixture('mod-request-regenerable'), cwd: ctx.repo };
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+  });
 
   const result = await Bun.$`bun ${ctx.cli} run --local-only --explain < ${Response.json(payload)}`
     .env(ctx.env)
@@ -238,7 +268,11 @@ test('it explains its reasoning on stderr when asked, never on stdout', async ()
 test('it stays silent on stderr when not asked to explain', async () => {
   const ctx = await setupTest();
 
-  const payload = { ...readFixture('mod-request-regenerable'), cwd: ctx.repo };
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+  });
 
   const result = await Bun.$`bun ${ctx.cli} run --local-only < ${Response.json(payload)}`
     .env(ctx.env)
@@ -298,7 +332,9 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
 
   await writeFile(
     join(ctx.dir, 'auto-mode', 'config.json'),
-    JSON.stringify({ decision: { onFailure: 'deny' } }),
+    JSON.stringify({
+      decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
+    }),
   );
 
   await writeFile(join(ctx.dir, 'settings.json'), 'private-test-value {');
@@ -392,17 +428,16 @@ test('it keeps a fail-closed denial when the safer-path guidance is missing', as
   const copy = join(ctx.dir, 'package');
 
   await cp(join(root, 'src'), join(copy, 'src'), { recursive: true });
-
-  for (const file of ['classifier.md', 'decision.md', 'rules.md']) {
-    await cp(join(root, 'policy', file), join(copy, 'policy', file));
-  }
-
+  await cp(join(root, 'policy'), join(copy, 'policy'), { recursive: true });
+  await rm(join(copy, 'policy', 'denial.md'));
   await symlink(join(root, 'node_modules'), join(copy, 'node_modules'));
   await mkdir(join(ctx.dir, 'auto-mode'));
 
   await writeFile(
     join(ctx.dir, 'auto-mode', 'config.json'),
-    JSON.stringify({ decision: { onFailure: 'deny' } }),
+    JSON.stringify({
+      decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
+    }),
   );
 
   await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
@@ -436,7 +471,9 @@ test('it denies three actions in a row, then leaves the fourth to the user and s
 
   await writeFile(
     join(ctx.dir, 'auto-mode', 'config.json'),
-    JSON.stringify({ decision: { onFailure: 'deny' } }),
+    JSON.stringify({
+      decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
+    }),
   );
 
   await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
@@ -574,7 +611,9 @@ test('it denies a retry of the action just denied without asking the classifier'
 
   await writeFile(
     join(ctx.dir, 'auto-mode', 'config.json'),
-    JSON.stringify({ decision: { onFailure: 'deny' } }),
+    JSON.stringify({
+      decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
+    }),
   );
 
   await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
@@ -623,7 +662,9 @@ test('it keeps the denial count across processes for a resumed session', async (
 
   await writeFile(
     join(ctx.dir, 'auto-mode', 'config.json'),
-    JSON.stringify({ decision: { onFailure: 'deny', denialBudget: { consecutive: 1 } } }),
+    JSON.stringify({
+      decision: { onFailure: 'deny', denialBudget: { consecutive: 1, perSession: 20 } },
+    }),
   );
 
   await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
@@ -644,14 +685,43 @@ test('it keeps the denial count across processes for a resumed session', async (
     context: { agentID: null },
   });
 
-  await Bun.$`bun ${ctx.cli} run < ${Response.json(first)}`.env(ctx.env).quiet().nothrow();
+  const earlier = await Bun.$`bun ${ctx.cli} run < ${Response.json(first)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
 
   const result = await Bun.$`bun ${ctx.cli} run < ${Response.json(resumed)}`
     .env(ctx.env)
     .quiet()
     .nothrow();
 
+  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+
+  const last = log.trim().split('\n').at(-1);
+
+  invariant(last !== undefined, 'the resumed run wrote a diagnostic record');
+
+  expect(JSON.parse(earlier.stdout.toString())).toStrictEqual({
+    decision: 'deny',
+    reason:
+      '[Classifier Unavailable] Claude settings unreadable. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step. This is the last denial before auto-mode asks the user. Stop now, without finishing the rest of the task, and tell the user what consent you need to continue.',
+  });
+
   expect(result.stdout.toString()).toBe('');
+
+  expect(JSON.parse(last)).toStrictEqual({
+    schemaVersion: 3,
+    time: expect.toBeDateString(),
+    invocationID: expect.toBeString(),
+    sessionHash: expect.toBeString(),
+    actionHash: expect.toBeString(),
+    status: 'failure',
+    verdict: 'defer',
+    decidingStage: 'budget',
+    denials: { consecutive: 0, session: 0 },
+    escalation: true,
+    diagnostics: null,
+  });
 });
 
 test("it keeps a subagent's denial count apart from its session's", async () => {
@@ -661,7 +731,9 @@ test("it keeps a subagent's denial count apart from its session's", async () => 
 
   await writeFile(
     join(ctx.dir, 'auto-mode', 'config.json'),
-    JSON.stringify({ decision: { onFailure: 'deny', denialBudget: { consecutive: 1 } } }),
+    JSON.stringify({
+      decision: { onFailure: 'deny', denialBudget: { consecutive: 1, perSession: 20 } },
+    }),
   );
 
   await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
@@ -685,6 +757,59 @@ test("it keeps a subagent's denial count apart from its session's", async () => 
   await Bun.$`bun ${ctx.cli} run < ${Response.json(main)}`.env(ctx.env).quiet().nothrow();
 
   const result = await Bun.$`bun ${ctx.cli} run < ${Response.json(child)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(JSON.parse(result.stdout.toString())).toStrictEqual({
+    decision: 'deny',
+    reason:
+      '[Classifier Unavailable] Claude settings unreadable. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step. This is the last denial before auto-mode asks the user. Stop now, without finishing the rest of the task, and tell the user what consent you need to continue.',
+  });
+});
+
+test("it leaves the session's denial streak alone when its subagent is denied in between", async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({
+      decision: { onFailure: 'deny', denialBudget: { consecutive: 2, perSession: 20 } },
+    }),
+  );
+
+  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+
+  const first = buildMockModRequest({
+    sessionID: 'cli-session',
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'git push a' },
+    context: { agentID: null },
+  });
+
+  const child = buildMockModRequest({
+    sessionID: 'cli-session',
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'git push b' },
+    context: { agentID: 'subagent' },
+  });
+
+  const second = buildMockModRequest({
+    sessionID: 'cli-session',
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'git push c' },
+    context: { agentID: null },
+  });
+
+  await Bun.$`bun ${ctx.cli} run < ${Response.json(first)}`.env(ctx.env).quiet().nothrow();
+  await Bun.$`bun ${ctx.cli} run < ${Response.json(child)}`.env(ctx.env).quiet().nothrow();
+
+  const result = await Bun.$`bun ${ctx.cli} run < ${Response.json(second)}`
     .env(ctx.env)
     .quiet()
     .nothrow();
