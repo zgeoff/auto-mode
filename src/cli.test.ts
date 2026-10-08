@@ -3,18 +3,36 @@ import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/pr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
+import * as z from 'zod';
 
 const CLI = join(import.meta.dirname, 'cli.ts');
 
-// XDG_CONFIG_HOME points at an empty directory so the run never reads the
-// operator's own config, and every run that could reach a model passes
-// --local-only or fails before the request.
-async function setupTest(): Promise<{ readonly dir: string; readonly env: NodeJS.ProcessEnv }> {
+// XDG_CONFIG_HOME isolates the operator's config. No run reaches a model: each passes --local-only,
+// fails before the request, or uses the denying setup, whose unreadable Claude settings deny every
+// escalated action under onFailure deny.
+async function setupTest(
+  options: { readonly denying?: boolean; readonly denialBudget?: Readonly<object> } = {},
+): Promise<{ readonly dir: string; readonly env: NodeJS.ProcessEnv }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-cli-'));
 
   onTestFinished(async () => {
     await rm(dir, { recursive: true, force: true });
   });
+
+  if (options.denying === true) {
+    await mkdir(join(dir, 'auto-mode'));
+    await writeFile(join(dir, 'settings.json'), 'not json {');
+
+    await writeFile(
+      join(dir, 'auto-mode', 'config.json'),
+      JSON.stringify({
+        decision: {
+          onFailure: 'deny',
+          ...(options.denialBudget === undefined ? {} : { denialBudget: options.denialBudget }),
+        },
+      }),
+    );
+  }
 
   return {
     dir,
@@ -263,7 +281,7 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
   expect(verdict).toStrictEqual({
     decision: 'deny',
     reason:
-      '[Classifier Unavailable] Claude settings unreadable. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+      '[Classifier Unavailable] Claude settings unreadable. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step. Denials left before auto-mode asks the user: 2.',
   });
 
   expect(result.stderr.toString()).not.toInclude('private-test-value');
@@ -329,7 +347,8 @@ test('it keeps a fail-closed denial when the safer-path guidance is missing', as
 
   expect(JSON.parse(result.stdout.toString())).toStrictEqual({
     decision: 'deny',
-    reason: '[Classifier Unavailable] Claude settings unreadable.',
+    reason:
+      '[Classifier Unavailable] Claude settings unreadable. Denials left before auto-mode asks the user: 2.',
   });
 });
 
@@ -370,4 +389,119 @@ test('it warns on stderr when the config file uses the old keys', async () => {
 
   expect(JSON.parse(result.stdout.toString())).toStrictEqual({ decision: 'allow' });
   expect(result.stderr.toString()).toInclude('run `auto-mode config migrate`');
+});
+
+test('it denies three actions in a row, then leaves the fourth to the user and starts over', async () => {
+  const ctx = await setupTest({ denying: true });
+
+  const outputs: string[] = [];
+
+  for (const command of ['git push a', 'git push b', 'git push c', 'git push d', 'git push e']) {
+    const payload = buildRequest('Bash', { command });
+
+    const result = await Bun.$`bun ${CLI} run < ${new Response(payload)}`
+      .env(ctx.env)
+      .quiet()
+      .nothrow();
+
+    outputs.push(result.stdout.toString());
+  }
+
+  const budgetTexts = outputs.map(
+    (output) => /user: \d\.|This is the last denial|^$/u.exec(output)?.[0] ?? output,
+  );
+
+  expect(budgetTexts).toStrictEqual([
+    'user: 2.',
+    'user: 1.',
+    'This is the last denial',
+    '',
+    'user: 2.',
+  ]);
+
+  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+
+  const recordSchema = z.object({
+    status: z.string(),
+    decidingStage: z.string().nullable(),
+    denials: z.object({ consecutive: z.number(), session: z.number() }).nullable(),
+    escalation: z.boolean(),
+  });
+
+  const finals = log
+    .trim()
+    .split('\n')
+    .map((line) => recordSchema.parse(JSON.parse(line)))
+    .filter((record) => record.status !== 'started')
+    .map((record) => [record.decidingStage, record.denials, record.escalation]);
+
+  expect(finals).toStrictEqual([
+    ['jev', { consecutive: 1, session: 1 }, false],
+    ['jev', { consecutive: 2, session: 2 }, false],
+    ['jev', { consecutive: 3, session: 3 }, false],
+    ['budget', { consecutive: 0, session: 0 }, true],
+    ['jev', { consecutive: 1, session: 1 }, false],
+  ]);
+});
+
+test('it denies a retry of the action just denied without asking the classifier', async () => {
+  const ctx = await setupTest({ denying: true });
+
+  const payload = buildRequest('Bash', { command: 'git push origin main' });
+
+  await Bun.$`bun ${CLI} run < ${new Response(payload)}`.env(ctx.env).quiet().nothrow();
+
+  // Readable settings now would let the classifier tier run; the retry must not reach it.
+  await writeFile(join(ctx.dir, 'settings.json'), '{}');
+
+  const retry = await Bun.$`bun ${CLI} run < ${new Response(payload)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  const verdict = z.object({ reason: z.string() }).parse(JSON.parse(retry.stdout.toString()));
+
+  expect(verdict.reason).toStartWith('[Classifier Unavailable] Claude settings unreadable.');
+  expect(verdict.reason).toEndWith('Denials left before auto-mode asks the user: 1.');
+
+  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+
+  expect(log.trim().split('\n').at(-1)).toInclude('"decidingStage":"retry"');
+});
+
+test('it keeps the count across processes for a resumed session and apart for a subagent', async () => {
+  const ctx = await setupTest({ denying: true, denialBudget: { consecutive: 1 } });
+
+  const main = buildRequest('Bash', { command: 'git push a' });
+  const resumed = buildRequest('Bash', { command: 'git push b' });
+
+  const child = JSON.stringify({
+    sessionID: 'cli-session',
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'git push c' },
+    context: {
+      agentID: 'subagent',
+      originalUserTask: null,
+      delegatedTask: null,
+      lastDirectUserMessage: null,
+      omittedTaskContext: [],
+    },
+  });
+
+  const first = await Bun.$`bun ${CLI} run < ${new Response(main)}`.env(ctx.env).quiet().nothrow();
+
+  const fromChild = await Bun.$`bun ${CLI} run < ${new Response(child)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  const second = await Bun.$`bun ${CLI} run < ${new Response(resumed)}`
+    .env(ctx.env)
+    .quiet()
+    .nothrow();
+
+  expect(first.stdout.toString()).toInclude('This is the last denial');
+  expect(fromChild.stdout.toString()).toInclude('This is the last denial');
+  expect(second.stdout.toString()).toBe('');
 });

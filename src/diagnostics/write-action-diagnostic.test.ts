@@ -43,6 +43,9 @@ test('it appends private correlated records without action, task, credential, or
     invocationID: 'invocation',
     status: 'deny',
     verdict: 'deny',
+    decidingStage: 'jev',
+    denials: { consecutive: 1, session: 1 },
+    escalation: false,
   });
 
   const text = await readFile(ctx.path, 'utf8');
@@ -59,21 +62,27 @@ test('it appends private correlated records without action, task, credential, or
 
   expect(records).toMatchObject([
     {
-      schemaVersion: 2,
+      schemaVersion: 3,
       invocationID: 'invocation',
       sessionHash,
       actionHash,
       status: 'started',
       verdict: null,
+      decidingStage: null,
+      denials: null,
+      escalation: false,
       diagnostics: null,
     },
     {
-      schemaVersion: 2,
+      schemaVersion: 3,
       invocationID: 'invocation',
       sessionHash,
       actionHash,
       status: 'deny',
       verdict: 'deny',
+      decidingStage: 'jev',
+      denials: { consecutive: 1, session: 1 },
+      escalation: false,
       diagnostics: null,
     },
   ]);
