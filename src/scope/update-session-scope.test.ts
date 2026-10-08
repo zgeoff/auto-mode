@@ -34,6 +34,7 @@ test('it records a worktree and its branch made during the call and writes them 
   runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
 
   const request = buildMockScopeRecordRequest({
+    sessionID: 'session-1',
     cwd: ctx.repo,
     startedAt,
     command: 'git worktree add .worktrees/x -b feat/x',
@@ -48,7 +49,7 @@ test('it records a worktree and its branch made during the call and writes them 
   });
 
   const written = await loadSessionScope(
-    resolveSessionScopePath(join(ctx.root, 'state'), request.sessionID),
+    resolveSessionScopePath(join(ctx.root, 'state'), 'session-1'),
   );
 
   expect(scope).toStrictEqual({
@@ -404,4 +405,98 @@ test('it records every PR one call created', async () => {
       { repository: 'github.com/dev/app', number: 4, head: 'feat/b' },
     ],
   });
+});
+
+test('it records the worktree and branch that the check of a claimed event confirms', async () => {
+  const ctx = await setupTest();
+
+  const scope = await updateSessionScope(
+    buildMockScopeRecordRequest({
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt: 1000,
+      command: 'git worktree add ../app-fix -b fix/a',
+      resultText: '',
+    }),
+    {
+      now: 1000,
+      stateDir: join(ctx.root, 'state'),
+      home: ctx.root,
+      env: {},
+      readPullRequest: makeStubPullRequestReader([]),
+      verifyEvent: () =>
+        Promise.resolve({
+          worktrees: [join(ctx.root, 'app-fix')],
+          branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+          pullRequests: [],
+        }),
+    },
+  );
+
+  expect(scope).toStrictEqual({
+    worktrees: [join(ctx.root, 'app-fix')],
+    branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+    pullRequests: [],
+  });
+});
+
+test('it writes the confirmed worktree and branch to the session scope', async () => {
+  const ctx = await setupTest();
+
+  await updateSessionScope(
+    buildMockScopeRecordRequest({
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt: 1000,
+      command: 'git worktree add ../app-fix -b fix/a',
+      resultText: '',
+    }),
+    {
+      now: 1000,
+      stateDir: join(ctx.root, 'state'),
+      home: ctx.root,
+      env: {},
+      readPullRequest: makeStubPullRequestReader([]),
+      verifyEvent: () =>
+        Promise.resolve({
+          worktrees: [join(ctx.root, 'app-fix')],
+          branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+          pullRequests: [],
+        }),
+    },
+  );
+
+  const written = await loadSessionScope(
+    resolveSessionScopePath(join(ctx.root, 'state'), 'session-1'),
+  );
+
+  expect(written).toStrictEqual({
+    worktrees: [join(ctx.root, 'app-fix')],
+    branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+    pullRequests: [],
+  });
+});
+
+test('it records nothing for a claimed event whose check fails', async () => {
+  const ctx = await setupTest();
+
+  const scope = await updateSessionScope(
+    buildMockScopeRecordRequest({
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt: 1000,
+      command: 'git worktree add ../app-fix -b fix/a',
+      resultText: '',
+    }),
+    {
+      now: 1000,
+      stateDir: join(ctx.root, 'state'),
+      home: ctx.root,
+      env: {},
+      readPullRequest: makeStubPullRequestReader([]),
+      verifyEvent: () => Promise.reject(new Error('the checkout is gone')),
+    },
+  );
+
+  expect(scope).toStrictEqual({ worktrees: [], branches: [], pullRequests: [] });
 });

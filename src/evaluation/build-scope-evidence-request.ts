@@ -1,11 +1,22 @@
 import type { OwnedScope, ScopeFinding } from '../containment/collect-scope-findings.ts';
 import type { DecisionRequest } from '../model/types.ts';
 
+interface ScopeEvidence {
+  readonly ownedWorktrees: readonly string[];
+  readonly ownedBranches: readonly string[];
+  readonly ownedPullRequests: readonly number[];
+  readonly findings: readonly ScopeFinding[];
+}
+
+export interface ScopeEvidenceRequest extends DecisionRequest {
+  readonly state: DecisionRequest['state'] & { readonly scopeEvidence?: ScopeEvidence };
+}
+
 export function buildScopeEvidenceRequest(
   request: DecisionRequest,
   scope: Readonly<OwnedScope>,
   findings: readonly ScopeFinding[],
-): DecisionRequest {
+): ScopeEvidenceRequest {
   if (findings.length === 0) {
     return request;
   }

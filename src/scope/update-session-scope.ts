@@ -24,6 +24,11 @@ export interface ScopeRecordRequest {
   readonly resultText: string;
 }
 
+type ScopeEventVerifier = (
+  event: Readonly<ScopeEvent>,
+  request: Readonly<ScopeRecordRequest>,
+) => Promise<SessionScope>;
+
 export interface ScopeRecordOptions {
   readonly now: number;
   readonly stateDir: string;
@@ -34,6 +39,7 @@ export interface ScopeRecordOptions {
     number: number,
   ) => Promise<PullRequestFacts | null>;
   readonly lockClock?: LockClock | undefined;
+  readonly verifyEvent?: ScopeEventVerifier | undefined;
 }
 
 // A Bash call runs for at most ten minutes, so a record that claims an older
@@ -79,7 +85,9 @@ async function tryVerifyScopeEvent(
   options: Readonly<ScopeRecordOptions>,
 ): Promise<SessionScope> {
   try {
-    return await verifyScopeEvent(event, request, options);
+    return await (options.verifyEvent === undefined
+      ? verifyScopeEvent(event, request, options)
+      : options.verifyEvent(event, request));
   } catch {
     return EMPTY_SESSION_SCOPE;
   }

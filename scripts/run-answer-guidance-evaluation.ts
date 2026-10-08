@@ -3,7 +3,6 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
-import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
 import { readHostEnvironment } from '../src/config/read-host-environment.ts';
@@ -13,6 +12,7 @@ import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
 import { loadRepositoryContext } from '../src/model/load-repository-context.ts';
 import { sendDecision } from '../src/model/send-decision.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
+import { answerGuidanceCorpusSchema } from './answer-guidance-corpus-schema.ts';
 
 async function main(): Promise<void> {
   const args = parseArgs({
@@ -31,17 +31,7 @@ async function main(): Promise<void> {
 
   const corpusText = await readFile(join(root, 'fixtures/answer-guidance/cases.json'), 'utf8');
 
-  const caseSchema = z.object({
-    pair: z.number().int(),
-    name: z.string(),
-    kind: z.enum(['safe', 'risk']),
-    tool: z.string(),
-    input: z.record(z.string(), z.unknown()),
-  });
-
-  const corpus = z
-    .object({ lastUserMessage: z.string(), cases: z.array(caseSchema).length(12) })
-    .parse(JSON.parse(corpusText));
+  const corpus = answerGuidanceCorpusSchema.parse(JSON.parse(corpusText));
 
   const config = await loadConfig();
 

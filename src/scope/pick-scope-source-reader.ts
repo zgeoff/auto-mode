@@ -1,6 +1,7 @@
 import type { ScopeSource } from '../config/config.ts';
 import type { HostEnvironment } from '../config/types.ts';
 import { buildAtcScopeFacts } from './build-atc-scope-facts.ts';
+import type { Checkout } from './find-checkout.ts';
 import { findCheckout } from './find-checkout.ts';
 import { loadAtcSessionRecord } from './load-atc-session-record.ts';
 import { loadSessionScope } from './load-session-scope.ts';
@@ -8,9 +9,14 @@ import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import type { ScopeFacts, ScopeSourceReader } from './types.ts';
 import { EMPTY_SCOPE_FACTS } from './types.ts';
 
+type CheckoutFinder = (path: string, env: HostEnvironment['env']) => Promise<Checkout | null>;
+
 // Each source answers from the action's context alone and never throws: a
 // source with nothing to say contributes no facts.
-export function pickScopeSourceReader(source: Readonly<ScopeSource>): ScopeSourceReader {
+export function pickScopeSourceReader(
+  source: Readonly<ScopeSource>,
+  findSourceCheckout: CheckoutFinder = findCheckout,
+): ScopeSourceReader {
   if (source.kind === 'cwd') {
     return (context) =>
       Promise.resolve(
@@ -61,7 +67,7 @@ export function pickScopeSourceReader(source: Readonly<ScopeSource>): ScopeSourc
     ]);
 
     const entries = await Promise.all(
-      [...paths].map((path) => findCommonDirEntry(path, context.env)),
+      [...paths].map((path) => findCommonDirEntry(path, context.env, findSourceCheckout)),
     );
 
     const commonDirs = new Map(entries);
@@ -76,8 +82,9 @@ export function pickScopeSourceReader(source: Readonly<ScopeSource>): ScopeSourc
 async function findCommonDirEntry(
   path: string,
   env: HostEnvironment['env'],
+  findSourceCheckout: CheckoutFinder,
 ): Promise<readonly [string, string | null]> {
-  const checkout = await findCheckout(path, env);
+  const checkout = await findSourceCheckout(path, env);
 
   return [path, checkout?.commonDir ?? null];
 }

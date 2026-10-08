@@ -6,6 +6,7 @@
   "include": [
     "src/**/*.ts",
     "test-utils/**/*.ts",
+    "evals/**/*.ts",
     "mocks/**/*.ts",
     "mods/auto-mode/hooks/**/*.ts",
     "scripts/**/*.ts",
