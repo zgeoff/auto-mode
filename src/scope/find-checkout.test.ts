@@ -97,10 +97,31 @@ test('it finds no checkout when the nearest .git file names no git directory', a
   expect(findCheckout(join(ctx.dir, 'app', 'lib'), {})).resolves.toBeNull();
 });
 
-test('it finds no checkout when the walk reaches the root without a .git', () => {
-  // A sandbox can place a .git above the system temp directory, so the walk
-  // starts at the root, the one directory every host shares.
-  expect(findCheckout('/', {})).resolves.toBeNull();
+test('it finds no checkout above the stop directory', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.dir, ['init', '--quiet', 'app']);
+
+  await mkdir(join(ctx.dir, 'app', 'notes', 'drafts'), { recursive: true });
+
+  expect(
+    findCheckout(join(ctx.dir, 'app', 'notes', 'drafts'), {}, join(ctx.dir, 'app', 'notes')),
+  ).resolves.toBeNull();
+});
+
+test('it finds a checkout in the stop directory itself', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.dir, ['init', '--quiet', 'app']);
+
+  await mkdir(join(ctx.dir, 'app', 'src'));
+
+  const checkout = await findCheckout(join(ctx.dir, 'app', 'src'), {}, join(ctx.dir, 'app'));
+
+  expect(checkout).toStrictEqual({
+    worktree: join(ctx.dir, 'app'),
+    commonDir: join(ctx.dir, 'app', '.git'),
+  });
 });
 
 test.each([['GIT_DIR'], ['GIT_WORK_TREE'], ['GIT_COMMON_DIR']])(
