@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
@@ -43,29 +44,32 @@ async function setupTest() {
     `node 24 runs this suite, not node ${runtime.version}`,
   );
 
-  // The child sends its decision request from outside this process, where the
-  // mock server cannot answer it, so a real listener receives it and never replies.
-  const arrived = Promise.withResolvers<undefined>();
+  // The key helper reports on this socket once it runs and holds its key back,
+  // so the CLI waits mid-evaluation and no request leaves the host.
+  const socketPath = join(dir, 'ready.sock');
+  const report = Promise.withResolvers<string>();
 
-  const decisionServer = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    fetch: () => {
-      arrived.resolve(undefined);
-
-      return new Promise<Response>(() => {});
-    },
+  const helperServer = createServer((socket) => {
+    report.resolve(text(socket));
   });
 
-  onTestFinished(() => decisionServer.stop(true));
+  helperServer.listen(socketPath);
+
+  await once(helperServer, 'listening');
+
+  onTestFinished(() => {
+    helperServer.close();
+
+    return once(helperServer, 'close');
+  });
 
   return {
     node: runtime.node,
     cli,
     dir,
     repo,
-    decisionURL: decisionServer.url.origin,
-    arrived: arrived.promise,
+    keyCommand: `"${process.execPath}" "${join(import.meta.dirname, '..', 'test-utils', 'run-stub-key-helper.ts')}" "${socketPath}"`,
+    helperReport: report.promise,
     env: {
       // the CLI starts git for the task scope, which it finds through PATH
       PATH: process.env['PATH'],
@@ -84,9 +88,6 @@ async function setupTest() {
 
       // the CLI reads Claude Code's settings.json under this directory
       CLAUDE_CONFIG_DIR: dir,
-
-      // the CLI sends no Jev request without a key; the request reaches only the local listener
-      TYPESAFE_API_KEY: 'cli-test-key',
     },
   };
 }
@@ -101,7 +102,7 @@ test.each([['SIGTERM'], ['SIGINT']] as const)(
     await writeFile(
       join(ctx.dir, 'auto-mode', 'config.json'),
       JSON.stringify({
-        classifiers: { jev: { baseURL: ctx.decisionURL } },
+        classifiers: { jev: { apiKeyCommand: ctx.keyCommand } },
         decision: { classifier: 'jev', onFailure: 'deny' },
       }),
     );
@@ -128,7 +129,7 @@ test.each([['SIGTERM'], ['SIGINT']] as const)(
       ),
     );
 
-    await ctx.arrived;
+    await ctx.helperReport;
 
     child.kill(signal);
 

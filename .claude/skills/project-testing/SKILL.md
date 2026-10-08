@@ -59,9 +59,9 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
   `bun run test` rebuilds `dist/`, so a bare `bun test e2e/…` runs whatever `dist/` already holds.
   The child runs the binary that `node -p process.execPath` resolves, because a version manager's
   node shim needs the user's HOME.
-- `src/cli.test.ts` spawns `dist/cli.js` the same way to check the stop-signal wiring. The child's
-  decision request comes from outside the test process, where MSW cannot answer it, so a `Bun.serve`
-  listener on loopback receives it and never replies.
+- `src/cli.test.ts` spawns `dist/cli.js` the same way to check the stop-signal wiring. Its config
+  names `test-utils/run-stub-key-helper.ts` as the key command, so the child waits for a key and
+  sends no request; the test sends the signal once the helper reports on its socket.
 
 ## Git
 
