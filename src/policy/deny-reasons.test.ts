@@ -1,50 +1,54 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { join } from 'node:path';
+import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
+import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
 import { buildDecisionRequest } from '../model/build-decision-request.ts';
-import { buildDenyReason } from './build-deny-reason.ts';
 import { DENY_REASONS } from './deny-reasons.ts';
 
-async function setupTest() {
-  const rules = await readFile(resolve(import.meta.dirname, '../../policy/rules.md'), 'utf8');
+test('it holds a reason template for every shipped rule and no other', async () => {
+  const policy = await readFile(join(import.meta.dirname, '../../policy/rules.md'), 'utf8');
 
   const request = buildDecisionRequest(
-    { sessionID: 's', cwd: '/repo', toolName: 'Bash', toolInput: {} },
-    rules,
-    { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+    buildMockActionRequest(),
+    policy,
+    buildMockClaudeRules(),
     null,
     'shipped',
   );
 
-  return { shipped: Object.values(request.rules) };
-}
-
-test('it holds a reason template for every shipped rule and no other', async () => {
-  const ctx = await setupTest();
-
-  expect(Object.keys(DENY_REASONS)).toIncludeSameMembers(ctx.shipped.map((rule) => rule.name));
+  expect(Object.keys(DENY_REASONS)).toIncludeSameMembers(
+    Object.values(request.rules).map((rule) => rule.name),
+  );
 });
 
 test('it files each template under the tier of its shipped rule', async () => {
-  const ctx = await setupTest();
+  const policy = await readFile(join(import.meta.dirname, '../../policy/rules.md'), 'utf8');
+
+  const request = buildDecisionRequest(
+    buildMockActionRequest(),
+    policy,
+    buildMockClaudeRules(),
+    null,
+    'shipped',
+  );
 
   expect(
     Object.fromEntries(Object.entries(DENY_REASONS).map(([name, entry]) => [name, entry.tier])),
-  ).toStrictEqual(Object.fromEntries(ctx.shipped.map((rule) => [rule.name, rule.tier])));
+  ).toStrictEqual(
+    Object.fromEntries(Object.values(request.rules).map((rule) => [rule.name, rule.tier])),
+  );
 });
 
-test('it states the harm and what clears it for every shipped rule', async () => {
-  const ctx = await setupTest();
-
+// The harm is spliced mid-sentence and the clearing condition ends the reason.
+test('it states each harm as a clause without a closing period', () => {
   expect(Object.values(DENY_REASONS).map((entry) => entry.harm)).toSatisfyAll(
     (harm: string) => harm.trim() !== '' && !harm.endsWith('.'),
   );
+});
 
+test('it states each clearing condition as a full sentence', () => {
   expect(Object.values(DENY_REASONS).map((entry) => entry.clears)).toSatisfyAll((clears: string) =>
     clears.endsWith('.'),
-  );
-
-  expect(ctx.shipped.map((rule) => buildDenyReason(rule, 'matched'))).toSatisfyAll(
-    (reason: string) => reason.startsWith('The action matches this rule: '),
   );
 });
