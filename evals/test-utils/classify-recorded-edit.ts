@@ -1,21 +1,20 @@
-import type { ContainmentDeny } from '../../src/containment/check-containment.ts';
-import { checkContainment } from '../../src/containment/check-containment.ts';
+import type { EditClassification } from '../../src/bypass/classify-edit.ts';
+import { tryClassifyEdit } from '../../src/bypass/try-classify-edit.ts';
 import { buildTaskScope } from '../../src/scope/build-task-scope.ts';
 import { pickScopeSourceReader } from '../../src/scope/pick-scope-source-reader.ts';
 import type { RecordedCall } from './build-stub-edit-file-reader.ts';
+import { buildStubEditFileReader } from './build-stub-edit-file-reader.ts';
+import type { RecordedRepository } from './check-cwd-containment.ts';
 
-export interface RecordedRepository {
-  readonly branch: string | null;
-  readonly defaultBranch: string | null;
-}
-
-// Checks a recorded call against the cwd scope its checkout gave it. The home
-// directory is the first two parts of the cwd, and the one remote has no URL,
-// so no pull request belongs to the task.
-export async function checkCwdContainment(
+// Classifies a recorded edit against the cwd scope its checkout gave it, with
+// the call's recording in place of the filesystem. The home directory is the
+// first two parts of the cwd.
+export async function classifyRecordedEdit(
   call: Readonly<RecordedCall>,
   repository: Readonly<RecordedRepository>,
-): Promise<ContainmentDeny | null> {
+): Promise<EditClassification | null> {
+  const home = call.cwd.split('/').slice(0, 3).join('/');
+
   const facts = await pickScopeSourceReader({ kind: 'cwd' })({
     env: {},
     sessionID: '',
@@ -25,20 +24,22 @@ export async function checkCwdContainment(
     branch: repository.branch,
     stateDir: '',
 
-    // Only the atc source writes a diagnostic, and the replay never reads through it.
+    // Only the atc source writes a diagnostic, and this reads the cwd source alone.
     stderr: { write: () => true },
   });
 
   const scope = buildTaskScope({
-    home: call.cwd.split('/').slice(0, 3).join('/'),
+    home,
     currentBranch: repository.branch,
     defaultBranch: repository.defaultBranch,
     remotes: [{ name: 'origin', url: '' }],
     facts: [facts],
   });
 
-  return checkContainment(
+  return tryClassifyEdit(
     { sessionID: '', cwd: call.cwd, toolName: call.tool, toolInput: call.input },
     scope,
+    { env: {}, home },
+    buildStubEditFileReader(call),
   );
 }

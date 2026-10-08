@@ -240,3 +240,42 @@ test('it writes no diagnostic when the session has no atc record', async () => {
 
   expect(write).not.toHaveBeenCalled();
 });
+
+test('it owns the atc branches whose checkout an injected lookup places in the action repository', async () => {
+  const ctx = await setupTest();
+
+  const recordPath = join(ctx.dir, 'record.json');
+
+  await writeFile(
+    recordPath,
+    JSON.stringify(
+      buildMockAtcSessionRecord({
+        session: 'atc-1',
+        scope: {
+          workspace: { path: '/w/app', branch: 'feat' },
+          branches: [
+            { name: 'later', repo: '/w/app' },
+            { name: 'elsewhere', repo: '/w/other' },
+          ],
+        },
+      }),
+    ),
+  );
+
+  const facts = await pickScopeSourceReader({ kind: 'atc' }, (path) =>
+    Promise.resolve({ worktree: path, commonDir: `${path}.git` }),
+  )(
+    buildMockScopeSourceContext({
+      commonDir: '/w/app.git',
+      atcRecordPath: recordPath,
+      atcSessionID: 'atc-1',
+    }),
+  );
+
+  expect(facts).toStrictEqual({
+    worktrees: ['/w/app'],
+    branches: ['feat', 'later'],
+    pullRequests: [],
+    pathGlobs: [],
+  });
+});

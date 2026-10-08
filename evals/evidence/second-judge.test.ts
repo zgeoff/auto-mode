@@ -74,7 +74,7 @@ test('it runs the guidance Jev variant with guidance', async () => {
 });
 
 test.each([['judge-glm'], ['judge-spark'], ['judge-claude-code']])(
-  'it judges in %s exactly the cases that a Jev variant asked about with every recorded answer an allow',
+  'it judges in %s three samples of exactly the cases that a Jev variant asked about with every recorded answer an allow',
   async (name) => {
     const [judge, baseline, guidance] = await Promise.all([
       loadCorpus(`docs/evaluations/second-judge/${name}.json`, judgeReportSchema),
@@ -92,9 +92,13 @@ test.each([['judge-glm'], ['judge-spark'], ['judge-claude-code']])(
       )
       .map((record) => record.case);
 
-    expect(new Set(judge.data.records.map((record) => record.case))).toStrictEqual(
-      new Set(eligible),
+    const expected = [...new Set(eligible)].flatMap((id) =>
+      [1, 2, 3].map((sample) => ({ case: id, sample })),
     );
+
+    expect(
+      judge.data.records.map((record) => ({ case: record.case, sample: record.sample })),
+    ).toIncludeSameMembers(expected);
   },
 );
 

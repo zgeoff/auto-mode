@@ -195,6 +195,48 @@ test('it adds the worktrees of the atc session record of the session', async () 
   expect(denies.get('R1')).toBeNull();
 });
 
+test('it adds the branches of the atc session record in the action repository', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.atcRecordDir, 'one.json'),
+    JSON.stringify(
+      buildMockAtcSessionRecord({
+        session: 'one',
+        scope: {
+          workspace: { path: '/home/dev/app', branch: 'feat/a' },
+          branches: [{ name: 'fix/b', repo: '/home/dev/app' }],
+        },
+      }),
+    ),
+  );
+
+  const denies = await runSessionScopeReplay({
+    recording: {
+      home: '/home/dev',
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+      worktreeBranches: {},
+      pullRequestHeads: {},
+      atc: {},
+      sessions: [{ name: 'one', entries: [{ case: 'R1' }] }],
+    },
+    cases: [
+      {
+        id: 'R1',
+        severity: 'safe',
+        tool: 'Bash',
+        input: { command: 'git branch -D fix/b' },
+        cwd: '/home/dev/app',
+        repository: { branch: 'feat/a', defaultBranch: 'main' },
+      },
+    ],
+    stateDir: ctx.stateDir,
+    atcRecordDir: ctx.atcRecordDir,
+  });
+
+  expect(denies.get('R1')).toBeNull();
+});
+
 test('it rejects a recording that names a case the corpus lacks', async () => {
   const ctx = await setupTest();
 

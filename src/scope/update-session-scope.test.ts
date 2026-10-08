@@ -405,3 +405,97 @@ test('it records every PR one call created', async () => {
     ],
   });
 });
+
+test('it records what an injected verifier confirms for a claimed event', async () => {
+  const ctx = await setupTest();
+
+  const scope = await updateSessionScope(
+    buildMockScopeRecordRequest({
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt: 1000,
+      command: 'git worktree add ../app-fix -b fix/a',
+      resultText: '',
+    }),
+    {
+      now: 1000,
+      stateDir: join(ctx.root, 'state'),
+      home: ctx.root,
+      env: {},
+      readPullRequest: makeStubPullRequestReader([]),
+      verifyEvent: () =>
+        Promise.resolve({
+          worktrees: [join(ctx.root, 'app-fix')],
+          branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+          pullRequests: [],
+        }),
+    },
+  );
+
+  expect(scope).toStrictEqual({
+    worktrees: [join(ctx.root, 'app-fix')],
+    branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+    pullRequests: [],
+  });
+});
+
+test('it writes what an injected verifier confirms to the session scope', async () => {
+  const ctx = await setupTest();
+
+  await updateSessionScope(
+    buildMockScopeRecordRequest({
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt: 1000,
+      command: 'git worktree add ../app-fix -b fix/a',
+      resultText: '',
+    }),
+    {
+      now: 1000,
+      stateDir: join(ctx.root, 'state'),
+      home: ctx.root,
+      env: {},
+      readPullRequest: makeStubPullRequestReader([]),
+      verifyEvent: () =>
+        Promise.resolve({
+          worktrees: [join(ctx.root, 'app-fix')],
+          branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+          pullRequests: [],
+        }),
+    },
+  );
+
+  const written = await loadSessionScope(
+    resolveSessionScopePath(join(ctx.root, 'state'), 'session-1'),
+  );
+
+  expect(written).toStrictEqual({
+    worktrees: [join(ctx.root, 'app-fix')],
+    branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+    pullRequests: [],
+  });
+});
+
+test('it records nothing for an event the injected verifier cannot confirm', async () => {
+  const ctx = await setupTest();
+
+  const scope = await updateSessionScope(
+    buildMockScopeRecordRequest({
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt: 1000,
+      command: 'git worktree add ../app-fix -b fix/a',
+      resultText: '',
+    }),
+    {
+      now: 1000,
+      stateDir: join(ctx.root, 'state'),
+      home: ctx.root,
+      env: {},
+      readPullRequest: makeStubPullRequestReader([]),
+      verifyEvent: () => Promise.reject(new Error('the checkout is gone')),
+    },
+  );
+
+  expect(scope).toStrictEqual({ worktrees: [], branches: [], pullRequests: [] });
+});

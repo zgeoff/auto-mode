@@ -1,10 +1,6 @@
-import { readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import type { EditClassification } from './bypass/classify-edit.ts';
-import { getEditFields } from './bypass/get-edit-fields.ts';
-import { resolveEditTarget } from './bypass/resolve-edit-target.ts';
+import { tryClassifyEdit } from './bypass/try-classify-edit.ts';
 import type { Config } from './config/config.ts';
-import { DEFAULT_SCOPE_SOURCES, resolveConfigPath } from './config/config.ts';
+import { DEFAULT_SCOPE_SOURCES } from './config/config.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
 import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment } from './config/types.ts';
@@ -16,7 +12,6 @@ import type { DecisionDiagnostics } from './model/types.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
-import { findCheckout } from './scope/find-checkout.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
 import { resolveStateDir } from './state/resolve-state-dir.ts';
 
@@ -146,64 +141,6 @@ async function tryLoadTaskScope(
       { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveStateDir(host) },
       config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
       host,
-    );
-  } catch {
-    return null;
-  }
-}
-
-// With these set, git reads another checkout than the one a path sits in, so
-// no target's checkout can be known.
-const GIT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
-
-async function tryClassifyEdit(
-  request: Readonly<ActionRequest>,
-  scope: Readonly<OwnedScope>,
-  host: Readonly<HostEnvironment>,
-): Promise<EditClassification | null> {
-  const fields = getEditFields(request.toolName);
-  const path = fields === null ? undefined : request.toolInput[fields.path];
-
-  if (typeof path !== 'string' || path === '') {
-    return null;
-  }
-
-  try {
-    const ownDirs = [dirname(resolveConfigPath(host)), resolveStateDir(host)];
-    const requested = resolve(request.cwd, path);
-
-    const [target, worktrees, protectedDirs] = await Promise.all([
-      resolveEditTarget(requested),
-      Promise.all(scope.worktrees.map((worktree) => resolveEditTarget(worktree))),
-      Promise.all(ownDirs.map((dir) => resolveEditTarget(dir))),
-    ]);
-
-    if (target === null || GIT_OVERRIDES.some((name) => host.env[name] !== undefined)) {
-      return null;
-    }
-
-    const [checkout, current] = await Promise.all([
-      findCheckout(dirname(target), host.env),
-      request.toolName === 'Edit' ? readFile(target, 'utf8').catch(() => null) : null,
-    ]);
-
-    // The rule set and its regex engine add about 10 ms to a CLI start, so
-    // only an edit that reaches this point loads them.
-    const bypass = await import('./bypass/classify-edit.ts');
-
-    return bypass.classifyEdit(
-      {
-        toolName: request.toolName,
-        toolInput: request.toolInput,
-        requested,
-        target,
-        checkout: checkout?.worktree ?? null,
-        current,
-      },
-      {
-        worktrees: worktrees.filter((worktree) => worktree !== null),
-        protectedDirs: [...ownDirs, ...protectedDirs.filter((dir) => dir !== null)],
-      },
     );
   } catch {
     return null;

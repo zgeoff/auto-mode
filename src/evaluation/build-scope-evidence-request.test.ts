@@ -31,11 +31,7 @@ test('it adds the owned scope, the findings, and one instruction to every questi
     pullRequests: [{ number: 7, repository: 'github.com/dev/app' }],
   });
 
-  // The evidence field sits outside the request type, so the result is
-  // compared as a plain value.
-  const evidenced: unknown = buildScopeEvidenceRequest(request, scope, [
-    { kind: 'path', target: '/w/b' },
-  ]);
+  const evidenced = buildScopeEvidenceRequest(request, scope, [{ kind: 'path', target: '/w/b' }]);
 
   expect(evidenced).toStrictEqual({
     ...request,
