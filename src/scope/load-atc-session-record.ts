@@ -9,7 +9,7 @@ const branchSchema = z.object({ name, repo: path.optional() }).readonly();
 const pullNumber = z.number().int().positive();
 
 const pullRequestSchema = z
-  .object({ repo: name, number: pullNumber, branch: name.nullable() })
+  .object({ repo: name, number: pullNumber, url: name.optional(), branch: name.nullable() })
   .readonly();
 
 const scopeSchema = z

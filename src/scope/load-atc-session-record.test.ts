@@ -53,7 +53,7 @@ test('it reads a version 1 record and ignores the keys it does not know', async 
         workspace: { path: '/repo/.worktrees/feat', branch: 'feat' },
         worktrees: [{ path: '/repo/.worktrees/extra', branch: 'extra' }],
         branches: [{ name: 'later', repo: '/repo' }],
-        pullRequests: [{ repo: 'dev/app', number: 12, branch: 'feat' }],
+        pullRequests: [{ repo: 'dev/app', number: 12, url: 'https://x/12', branch: 'feat' }],
       },
     },
   });
