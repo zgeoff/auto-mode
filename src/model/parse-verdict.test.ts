@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { parseModelVerdict } from './parse-verdict.ts';
 
-test('it reads a clean block', () => {
+test('it reads a named block as a deny and strips the bracketed rule from its reason', () => {
   expect(
     parseModelVerdict(
       '<block>yes</block><rule>Data Exfiltration</rule><reason>[Data Exfiltration] the body carries a key.</reason>',
@@ -16,7 +16,7 @@ test('it reads a clean block', () => {
   });
 });
 
-test('it reads an allow', () => {
+test('it reads a bare allow as an allow', () => {
   expect(parseModelVerdict('<block>no</block>')).toStrictEqual({ kind: 'allow' });
 });
 

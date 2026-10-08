@@ -1,33 +1,8 @@
 import { expect, test } from 'bun:test';
+import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
+import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
-import { pickDecisionVerdict } from './pick-decision-verdict.ts';
-import type { DecisionRequest, DecisionResult } from './types.ts';
-
-const request: DecisionRequest = {
-  state: {
-    policy: 'policy',
-    answerGuidance: 'Apply the policy.',
-    rulesSource: 'shipped',
-    configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
-    lastUserMessage: null,
-    action: { tool: 'Bash', cwd: '/repo', input: {} },
-  },
-  questions: {},
-  rules: {
-    rule_0: {
-      name: 'Default Branch Write',
-      source: 'shipped',
-      tier: 'soft',
-      text: 'private-policy-canary',
-    },
-    soft_deny_0: {
-      name: 'private-configured-name-canary',
-      source: 'configured',
-      tier: 'soft',
-      text: 'private-configured-rule-canary',
-    },
-  },
-};
 
 test.each([
   ['explicit ask', 'ask', 0.95, 0.95],
@@ -37,14 +12,25 @@ test.each([
 ] as const)(
   'it identifies %s without changing the confidence threshold',
   (_label, choice, confidence, probability) => {
-    const probabilities = { allow: 0, block: 0, ask: 0, [choice]: probability };
+    const request = buildMockDecisionRequest({
+      rules: {
+        rule_0: buildMockDecisionRule({
+          name: 'Default Branch Write',
+          source: 'shipped',
+          tier: 'soft',
+        }),
+        soft_deny_0: buildMockDecisionRule({ source: 'configured', tier: 'soft' }),
+      },
+    });
 
-    const result: DecisionResult = {
-      model: 'private-model-canary',
-      inputTokens: 100,
-      requestBytes: 0,
+    const result = buildMockDecisionResult({
       answers: {
-        rule_0: { type: 'choice', choice, confidence, probabilities },
+        rule_0: {
+          type: 'choice',
+          choice,
+          confidence,
+          probabilities: { allow: 0, block: 0, ask: 0, [choice]: probability },
+        },
         soft_deny_0: {
           type: 'choice',
           choice: 'allow',
@@ -52,7 +38,7 @@ test.each([
           probabilities: { allow: 1, block: 0, ask: 0 },
         },
       },
-    };
+    });
 
     expect(collectDecisionContributors(request, result, 0.8)).toStrictEqual([
       {
@@ -68,38 +54,71 @@ test.each([
 );
 
 test('it records every uncertain rule and uses identifiers for private configured rules', () => {
-  const result: DecisionResult = {
-    model: 'private-model-canary',
-    inputTokens: 100,
-    requestBytes: 0,
-    answers: Object.fromEntries(
-      Object.keys(request.rules).map((id) => [
-        id,
-        {
-          type: 'choice',
-          choice: 'allow',
-          confidence: 0.7,
-          probabilities: { allow: 0.9, block: 0, ask: 0.1 },
-        },
-      ]),
-    ),
-  };
+  const request = buildMockDecisionRequest({
+    rules: {
+      rule_0: buildMockDecisionRule({
+        name: 'Default Branch Write',
+        source: 'shipped',
+        tier: 'soft',
+      }),
+      soft_deny_0: buildMockDecisionRule({
+        name: 'private-configured-name-canary',
+        source: 'configured',
+        tier: 'soft',
+      }),
+    },
+  });
 
-  const contributors = collectDecisionContributors(request, result, 0.8);
+  const result = buildMockDecisionResult({
+    answers: {
+      rule_0: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 0.7,
+        probabilities: { allow: 0.9, block: 0, ask: 0.1 },
+      },
+      soft_deny_0: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 0.7,
+        probabilities: { allow: 0.9, block: 0, ask: 0.1 },
+      },
+    },
+  });
 
-  expect(contributors.map((entry) => entry.rule)).toStrictEqual([
-    'Default Branch Write',
-    'soft_deny_0',
+  expect(collectDecisionContributors(request, result, 0.8)).toStrictEqual([
+    {
+      rule: 'Default Branch Write',
+      source: 'shipped',
+      tier: 'soft',
+      choice: 'allow',
+      confidence: 0.7,
+      probability: 0.9,
+    },
+    {
+      rule: 'soft_deny_0',
+      source: 'configured',
+      tier: 'soft',
+      choice: 'allow',
+      confidence: 0.7,
+      probability: 0.9,
+    },
   ]);
-
-  expect(JSON.stringify(contributors)).not.toInclude('private-');
 });
 
 test('it identifies the winning block when a denial takes precedence over uncertainty', () => {
-  const result: DecisionResult = {
-    model: 'jev',
-    inputTokens: 100,
-    requestBytes: 0,
+  const request = buildMockDecisionRequest({
+    rules: {
+      rule_0: buildMockDecisionRule({
+        name: 'Default Branch Write',
+        source: 'shipped',
+        tier: 'soft',
+      }),
+      soft_deny_0: buildMockDecisionRule({ source: 'configured', tier: 'soft' }),
+    },
+  });
+
+  const result = buildMockDecisionResult({
     answers: {
       rule_0: {
         type: 'choice',
@@ -114,7 +133,7 @@ test('it identifies the winning block when a denial takes precedence over uncert
         probabilities: { allow: 0, block: 1, ask: 0 },
       },
     },
-  };
+  });
 
   expect(collectDecisionContributors(request, result, 0.8)).toStrictEqual([
     {
@@ -128,19 +147,35 @@ test('it identifies the winning block when a denial takes precedence over uncert
   ]);
 });
 
-test('it denies the observed routine commit and records the rule when outbound confidence is below the threshold', () => {
-  const outboundRequest: DecisionRequest = {
-    ...request,
-    rules: {
+test('it records no contributor when every rule is a confident allow', () => {
+  const request = buildMockDecisionRequest({
+    rules: { rule_0: buildMockDecisionRule({ name: 'History Rewrite', source: 'shipped' }) },
+  });
+
+  const result = buildMockDecisionResult({
+    answers: {
       rule_0: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 0.95,
+        probabilities: { allow: 0.95, block: 0.05, ask: 0 },
+      },
+    },
+  });
+
+  expect(collectDecisionContributors(request, result, 0.8)).toStrictEqual([]);
+});
+
+test('it records the rule when the observed routine commit has outbound confidence below the threshold', () => {
+  const request = buildMockDecisionRequest({
+    rules: {
+      rule_0: buildMockDecisionRule({
         name: 'Outbound Communication',
         source: 'shipped',
         tier: 'soft',
-        text: 'Outbound rule',
-      },
+      }),
     },
     state: {
-      ...request.state,
       action: {
         tool: 'Bash',
         cwd: '/repo/.worktrees/fix-detail',
@@ -150,12 +185,9 @@ test('it denies the observed routine commit and records the rule when outbound c
         },
       },
     },
-  };
+  });
 
-  const result: DecisionResult = {
-    model: 'recorded',
-    inputTokens: 0,
-    requestBytes: 0,
+  const result = buildMockDecisionResult({
     answers: {
       rule_0: {
         type: 'choice',
@@ -164,18 +196,9 @@ test('it denies the observed routine commit and records the rule when outbound c
         probabilities: { allow: 0.84, block: 0.03, ask: 0.13 },
       },
     },
-  };
-
-  const verdict = pickDecisionVerdict(outboundRequest, result, 0.8);
-
-  expect(verdict).toStrictEqual({
-    kind: 'deny',
-    rule: 'Outbound Communication',
-    reason:
-      'The supplied evidence cannot rule out sending content that reaches another person. A direct user instruction that says the message is sent, and to whom or where, clears it.',
   });
 
-  expect(collectDecisionContributors(outboundRequest, result, 0.8)).toStrictEqual([
+  expect(collectDecisionContributors(request, result, 0.8)).toStrictEqual([
     {
       rule: 'Outbound Communication',
       source: 'shipped',
@@ -185,4 +208,26 @@ test('it denies the observed routine commit and records the rule when outbound c
       probability: 0.84,
     },
   ]);
+});
+
+test('it throws when the result leaves a rule unanswered', () => {
+  const request = buildMockDecisionRequest({
+    rules: { rule_0: buildMockDecisionRule(), rule_1: buildMockDecisionRule() },
+  });
+
+  const result = buildMockDecisionResult({
+    answers: {
+      rule_0: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 1,
+        probabilities: { allow: 1, block: 0, ask: 0 },
+      },
+    },
+  });
+
+  expect(() => collectDecisionContributors(request, result, 0.8)).toThrowWithMessage(
+    Error,
+    'Decision answer missing',
+  );
 });

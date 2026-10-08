@@ -1,93 +1,117 @@
 import { expect, test } from 'bun:test';
-import invariant from 'tiny-invariant';
-import type { ActionRequest } from '../request/types.ts';
+import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
+import { buildMockRepositoryContext } from '../../test-utils/factories/build-mock-repository-context.ts';
 import { buildUserMessage } from './build-request.ts';
 
-const PAYLOAD: ActionRequest = {
-  sessionID: 's-1',
-  cwd: '/repo',
-  toolName: 'Bash',
-  toolInput: { command: 'git push --force origin main' },
-};
-
 // The policy tells the classifier to judge the most recent action and to read
-// everything before it as context, so the ordering is what makes that
-// instruction resolvable.
-test('it puts the transcript before the action', () => {
-  const message = buildUserMessage(PAYLOAD, [{ role: 'user', text: 'clean up the repo' }], true);
-
-  expect(message.indexOf('<transcript>')).toBeLessThan(message.indexOf('<action>'));
-});
-
-test('it labels the tool, the working directory and the input', () => {
-  const message = buildUserMessage(PAYLOAD, [], true);
-
-  expect(message).toInclude('tool: Bash');
-  expect(message).toInclude('cwd: /repo');
-  expect(message).toInclude('git push --force origin main');
-});
-
-test('it says so when there is no direct user message', () => {
-  const message = buildUserMessage(PAYLOAD, [], true);
-
-  expect(message).toInclude('(no transcript available from this harness)');
-});
-
-test('it writes each transcript entry with its role', () => {
+// everything before it as context, so the transcript, then the repository
+// facts, then the action is what makes that instruction resolvable.
+test('it renders the transcript, the repository facts and the action in that order', () => {
   const message = buildUserMessage(
-    PAYLOAD,
+    {
+      sessionID: 'session-1',
+      toolUseID: 'toolu_never_sent',
+      cwd: '/work/app',
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    },
     [
       { role: 'user', text: 'clean up the repo' },
       { role: 'assistant', text: 'running git clean' },
     ],
     true,
+    {
+      cwd: '/work/app',
+      branch: 'feature',
+      defaultBranch: 'main',
+      remotes: [{ name: 'origin', url: 'github.com:dev/app.git' }],
+    },
   );
 
-  expect(message).toInclude('user: clean up the repo');
-  expect(message).toInclude('assistant: running git clean');
+  expect(message).toMatchInlineSnapshot(`
+    "<transcript>
+    user: clean up the repo
+
+    assistant: running git clean
+    </transcript>
+
+    <repository>
+    {
+      "cwd": "/work/app",
+      "branch": "feature",
+      "defaultBranch": "main",
+      "remotes": [
+        {
+          "name": "origin",
+          "url": "github.com:dev/app.git"
+        }
+      ]
+    }
+    </repository>
+
+    <action>
+    tool: Bash
+    cwd: /work/app
+    input:
+    {
+      "command": "git push --force origin main"
+    }
+    </action>
+
+    Work through the classification process, then end your reply with the output contract tags."
+  `);
 });
 
-// A reasoning model is told to think first. A non-reasoning one is told to
-// answer with the tags alone, because its whole output is the answer and stray
-// prose there breaks the parse.
-test('it asks a reasoning model to work through the classification first', () => {
-  expect(buildUserMessage(PAYLOAD, [], true)).toInclude('Work through the classification process');
+test('it renders the same message from the same input', () => {
+  const payload = buildMockActionRequest();
+  const transcript = [{ role: 'user', text: 'clean up the repo' }];
+  const repositoryContext = buildMockRepositoryContext();
+
+  expect(buildUserMessage(payload, transcript, true, repositoryContext)).toBe(
+    buildUserMessage(payload, transcript, true, repositoryContext),
+  );
 });
 
-test('it asks a non-reasoning model for the tags and nothing else', () => {
-  expect(buildUserMessage(PAYLOAD, [], false)).toInclude('tags and nothing else');
-});
-
-// A tool input large enough to crowd out the policy is truncated rather than
-// sent whole.
-test('it truncates a tool input that is very large', () => {
+test('it marks the transcript unavailable when there is none', () => {
   const message = buildUserMessage(
-    { ...PAYLOAD, toolInput: { content: 'x'.repeat(20_000) } },
+    buildMockActionRequest({ cwd: '/repo', toolInput: { command: 'ls' } }),
     [],
     true,
   );
 
-  expect(message.length).toBeLessThan(10_000);
+  expect(message).toBe(
+    '<transcript>\n(no transcript available from this harness)\n</transcript>\n\n<action>\ntool: Bash\ncwd: /repo\ninput:\n{\n  "command": "ls"\n}\n</action>\n\nWork through the classification process, then end your reply with the output contract tags.',
+  );
 });
 
-test('it puts the repository facts between the transcript and the action', () => {
-  const repository = {
-    cwd: '/repo',
-    branch: 'feature',
-    defaultBranch: 'main',
-    remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
-  };
+// A non-reasoning model's whole output is the answer, and stray prose there
+// breaks the parse.
+test('it asks a non-reasoning model for the tags and nothing else', () => {
+  const message = buildUserMessage(
+    buildMockActionRequest({ cwd: '/repo', toolInput: { command: 'ls' } }),
+    [{ role: 'user', text: 'list the files' }],
+    false,
+  );
 
-  const message = buildUserMessage(PAYLOAD, [], true, repository);
-  const block = /<repository>\n(?<json>[\s\S]*?)\n<\/repository>/u.exec(message)?.groups?.['json'];
-
-  invariant(block !== undefined, 'the message holds a repository block');
-
-  expect(JSON.parse(block)).toStrictEqual(repository);
-  expect(message.indexOf('</transcript>')).toBeLessThan(message.indexOf('<repository>'));
-  expect(message.indexOf('</repository>')).toBeLessThan(message.indexOf('<action>'));
+  expect(message).toBe(
+    '<transcript>\nuser: list the files\n</transcript>\n\n<action>\ntool: Bash\ncwd: /repo\ninput:\n{\n  "command": "ls"\n}\n</action>\n\nReply with the output contract tags and nothing else.',
+  );
 });
 
-test('it leaves the repository block out when there are no repository facts', () => {
-  expect(buildUserMessage(PAYLOAD, [], true)).not.toInclude('<repository>');
+// A tool input large enough to crowd out the policy is cut to its first 4000
+// characters rather than sent whole.
+test('it truncates a very large tool input to its first 4000 characters', () => {
+  const message = buildUserMessage(
+    buildMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Write',
+      toolInput: { content: 'x'.repeat(20_000) },
+    }),
+    [],
+    false,
+  );
+
+  expect(message).toBe(
+    `<transcript>\n(no transcript available from this harness)\n</transcript>\n\n<action>\ntool: Write\ncwd: /repo\ninput:\n{\n  "content": "${'x'.repeat(4000 - '{\n  "content": "'.length)}\n</action>\n\nReply with the output contract tags and nothing else.`,
+  );
 });

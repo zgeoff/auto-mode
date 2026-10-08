@@ -2,33 +2,31 @@ import { expect, test } from 'bun:test';
 import { parseJudgeVerdict } from './parse-judge-verdict.ts';
 
 test.each([
-  ['an empty reply', '', { kind: 'unreadable' }],
-  ['prose without the contract tags', 'This looks safe to run.', { kind: 'unreadable' }],
-  ['an unknown block answer', '<block>maybe</block>', { kind: 'unreadable' }],
+  ['an empty reply', ''],
+  ['prose without the contract tags', 'This looks safe to run.'],
+  ['an unknown block answer', '<block>maybe</block>'],
+  ['an unclosed block after an allow', '<block>no</block>\n<block>yes'],
+  ['a nested block after an allow', '<block>no</block>\n<block><answer>yes</answer></block>'],
+  ['a stray closing tag', '</block><block>no</block>'],
+] as const)('it reads %s as unreadable', (_label, text) => {
+  expect(parseJudgeVerdict(text)).toStrictEqual({ kind: 'unreadable' });
+});
+
+test.each([
   [
     'a named block',
     '<block>yes</block><rule>Irreversible Deletion</rule><reason>[Irreversible Deletion] x.</reason>',
-    { kind: 'block', rule: 'Irreversible Deletion' },
+    'Irreversible Deletion',
   ],
-  ['an unnamed block', '<block>yes</block>', { kind: 'block', rule: null }],
-  [
-    'a block after an allow',
-    '<block>no</block> then <block>yes</block>',
-    { kind: 'block', rule: null },
-  ],
-  ['an unclosed block after an allow', '<block>no</block>\n<block>yes', { kind: 'unreadable' }],
-  [
-    'a nested block after an allow',
-    '<block>no</block>\n<block><answer>yes</answer></block>',
-    { kind: 'unreadable' },
-  ],
-  ['a stray closing tag', '</block><block>no</block>', { kind: 'unreadable' }],
-  ['a bare allow', '<block>no</block>', { kind: 'allow' }],
-  [
-    'reasoning that ends in an allow',
-    'The path is regenerable.\n<block> NO </block>',
-    { kind: 'allow' },
-  ],
-] as const)('it reads %s', (_label, text, verdict) => {
-  expect(parseJudgeVerdict(text)).toStrictEqual(verdict);
+  ['an unnamed block', '<block>yes</block>', null],
+  ['a block after an allow', '<block>no</block> then <block>yes</block>', null],
+] as const)('it reads %s as a block naming the rule it gives', (_label, text, rule) => {
+  expect(parseJudgeVerdict(text)).toStrictEqual({ kind: 'block', rule });
+});
+
+test.each([
+  ['a bare allow', '<block>no</block>'],
+  ['reasoning that ends in an allow', 'The path is regenerable.\n<block> NO </block>'],
+] as const)('it reads %s as an allow', (_label, text) => {
+  expect(parseJudgeVerdict(text)).toStrictEqual({ kind: 'allow' });
 });
