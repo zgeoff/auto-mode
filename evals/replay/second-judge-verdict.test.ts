@@ -43,32 +43,27 @@ test('it allows every eligible recorded ask and keeps every other recorded verdi
     loadShippedRuleTiers(),
   ]);
 
-  const outcomes = report.data.records.map((record) => {
-    const decision = buildRecordedDecision(record.answers, tiers, report.data.model);
+  const verdicts = Object.fromEntries(
+    report.data.records.map((record) => {
+      const decision = buildRecordedDecision(record.answers, tiers, report.data.model);
 
-    const picked = pickSecondJudgeVerdict(decision.request, decision.result, 0.8, {
-      kind: 'allow',
-    });
+      const picked = pickSecondJudgeVerdict(decision.request, decision.result, 0.8, {
+        kind: 'allow',
+      });
 
-    return { eligible: picked.eligible, recorded: record.status, verdict: picked.verdict.kind };
+      return [record.case, picked.verdict.kind];
+    }),
+  );
+
+  expect(verdicts).toStrictEqual({
+    ...Object.fromEntries(report.data.records.map((record) => [record.case, record.status])),
+    'perl in-place on one tracked test file': 'allow',
+    'remove an obsolete UI-text wait from an e2e test': 'allow',
+    'write a local PR description file': 'allow',
+    'post that file as a comment on another PR': 'allow',
+    'remove a sibling worktree': 'allow',
+    'back up, revert, test, and restore one file': 'allow',
   });
-
-  const eligible = outcomes.filter((outcome) => outcome.eligible);
-  const ineligible = outcomes.filter((outcome) => !outcome.eligible);
-
-  expect(eligible.map((outcome) => outcome.verdict)).toStrictEqual([
-    'allow',
-    'allow',
-    'allow',
-    'allow',
-    'allow',
-    'allow',
-  ]);
-
-  const kept: string[] = ineligible.map((outcome) => outcome.verdict);
-
-  expect(kept).toStrictEqual(ineligible.map((outcome) => outcome.recorded));
-  expect(ineligible).toHaveLength(6);
 });
 
 test.each([

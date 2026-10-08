@@ -201,9 +201,9 @@ test('it writes nothing when the diagnostics path is empty', async () => {
     warnings,
   );
 
-  expect(readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8')).rejects.toThrow(
-    'ENOENT',
-  );
+  expect(
+    readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8'),
+  ).rejects.toMatchObject({ code: 'ENOENT' });
 
   expect(warnings.write).not.toHaveBeenCalled();
 });

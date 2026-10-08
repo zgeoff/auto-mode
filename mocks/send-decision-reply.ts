@@ -1,6 +1,7 @@
 import { HttpResponse } from 'msw';
 import * as z from 'zod';
 import type { DecisionResponse } from '../src/model/decision-response-schema.ts';
+import type { DecisionRequest } from '../src/model/types.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
 import { decisionAnswers } from './decision-answers.ts';
 
@@ -40,13 +41,16 @@ const questionSchema = z.strictObject({
   criteria: criteriaSchema,
 });
 
-// The wire form of a DecisionRequest: the client sends the model, the state, and
-// the questions, and leaves its rules out.
+type DecisionWireRequest = Pick<DecisionRequest, 'state' | 'questions'> & {
+  readonly model: string;
+};
+
+// Jev refuses a field it does not know, so a request that carries the rules must fail here too.
 const requestSchema = z.strictObject({
   model: z.string(),
   state: stateSchema,
   questions: z.record(z.string(), questionSchema),
-});
+}) satisfies z.ZodType<DecisionWireRequest>;
 
 // Most suites want Jev to clear every rule, so a question with no answer set
 // gets a certain allow.

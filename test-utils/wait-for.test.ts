@@ -71,3 +71,13 @@ test('it reads again on the real clock when given none', async () => {
   expect(value).toBe('Z');
   expect(read).toHaveBeenCalledTimes(2);
 });
+
+test('it throws once the deadline passes on the real clock when given none', () => {
+  expect(
+    waitFor(
+      () => 'R',
+      (current) => current === 'Z',
+      { timeoutMs: 1, intervalMs: 1 },
+    ),
+  ).rejects.toThrowWithMessage(Error, 'condition not met within 1ms; last value: "R"');
+});

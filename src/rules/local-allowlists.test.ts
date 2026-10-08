@@ -9,7 +9,7 @@ import {
 
 // A tool in both sets would be allowed on its name, so its command would never
 // be read.
-test('#READ_ONLY_TOOLS names no tool that #SHELL_TOOLS names', () => {
+test('#READ_ONLY_TOOLS names no shell-carrying tool', () => {
   expect([...READ_ONLY_TOOLS]).not.toIncludeAnyMembers([...SHELL_TOOLS]);
 });
 
