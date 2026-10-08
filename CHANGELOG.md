@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.13.0...auto-mode-v0.14.0) (2026-10-08)
+
+
+### Features
+
+* **geo-178:** read the atc session record as a scope source ([#62](https://github.com/zgeoff/auto-mode/issues/62)) ([0463bcb](https://github.com/zgeoff/auto-mode/commit/0463bcb30a70631f50c7e4c6dbb409260e1e0f56))
+
 ## [0.13.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.12.0...auto-mode-v0.13.0) (2026-10-08)
 
 
