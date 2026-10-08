@@ -12,7 +12,7 @@ export function buildStubTimeout(): StubTimeout {
 
   let calls = 0;
 
-  const resolveTimer = (call: number) => {
+  const getTimer = (call: number) => {
     const existing = timers.get(call);
 
     if (existing !== undefined) {
@@ -30,10 +30,10 @@ export function buildStubTimeout(): StubTimeout {
     timeout: mock<(ms: number) => AbortSignal>(() => {
       calls += 1;
 
-      return resolveTimer(calls).signal;
+      return getTimer(calls).signal;
     }),
     emitTimeout: (call) => {
-      resolveTimer(call).abort(new DOMException('The operation timed out.', 'TimeoutError'));
+      getTimer(call).abort(new DOMException('The operation timed out.', 'TimeoutError'));
     },
   };
 }

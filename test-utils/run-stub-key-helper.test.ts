@@ -11,9 +11,13 @@ import * as z from 'zod';
 import { loadProcessState } from './load-process-state.ts';
 
 async function setupTest() {
+  const stack = new AsyncDisposableStack();
+
+  onTestFinished(() => stack.disposeAsync());
+
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-stub-key-helper-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  stack.defer(() => rm(dir, { recursive: true, force: true }));
 
   const socketPath = join(dir, 'ready.sock');
   const report = Promise.withResolvers<string>();
@@ -26,10 +30,10 @@ async function setupTest() {
 
   await once(server, 'listening');
 
-  onTestFinished(() => {
+  stack.defer(async () => {
     server.close();
 
-    return once(server, 'close');
+    await once(server, 'close');
   });
 
   return { socketPath, report: report.promise };

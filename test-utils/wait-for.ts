@@ -1,7 +1,21 @@
+interface WaitForClock {
+  readonly now: () => number;
+  readonly wait: (ms: number) => Promise<void>;
+}
+
 interface WaitForOptions {
   readonly timeoutMs?: number;
   readonly intervalMs?: number;
+  readonly clock?: WaitForClock;
 }
+
+const SYSTEM_CLOCK: WaitForClock = {
+  now: () => performance.now(),
+  wait: (ms) =>
+    new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    }),
+};
 
 export async function waitFor<T>(
   read: () => Promise<T> | T,
@@ -10,7 +24,8 @@ export async function waitFor<T>(
 ): Promise<T> {
   const timeoutMs = options.timeoutMs ?? 2000;
   const intervalMs = options.intervalMs ?? 10;
-  const deadline = performance.now() + timeoutMs;
+  const clock = options.clock ?? SYSTEM_CLOCK;
+  const deadline = clock.now() + timeoutMs;
 
   for (;;) {
     const value = await read();
@@ -19,14 +34,12 @@ export async function waitFor<T>(
       return value;
     }
 
-    if (performance.now() >= deadline) {
+    if (clock.now() >= deadline) {
       throw new Error(
         `condition not met within ${String(timeoutMs)}ms; last value: ${JSON.stringify(value)}`,
       );
     }
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, intervalMs);
-    });
+    await clock.wait(intervalMs);
   }
 }

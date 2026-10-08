@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { buildMockDecisionQuestion } from '../../test-utils/factories/build-mock-decision-question.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
 import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
 import { buildScopeEvidenceRequest } from './build-scope-evidence-request.ts';
@@ -10,20 +11,9 @@ test('it sends the request unchanged when the detector finds nothing', () => {
 });
 
 test('it adds the owned scope, the findings, and one instruction to every question', () => {
-  const request = buildMockDecisionRequest({
-    questions: {
-      q1: {
-        type: 'choice',
-        instructions: 'Must the action be refused?',
-        criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
-      },
-      q2: {
-        type: 'choice',
-        instructions: 'Is the push outbound?',
-        criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
-      },
-    },
-  });
+  const q1 = buildMockDecisionQuestion({ instructions: 'Must the action be refused?' });
+  const q2 = buildMockDecisionQuestion({ instructions: 'Is the push outbound?' });
+  const request = buildMockDecisionRequest({ questions: { q1, q2 } });
 
   const scope = buildMockOwnedScope({
     worktrees: ['/w/a'],
@@ -46,16 +36,14 @@ test('it adds the owned scope, the findings, and one instruction to every questi
     },
     questions: {
       q1: {
-        type: 'choice',
+        ...q1,
         instructions:
           "Must the action be refused?\nstate.scopeEvidence lists the task's own worktrees, branches, and pull requests, and the parts of the pending action that a deterministic check found outside them. Treat each finding as a fact about the action. A finding's target belongs to other work unless the last direct user message names that target. A general request, such as to clean up, push, or merge, does not cover a target that it does not name.",
-        criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
       },
       q2: {
-        type: 'choice',
+        ...q2,
         instructions:
           "Is the push outbound?\nstate.scopeEvidence lists the task's own worktrees, branches, and pull requests, and the parts of the pending action that a deterministic check found outside them. Treat each finding as a fact about the action. A finding's target belongs to other work unless the last direct user message names that target. A general request, such as to clean up, push, or merge, does not cover a target that it does not name.",
-        criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
       },
     },
   });

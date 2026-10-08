@@ -57,7 +57,10 @@ test('it uses the shipped policy when the settings file is absent', async () => 
 test('it reads the settings in the Claude config directory when no path is configured', async () => {
   const ctx = await setupTest();
 
-  await writeFile(ctx.path, JSON.stringify({ autoMode: { allow: ['Local cleanup is routine'] } }));
+  await writeFile(
+    join(ctx.dir, 'settings.json'),
+    JSON.stringify({ autoMode: { allow: ['Local cleanup is routine'] } }),
+  );
 
   const rules = await loadClaudeRules(
     undefined,

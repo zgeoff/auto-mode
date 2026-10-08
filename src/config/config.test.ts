@@ -137,15 +137,26 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
     buildMockHostEnvironment({ env: {}, home: ctx.dir }),
   );
 
-  expect(config.provider).toStrictEqual({
-    protocol: 'messages',
-    baseURL: 'https://api.z.ai/api/anthropic',
-    model: 'glm-5.3-flash',
-    apiKeyEnv: 'ZAI_API_KEY',
-    apiKeyCommand: undefined,
-    reasoning: true,
-    maxTokens: 3000,
-    timeoutMs: 45_000,
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'messages',
+      baseURL: 'https://api.z.ai/api/anthropic',
+      model: 'glm-5.3-flash',
+      apiKeyEnv: 'ZAI_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: true,
+      maxTokens: 3000,
+      timeoutMs: 45_000,
+    },
+    judge: null,
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
   });
 });
 
@@ -165,15 +176,26 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
     buildMockHostEnvironment({ env: {}, home: ctx.dir }),
   );
 
-  expect(config.provider).toStrictEqual({
-    protocol: 'system-one',
-    baseURL: 'https://decision.example',
-    model: 'jev-1.13.0',
-    apiKeyEnv: 'TYPESAFE_API_KEY',
-    apiKeyCommand: undefined,
-    reasoning: false,
-    maxTokens: 3000,
-    timeoutMs: 5000,
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://decision.example',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: null,
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
   });
 });
 

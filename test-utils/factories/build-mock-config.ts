@@ -9,13 +9,13 @@ interface ConfigOverrides extends Partial<Omit<Config, 'provider' | 'judge' | 'd
   readonly denialBudget?: Partial<NonNullable<Config['denialBudget']>>;
 }
 
-// Left unset, the Claude settings path reads the operator's real
-// ~/.claude/settings.json, so it defaults to null.
+// Left unset, the Claude settings path reads the operator's real ~/.claude/settings.json, so
+// it defaults to null. The confidence threshold and the denial budget take the shipped values:
+// they decide each verdict, so a random one would flip the case a test selects.
 export function buildMockConfig(overrides: ConfigOverrides = {}): Config {
-  const { provider, judge, denialBudget, ...rest } = overrides;
+  const { provider, judge, denialBudget, scopeSources, ...rest } = overrides;
 
   return {
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -26,5 +26,11 @@ export function buildMockConfig(overrides: ConfigOverrides = {}): Config {
     provider: buildMockProviderConfig(provider),
     judge: judge === undefined || judge === null ? null : buildMockProviderConfig(judge),
     denialBudget: { consecutive: 3, perSession: 20, ...denialBudget },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      atc: { kind: 'atc' },
+      ...scopeSources,
+    },
   };
 }

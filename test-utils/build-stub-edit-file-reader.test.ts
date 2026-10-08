@@ -1,5 +1,17 @@
-import { expect, test } from 'bun:test';
+import { expect, onTestFinished, test } from 'bun:test';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import * as z from 'zod';
 import { buildStubEditFileReader } from './build-stub-edit-file-reader.ts';
+
+async function setupTest(): Promise<{ readonly dir: string }> {
+  const dir = await mkdtemp(join(tmpdir(), 'stub-edit-file-reader-'));
+
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+
+  return { dir };
+}
 
 test('it resolves a listed link to its target', async () => {
   const reader = buildStubEditFileReader({
@@ -56,14 +68,30 @@ test('it reads a listed file', async () => {
   expect(content).toBe('export const a = 1;\n');
 });
 
-test('it fails to read a file that is not listed', () => {
+test('it fails to read a file that is not listed as a read of a missing file fails', async () => {
+  const ctx = await setupTest();
+
+  const missing = join(ctx.dir, 'b.ts');
+
   const reader = buildStubEditFileReader({
-    checkout: '/w/app',
-    files: { '/w/app/a.ts': 'export const a = 1;\n' },
+    checkout: ctx.dir,
+    files: { [join(ctx.dir, 'a.ts')]: 'export const a = 1;\n' },
   });
 
-  expect(reader.readFile('/w/app/b.ts')).rejects.toThrowWithMessage(
-    Error,
-    "ENOENT: no such file, open '/w/app/b.ts'",
+  const failure = await readFile(missing, 'utf8').then(
+    () => null,
+    (error: unknown) => error,
   );
+
+  const real = z
+    .object({
+      message: z.string(),
+      errno: z.number(),
+      code: z.string(),
+      syscall: z.string(),
+      path: z.string(),
+    })
+    .parse(failure);
+
+  expect(reader.readFile(missing)).rejects.toMatchObject(real);
 });

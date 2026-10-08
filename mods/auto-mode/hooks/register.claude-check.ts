@@ -58,6 +58,13 @@ test('it preserves an existing allowance without a second evaluator', async ($, 
 
 test('it approves an ask after Jev allows the action', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push({ text: e.text, to: e.to });
+
+    return { value: undefined };
+  });
 
   const processRun = buildStubProcessRun({
     result: buildMockProcessResult({ stdout: '{"decision":"allow"}' }),
@@ -87,6 +94,11 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
   assertDefined(call);
 
   expect(result).toStrictEqual({ decision: 'allow' });
+
+  expect(logs).toStrictEqual([
+    { text: 'auto-mode action unavailable: evaluator invoked', to: 'debug' },
+    { text: 'auto-mode action unavailable: evaluator verdict allow', to: 'debug' },
+  ]);
 
   expect(processRun.calls).toStrictEqual([
     {
@@ -120,6 +132,13 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
 
 test('it refuses an ask after Jev denies the action', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push({ text: e.text, to: e.to });
+
+    return { value: undefined };
+  });
 
   const processRun = buildStubProcessRun({
     result: buildMockProcessResult({
@@ -154,6 +173,11 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
     decision: 'deny',
     reason: '[Data Exfiltration] Refuse the transfer.',
   });
+
+  expect(logs).toStrictEqual([
+    { text: 'auto-mode action unavailable: evaluator invoked', to: 'debug' },
+    { text: 'auto-mode action unavailable: evaluator verdict deny', to: 'debug' },
+  ]);
 
   expect(processRun.calls).toStrictEqual([
     {
@@ -268,6 +292,13 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
 
 test('it retains manual approval for a truncated response', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push({ text: e.text, to: e.to });
+
+    return { value: undefined };
+  });
 
   const processRun = buildStubProcessRun({
     result: buildMockProcessResult({ stdout: '{"decision":"allow"}', isStdoutTruncated: true }),
@@ -297,6 +328,14 @@ test('it retains manual approval for a truncated response', async ($, on) => {
   assertDefined(call);
 
   expect(result).toStrictEqual(decided);
+
+  expect(logs).toStrictEqual([
+    { text: 'auto-mode action unavailable: evaluator invoked', to: 'debug' },
+    {
+      text: 'auto-mode action unavailable: manual approval retained; truncated verdict',
+      to: 'debug',
+    },
+  ]);
 
   expect(processRun.calls).toStrictEqual([
     {
@@ -330,6 +369,13 @@ test('it retains manual approval for a truncated response', async ($, on) => {
 
 test('it retains manual approval when the child exits nonzero', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push({ text: e.text, to: e.to });
+
+    return { value: undefined };
+  });
 
   const processRun = buildStubProcessRun({
     result: buildMockProcessResult({ exitCode: 1, stdout: '{"decision":"allow"}' }),
@@ -359,6 +405,11 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
   assertDefined(call);
 
   expect(result).toStrictEqual(decided);
+
+  expect(logs).toStrictEqual([
+    { text: 'auto-mode action unavailable: evaluator invoked', to: 'debug' },
+    { text: 'auto-mode action unavailable: manual approval retained; nonzero exit', to: 'debug' },
+  ]);
 
   expect(processRun.calls).toStrictEqual([
     {
@@ -451,6 +502,13 @@ test('it retains manual approval when the child run fails', async ($, on) => {
 
 test('it retains manual approval before the session context arrives', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push({ text: e.text, to: e.to });
+
+    return { value: undefined };
+  });
 
   const processRun = buildStubProcessRun({
     result: buildMockProcessResult({ stdout: '{"decision":"allow"}' }),
@@ -466,6 +524,14 @@ test('it retains manual approval before the session context arrives', async ($, 
   });
 
   expect(result).toStrictEqual(decided);
+
+  expect(logs).toStrictEqual([
+    {
+      text: 'auto-mode action unavailable: evaluation skipped; missing session context',
+      to: 'debug',
+    },
+  ]);
+
   expect(processRun.calls).toStrictEqual([]);
 });
 

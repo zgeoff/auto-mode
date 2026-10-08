@@ -49,3 +49,17 @@ test('it rethrows a read failure other than a missing process', async () => {
 
   expect(loadProcessState(42, ctx.dir)).rejects.toMatchObject({ code: 'EISDIR' });
 });
+
+test('it reads nothing for a process that exits while its stat file is read', async () => {
+  const state = await loadProcessState(42, '/proc', () =>
+    Promise.reject(
+      Object.assign(new Error('ESRCH: no such process, read'), {
+        errno: -3,
+        code: 'ESRCH',
+        syscall: 'read',
+      }),
+    ),
+  );
+
+  expect(state).toBeNull();
+});

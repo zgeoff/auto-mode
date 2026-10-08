@@ -54,6 +54,7 @@ test('it appends private correlated records without action, task, credential, or
 
   const text = await readFile(path, 'utf8');
 
+  // Each hash is the first 16 hex digits of `printf <id> | sha256sum`.
   expect(
     text
       .trim()
@@ -144,6 +145,7 @@ test('it records no action hash for a request without a tool use id', async () =
 
   const text = await readFile(path, 'utf8');
 
+  // The session hash is the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
     schemaVersion: 3,
     time: expect.toBeDateString(),
@@ -199,9 +201,9 @@ test('it writes nothing when the diagnostics path is empty', async () => {
     warnings,
   );
 
-  expect(readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8')).rejects.toThrow(
-    'ENOENT',
-  );
+  expect(
+    readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8'),
+  ).rejects.toMatchObject({ code: 'ENOENT' });
 
   expect(warnings.write).not.toHaveBeenCalled();
 });
@@ -218,6 +220,7 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
 
   const text = await readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8');
 
+  // The session hash is the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
     schemaVersion: 3,
     time: expect.toBeDateString(),

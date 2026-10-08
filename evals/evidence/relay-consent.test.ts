@@ -112,7 +112,7 @@ test('it holds one control request for every corpus action', async () => {
     loadCorpus('fixtures/relay-consent/cases.json', relayConsentCorpusSchema),
   ]);
 
-  expect(Object.keys(report.data.controlHashes)).toIncludeSameMembers(
+  expect(report.data.controlHashes).toContainAllKeys(
     corpus.data.actions.map((action) => action.id),
   );
 });
