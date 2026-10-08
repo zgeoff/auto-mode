@@ -123,5 +123,5 @@ own session.
 [`mcp-commit-push/`](mcp-commit-push/) holds the `acme/harbor` probe runs on main and on the branch,
 the four extra cases, the two 10-sample commit runs, and one row per replay sample. The real-name
 runs stay out of the repository; the tables above give their numbers. The probes, the replay and the
-live check sent 1,593 Jev requests, about 26.3 million input tokens (the second-judge run records
+live check sent 1,592 Jev requests, about 26.3 million input tokens (the second-judge run records
 request bytes only, counted at 4.17 bytes per token), about $1.10.
