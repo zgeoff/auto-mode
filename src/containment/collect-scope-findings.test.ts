@@ -12,7 +12,7 @@ function setupTest() {
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     worktrees: [worktree],
     branches: ['feature'],
-    pullRequests: [12],
+    pullRequests: [{ number: 12, repository: 'github.com/dev/app' }],
     pathGlobs: [],
   };
 
@@ -540,4 +540,74 @@ test('it finds a write to the session scope that auto-mode records', () => {
       ctx.scope,
     ),
   ).toStrictEqual([{ kind: 'path', target: file }]);
+});
+
+test('it owns a PR only in its own repository when the checkout has two', () => {
+  const ctx = setupTest();
+
+  const scope = {
+    ...ctx.scope,
+    remotes: [
+      { name: 'origin', url: 'git@github.com:dev/app.git' },
+      { name: 'upstream', url: 'git@github.com:other/app.git' },
+    ],
+  };
+
+  expect(
+    collectScopeFindings(
+      {
+        tool: 'Bash',
+        cwd: ctx.worktree,
+        input: { command: 'gh pr close 12 --repo other/app; gh pr comment 12 -R dev/app -b x' },
+      },
+      scope,
+    ),
+  ).toStrictEqual([{ kind: 'remote-write', target: 'gh pr close' }]);
+});
+
+test('it owns no PR named without a repository when the checkout has two', () => {
+  const ctx = setupTest();
+
+  const scope = {
+    ...ctx.scope,
+    remotes: [
+      { name: 'origin', url: 'git@github.com:dev/app.git' },
+      { name: 'upstream', url: 'git@github.com:other/app.git' },
+    ],
+  };
+
+  expect(
+    collectScopeFindings(
+      { tool: 'Bash', cwd: ctx.worktree, input: { command: 'gh pr comment 12 -b x' } },
+      scope,
+    ),
+  ).toStrictEqual([{ kind: 'remote-write', target: 'gh pr comment' }]);
+});
+
+test('it finds an agent recording scope for itself', () => {
+  const ctx = setupTest();
+
+  expect(
+    collectScopeFindings(
+      {
+        tool: 'Bash',
+        cwd: ctx.worktree,
+        input: { command: "echo '{}' | auto-mode record" },
+      },
+      ctx.scope,
+    ),
+  ).toStrictEqual([{ kind: 'credential', target: 'auto-mode record' }]);
+});
+
+test('it finds an agent recording scope through a runner or the script', () => {
+  const ctx = setupTest();
+
+  expect(
+    ['bunx auto-mode record', 'node ~/src/auto-mode/dist/cli.js record < r.json'].map((command) =>
+      collectScopeFindings({ tool: 'Bash', cwd: ctx.worktree, input: { command } }, ctx.scope),
+    ),
+  ).toStrictEqual([
+    [{ kind: 'credential', target: 'auto-mode record' }],
+    [{ kind: 'credential', target: 'auto-mode record' }],
+  ]);
 });

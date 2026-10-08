@@ -55,6 +55,7 @@ async function setupTest() {
   // The forge knows no PR unless a test says otherwise; `gh pr view` is the
   // command layer this stands in for.
   const options = {
+    now: Date.now(),
     stateDir: join(root, 'state'),
     home: root,
     readPullRequest: () => Promise.resolve(null),
@@ -301,4 +302,58 @@ test('it keeps every branch when calls of one session record at the same time', 
   );
 
   expect(scope.branches).toIncludeSameMembers(names);
+});
+
+test('it records nothing for a call that claims to have started long ago', async () => {
+  const ctx = await setupTest();
+
+  ctx.runGit(ctx.repo, 'branch', 'feat/old');
+
+  const scope = await updateSessionScope(
+    {
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt: 1,
+      command: 'git branch feat/old',
+      resultText: '',
+    },
+    ctx.options,
+  );
+
+  expect(scope).toStrictEqual({ worktrees: [], branches: [], pullRequests: [] });
+});
+
+test('it records every PR one call created', async () => {
+  const ctx = await setupTest();
+
+  const startedAt = Date.now();
+
+  const heads = new Map([
+    [3, 'feat/a'],
+    [4, 'feat/b'],
+  ]);
+
+  const scope = await updateSessionScope(
+    {
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt,
+      command: 'gh pr create --head feat/a --fill && gh pr create --head feat/b --fill',
+      resultText: 'https://github.com/dev/app/pull/3\nhttps://github.com/dev/app/pull/4\n',
+    },
+    {
+      ...ctx.options,
+      readPullRequest: (_repository: string, number: number) => {
+        const head = heads.get(number);
+        const pull = head === undefined ? null : { head, createdAt: startedAt };
+
+        return Promise.resolve(pull);
+      },
+    },
+  );
+
+  expect(scope.pullRequests).toStrictEqual([
+    { repository: 'github.com/dev/app', number: 3, head: 'feat/a' },
+    { repository: 'github.com/dev/app', number: 4, head: 'feat/b' },
+  ]);
 });

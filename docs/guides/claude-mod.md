@@ -83,8 +83,11 @@ writes nothing on stdout. It adds to the session's scope only what the call made
 link file dates from after `startedAt`, a branch whose reflog starts with its creation and whose ref
 file dates from after `startedAt`, and a pull request that `gh pr view` dates from the call, with
 the head branch it reports. A branch counts only in the repository it was made in. Parallel records
-of one session take a lock file, so none loses another's additions. Any other Bash call and any
-denied call run no subprocess. The record body is strict, as the request is.
+of one session take a lock file, so none loses another's additions. A record whose `startedAt` is
+more than 15 minutes old adds nothing. Only the mod records: an agent's own call to
+`auto-mode record`, through any runner, is a credential finding that the containment check denies.
+Any other Bash call and any denied call run no subprocess. The record body is strict, as the request
+is.
 
 Each optional task prompt has a 4,096-byte limit. An oversized task is omitted whole. If the
 complete request exceeds 100,000 bytes, the client omits optional tasks before it refuses the

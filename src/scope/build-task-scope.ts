@@ -26,7 +26,7 @@ export function buildTaskScope(input: Readonly<TaskScopeInput>): OwnedScope {
 
   const pullRequests = merged.pullRequests
     .filter((pull) => branches.includes(pull.head) && repositories.has(pull.repository))
-    .map((pull) => pull.number);
+    .map((pull) => ({ number: pull.number, repository: pull.repository }));
 
   return {
     home: input.home,
@@ -34,7 +34,7 @@ export function buildTaskScope(input: Readonly<TaskScopeInput>): OwnedScope {
     branches,
     currentBranch: input.currentBranch,
     remotes: input.remotes,
-    pullRequests: [...new Set(pullRequests)],
+    pullRequests,
     pathGlobs: merged.pathGlobs,
   };
 }

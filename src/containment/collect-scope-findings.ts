@@ -8,13 +8,18 @@ export interface ScopeRemote {
   readonly url: string;
 }
 
+interface OwnedPullRequest {
+  readonly number: number;
+  readonly repository: string;
+}
+
 export interface OwnedScope {
   readonly home: string;
   readonly worktrees: readonly string[];
   readonly branches: readonly string[];
   readonly currentBranch: string | null;
   readonly remotes: readonly ScopeRemote[];
-  readonly pullRequests: readonly number[];
+  readonly pullRequests: readonly OwnedPullRequest[];
   readonly pathGlobs: readonly string[];
 }
 
@@ -97,8 +102,16 @@ function collectToolFindings(
   const number =
     action.input['pullNumber'] ?? action.input['pull_number'] ?? action.input['issue_number'];
 
+  const owner = action.input['owner'];
+  const name = action.input['repo'];
+
+  const repo =
+    typeof owner === 'string' && typeof name === 'string' ? `${owner}/${name}` : undefined;
+
   const isOwned =
-    !verb.includes('merge') && typeof number === 'number' && scope.pullRequests.includes(number);
+    !verb.includes('merge') &&
+    typeof number === 'number' &&
+    isOwnedPullRequest(number, repo, scope);
 
   return isOwned ? [] : [{ kind: 'remote-write', target: action.tool }];
 }
@@ -198,6 +211,14 @@ function collectProgramFindings(
 
   if (name === 'curl') {
     return collectCurlFindings(args);
+  }
+
+  // The mod alone reports finished calls; a record the agent sends is a claim
+  // on scope it did not make, whether it names the bin, a runner, or the script.
+  const launcher = [name, ...args].findIndex((word) => word.includes('auto-mode'));
+
+  if (launcher !== -1 && [name, ...args].slice(launcher + 1).includes('record')) {
+    return [{ kind: 'credential', target: 'auto-mode record' }];
   }
 
   const finding = findProgramFinding(name, args);
@@ -461,11 +482,7 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
     const number = Number(args.slice(2).find((word) => /^\d+$/u.test(word)));
     const repoIndex = args.findIndex((word) => word === '--repo' || word === '-R');
     const repo = repoIndex === -1 ? undefined : args[repoIndex + 1];
-
-    const isOwned =
-      verb !== 'merge' &&
-      scope.pullRequests.includes(number) &&
-      (repo === undefined || isCheckoutRepository(repo, scope));
+    const isOwned = verb !== 'merge' && isOwnedPullRequest(number, repo, scope);
 
     return isOwned ? [] : [{ kind: 'remote-write', target: `gh pr ${verb}` }];
   }
@@ -494,15 +511,24 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
 }
 
 // `gh --repo` takes `owner/name` or `host/owner/name`; a bare `owner/name`
-// matches a remote on any host.
-function isCheckoutRepository(repo: string, scope: Readonly<OwnedScope>): boolean {
-  const wanted = repo.toLowerCase().replace(/\.git$/u, '');
+// matches on any host. Without a repository gh picks one of the checkout's
+// remotes, so the PR counts only when every remote names its repository.
+function isOwnedPullRequest(
+  number: number,
+  repo: string | undefined,
+  scope: Readonly<OwnedScope>,
+): boolean {
+  const wanted = repo?.toLowerCase().replace(/\.git$/u, '');
 
-  return scope.remotes.some((remote) => {
-    const slug = toRepositorySlug(remote.url);
+  const slugs = new Set(scope.remotes.map((remote) => toRepositorySlug(remote.url)));
 
-    return slug !== null && (slug === wanted || slug.endsWith(`/${wanted}`));
-  });
+  return scope.pullRequests.some(
+    (pull) =>
+      pull.number === number &&
+      (wanted === undefined
+        ? slugs.size === 1 && slugs.has(pull.repository)
+        : pull.repository === wanted || pull.repository.endsWith(`/${wanted}`)),
+  );
 }
 
 function collectGhAPIFindings(
@@ -533,8 +559,7 @@ function collectGhAPIFindings(
 
   if (
     pull !== undefined &&
-    scope.pullRequests.includes(Number(pull['number'])) &&
-    isCheckoutRepository(pull['repo'] ?? '', scope) &&
+    isOwnedPullRequest(Number(pull['number']), pull['repo'] ?? '', scope) &&
     !endpoint.includes('/merge')
   ) {
     return [];

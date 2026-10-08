@@ -4,9 +4,9 @@ import { resolve } from 'node:path';
 import * as z from 'zod';
 import { collectScopeFindings } from '../containment/collect-scope-findings.ts';
 import { buildTaskScope } from './build-task-scope.ts';
+import { collectPullRequestAddresses } from './collect-pull-request-addresses.ts';
 import { collectScopeEvents } from './collect-scope-events.ts';
 import { mergeScopeFacts } from './merge-scope-facts.ts';
-import { parsePullRequestAddress } from './parse-pull-request-address.ts';
 import type { ScopeFacts } from './types.ts';
 import { EMPTY_SCOPE_FACTS } from './types.ts';
 
@@ -110,7 +110,7 @@ async function setupTest(options: Readonly<ReplayOptions>) {
         );
       } else if (entry.succeeded) {
         for (const event of collectScopeEvents(entry.command, entry.cwd, fixture.home)) {
-          const address = parsePullRequestAddress(entry.resultText);
+          const address = collectPullRequestAddresses(entry.resultText).at(0) ?? null;
 
           const branch =
             event.kind === 'worktree' ? fixture.worktreeBranches[event.path] : undefined;

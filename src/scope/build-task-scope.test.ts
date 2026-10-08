@@ -30,7 +30,7 @@ test('it unites the facts of every source and drops the default branch any sourc
     branches: ['feat/a', 'feat/b'],
     currentBranch: 'feat/a',
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
-    pullRequests: [4],
+    pullRequests: [{ number: 4, repository: 'github.com/dev/app' }],
     pathGlobs: ['/scratch/**'],
   });
 });

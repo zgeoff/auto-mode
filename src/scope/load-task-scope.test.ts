@@ -144,7 +144,7 @@ test('it adds what the session recorded and the PRs whose head branch is in scop
   expect([scope.worktrees, scope.branches, scope.pullRequests]).toStrictEqual([
     [ctx.root, join(ctx.root, '.worktrees', 'docs')],
     ['docs'],
-    [7],
+    [{ number: 7, repository: 'github.com/dev/app' }],
   ]);
 });
 

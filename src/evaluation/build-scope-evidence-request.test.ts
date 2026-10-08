@@ -29,7 +29,7 @@ function setupTest() {
     branches: ['feat/a'],
     currentBranch: 'feat/a',
     remotes: [{ name: 'origin', url: 'github.com/dev/app' }],
-    pullRequests: [7],
+    pullRequests: [{ number: 7, repository: 'github.com/dev/app' }],
     pathGlobs: [],
   };
 

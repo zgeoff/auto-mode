@@ -2,11 +2,11 @@ import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { toRepositorySlug } from '../containment/to-repository-slug.ts';
 import { loadRepositoryContext } from '../model/load-repository-context.ts';
+import { collectPullRequestAddresses } from './collect-pull-request-addresses.ts';
 import { collectScopeEvents } from './collect-scope-events.ts';
 import { findCheckout } from './find-checkout.ts';
 import { loadCheckoutRemotes } from './load-checkout-remotes.ts';
 import { mergeSessionScope } from './merge-session-scope.ts';
-import { parsePullRequestAddress } from './parse-pull-request-address.ts';
 import { readBranchCreatedAt } from './read-branch-created-at.ts';
 import type { PullRequestFacts } from './read-pull-request.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
@@ -23,6 +23,7 @@ export interface ScopeRecordRequest {
 }
 
 export interface ScopeRecordOptions {
+  readonly now: number;
   readonly stateDir: string;
   readonly home: string;
   readonly readPullRequest: (
@@ -31,6 +32,11 @@ export interface ScopeRecordOptions {
   ) => Promise<PullRequestFacts | null>;
 }
 
+// A Bash call runs for at most ten minutes, so a record that claims an older
+// start is not one the mod sent for a call that just finished.
+const MAX_CALL_AGE_MS = 15 * 60_000;
+const FUTURE_SLACK_MS = 60_000;
+
 // The scope takes only what this call made: a worktree link file and a branch
 // ref written after the call started, and a PR the forge dates from then.
 // An existing worktree, branch, or PR adds nothing, whatever the command printed.
@@ -38,6 +44,12 @@ export async function updateSessionScope(
   request: Readonly<ScopeRecordRequest>,
   options: Readonly<ScopeRecordOptions>,
 ): Promise<SessionScope> {
+  const age = options.now - request.startedAt;
+
+  if (age < -FUTURE_SLACK_MS || age > MAX_CALL_AGE_MS) {
+    return EMPTY_SESSION_SCOPE;
+  }
+
   const events = collectScopeEvents(request.command, request.cwd, options.home);
 
   const verified = await Promise.all(
@@ -119,25 +131,25 @@ async function verifyScopeEvent(
       : EMPTY_SESSION_SCOPE;
   }
 
-  const address = parsePullRequestAddress(request.resultText);
-
   const remotes = await loadCheckoutRemotes(checkout.commonDir);
 
-  if (
-    address === null ||
-    !remotes.some((remote) => toRepositorySlug(remote.url) === address.repository)
-  ) {
-    return EMPTY_SESSION_SCOPE;
-  }
+  const repositories = new Set(remotes.map((remote) => toRepositorySlug(remote.url)));
 
-  const pull = await options.readPullRequest(address.repository, address.number);
+  const addresses = collectPullRequestAddresses(request.resultText).filter((address) =>
+    repositories.has(address.repository),
+  );
 
-  return pull === null || pull.createdAt < request.startedAt - FORGE_CLOCK_SKEW_MS
-    ? EMPTY_SESSION_SCOPE
-    : {
-        ...EMPTY_SESSION_SCOPE,
-        pullRequests: [{ number: address.number, head: pull.head, repository: address.repository }],
-      };
+  const pulls = await Promise.all(
+    addresses.map(async (address) => {
+      const pull = await options.readPullRequest(address.repository, address.number);
+
+      const isNew = pull !== null && pull.createdAt >= request.startedAt - FORGE_CLOCK_SKEW_MS;
+
+      return isNew ? [{ ...address, head: pull.head }] : [];
+    }),
+  );
+
+  return { ...EMPTY_SESSION_SCOPE, pullRequests: pulls.flat() };
 }
 
 // The reflog dates a branch's creation to the second; the loose ref file the

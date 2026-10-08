@@ -200,6 +200,7 @@ async function runRecord(): Promise<number> {
 
     if (sources.some((source) => source.kind === 'session')) {
       await updateSessionScope(request, {
+        now: Date.now(),
         stateDir: resolveStateDir(),
         home: homedir(),
         readPullRequest,
