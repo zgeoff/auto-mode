@@ -46,6 +46,16 @@ test('it records no request for stdin that is not a JSON object', () => {
   ]);
 });
 
+test('it records no request for stdin that is not JSON', () => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  processRun.hook(null, { argv: ['auto-mode', 'run'], init: { stdin: 'not-json' } });
+
+  expect(processRun.calls).toStrictEqual([
+    { argv: ['auto-mode', 'run'], timeoutMs: undefined, request: undefined },
+  ]);
+});
+
 test('it records a failing run and throws its failure text to the host', () => {
   const processRun = buildStubProcessRun({ failure: 'synthetic child failure' });
 

@@ -118,132 +118,6 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
   expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
 });
 
-test('it refuses an ask after Jev denies the action', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({
-      stdout: '{"decision":"deny","reason":"[Data Exfiltration] Refuse the transfer."}',
-    }),
-  });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual({
-    decision: 'deny',
-    reason: '[Data Exfiltration] Refuse the transfer.',
-  });
-
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
-test('it retains manual approval when Jev returns no opinion', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-  const processRun = buildStubProcessRun({ result: buildMockProcessResult({ stdout: '' }) });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual(decided);
-
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
 test('it retains manual approval for malformed JSON without copying diagnostics', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
 
@@ -254,10 +128,10 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
     }),
   });
 
-  const logs: string[] = [];
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
   on('ui.log', (_api, e) => {
-    logs.push(e.text);
+    logs.push({ text: e.text, to: e.to });
 
     return { value: undefined };
   });
@@ -288,448 +162,12 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
   expect(result).toStrictEqual(decided);
 
   expect(logs).toStrictEqual([
-    'auto-mode action unavailable: evaluator invoked',
-    'auto-mode action unavailable: manual approval retained; no usable verdict; inspect action diagnostics',
-  ]);
-
-  expect(processRun.calls).toStrictEqual([
+    { text: 'auto-mode action unavailable: evaluator invoked', to: 'debug' },
     {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
+      text: 'auto-mode action unavailable: manual approval retained; no usable verdict; inspect action diagnostics',
+      to: 'debug',
     },
   ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
-test('it retains manual approval for a hook-shaped verdict', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({
-      stdout: '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}',
-    }),
-  });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual(decided);
-
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
-test('it retains manual approval for an allowance whose reason is not text', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({ stdout: '{"decision":"allow","reason":123}' }),
-  });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual(decided);
-
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
-test('it retains manual approval for an allowance with an unknown field', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({ stdout: '{"decision":"allow","rule":"Read-only actions"}' }),
-  });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual(decided);
-
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
-test('it retains manual approval for a denial with an unknown field', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({
-      stdout:
-        '{"decision":"deny","reason":"[Data Exfiltration] Refuse the transfer.","extra":true}',
-    }),
-  });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual(decided);
-
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
-test('it retains manual approval for a denial whose reason is not text', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({ stdout: '{"decision":"deny","reason":42}' }),
-  });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual(decided);
-
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
-test('it retains manual approval for a verdict that is an array', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({ stdout: '["allow"]' }),
-  });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual(decided);
-
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/repo',
-        toolName: 'Bash',
-        toolInput: { command: 'git push origin feature', timeout: 120_000 },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
-
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 7500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
-});
-
-test('it retains manual approval for a malformed denial', async ($, on) => {
-  const decided = buildMockPermissionDecision({ decision: 'ask' });
-
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({ stdout: '{"decision":"deny"}' }),
-  });
-
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => decided);
-  on('classic.SessionStart', () => ({}));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({
-    ...buildMockSessionContext({ session_id: 'session-1' }),
-    source: 'startup',
-  });
-
-  const before = Date.now();
-
-  const result = await $.tool.check({
-    tool: 'Bash',
-    input: { command: 'git push origin feature', timeout: 120_000 },
-  });
-
-  const after = Date.now();
-  const [call] = processRun.calls;
-
-  assertDefined(call);
-
-  expect(result).toStrictEqual(decided);
 
   expect(processRun.calls).toStrictEqual([
     {
@@ -1028,7 +466,7 @@ test(
   },
 );
 
-test('it refreshes the context from the current user prompt after reload', async ($, on) => {
+test('it refreshes the session identity and cwd from a user prompt after reload without carrying its text', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
@@ -1269,32 +707,6 @@ test('it does not replace the main context with a subagent prompt', async ($, on
   expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 7500);
 });
 
-test('it honors a configured fail-closed classifier verdict', async ($, on) => {
-  const processRun = buildStubProcessRun({
-    result: buildMockProcessResult({
-      stdout: '{"decision":"deny","reason":"[Classifier Unavailable] Jev unavailable."}',
-    }),
-  });
-
-  on('classic.SessionStart', () => ({}));
-  on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
-  on('process.run', processRun.hook);
-
-  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
-  await $.classic.SessionStart({ ...buildMockSessionContext(), source: 'startup' });
-
-  const result = await $.tool.check({
-    tool: 'Write',
-    input: { file_path: '/repo/fixture', content: 'green' },
-  });
-
-  expect(result).toStrictEqual({
-    decision: 'deny',
-    reason: '[Classifier Unavailable] Jev unavailable.',
-  });
-});
-
 test('it reads the current directory between two calls without a new prompt', async ($, on) => {
   let cwd = '/first';
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
@@ -1316,62 +728,41 @@ test('it reads the current directory between two calls without a new prompt', as
 
   await $.tool.check({ tool: 'Bash', input: { command: 'rm fixture.txt' } });
 
-  expect(processRun.calls).toStrictEqual([
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/first',
-        toolName: 'Bash',
-        toolInput: { command: 'rm fixture.txt' },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
+  const [, second] = processRun.calls;
+
+  assertDefined(second);
+
+  expect(second).toStrictEqual({
+    argv: [
+      'auto-mode',
+      'run',
+      '--jev-only',
+      '--evaluation-deadline',
+      expect.stringMatching(/^\d+$/),
+    ],
+    timeoutMs: 8000,
+    request: {
+      sessionID: 'session-1',
+      cwd: '/second',
+      toolName: 'Bash',
+      toolInput: { command: 'rm fixture.txt' },
+      context: {
+        agentID: null,
+        originalUserTask: null,
+        delegatedTask: null,
+        lastDirectUserMessage: null,
+        omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
       },
     },
-    {
-      argv: [
-        'auto-mode',
-        'run',
-        '--jev-only',
-        '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
-      ],
-      timeoutMs: 8000,
-      request: {
-        sessionID: 'session-1',
-        cwd: '/second',
-        toolName: 'Bash',
-        toolInput: { command: 'rm fixture.txt' },
-        context: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: null,
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      },
-    },
-  ]);
+  });
 });
 
 test('it logs the invocation and the fallback without copying child output', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
-  const logs: string[] = [];
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
   on('ui.log', (_api, e) => {
-    logs.push(e.text);
+    logs.push({ text: e.text, to: e.to });
 
     return { value: undefined };
   });
@@ -1398,17 +789,20 @@ test('it logs the invocation and the fallback without copying child output', asy
   expect(result).toStrictEqual(decided);
 
   expect(logs).toStrictEqual([
-    'auto-mode action unavailable: evaluator invoked',
-    'auto-mode action unavailable: manual approval retained; no usable verdict; inspect action diagnostics',
+    { text: 'auto-mode action unavailable: evaluator invoked', to: 'debug' },
+    {
+      text: 'auto-mode action unavailable: manual approval retained; no usable verdict; inspect action diagnostics',
+      to: 'debug',
+    },
   ]);
 });
 
 test('it logs a subprocess failure when the child run fails', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
-  const logs: string[] = [];
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
   on('ui.log', (_api, e) => {
-    logs.push(e.text);
+    logs.push({ text: e.text, to: e.to });
 
     return { value: undefined };
   });
@@ -1426,8 +820,11 @@ test('it logs a subprocess failure when the child run fails', async ($, on) => {
   expect(result).toStrictEqual(decided);
 
   expect(logs).toStrictEqual([
-    'auto-mode action unavailable: evaluator invoked',
-    'auto-mode action unavailable: manual approval retained; subprocess failure',
+    { text: 'auto-mode action unavailable: evaluator invoked', to: 'debug' },
+    {
+      text: 'auto-mode action unavailable: manual approval retained; subprocess failure',
+      to: 'debug',
+    },
   ]);
 });
 
@@ -1507,7 +904,7 @@ test('it records nothing for a scope-creating Bash call that was denied', async 
 
   on('session.cwd', () => ({ value: '/repo' }));
   on('classic.SessionStart', () => ({}));
-  on('tool.call', () => ({ deny: 'no' }));
+  on('tool.call', () => buildMockCallResult({ deny: 'no' }));
   on('process.run', processRun.hook);
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
@@ -1516,3 +913,165 @@ test('it records nothing for a scope-creating Bash call that was denied', async 
 
   expect(processRun.calls).toStrictEqual([]);
 });
+
+test('it skips evaluation for a tool call it never saw start', async ($, on) => {
+  const decided = buildMockPermissionDecision({ decision: 'ask' });
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push({ text: e.text, to: e.to });
+
+    return { value: undefined };
+  });
+
+  on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => decided);
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ ...buildMockSessionContext(), source: 'startup' });
+
+  const result = await $.tool.check({
+    tool: 'Bash',
+    input: { command: 'rm fixture.txt' },
+    tool_use_id: 'toolu_01',
+  });
+
+  expect(result).toStrictEqual(decided);
+  expect(processRun.calls).toStrictEqual([]);
+
+  expect(logs).toStrictEqual([
+    { text: 'auto-mode action unavailable: evaluation skipped; untracked tool call', to: 'debug' },
+  ]);
+});
+
+test('it names a call_ action ID in its log lines', async ($, on) => {
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push({ text: e.text, to: e.to });
+
+    return { value: undefined };
+  });
+
+  on('classic.SessionStart', () => ({}));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
+  on('process.run', buildStubProcessRun({ result: buildMockProcessResult() }).hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ ...buildMockSessionContext(), source: 'startup' });
+
+  await $.tool.check({
+    tool: 'Bash',
+    input: { command: 'rm fixture.txt' },
+    tool_use_id: 'call_0123456789abcdef01234567',
+  });
+
+  expect(logs).toStrictEqual([
+    {
+      text: 'auto-mode action call_0123456789abcdef01234567: evaluation skipped; untracked tool call',
+      to: 'debug',
+    },
+  ]);
+});
+
+test('it keeps the user prompts of a session across its compaction', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('classic.SessionStart', () => ({}));
+  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-1' }),
+    source: 'startup',
+  });
+
+  await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-1' }),
+    source: 'compact',
+  });
+
+  await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf dist' } });
+
+  const [call] = processRun.calls;
+
+  assertDefined(call);
+
+  expect(call.request).toStrictEqual({
+    sessionID: 'session-1',
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+    context: {
+      agentID: null,
+      originalUserTask: { text: 'Clean the build output.', origin: 'composer' },
+      delegatedTask: null,
+      lastDirectUserMessage: { text: 'Clean the build output.', origin: 'composer' },
+      omittedTaskContext: [],
+    },
+  });
+});
+
+test('it logs a record subprocess failure and returns the call result', async ($, on) => {
+  const called = buildMockCallResult({ text: 'https://github.com/dev/app/pull/3\n' });
+  const logs: { readonly text: string; readonly to: string | undefined }[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push({ text: e.text, to: e.to });
+
+    return { value: undefined };
+  });
+
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('classic.SessionStart', () => ({}));
+  on('tool.call', () => called);
+  on('process.run', buildStubProcessRun({ failure: 'synthetic child failure' }).hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ ...buildMockSessionContext(), source: 'startup' });
+
+  const result = await $.tool.call({
+    tool: 'Bash',
+    tool_use_id: 'call-1',
+    command: 'gh pr create --fill',
+  });
+
+  expect(result).toStrictEqual(called);
+
+  expect(logs).toStrictEqual([
+    { text: 'auto-mode: session scope not recorded; subprocess failure', to: 'debug' },
+  ]);
+});
+
+test(
+  'it records the session scope through a configured executable',
+  { options: { command: '/opt/auto mode/bin/auto-mode' } },
+  async ($, on) => {
+    const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+    on('session.cwd', () => ({ value: '/repo' }));
+    on('classic.SessionStart', () => ({}));
+    on('tool.call', () => buildMockCallResult());
+    on('process.run', processRun.hook);
+
+    // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+    await $.classic.SessionStart({ ...buildMockSessionContext(), source: 'startup' });
+    await $.tool.call({ tool: 'Bash', tool_use_id: 'call-1', command: 'git switch -c fix/a' });
+
+    const [call] = processRun.calls;
+
+    assertDefined(call);
+
+    expect(call.argv).toStrictEqual(['/opt/auto mode/bin/auto-mode', 'record']);
+  },
+);
