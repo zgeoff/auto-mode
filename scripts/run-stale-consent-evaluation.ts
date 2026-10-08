@@ -3,7 +3,6 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
-import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
 import { readHostEnvironment } from '../src/config/read-host-environment.ts';
@@ -15,6 +14,7 @@ import { sendDecision } from '../src/model/send-decision.ts';
 import type { DecisionRequest } from '../src/model/types.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
 import type { ActionRequest } from '../src/request/types.ts';
+import { staleConsentCorpusSchema } from './stale-consent-corpus-schema.ts';
 
 async function main(): Promise<void> {
   const args = parseArgs({ options: { live: { type: 'boolean' }, output: { type: 'string' } } });
@@ -30,31 +30,7 @@ async function main(): Promise<void> {
 
   const corpusText = await readFile(join(root, 'fixtures/stale-consent/cases.json'), 'utf8');
 
-  const pairSchema = z.object({
-    pair: z.number().int(),
-    action: z.enum(['push', 'pr-create', 'comment']),
-    name: z.string(),
-    variant: z.enum(['unrelated-topic', 'earlier-consent']),
-    firstArm: z.enum(['stale', 'null']),
-    staleMessage: z.string().min(1),
-    tool: z.string(),
-    input: z.record(z.string(), z.unknown()),
-    repositoryContext: z
-      .object({
-        cwd: z.string(),
-        branch: z.string().nullable(),
-        defaultBranch: z.string().nullable(),
-      })
-      .nullable(),
-  });
-
-  const corpus = z
-    .object({
-      cwd: z.string(),
-      staleOrigin: z.enum(['composer', 'bridge', 'sdk']),
-      pairs: z.array(pairSchema).length(6),
-    })
-    .parse(JSON.parse(corpusText));
+  const corpus = staleConsentCorpusSchema.parse(JSON.parse(corpusText));
 
   const config = await loadConfig();
 

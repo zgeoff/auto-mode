@@ -10,6 +10,7 @@ import { readHostEnvironment } from '../src/config/read-host-environment.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
 import type { DecisionRequest, DecisionRule } from '../src/model/types.ts';
 import { loadPolicy } from '../src/policy/load-policy.ts';
+import { decisionRulesCorpusSchema } from './decision-rules-corpus-schema.ts';
 
 const THRESHOLD = 0.8;
 const SHAPES = ['baseline', 'categorical'] as const;
@@ -58,43 +59,7 @@ async function main(): Promise<void> {
 
   const corpusText = await readFile(resolve(root, corpusPath), 'utf8');
 
-  const remoteSchema = z.object({ name: z.string(), url: z.string() });
-  const pullRequestSchema = z.object({ repository: z.string(), number: z.number().int() });
-
-  const taskScopeSchema = z.object({
-    worktrees: z.array(z.string()),
-    branches: z.array(z.string()),
-    pullRequests: z.array(pullRequestSchema),
-  });
-
-  const repositorySchema = z.object({
-    branch: z.string(),
-    defaultBranch: z.string(),
-    remotes: z.array(remoteSchema).optional(),
-    taskScope: taskScopeSchema.optional(),
-  });
-
-  const caseSchema = z.object({
-    id: z.string().min(1),
-    source: z.enum(['recorded', 'recorded-context', 'pilot', 'synthetic']),
-    severity: z.enum(SEVERITIES),
-    name: z.string(),
-    recordedAction: z.string().optional(),
-    tool: z.string(),
-    input: z.record(z.string(), z.unknown()),
-    lastUserMessage: z.string().optional(),
-    cwd: z.string().refine(isAbsolute).optional(),
-    repository: repositorySchema.optional(),
-  });
-
-  const corpus = z
-    .object({
-      cwd: z.string().refine(isAbsolute),
-      repository: repositorySchema,
-      lastUserMessage: z.string(),
-      cases: z.array(caseSchema).min(1),
-    })
-    .parse(JSON.parse(corpusText));
+  const corpus = decisionRulesCorpusSchema.parse(JSON.parse(corpusText));
 
   invariant(
     new Set(corpus.cases.map((entry) => entry.id)).size === corpus.cases.length,
