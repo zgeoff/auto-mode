@@ -3,6 +3,7 @@ import type { TaskScopeSummary } from '../model/types.ts';
 export interface HostEnvironment {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly home: string;
+  readonly scratchPaths?: readonly string[] | undefined;
 }
 
 export interface EvaluationOptions {

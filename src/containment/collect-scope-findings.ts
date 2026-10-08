@@ -1,6 +1,7 @@
 import { isAbsolute, join, matchesGlob, normalize } from 'node:path';
 import { splitCommandWords } from '../rules/split-command-words.ts';
 import { splitShellCommand } from '../rules/split-shell-command.ts';
+import { SCRATCH_PATHS } from './scratch-paths.ts';
 import { toRepositorySlug } from './to-repository-slug.ts';
 
 export interface ScopeRemote {
@@ -33,8 +34,6 @@ interface ScopeAction {
   readonly cwd: string;
   readonly input: Readonly<Record<string, unknown>>;
 }
-
-const SCRATCH_PATHS = ['/tmp', '/dev/null', '/dev/stdout', '/dev/stderr'];
 
 // Reads the action only, never the filesystem. A target it cannot resolve,
 // such as a path held in a variable, yields no finding, so the classifier

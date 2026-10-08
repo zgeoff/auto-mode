@@ -631,3 +631,44 @@ test.each([
 
   expect(findings).toStrictEqual([{ kind: 'credential', target: 'auto-mode record' }]);
 });
+
+test('it allows a write under a scratch path the caller supplies', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app',
+      input: { command: 'rm -rf /scratch/build' },
+    },
+    buildMockOwnedScope({ home: '/home/dev', worktrees: ['/home/dev/src/app'] }),
+    ['/scratch'],
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it finds a write under /tmp when the caller supplies no scratch paths', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app',
+      input: { command: 'rm -rf /tmp/build' },
+    },
+    buildMockOwnedScope({ home: '/home/dev', worktrees: ['/home/dev/src/app'] }),
+    [],
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'path', target: '/tmp/build' }]);
+});
+
+test('it treats /tmp as scratch space by default', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app',
+      input: { command: 'rm -rf /tmp/build' },
+    },
+    buildMockOwnedScope({ home: '/home/dev', worktrees: ['/home/dev/src/app'] }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});

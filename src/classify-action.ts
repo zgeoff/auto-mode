@@ -33,7 +33,6 @@ export interface ActionOutcome {
 
 export interface ClassifyOptions extends EvaluationOptions {
   readonly localOnly?: boolean;
-  readonly scratchPaths?: readonly string[];
 }
 
 export async function classifyAction(
@@ -76,8 +75,7 @@ export async function classifyAction(
 
   const scope = await tryLoadTaskScope(request, config, host);
 
-  const containment =
-    scope === null ? null : checkContainment(request, scope, options.scratchPaths);
+  const containment = scope === null ? null : checkContainment(request, scope, host.scratchPaths);
 
   if (containment !== null) {
     const guidance = await tryReadDenialGuidance();
