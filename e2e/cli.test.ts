@@ -8,8 +8,6 @@ import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-requ
 import { readFixture } from '../test-utils/read-fixture.ts';
 import { runGit } from '../test-utils/run-git.ts';
 
-// The child gets PATH and every other path from the temp root, never the host's
-// environment. It gets no API key, so no run can reach a model.
 async function setupTest(): Promise<{
   readonly node: string;
   readonly root: string;
@@ -45,12 +43,25 @@ async function setupTest(): Promise<{
     cli,
     dir,
     repo,
+
+    // No API key reaches the child, so no run can reach a model.
     env: {
+      // the CLI starts git for the task scope, which it finds through PATH
       PATH: process.env['PATH'],
+
+      // the home the CLI falls back to for its config and state
       HOME: dir,
+
+      // the CLI reads its config.json under this directory
       XDG_CONFIG_HOME: dir,
+
+      // the CLI keeps its denial counts under this directory
       XDG_STATE_HOME: dir,
+
+      // the CLI appends a diagnostic record per run to this file
       AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
+
+      // the CLI reads Claude Code's settings.json under this directory
       CLAUDE_CONFIG_DIR: dir,
     },
   };
@@ -85,9 +96,55 @@ Options:
   });
 });
 
-// Recorded from the mod in a live Claude Code session: Claude Code prompted for
-// the deletion, and the local tier allows regenerable build output. The
-// recording's cwd moves into the temp root.
+test('it runs the artifact under node 24', async () => {
+  const ctx = await setupTest();
+
+  const result =
+    await Bun.$`${ctx.node} -p ${"process.release.name + ' ' + process.versions.node.split('.')[0]"}`
+      .env(ctx.env)
+      .quiet()
+      .nothrow();
+
+  expect({
+    exitCode: result.exitCode,
+    stdout: result.stdout.toString(),
+    stderr: result.stderr.toString(),
+  }).toStrictEqual({ exitCode: 0, stdout: 'node 24\n', stderr: '' });
+});
+
+test('it exits 2 under node on a command it does not know', async () => {
+  const ctx = await setupTest();
+  const result = await Bun.$`${ctx.node} ${ctx.cli} frobnicate`.env(ctx.env).quiet().nothrow();
+
+  expect({
+    exitCode: result.exitCode,
+    stdout: result.stdout.toString(),
+    stderr: result.stderr.toString(),
+  }).toStrictEqual({
+    exitCode: 2,
+    stdout: '',
+    stderr: `auto-mode: unknown command 'frobnicate'
+
+auto-mode — a permission classifier for the auto-mode Claude Code mod
+
+Usage:
+  auto-mode run              Read an action request on stdin, write a verdict on stdout
+  auto-mode print-prompt     Print the system prompt the classifier receives
+  auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+
+Options:
+  --classifier <path>   Use this framework file instead of the shipped one
+  --rules <path>        Use this rule list instead of the shipped one
+  --explain             With run: also write the reasoning to stderr
+  --local-only          With run: skip the model tier
+  --jev-only            With run: require Jev and cap its API timeout at 5 seconds
+  --evaluation-deadline <unix-ms>  With --jev-only: share the helper and API deadline
+`,
+  });
+});
+
+// The recording's cwd is /repo, which may exist on the host, so the test moves it
+// into the temp root.
 test('it allows a recorded mod request for regenerable output under node', async () => {
   const ctx = await setupTest();
 
@@ -105,7 +162,6 @@ test('it allows a recorded mod request for regenerable output under node', async
   }).toStrictEqual({ exitCode: 0, stdout: '{"decision":"allow"}', stderr: '' });
 });
 
-// Writing nothing leaves the mod to keep the prompt Claude Code was about to show.
 test('it writes nothing under node for a recorded mod request the local tier will not judge', async () => {
   const ctx = await setupTest();
 
@@ -123,8 +179,6 @@ test('it writes nothing under node for a recorded mod request the local tier wil
   }).toStrictEqual({ exitCode: 0, stdout: '', stderr: '' });
 });
 
-// The mod reads a non-zero exit as a failure, so input the CLI cannot read
-// still exits 0.
 test('it writes nothing and exits 0 under node on stdin that is not JSON', async () => {
   const ctx = await setupTest();
 
@@ -140,13 +194,12 @@ test('it writes nothing and exits 0 under node on stdin that is not JSON', async
   }).toStrictEqual({ exitCode: 0, stdout: '', stderr: '' });
 });
 
-// The policy files ship in the package and are the product, so a broken splice
-// is a release blocker.
 test('it assembles the shipped policy under node with the rules spliced in', async () => {
   const ctx = await setupTest();
   const result = await Bun.$`${ctx.node} ${ctx.cli} print-prompt`.env(ctx.env).quiet().nothrow();
 
   expect(result.exitCode).toBe(0);
+  expect(result.stderr.toString()).toBe('');
   expect(result.stdout.toString()).toMatch(/^## HARD BLOCK rules$/m);
   expect(result.stdout.toString()).toMatch(/^## ALLOW exceptions$/m);
   expect(result.stdout.toString()).not.toMatch(/^<rules>$/m);

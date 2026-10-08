@@ -42,14 +42,17 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
 ## The CLI
 
 - `src/run-cli.ts` holds the CLI as `runCLI(argv, io)`: `io` carries `stdin` (a function that
-  returns the body), `stdout`, `stderr` and the `host`, and the result is the exit code.
-  `src/cli.ts` only wires the real process into it.
+  returns the body), `stdout`, `stderr`, the `host` and the `signal` that cancels an evaluation, and
+  the result is the exit code. `src/cli.ts` only wires the real process into it, and it alone turns
+  SIGTERM and SIGINT into that signal for a `--jev-only` run.
 - `src/run-cli.test.ts` runs `runCLI` in-process. `buildStubOutput` from
   `test-utils/build-stub-output.ts` stands in for stdout and stderr, and its `read()` returns what
   was written.
 - `e2e/cli.test.ts` spawns the built `dist/cli.js` under node with a minimal environment rooted in
-  the temp dir. It fails at once when `dist/cli.js` is missing. The child runs the binary that
-  `node -p process.execPath` resolves, because a version manager's node shim needs the user's HOME.
+  the temp dir. It fails at once when `dist/cli.js` is missing. Only `bun run test` rebuilds
+  `dist/`, so a bare `bun test e2e/…` runs whatever `dist/` already holds. The child runs the binary
+  that `node -p process.execPath` resolves, because a version manager's node shim needs the user's
+  HOME.
 
 ## Git
 

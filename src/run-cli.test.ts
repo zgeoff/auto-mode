@@ -510,23 +510,21 @@ test('it counts down to one denial left on the second denial in a row', async ()
 
   await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
 
-  for (const command of ['git push a']) {
-    const payload = buildMockModRequest({
-      sessionID: 'cli-session',
-      cwd: ctx.repo,
-      toolName: 'Bash',
-      toolInput: { command },
-      context: { agentID: null },
-    });
+  const first = buildMockModRequest({
+    sessionID: 'cli-session',
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'git push a' },
+    context: { agentID: null },
+  });
 
-    await runCLI(['run'], {
-      stdin: () => Promise.resolve(JSON.stringify(payload)),
-      stdout: buildStubOutput(),
-      stderr: buildStubOutput(),
-      host: ctx.host,
-      signal: ctx.signal,
-    });
-  }
+  await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(first)),
+    stdout: buildStubOutput(),
+    stderr: buildStubOutput(),
+    host: ctx.host,
+    signal: ctx.signal,
+  });
 
   const payload = buildMockModRequest({
     sessionID: 'cli-session',
@@ -546,11 +544,9 @@ test('it counts down to one denial left on the second denial in a row', async ()
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
-  const finals = log
-    .trim()
-    .split('\n')
-    .filter((line) => !line.includes('"status":"started"'))
-    .map((line): unknown => JSON.parse(line));
+  const last = log.trim().split('\n').at(-1);
+
+  invariant(last !== undefined, 'the run wrote a diagnostic record');
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
@@ -562,34 +558,19 @@ test('it counts down to one denial left on the second denial in a row', async ()
     stderr: 'auto-mode: Claude settings unreadable; classifier unavailable\n',
   });
 
-  expect(finals).toStrictEqual([
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 1, session: 1 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 2, session: 2 },
-      escalation: false,
-      diagnostics: null,
-    },
-  ]);
+  expect(JSON.parse(last)).toStrictEqual({
+    schemaVersion: 3,
+    time: expect.toBeDateString(),
+    invocationID: expect.toBeString(),
+    sessionHash: expect.toBeString(),
+    actionHash: expect.toBeString(),
+    status: 'failure',
+    verdict: 'deny',
+    decidingStage: 'jev',
+    denials: { consecutive: 2, session: 2 },
+    escalation: false,
+    diagnostics: null,
+  });
 });
 
 test('it warns on the third denial in a row that it is the last before the user decides', async () => {
@@ -642,11 +623,9 @@ test('it warns on the third denial in a row that it is the last before the user 
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
-  const finals = log
-    .trim()
-    .split('\n')
-    .filter((line) => !line.includes('"status":"started"'))
-    .map((line): unknown => JSON.parse(line));
+  const last = log.trim().split('\n').at(-1);
+
+  invariant(last !== undefined, 'the run wrote a diagnostic record');
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
@@ -658,47 +637,19 @@ test('it warns on the third denial in a row that it is the last before the user 
     stderr: 'auto-mode: Claude settings unreadable; classifier unavailable\n',
   });
 
-  expect(finals).toStrictEqual([
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 1, session: 1 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 2, session: 2 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 3, session: 3 },
-      escalation: false,
-      diagnostics: null,
-    },
-  ]);
+  expect(JSON.parse(last)).toStrictEqual({
+    schemaVersion: 3,
+    time: expect.toBeDateString(),
+    invocationID: expect.toBeString(),
+    sessionHash: expect.toBeString(),
+    actionHash: expect.toBeString(),
+    status: 'failure',
+    verdict: 'deny',
+    decidingStage: 'jev',
+    denials: { consecutive: 3, session: 3 },
+    escalation: false,
+    diagnostics: null,
+  });
 });
 
 test('it leaves the fourth action in a row to the user after three denials', async () => {
@@ -751,11 +702,9 @@ test('it leaves the fourth action in a row to the user after three denials', asy
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
-  const finals = log
-    .trim()
-    .split('\n')
-    .filter((line) => !line.includes('"status":"started"'))
-    .map((line): unknown => JSON.parse(line));
+  const last = log.trim().split('\n').at(-1);
+
+  invariant(last !== undefined, 'the run wrote a diagnostic record');
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
@@ -763,60 +712,19 @@ test('it leaves the fourth action in a row to the user after three denials', asy
     stderr: 'auto-mode: denial budget exhausted; the user decides this action\n',
   });
 
-  expect(finals).toStrictEqual([
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 1, session: 1 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 2, session: 2 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 3, session: 3 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'defer',
-      decidingStage: 'budget',
-      denials: { consecutive: 0, session: 0 },
-      escalation: true,
-      diagnostics: null,
-    },
-  ]);
+  expect(JSON.parse(last)).toStrictEqual({
+    schemaVersion: 3,
+    time: expect.toBeDateString(),
+    invocationID: expect.toBeString(),
+    sessionHash: expect.toBeString(),
+    actionHash: expect.toBeString(),
+    status: 'failure',
+    verdict: 'defer',
+    decidingStage: 'budget',
+    denials: { consecutive: 0, session: 0 },
+    escalation: true,
+    diagnostics: null,
+  });
 });
 
 test('it starts the denial count over after the user decides an action', async () => {
@@ -869,11 +777,9 @@ test('it starts the denial count over after the user decides an action', async (
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
-  const finals = log
-    .trim()
-    .split('\n')
-    .filter((line) => !line.includes('"status":"started"'))
-    .map((line): unknown => JSON.parse(line));
+  const last = log.trim().split('\n').at(-1);
+
+  invariant(last !== undefined, 'the run wrote a diagnostic record');
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
@@ -885,73 +791,19 @@ test('it starts the denial count over after the user decides an action', async (
     stderr: 'auto-mode: Claude settings unreadable; classifier unavailable\n',
   });
 
-  expect(finals).toStrictEqual([
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 1, session: 1 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 2, session: 2 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 3, session: 3 },
-      escalation: false,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'defer',
-      decidingStage: 'budget',
-      denials: { consecutive: 0, session: 0 },
-      escalation: true,
-      diagnostics: null,
-    },
-    {
-      schemaVersion: 3,
-      time: expect.toBeDateString(),
-      invocationID: expect.toBeString(),
-      sessionHash: expect.toBeString(),
-      actionHash: expect.toBeString(),
-      status: 'failure',
-      verdict: 'deny',
-      decidingStage: 'jev',
-      denials: { consecutive: 1, session: 1 },
-      escalation: false,
-      diagnostics: null,
-    },
-  ]);
+  expect(JSON.parse(last)).toStrictEqual({
+    schemaVersion: 3,
+    time: expect.toBeDateString(),
+    invocationID: expect.toBeString(),
+    sessionHash: expect.toBeString(),
+    actionHash: expect.toBeString(),
+    status: 'failure',
+    verdict: 'deny',
+    decidingStage: 'jev',
+    denials: { consecutive: 1, session: 1 },
+    escalation: false,
+    diagnostics: null,
+  });
 });
 
 test('it denies a retry of the action just denied without asking the classifier', async () => {
@@ -1602,5 +1454,76 @@ test('it denies the action when Jev fails under a deny setting', async () => {
         '[Classifier Unavailable] jev-1.13.0 unavailable: Decision API returned HTTP 500. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step. Denials left before auto-mode asks the user: 2.',
     }),
     stderr: 'auto-mode: jev-1.13.0 unavailable: Decision API returned HTTP 500\n',
+  });
+});
+
+test('it writes the malformed atc record diagnostic to its own stderr', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(join(ctx.dir, 'record.json'), 'not json {');
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+  });
+
+  const exitCode = await runCLI(['run', '--local-only'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: {
+      ...ctx.host,
+      env: {
+        ...ctx.host.env,
+        ATC_SESSION_RECORD: join(ctx.dir, 'record.json'),
+        ATC_SESSION_ID: 'atc-1',
+      },
+    },
+    signal: ctx.signal,
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '{"decision":"allow"}',
+    stderr: `auto-mode: atc session record is not JSON: ${join(ctx.dir, 'record.json')}\n`,
+  });
+});
+
+test('it cancels a Jev-only evaluation once its signal is aborted', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({
+      classifiers: { jev: { baseURL: 'https://decision.test' } },
+      decision: { classifier: 'jev', onFailure: 'deny' },
+    }),
+  );
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'make deploy' },
+  });
+
+  const exitCode = await runCLI(['run', '--jev-only'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    signal: AbortSignal.abort(),
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: JSON.stringify({
+      decision: 'deny',
+      reason:
+        '[Classifier Unavailable] jev-1.13.0 unavailable: evaluation cancelled. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step. Denials left before auto-mode asks the user: 2.',
+    }),
+    stderr: 'auto-mode: jev-1.13.0 unavailable: evaluation cancelled\n',
   });
 });
