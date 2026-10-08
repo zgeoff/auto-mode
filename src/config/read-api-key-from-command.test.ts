@@ -84,8 +84,11 @@ test('it stops a key helper and its child on cancellation', async () => {
   );
 
   expect(key).toBeNull();
-  expect(helperBefore.state).toBeOneOf(['R', 'S']);
-  expect(childBefore.state).toBeOneOf(['R', 'S']);
+
+  // A live process can read as D (uninterruptible sleep) while it waits on I/O
+  // on a loaded host, so only the zombie and dead states rule it out.
+  expect(helperBefore.state).not.toBeOneOf(['Z', 'X']);
+  expect(childBefore.state).not.toBeOneOf(['Z', 'X']);
 
   // A stopped process is gone or a zombie awaiting its reaper; the start time
   // keeps a reused process ID from passing as the stopped one.
