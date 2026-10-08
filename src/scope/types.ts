@@ -25,6 +25,8 @@ interface ScopeSourceContext {
   readonly commonDir: string | null;
   readonly branch: string | null;
   readonly stateDir: string;
+  readonly atcRecordPath?: string | undefined;
+  readonly atcSessionID?: string | undefined;
 }
 
 export type ScopeSourceReader = (context: Readonly<ScopeSourceContext>) => Promise<ScopeFacts>;

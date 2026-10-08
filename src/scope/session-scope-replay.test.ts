@@ -1,18 +1,20 @@
-import { expect, test } from 'bun:test';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { expect, onTestFinished, test } from 'bun:test';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import * as z from 'zod';
 import { collectScopeFindings } from '../containment/collect-scope-findings.ts';
+import { buildAtcScopeFacts } from './build-atc-scope-facts.ts';
 import { buildTaskScope } from './build-task-scope.ts';
 import { collectPullRequestAddresses } from './collect-pull-request-addresses.ts';
 import { collectScopeEvents } from './collect-scope-events.ts';
+import { loadAtcSessionRecord } from './load-atc-session-record.ts';
 import { mergeScopeFacts } from './merge-scope-facts.ts';
 import type { ScopeFacts } from './types.ts';
 import { EMPTY_SCOPE_FACTS } from './types.ts';
 
 const root = resolve(import.meta.dirname, '../..');
 const remoteSchema = z.object({ name: z.string(), url: z.string() });
-const declaredSchema = z.object({ worktrees: z.array(z.string()), branches: z.array(z.string()) });
 const caseEntrySchema = z.strictObject({ case: z.string() });
 
 const callEntrySchema = z.strictObject({
@@ -32,7 +34,7 @@ const sessionsSchema = z.object({
   remotes: z.array(remoteSchema),
   worktreeBranches: z.record(z.string(), z.string()),
   pullRequestHeads: z.record(z.string(), z.string()),
-  atc: z.record(z.string(), declaredSchema),
+  atc: z.record(z.string(), z.unknown()),
   sessions: z.array(sessionSchema),
 });
 
@@ -69,15 +71,35 @@ async function setupTest(options: Readonly<ReplayOptions>) {
 
   const fixture = sessionsSchema.parse(JSON.parse(sessionsText));
 
+  const recordDir = await mkdtemp(join(tmpdir(), 'atc-replay-'));
+
+  onTestFinished(async () => {
+    await rm(recordDir, { recursive: true, force: true });
+  });
+
   const cases = new Map(
     corpusSchema.parse(JSON.parse(corpusText)).cases.map((entry) => [entry.id, entry]),
   );
+
+  // Every recorded checkout shares the one repository, so each path the record
+  // names is in the action's repository.
+  const loadDeclaredFacts = async (name: string): Promise<ScopeFacts> => {
+    const path = join(recordDir, `${name}.json`);
+
+    await writeFile(path, JSON.stringify(fixture.atc[name] ?? null));
+
+    const loaded = await loadAtcSessionRecord(path, name);
+
+    return loaded.kind === 'record'
+      ? buildAtcScopeFacts(loaded.record, () => true)
+      : EMPTY_SCOPE_FACTS;
+  };
 
   const findingsByCase = new Map<string, number>();
 
   for (const session of fixture.sessions) {
     let created: ScopeFacts = EMPTY_SCOPE_FACTS;
-    const declared = options.atc ? fixture.atc[session.name] : undefined;
+    const declared = options.atc ? await loadDeclaredFacts(session.name) : EMPTY_SCOPE_FACTS;
 
     for (const entry of session.entries) {
       if ('case' in entry) {
@@ -99,7 +121,7 @@ async function setupTest(options: Readonly<ReplayOptions>) {
               branches: action.repository.branch === null ? [] : [action.repository.branch],
             },
             created,
-            { ...EMPTY_SCOPE_FACTS, ...declared },
+            declared,
           ],
         });
 
@@ -181,7 +203,7 @@ test('it stops 35 of 452 real-work samples with the cwd and session scope', asyn
   });
 });
 
-test('it stops 31 of 452 real-work samples once atc declares the worktrees and their branches', async () => {
+test('it stops 31 of 452 real-work samples with the worktrees in the atc session record', async () => {
   const ctx = await setupTest({ atc: true });
 
   expect(ctx).toStrictEqual({

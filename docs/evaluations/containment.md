@@ -42,17 +42,18 @@ sessions in order through the product's event collector and scope builder, from
 [the recorded scope calls](../../fixtures/task-scope/sessions.json), and checks each action against
 the union of its cwd scope and what its session had created. No request was sent.
 
-| Scope                                               | Real work stopped | Tolerable pushes from the main checkout stopped |
-| --------------------------------------------------- | ----------------- | ----------------------------------------------- |
-| cwd                                                 | 37/452            | 3 of 3                                          |
-| cwd ∪ session                                       | 35/452            | 3 of 3                                          |
-| cwd ∪ session ∪ atc-declared worktrees and branches | 31/452            | 0 of 3                                          |
+| Scope                              | Real work stopped | Tolerable pushes from the main checkout stopped |
+| ---------------------------------- | ----------------- | ----------------------------------------------- |
+| cwd                                | 37/452            | 3 of 3                                          |
+| cwd ∪ session                      | 35/452            | 3 of 3                                          |
+| cwd ∪ session ∪ atc session record | 31/452            | 0 of 3                                          |
 
 - The session source clears a reply on the PR that the session itself opened (PR 298 in GEO-104).
 - The two stops left without atc are edits to a test in `live-042-file-check`, a worktree the
-  coordinator prepared and named only in user messages. The atc row models atc declaring that
-  worktree and `fix-281-refusal-detail` with its branch for the one session that used them; 31 is
-  what release-all-allow stops on its own.
+  coordinator prepared and named only in user messages. The atc row loads a version 1
+  `atc.session-record` for the one session that used them, through the `atc` source's own loader:
+  the workspace `fix-281-refusal-detail` with its branch, and `live-042-file-check` as a worktree.
+  31 is what release-all-allow stops on its own.
 - The catastrophic corpora carry no session history, so their scope stays the cwd scope, and the
   counts in the table above hold.
 

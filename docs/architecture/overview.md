@@ -78,10 +78,10 @@ the action's directory (outside a checkout, the directory itself) and its branch
 source owns the worktrees and branches the session created and the pull requests it opened whose
 head branch is in scope; the mod reports each Bash call that can create one after it runs, and the
 CLI keeps what the call made in a file per session ID. The `globs` source owns configured path
-globs. The `atc` source is reserved for atc's general session record and contributes nothing yet. No
-source can hand a task the default branch. The checkout's remotes are always owned, and `/tmp` is
-scratch space that every task owns. [Configuration](../guides/configuration.md#scope-sources) lists
-the sources.
+globs. The `atc` source owns what atc's session record at `$ATC_SESSION_RECORD` declares: its
+workspace, worktrees, branches and pull requests. No source can hand a task the default branch. The
+checkout's remotes are always owned, and `/tmp` is scratch space that every task owns.
+[Configuration](../guides/configuration.md#scope-sources) lists the sources.
 
 **The edit bypass** allows an Edit, Write or NotebookEdit whose target, with links resolved, lies in
 an in-scope worktree and in that worktree's own checkout, without asking Jev. Shell writes still go

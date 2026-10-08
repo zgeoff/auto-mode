@@ -1,4 +1,7 @@
 import type { ScopeSource } from '../config/config.ts';
+import { buildAtcScopeFacts } from './build-atc-scope-facts.ts';
+import { findCheckout } from './find-checkout.ts';
+import { loadAtcSessionRecord } from './load-atc-session-record.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import type { ScopeFacts, ScopeSourceReader } from './types.ts';
@@ -37,7 +40,40 @@ export function pickScopeSourceReader(source: Readonly<ScopeSource>): ScopeSourc
     return () => Promise.resolve(buildFacts({ pathGlobs: source.paths ?? [] }));
   }
 
-  return () => Promise.resolve(EMPTY_SCOPE_FACTS);
+  return async (context) => {
+    const loaded = await loadAtcSessionRecord(context.atcRecordPath, context.atcSessionID);
+
+    if (loaded.kind === 'malformed') {
+      process.stderr.write(`auto-mode: ${loaded.diagnostic}\n`);
+    }
+
+    if (loaded.kind !== 'record') {
+      return EMPTY_SCOPE_FACTS;
+    }
+
+    const scope = loaded.record.scope;
+
+    const paths = new Set([
+      scope.workspace.path,
+      ...scope.worktrees.map((worktree) => worktree.path),
+      ...scope.branches.map((branch) => branch.repo ?? scope.workspace.path),
+    ]);
+
+    const entries = await Promise.all([...paths].map((path) => findCommonDirEntry(path)));
+
+    const commonDirs = new Map(entries);
+
+    return buildAtcScopeFacts(
+      loaded.record,
+      (path) => context.commonDir !== null && commonDirs.get(path) === context.commonDir,
+    );
+  };
+}
+
+async function findCommonDirEntry(path: string): Promise<readonly [string, string | null]> {
+  const checkout = await findCheckout(path);
+
+  return [path, checkout?.commonDir ?? null];
 }
 
 function buildFacts(facts: Partial<ScopeFacts>): ScopeFacts {

@@ -378,7 +378,7 @@ test('it defaults the denial budget to 3 in a row and 20 per session', async () 
   expect(DEFAULT_CONFIG.denialBudget).toStrictEqual({ consecutive: 3, perSession: 20 });
 });
 
-test('it runs the cwd and session sources when the file has no scope sources', async () => {
+test('it runs the cwd, session, and atc sources when the file has no scope sources', async () => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { onFailure: 'defer' } }));
@@ -388,6 +388,7 @@ test('it runs the cwd and session sources when the file has no scope sources', a
   expect(config.scopeSources).toStrictEqual({
     cwd: { kind: 'cwd' },
     session: { kind: 'session' },
+    atc: { kind: 'atc' },
   });
 });
 
