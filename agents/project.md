@@ -16,10 +16,12 @@ Single package, no workspaces. `src/` groups modules by concern, one primary exp
 `model/` is the second tier and its decision and Messages API clients; `policy/` assembles the
 prompt; `config/` holds configuration and presets; `budget/` counts denials per session;
 `containment/` denies a write outside the task scope; `scope/` builds that scope from the configured
-scope sources and keeps what each session created. `classify-action.ts` runs both tiers and the
-containment check between them, and is the library entry point; `index.ts` is the public API;
-`cli.ts` is the entrypoint the mod runs. `mods/auto-mode/` is the Claude Code mod. `policy/` at the
-repo root holds the prompt itself. `fixtures/` holds mod requests recorded in a live Claude Code
+scope sources and keeps what each session created; `bypass/` lets an in-scope file edit skip Jev;
+`secrets/` scans edit content with the bundled Betterleaks rule set, which
+`scripts/build-secret-rules.ts` generates. `classify-action.ts` runs both tiers with the containment
+check and the edit bypass between them, and is the library entry point; `index.ts` is the public
+API; `cli.ts` is the entrypoint the mod runs. `mods/auto-mode/` is the Claude Code mod. `policy/` at
+the repo root holds the prompt itself. `fixtures/` holds mod requests recorded in a live Claude Code
 session.
 
 ## Runtime rules

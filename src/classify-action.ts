@@ -1,15 +1,22 @@
+import { dirname, resolve } from 'node:path';
+import type { EditClassification } from './bypass/classify-edit.ts';
+import { getEditFields } from './bypass/get-edit-fields.ts';
+import { resolveEditTarget } from './bypass/resolve-edit-target.ts';
 import type { Config } from './config/config.ts';
-import { DEFAULT_SCOPE_SOURCES } from './config/config.ts';
+import { DEFAULT_SCOPE_SOURCES, resolveConfigPath } from './config/config.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
 import type { EvaluationOptions } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
+import type { OwnedScope } from './containment/collect-scope-findings.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
+import { loadTaskScope } from './scope/load-task-scope.ts';
+import { resolveStateDir } from './state/resolve-state-dir.ts';
 
-export type DecidingStage = 'local' | 'containment' | 'jev' | 'messages' | 'retry';
+export type DecidingStage = 'local' | 'containment' | 'bypass' | 'jev' | 'messages' | 'retry';
 
 export interface ActionOutcome {
   readonly verdict: Verdict | null;
@@ -50,10 +57,10 @@ export async function classifyAction(
     }
   }
 
-  const local =
-    configured !== null && (configured.hard_deny.length > 0 || configured.soft_deny.length > 0)
-      ? { kind: 'escalate' as const }
-      : classifyLocally(request);
+  const hasConfiguredDenies =
+    configured !== null && (configured.hard_deny.length > 0 || configured.soft_deny.length > 0);
+
+  const local = hasConfiguredDenies ? { kind: 'escalate' as const } : classifyLocally(request);
 
   // A local allow for regenerable output deletes files, so only a read-only
   // allow comes before the containment check.
@@ -61,7 +68,9 @@ export async function classifyAction(
     return buildLocalAllow(local.exception);
   }
 
-  const containment = await checkContainment(request, config.scopeSources ?? DEFAULT_SCOPE_SOURCES);
+  const scope = await tryLoadTaskScope(request, config);
+
+  const containment = scope === null ? null : checkContainment(request, scope);
 
   if (containment !== null) {
     const guidance = await tryReadDenialGuidance();
@@ -76,6 +85,18 @@ export async function classifyAction(
 
   if (local.kind === 'allow') {
     return buildLocalAllow(local.exception);
+  }
+
+  // A configured deny entry is the user's own rule, and only Jev reads it.
+  const edit = hasConfiguredDenies || scope === null ? null : await tryClassifyEdit(request, scope);
+
+  if (edit?.kind === 'bypass') {
+    return {
+      verdict: { kind: 'allow' },
+      decidingStage: 'bypass',
+      note: `allowed by the edit bypass: ${edit.target}`,
+      status: 'allow',
+    };
   }
 
   if (options.localOnly === true) {
@@ -104,6 +125,55 @@ export async function classifyAction(
 }
 
 const READ_ONLY_EXCEPTION = 'Read-only actions';
+
+// A scope that cannot be read leaves the action to the classifier, the same as
+// a target the containment check cannot resolve.
+async function tryLoadTaskScope(
+  request: Readonly<ActionRequest>,
+  config: Readonly<Config>,
+): Promise<OwnedScope | null> {
+  try {
+    return await loadTaskScope(
+      { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveStateDir() },
+      config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function tryClassifyEdit(
+  request: Readonly<ActionRequest>,
+  scope: Readonly<OwnedScope>,
+): Promise<EditClassification | null> {
+  const fields = getEditFields(request.toolName);
+  const path = fields === null ? undefined : request.toolInput[fields.path];
+
+  if (typeof path !== 'string' || path === '') {
+    return null;
+  }
+
+  try {
+    const ownDirs = [dirname(resolveConfigPath()), resolveStateDir()];
+
+    const [target, worktrees, protectedDirs] = await Promise.all([
+      resolveEditTarget(resolve(request.cwd, path)),
+      Promise.all(scope.worktrees.map((worktree) => resolveEditTarget(worktree))),
+      Promise.all(ownDirs.map((dir) => resolveEditTarget(dir))),
+    ]);
+
+    // The rule set and its regex engine add about 10 ms to a CLI start, so
+    // only an edit that reaches this point loads them.
+    const bypass = await import('./bypass/classify-edit.ts');
+
+    return bypass.classifyEdit(
+      { toolName: request.toolName, toolInput: request.toolInput, target },
+      { worktrees, protectedDirs },
+    );
+  } catch {
+    return null;
+  }
+}
 
 function buildLocalAllow(exception: string): ActionOutcome {
   return {

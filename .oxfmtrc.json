@@ -10,7 +10,10 @@
     "agents/shared.md",
     // release-please rewrites this on every release, in its own style; the
     // formatter would undo that and fail the release PR's own checks
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    // generated from the Betterleaks rule set; a reflow would separate it from
+    // what the build script writes and grow the bundle
+    "src/secrets/betterleaks-rules.json"
   ],
   "proseWrap": "always",
   "semi": true,

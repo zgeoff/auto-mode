@@ -1,7 +1,4 @@
-import type { ScopeSource } from '../config/config.ts';
 import type { ActionRequest } from '../request/types.ts';
-import { loadTaskScope } from '../scope/load-task-scope.ts';
-import { resolveStateDir } from '../state/resolve-state-dir.ts';
 import { collectScopeFindings } from './collect-scope-findings.ts';
 import type { OwnedScope, ScopeFinding } from './collect-scope-findings.ts';
 
@@ -13,23 +10,10 @@ export interface ContainmentDeny {
 
 const CONTAINMENT_RULE = 'Outside Task Scope';
 
-// A scope that cannot be read leaves the action to the classifier, the same as
-// a target the detector cannot resolve.
-export async function checkContainment(
+export function checkContainment(
   request: Readonly<ActionRequest>,
-  sources: Readonly<Record<string, ScopeSource>>,
-): Promise<ContainmentDeny | null> {
-  let scope: OwnedScope;
-
-  try {
-    scope = await loadTaskScope(
-      { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveStateDir() },
-      sources,
-    );
-  } catch {
-    return null;
-  }
-
+  scope: Readonly<OwnedScope>,
+): ContainmentDeny | null {
   const findings = collectScopeFindings(
     { tool: request.toolName, cwd: request.cwd, input: request.toolInput },
     scope,

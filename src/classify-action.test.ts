@@ -45,8 +45,8 @@ test('it gives no verdict for an escalated action when the model tier is skipped
   const outcome = await classifyAction(
     createMockActionRequest({
       cwd: '/repo',
-      toolName: 'Write',
-      toolInput: { file_path: '/repo/a.ts' },
+      toolName: 'Bash',
+      toolInput: { command: 'touch /repo/a.ts' },
     }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
     { localOnly: true },
@@ -55,7 +55,7 @@ test('it gives no verdict for an escalated action when the model tier is skipped
   expect(outcome).toStrictEqual({
     verdict: null,
     decidingStage: 'local',
-    note: 'Write needs the model tier, which this run skipped',
+    note: 'Bash needs the model tier, which this run skipped',
     status: 'skipped',
   });
 });
@@ -167,8 +167,8 @@ test('it ends a failure reason with a full stop before the safer-path instructio
   const outcome = await classifyAction(
     createMockActionRequest({
       cwd: '/repo',
-      toolName: 'Write',
-      toolInput: { file_path: '/repo/a.ts' },
+      toolName: 'Bash',
+      toolInput: { command: 'touch /repo/a.ts' },
     }),
     {
       ...DEFAULT_CONFIG,
@@ -293,4 +293,64 @@ test('it still allows a local regenerable-output removal inside the task worktre
     note: 'allowed by Regenerable output (local)',
     status: 'allow',
   });
+});
+
+test('it allows a file-tool edit inside the cwd worktree without the model tier', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyAction(
+    createMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Edit',
+      toolInput: { file_path: 'src/a.ts', old_string: 'a', new_string: 'b' },
+    }),
+    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
+    { localOnly: true },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'bypass',
+    note: 'allowed by the edit bypass: /repo/src/a.ts',
+    status: 'allow',
+  });
+});
+
+test('it sends an in-scope edit to the model tier when it writes an env file or a secret', async () => {
+  const ctx = await setupTest();
+
+  const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2RlZmdo'].join('');
+
+  const outcomes = await Promise.all(
+    [
+      { file_path: '/repo/.env', content: 'PORT=3000' },
+      { file_path: '/repo/src/token.ts', content: `export const token = '${token}';` },
+    ].map((toolInput) =>
+      classifyAction(
+        createMockActionRequest({ cwd: '/repo', toolName: 'Write', toolInput }),
+        { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
+        { localOnly: true },
+      ),
+    ),
+  );
+
+  expect(outcomes.map((outcome) => outcome.status)).toStrictEqual(['skipped', 'skipped']);
+});
+
+test('it sends an in-scope edit to the model tier when the user configured deny entries', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.settings, JSON.stringify({ autoMode: { soft_deny: ['Never edit a.ts'] } }));
+
+  const outcome = await classifyAction(
+    createMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Write',
+      toolInput: { file_path: '/repo/a.ts', content: 'x' },
+    }),
+    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
+    { localOnly: true },
+  );
+
+  expect(outcome.status).toBe('skipped');
 });
