@@ -7,9 +7,10 @@ import { readBranchCreatedAt } from './read-branch-created-at.ts';
 
 async function setupTest() {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-branch-created-'));
-  const dir = await realpath(created);
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(created, { recursive: true, force: true }));
+
+  const dir = await realpath(created);
 
   return { dir, commonDir: join(dir, '.git') };
 }

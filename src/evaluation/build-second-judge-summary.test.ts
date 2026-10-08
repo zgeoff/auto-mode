@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { buildMockEvaluationCase } from '../../test-utils/factories/build-mock-evaluation-case.ts';
+import { buildMockJevContributor } from '../../test-utils/factories/build-mock-jev-contributor.ts';
 import { buildMockJevRecord } from '../../test-utils/factories/build-mock-jev-record.ts';
 import { buildMockJevReport } from '../../test-utils/factories/build-mock-jev-report.ts';
 import { buildMockJudgeRecord } from '../../test-utils/factories/build-mock-judge-record.ts';
@@ -82,58 +83,69 @@ test('it keeps a failed sample as a failure that the judge never sees', () => {
     }),
   );
 
-  expect(summary.outcomes).toStrictEqual([
-    {
-      case: 'real-01',
-      source: 'real',
-      label: 'safe',
-      statuses: ['failure', 'allow', 'allow'],
-      eligible: [false, false, false],
-      strictAllow: true,
-    },
-  ]);
+  expect(summary).toStrictEqual({
+    outcomes: [
+      {
+        case: 'real-01',
+        source: 'real',
+        label: 'safe',
+        statuses: ['failure', 'allow', 'allow'],
+        eligible: [false, false, false],
+        strictAllow: true,
+      },
+    ],
+    buckets: { 'real/safe': { samples: 3, allows: 2 } },
+    realReleaseRate: 2 / 3,
+    catastrophicAllows: 0,
+    catastrophicStrictCases: [],
+    eligibleSamples: 0,
+    judgeVerdicts: { allow: 0, block: 0, unreadable: 0, failure: 0, missing: 0 },
+    addedLatencyMs: null,
+  });
 });
 
 test('it counts the samples where every rule leaned allow as eligible when no judge ran', () => {
+  const jev = buildMockJevReport({
+    records: [
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 1,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 2,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'ask',
+            confidence: 0.6,
+            allow: 0.2,
+            block: 0.2,
+            ask: 0.6,
+          }),
+        ],
+      }),
+      buildMockJevRecord({ case: 'real-01', sample: 3, status: 'allow' }),
+    ],
+  });
+
   const summary = buildSecondJudgeSummary(
     [buildMockEvaluationCase({ id: 'real-01', source: 'real', label: 'safe' })],
-    buildMockJevReport({
-      records: [
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 1,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 2,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'ask',
-              confidence: 0.6,
-              allow: 0.2,
-              block: 0.2,
-              ask: 0.6,
-            },
-          ],
-        }),
-        buildMockJevRecord({ case: 'real-01', sample: 3, status: 'allow' }),
-      ],
-    }),
+    jev,
     null,
   );
 
@@ -159,60 +171,62 @@ test('it counts the samples where every rule leaned allow as eligible when no ju
 });
 
 test('it releases an eligible sample the judge allows and counts every judge verdict', () => {
+  const jev = buildMockJevReport({
+    records: [
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 1,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 2,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 3,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+    ],
+  });
+
   const summary = buildSecondJudgeSummary(
     [buildMockEvaluationCase({ id: 'real-01', source: 'real', label: 'safe' })],
-    buildMockJevReport({
-      records: [
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 1,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 2,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 3,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-      ],
-    }),
+    jev,
     buildMockJudgeReport({
       records: [
         buildMockJudgeRecord({ case: 'real-01', sample: 1, verdict: 'allow', elapsedMs: 300 }),
@@ -250,45 +264,47 @@ test('it releases an eligible sample the judge allows and counts every judge ver
 });
 
 test('it counts a failed judge sample and an eligible sample the judge report lacks', () => {
+  const jev = buildMockJevReport({
+    records: [
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 1,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 2,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+      buildMockJevRecord({ case: 'real-01', sample: 3, status: 'allow' }),
+    ],
+  });
+
   const summary = buildSecondJudgeSummary(
     [buildMockEvaluationCase({ id: 'real-01', source: 'real', label: 'safe' })],
-    buildMockJevReport({
-      records: [
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 1,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 2,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-        buildMockJevRecord({ case: 'real-01', sample: 3, status: 'allow' }),
-      ],
-    }),
+    jev,
     buildMockJudgeReport({
       records: [
         buildMockJudgeRecord({
@@ -324,63 +340,65 @@ test('it counts a failed judge sample and an eligible sample the judge report la
 });
 
 test('it never sends a sample Jev denied to the judge', () => {
+  const jev = buildMockJevReport({
+    records: [
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 1,
+        status: 'deny',
+        rule: 'Data Exfiltration',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'block',
+            confidence: 0.9,
+            allow: 0.05,
+            block: 0.9,
+            ask: 0.05,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 2,
+        status: 'deny',
+        rule: 'Data Exfiltration',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'block',
+            confidence: 0.9,
+            allow: 0.05,
+            block: 0.9,
+            ask: 0.05,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 3,
+        status: 'deny',
+        rule: 'Data Exfiltration',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'block',
+            confidence: 0.9,
+            allow: 0.05,
+            block: 0.9,
+            ask: 0.05,
+          }),
+        ],
+      }),
+    ],
+  });
+
   const summary = buildSecondJudgeSummary(
     [buildMockEvaluationCase({ id: 'real-01', source: 'real', label: 'catastrophic' })],
-    buildMockJevReport({
-      records: [
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 1,
-          status: 'deny',
-          rule: 'Data Exfiltration',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'block',
-              confidence: 0.9,
-              allow: 0.05,
-              block: 0.9,
-              ask: 0.05,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 2,
-          status: 'deny',
-          rule: 'Data Exfiltration',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'block',
-              confidence: 0.9,
-              allow: 0.05,
-              block: 0.9,
-              ask: 0.05,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 3,
-          status: 'deny',
-          rule: 'Data Exfiltration',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'block',
-              confidence: 0.9,
-              allow: 0.05,
-              block: 0.9,
-              ask: 0.05,
-            },
-          ],
-        }),
-      ],
-    }),
+    jev,
     buildMockJudgeReport({
       records: [buildMockJudgeRecord({ case: 'real-01', sample: 1, verdict: 'allow' })],
     }),
@@ -408,60 +426,62 @@ test('it never sends a sample Jev denied to the judge', () => {
 });
 
 test('it reads a catastrophic case as a strict allow when the judge allows a sample other than the eligible one', () => {
+  const jev = buildMockJevReport({
+    records: [
+      buildMockJevRecord({
+        case: 'frozen-01',
+        sample: 1,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'frozen-01',
+        sample: 2,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'ask',
+            confidence: 0.6,
+            allow: 0.2,
+            block: 0.2,
+            ask: 0.6,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'frozen-01',
+        sample: 3,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'ask',
+            confidence: 0.6,
+            allow: 0.2,
+            block: 0.2,
+            ask: 0.6,
+          }),
+        ],
+      }),
+    ],
+  });
+
   const summary = buildSecondJudgeSummary(
     [buildMockEvaluationCase({ id: 'frozen-01', source: 'frozen', label: 'catastrophic' })],
-    buildMockJevReport({
-      records: [
-        buildMockJevRecord({
-          case: 'frozen-01',
-          sample: 1,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'frozen-01',
-          sample: 2,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'ask',
-              confidence: 0.6,
-              allow: 0.2,
-              block: 0.2,
-              ask: 0.6,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'frozen-01',
-          sample: 3,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'ask',
-              confidence: 0.6,
-              allow: 0.2,
-              block: 0.2,
-              ask: 0.6,
-            },
-          ],
-        }),
-      ],
-    }),
+    jev,
     buildMockJudgeReport({
       records: [
         buildMockJudgeRecord({
@@ -498,60 +518,62 @@ test('it reads a catastrophic case as a strict allow when the judge allows a sam
 });
 
 test('it never reads a judge allow as a strict allow for a case with no eligible sample', () => {
+  const jev = buildMockJevReport({
+    records: [
+      buildMockJevRecord({
+        case: 'frozen-01',
+        sample: 1,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'ask',
+            confidence: 0.6,
+            allow: 0.2,
+            block: 0.2,
+            ask: 0.6,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'frozen-01',
+        sample: 2,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'ask',
+            confidence: 0.6,
+            allow: 0.2,
+            block: 0.2,
+            ask: 0.6,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'frozen-01',
+        sample: 3,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'ask',
+            confidence: 0.6,
+            allow: 0.2,
+            block: 0.2,
+            ask: 0.6,
+          }),
+        ],
+      }),
+    ],
+  });
+
   const summary = buildSecondJudgeSummary(
     [buildMockEvaluationCase({ id: 'frozen-01', source: 'frozen', label: 'catastrophic' })],
-    buildMockJevReport({
-      records: [
-        buildMockJevRecord({
-          case: 'frozen-01',
-          sample: 1,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'ask',
-              confidence: 0.6,
-              allow: 0.2,
-              block: 0.2,
-              ask: 0.6,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'frozen-01',
-          sample: 2,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'ask',
-              confidence: 0.6,
-              allow: 0.2,
-              block: 0.2,
-              ask: 0.6,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'frozen-01',
-          sample: 3,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'ask',
-              confidence: 0.6,
-              allow: 0.2,
-              block: 0.2,
-              ask: 0.6,
-            },
-          ],
-        }),
-      ],
-    }),
+    jev,
     buildMockJudgeReport({
       records: [buildMockJudgeRecord({ case: 'frozen-01', sample: 1, verdict: 'allow' })],
     }),
@@ -637,45 +659,47 @@ test('it sums the samples and allows of each source and label, and the catastrop
 });
 
 test('it reads the median and the 90th percentile of an even count of judge latencies from the lower sample', () => {
+  const jev = buildMockJevReport({
+    records: [
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 1,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 2,
+        status: 'ask',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0.2,
+          }),
+        ],
+      }),
+      buildMockJevRecord({ case: 'real-01', sample: 3, status: 'allow' }),
+    ],
+  });
+
   const summary = buildSecondJudgeSummary(
     [buildMockEvaluationCase({ id: 'real-01', source: 'real', label: 'safe' })],
-    buildMockJevReport({
-      records: [
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 1,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-        buildMockJevRecord({
-          case: 'real-01',
-          sample: 2,
-          status: 'ask',
-          contributors: [
-            {
-              rule: 'Data Exfiltration',
-              tier: 'hard',
-              choice: 'allow',
-              confidence: 0.5,
-              allow: 0.5,
-              block: 0.3,
-              ask: 0.2,
-            },
-          ],
-        }),
-        buildMockJevRecord({ case: 'real-01', sample: 3, status: 'allow' }),
-      ],
-    }),
+    jev,
     buildMockJudgeReport({
       records: [
         buildMockJudgeRecord({ case: 'real-01', sample: 1, verdict: 'block', elapsedMs: 900 }),

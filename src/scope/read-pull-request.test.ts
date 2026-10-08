@@ -35,7 +35,7 @@ test('it reads the head and creation time of a pull request from gh', async () =
     command: [process.execPath, ctx.stubPath, ctx.statePath],
   });
 
-  expect(facts).toStrictEqual({ head: 'feat/a', createdAt: Date.parse('2026-01-01T00:00:00Z') });
+  expect(facts).toStrictEqual({ head: 'feat/a', createdAt: 1_767_225_600_000 });
 });
 
 test('it reads nothing for a pull request gh cannot find', async () => {
@@ -137,7 +137,7 @@ test('it reads nothing when gh cannot start', async () => {
   expect(facts).toBeNull();
 });
 
-test('it reads a pull request whose answer arrives within the default lookup time', async () => {
+test('it reads a pull request whose answer takes 500 ms under the default lookup time', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -157,7 +157,7 @@ test('it reads a pull request whose answer arrives within the default lookup tim
     command: [process.execPath, ctx.stubPath, ctx.statePath],
   });
 
-  expect(facts).toStrictEqual({ head: 'feat/a', createdAt: Date.parse('2026-01-01T00:00:00Z') });
+  expect(facts).toStrictEqual({ head: 'feat/a', createdAt: 1_767_225_600_000 });
 });
 
 test('it reads nothing when gh answers after the lookup time', async () => {

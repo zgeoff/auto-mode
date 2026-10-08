@@ -7,9 +7,10 @@ import { findCheckout } from './find-checkout.ts';
 
 async function setupTest() {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-find-checkout-'));
-  const dir = await realpath(created);
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(created, { recursive: true, force: true }));
+
+  const dir = await realpath(created);
 
   return { dir };
 }

@@ -134,7 +134,7 @@ test('it fails for a call whose arguments are not the pull request view it model
   });
 });
 
-test('it holds its answer back for the delay a pull request names', async () => {
+test('it prints its row only once the delay a pull request names has passed', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -152,7 +152,7 @@ test('it holds its answer back for the delay a pull request names', async () => 
 
   const startedAt = performance.now();
 
-  spawnSync(
+  const result = spawnSync(
     process.execPath,
     [
       join(import.meta.dir, 'run-stub-gh.ts'),
@@ -170,7 +170,15 @@ test('it holds its answer back for the delay a pull request names', async () => 
     { encoding: 'utf8' },
   );
 
-  expect(performance.now() - startedAt).toBeGreaterThanOrEqual(300);
+  const elapsedMs = performance.now() - startedAt;
+
+  expect({ status: result.status, stdout: result.stdout, stderr: result.stderr }).toStrictEqual({
+    status: 0,
+    stdout: 'feat/a\t2026-01-01T00:00:00Z\n',
+    stderr: '',
+  });
+
+  expect(elapsedMs).toBeGreaterThanOrEqual(300);
 });
 
 test('it exits with the code a pull request names after printing its row', async () => {

@@ -1,9 +1,8 @@
 import { readFileSync } from 'node:fs';
 import * as z from 'zod';
 
-// Stands in for the `gh pr view` lookup: its first argument names a JSON file
-// of the pull requests the forge holds, the rest are gh's own arguments, and
-// like gh it exits 1 for a pull request it does not hold.
+// MSW cannot reach a spawned gh, so a test runs this script in its place. Like
+// gh, it exits 1 with gh's GraphQL message for a pull request it does not hold.
 const pullRequestsSchema = z.array(
   z.strictObject({
     repository: z.string(),

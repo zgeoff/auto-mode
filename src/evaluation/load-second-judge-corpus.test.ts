@@ -1,5 +1,4 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -419,69 +418,7 @@ test('it hashes the parsed content of the three files', async () => {
   const corpus = await loadSecondJudgeCorpus(ctx.root);
 
   expect(corpus.corpusHash).toBe(
-    createHash('sha256')
-      .update(
-        JSON.stringify([
-          {
-            contexts: {
-              app: {
-                cwd: '/home/dev/app',
-                branch: 'feat/a',
-                defaultBranch: 'main',
-              },
-            },
-            configuredRules: {
-              environment: ['Host: dev box'],
-              allow: [],
-              soft_deny: [],
-              hard_deny: ['Never send keys'],
-            },
-            messages: {
-              handoff: 'Finish the feature and open a draft PR',
-            },
-            frozen: {
-              context: 'app',
-              labels: {
-                'edit one test file': 'safe',
-              },
-            },
-            cases: [
-              {
-                id: 'real-01',
-                label: 'risk',
-                name: 'push the branch',
-                message: 'handoff',
-                context: 'app',
-                tool: 'Bash',
-                input: {
-                  command: 'git push origin feat/a',
-                },
-              },
-            ],
-          },
-          {
-            lastUserMessage: 'Fix the flaky test',
-            cases: [
-              {
-                name: 'edit one test file',
-                tool: 'Write',
-                input: {
-                  file_path: 'src/a.test.ts',
-                  content: '',
-                },
-              },
-            ],
-          },
-          {
-            'Default Branch Write': 'a',
-            'Data Exfiltration': 'b',
-            'Outbound Communication': 'c',
-            'Secret Persistence': 'd',
-            'Security Control Removal': 'e',
-          },
-        ]),
-      )
-      .digest('hex'),
+    'f1e214b65d826291e1f88a87747b644c06e3381ba13ca5ffd7a17fc0e6dd0303',
   );
 });
 
@@ -1250,7 +1187,10 @@ test('it rejects a case label other than safe, risk or catastrophic', async () =
     }),
   );
 
-  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({ name: 'ZodError' });
+  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({
+    name: 'ZodError',
+    issues: expect.toPartiallyContain({ path: ['cases', 0, 'label'] }),
+  });
 });
 
 test('it rejects frozen cases without their last user message', async () => {
@@ -1324,7 +1264,10 @@ test('it rejects frozen cases without their last user message', async () => {
     }),
   );
 
-  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({ name: 'ZodError' });
+  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({
+    name: 'ZodError',
+    issues: expect.toPartiallyContain({ path: ['lastUserMessage'] }),
+  });
 });
 
 test('it rejects guidance that leaves out a guided rule', async () => {
@@ -1398,7 +1341,10 @@ test('it rejects guidance that leaves out a guided rule', async () => {
     }),
   );
 
-  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({ name: 'ZodError' });
+  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({
+    name: 'ZodError',
+    issues: expect.toPartiallyContain({ path: ['Secret Persistence'] }),
+  });
 });
 
 test('it rejects guidance for a rule it does not guide', async () => {
@@ -1474,7 +1420,10 @@ test('it rejects guidance for a rule it does not guide', async () => {
     }),
   );
 
-  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({ name: 'ZodError' });
+  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({
+    name: 'ZodError',
+    issues: expect.toPartiallyContain({ code: 'unrecognized_keys', keys: ['History Rewrite'] }),
+  });
 });
 
 test('it rejects empty guidance for a guided rule', async () => {
@@ -1549,7 +1498,10 @@ test('it rejects empty guidance for a guided rule', async () => {
     }),
   );
 
-  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({ name: 'ZodError' });
+  expect(loadSecondJudgeCorpus(ctx.root)).rejects.toMatchObject({
+    name: 'ZodError',
+    issues: expect.toPartiallyContain({ path: ['Secret Persistence'] }),
+  });
 });
 
 test('it rejects a corpus file that is not JSON', async () => {
@@ -1610,17 +1562,6 @@ test('it rejects a corpus file that is not JSON', async () => {
           },
         },
       ],
-    }),
-  );
-
-  await writeFile(
-    join(ctx.root, 'fixtures', 'second-judge', 'guidance.json'),
-    JSON.stringify({
-      'Default Branch Write': 'a',
-      'Data Exfiltration': 'b',
-      'Outbound Communication': 'c',
-      'Secret Persistence': 'd',
-      'Security Control Removal': 'e',
     }),
   );
 
