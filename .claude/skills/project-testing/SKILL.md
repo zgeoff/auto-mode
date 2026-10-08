@@ -42,12 +42,14 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
 ## The CLI
 
 - `src/run-cli.ts` holds the CLI as `runCLI(argv, io)`: `io` carries `stdin` (a function that
-  returns the body), `stdout`, `stderr`, the `host` and the `signal` that cancels an evaluation, and
-  the result is the exit code. `src/cli.ts` only wires the real process into it, and it alone turns
-  SIGTERM and SIGINT into that signal for a `--jev-only` run.
+  returns the body), `stdout`, `stderr`, the `host` and `subscribeToStopSignals`, and the result is
+  the exit code. A `--jev-only` run subscribes for the length of its evaluation and unsubscribes
+  after it. `src/cli.ts` only wires the real process into it, and its subscription listens for
+  SIGTERM and SIGINT.
 - `src/run-cli.test.ts` runs `runCLI` in-process. `buildStubOutput` from
   `test-utils/build-stub-output.ts` stands in for stdout and stderr, and its `read()` returns what
-  was written.
+  was written. `buildStubStopSignals` from `test-utils/build-stub-stop-signals.ts` stands in for the
+  signals: its `stop()` calls every callback still subscribed.
 - `e2e/cli.test.ts` spawns the built `dist/cli.js` under node with a minimal environment rooted in
   the temp dir. It fails at once when `dist/cli.js` is missing. Only `bun run test` rebuilds
   `dist/`, so a bare `bun test e2e/…` runs whatever `dist/` already holds. The child runs the binary

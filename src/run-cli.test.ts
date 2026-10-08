@@ -9,6 +9,8 @@ import { DECISION_URL } from '../mocks/handlers.ts';
 import { server } from '../mocks/node.ts';
 import type { StubOutput } from '../test-utils/build-stub-output.ts';
 import { buildStubOutput } from '../test-utils/build-stub-output.ts';
+import type { StubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
+import { buildStubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
 import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-request.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import type { HostEnvironment } from './config/types.ts';
@@ -20,7 +22,7 @@ async function setupTest(): Promise<{
   readonly host: HostEnvironment;
   readonly stdout: StubOutput;
   readonly stderr: StubOutput;
-  readonly signal: AbortSignal;
+  readonly stopSignals: StubStopSignals;
 }> {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-run-cli-'));
 
@@ -55,7 +57,7 @@ async function setupTest(): Promise<{
     },
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    signal: new AbortController().signal,
+    stopSignals: buildStubStopSignals(),
   };
 }
 
@@ -70,7 +72,7 @@ test.each([
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -102,7 +104,7 @@ test('it exits 2 with usage on stderr on a command it does not know', async () =
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -149,7 +151,7 @@ test('it refuses a traditional evaluator in Jev-only mode before a local allowan
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -180,7 +182,7 @@ test('it accepts a local allowance through Jev-only mode', async () => {
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -206,7 +208,7 @@ test('it allows a local allowance without a model call when a provider key is co
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -230,7 +232,7 @@ test('it refuses an evaluation deadline outside Jev-only mode', async () => {
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -248,7 +250,7 @@ test('it prints the assembled prompt with no marker left behind', async () => {
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -279,7 +281,7 @@ test('it reads an overridden policy instead of the shipped one', async () => {
       stdout: ctx.stdout,
       stderr: ctx.stderr,
       host: ctx.host,
-      signal: ctx.signal,
+      subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     },
   );
 
@@ -307,7 +309,7 @@ test.each([
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -331,7 +333,7 @@ test('it explains its reasoning on stderr when asked, never on stdout', async ()
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -355,7 +357,7 @@ test('it stays silent on stderr when not asked to explain', async () => {
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -384,7 +386,7 @@ test('it escalates local allowances when imported deny rules need evaluation', a
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -419,7 +421,7 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -450,7 +452,7 @@ test('it exits successfully on malformed classifier configuration without echoin
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -523,7 +525,7 @@ test('it counts down to one denial left on the second denial in a row', async ()
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const payload = buildMockModRequest({
@@ -539,7 +541,7 @@ test('it counts down to one denial left on the second denial in a row', async ()
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
@@ -601,7 +603,7 @@ test('it warns on the third denial in a row that it is the last before the user 
       stdout: buildStubOutput(),
       stderr: buildStubOutput(),
       host: ctx.host,
-      signal: ctx.signal,
+      subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     });
   }
 
@@ -618,7 +620,7 @@ test('it warns on the third denial in a row that it is the last before the user 
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
@@ -680,7 +682,7 @@ test('it leaves the fourth action in a row to the user after three denials', asy
       stdout: buildStubOutput(),
       stderr: buildStubOutput(),
       host: ctx.host,
-      signal: ctx.signal,
+      subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     });
   }
 
@@ -697,7 +699,7 @@ test('it leaves the fourth action in a row to the user after three denials', asy
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
@@ -755,7 +757,7 @@ test('it starts the denial count over after the user decides an action', async (
       stdout: buildStubOutput(),
       stderr: buildStubOutput(),
       host: ctx.host,
-      signal: ctx.signal,
+      subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     });
   }
 
@@ -772,7 +774,7 @@ test('it starts the denial count over after the user decides an action', async (
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
@@ -833,7 +835,7 @@ test('it denies a retry of the action just denied without asking the classifier'
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   // Readable settings now would let the classifier tier run; the retry must not reach it.
@@ -844,7 +846,7 @@ test('it denies a retry of the action just denied without asking the classifier'
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
@@ -905,7 +907,7 @@ test('it states that the first denial is the last under a budget of one in a row
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -954,7 +956,7 @@ test('it keeps the denial count across runs for a resumed session', async () => 
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const exitCode = await runCLI(['run'], {
@@ -962,7 +964,7 @@ test('it keeps the denial count across runs for a resumed session', async () => 
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
@@ -1027,7 +1029,7 @@ test("it keeps a subagent's denial count apart from its session's", async () => 
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const exitCode = await runCLI(['run'], {
@@ -1035,7 +1037,7 @@ test("it keeps a subagent's denial count apart from its session's", async () => 
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1092,7 +1094,7 @@ test("it leaves the session's denial streak alone when its subagent is denied in
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   await runCLI(['run'], {
@@ -1100,7 +1102,7 @@ test("it leaves the session's denial streak alone when its subagent is denied in
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const exitCode = await runCLI(['run'], {
@@ -1108,7 +1110,7 @@ test("it leaves the session's denial streak alone when its subagent is denied in
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1144,7 +1146,7 @@ test('it records a finished Bash call without writing a verdict', async () => {
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1162,7 +1164,7 @@ test('it ignores a record body that is not JSON', async () => {
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1203,7 +1205,7 @@ test('it keeps a branch the session created in its scope across runs', async () 
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const exitCode = await runCLI(['run', '--local-only', '--explain'], {
@@ -1211,7 +1213,7 @@ test('it keeps a branch the session created in its scope across runs', async () 
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1251,7 +1253,7 @@ test("it keeps a branch one session created out of another session's scope", asy
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const exitCode = await runCLI(['run', '--local-only'], {
@@ -1259,7 +1261,7 @@ test("it keeps a branch one session created out of another session's scope", asy
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: ctx.host,
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1296,7 +1298,7 @@ test('it allows an action that Jev clears', async () => {
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
@@ -1367,7 +1369,7 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1407,7 +1409,7 @@ test('it writes no verdict and notes the failure when Jev fails under a defer se
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1443,7 +1445,7 @@ test('it denies the action when Jev fails under a deny setting', async () => {
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1480,7 +1482,7 @@ test('it writes the malformed atc record diagnostic to its own stderr', async ()
         ATC_SESSION_ID: 'atc-1',
       },
     },
-    signal: ctx.signal,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1490,7 +1492,7 @@ test('it writes the malformed atc record diagnostic to its own stderr', async ()
   });
 });
 
-test('it cancels a Jev-only evaluation once its signal is aborted', async () => {
+test('it cancels a Jev-only evaluation when a stop signal arrives during it', async () => {
   const ctx = await setupTest();
 
   await mkdir(join(ctx.dir, 'auto-mode'));
@@ -1500,6 +1502,14 @@ test('it cancels a Jev-only evaluation once its signal is aborted', async () => 
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', onFailure: 'deny' },
+    }),
+  );
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      ctx.stopSignals.stop();
+
+      return HttpResponse.error();
     }),
   );
 
@@ -1514,7 +1524,7 @@ test('it cancels a Jev-only evaluation once its signal is aborted', async () => 
     stdout: ctx.stdout,
     stderr: ctx.stderr,
     host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
-    signal: AbortSignal.abort(),
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
@@ -1526,4 +1536,55 @@ test('it cancels a Jev-only evaluation once its signal is aborted', async () => 
     }),
     stderr: 'auto-mode: jev-1.13.0 unavailable: evaluation cancelled\n',
   });
+});
+
+test('it listens for stop signals during a Jev-only evaluation and stops listening after it', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({
+      classifiers: { jev: { baseURL: 'https://decision.test' } },
+      decision: { classifier: 'jev' },
+    }),
+  );
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'make deploy' },
+  });
+
+  await runCLI(['run', '--jev-only'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect(ctx.stopSignals.subscribeToStopSignals).toHaveBeenCalledOnce();
+  expect(ctx.stopSignals.unsubscribe).toHaveBeenCalledOnce();
+});
+
+test('it leaves stop signals alone outside Jev-only mode', async () => {
+  const ctx = await setupTest();
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+  });
+
+  await runCLI(['run', '--local-only'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect(ctx.stopSignals.subscribeToStopSignals).not.toHaveBeenCalled();
 });

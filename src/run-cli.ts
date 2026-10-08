@@ -27,7 +27,7 @@ interface CLIIO {
   readonly stdout: Readonly<OutputStream>;
   readonly stderr: Readonly<OutputStream>;
   readonly host: Readonly<HostEnvironment>;
-  readonly signal: Readonly<AbortSignal>;
+  readonly subscribeToStopSignals: (onStop: () => void) => () => void;
 }
 
 const USAGE = `auto-mode — a permission classifier for the auto-mode Claude Code mod
@@ -192,68 +192,80 @@ async function run(
     return printNote(io.stderr, true, 'invalid Jev evaluation deadline; no verdict');
   }
 
-  const statePath = resolveDenialStatePath(request, resolveStateDir(host));
-  const retryKey = buildRetryKey(request);
+  const controller = new AbortController();
 
-  const before = await loadDenialState(statePath);
+  const unsubscribe = jevOnly
+    ? io.subscribeToStopSignals(() => {
+        controller.abort();
+      })
+    : null;
 
-  const retry = findRetryDeny(before, retryKey);
+  try {
+    const statePath = resolveDenialStatePath(request, resolveStateDir(host));
+    const retryKey = buildRetryKey(request);
 
-  const outcome: ActionOutcome =
-    retry === null
-      ? await classifyAction(request, config, {
-          localOnly,
-          deadlineAt,
-          signal: io.signal,
-          host,
-          stderr: io.stderr,
-        })
-      : {
-          verdict: retry,
-          decidingStage: 'retry',
-          note: 'retry of the action just denied; denied again',
-          status: 'deny',
-        };
+    const before = await loadDenialState(statePath);
 
-  // Re-read after the classifier, which can take seconds, so a parallel call
-  // in the same session is less likely to lose its count.
-  const latest = retry === null ? await loadDenialState(statePath) : before;
+    const retry = findRetryDeny(before, retryKey);
 
-  const plan = planDenialBudget(
-    latest,
-    outcome.verdict,
-    retryKey,
-    config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
-  );
+    const outcome: ActionOutcome =
+      retry === null
+        ? await classifyAction(request, config, {
+            localOnly,
+            deadlineAt,
+            signal: controller.signal,
+            host,
+            stderr: io.stderr,
+          })
+        : {
+            verdict: retry,
+            decidingStage: 'retry',
+            note: 'retry of the action just denied; denied again',
+            status: 'deny',
+          };
 
-  if (plan.state !== latest) {
-    await tryWriteDenialState(io.stderr, statePath, plan.state);
+    // Re-read after the classifier, which can take seconds, so a parallel call
+    // in the same session is less likely to lose its count.
+    const latest = retry === null ? await loadDenialState(statePath) : before;
+
+    const plan = planDenialBudget(
+      latest,
+      outcome.verdict,
+      retryKey,
+      config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
+    );
+
+    if (plan.state !== latest) {
+      await tryWriteDenialState(io.stderr, statePath, plan.state);
+    }
+
+    if (plan.verdict !== null) {
+      printVerdict(io.stdout, plan.verdict);
+    }
+
+    await writeActionDiagnostic(
+      request,
+      {
+        invocationID,
+        status: outcome.status,
+        verdict: plan.verdict?.kind ?? 'defer',
+        decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
+        denials: { consecutive: plan.state.consecutive, session: plan.state.session },
+        escalation: plan.escalation,
+        ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
+      },
+      host,
+      io.stderr,
+    );
+
+    const note = plan.escalation
+      ? 'denial budget exhausted; the user decides this action'
+      : outcome.note;
+
+    return printNote(io.stderr, explain || outcome.unavailable === true, note);
+  } finally {
+    unsubscribe?.();
   }
-
-  if (plan.verdict !== null) {
-    printVerdict(io.stdout, plan.verdict);
-  }
-
-  await writeActionDiagnostic(
-    request,
-    {
-      invocationID,
-      status: outcome.status,
-      verdict: plan.verdict?.kind ?? 'defer',
-      decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
-      denials: { consecutive: plan.state.consecutive, session: plan.state.session },
-      escalation: plan.escalation,
-      ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
-    },
-    host,
-    io.stderr,
-  );
-
-  const note = plan.escalation
-    ? 'denial budget exhausted; the user decides this action'
-    : outcome.note;
-
-  return printNote(io.stderr, explain || outcome.unavailable === true, note);
 }
 
 function printNote(stderr: Readonly<OutputStream>, explain: boolean, message: string): number {
