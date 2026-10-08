@@ -469,3 +469,42 @@ test('it finds an IAM change but not an IAM read', () => {
 
   expect(findings).toStrictEqual([{ kind: 'credential', target: 'aws iam attach-user-policy' }]);
 });
+
+test('it still checks absolute targets and remote writes after a cd inside a pipeline', () => {
+  const ctx = setupTest();
+
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: ctx.worktree,
+      input: { command: 'cd /repo && cat a | head; rm -rf /other; rm -rf local; gh pr merge 12' },
+    },
+    ctx.scope,
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/other' },
+    { kind: 'remote-write', target: 'gh pr merge' },
+  ]);
+});
+
+test('it finds an ssh command that writes through a listed program, a newline, or a log file', () => {
+  const ctx = setupTest();
+
+  for (const command of [
+    'ssh root@host journalctl --vacuum-time=1s',
+    'ssh root@host hostname renamed',
+    "ssh host 'cat /etc/os-release\nrm -rf /srv/data'",
+  ]) {
+    expect(
+      collectScopeFindings({ tool: 'Bash', cwd: ctx.worktree, input: { command } }, ctx.scope),
+    ).toStrictEqual([{ kind: 'remote-write', target: 'ssh' }]);
+  }
+
+  expect(
+    collectScopeFindings(
+      { tool: 'Bash', cwd: ctx.worktree, input: { command: 'ssh -E /home/dev/.ssh/log host ls' } },
+      ctx.scope,
+    ),
+  ).toStrictEqual([{ kind: 'credential', target: '/home/dev/.ssh/log' }]);
+});

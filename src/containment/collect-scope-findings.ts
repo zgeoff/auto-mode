@@ -62,7 +62,7 @@ const FILE_WRITE_TOOLS: ReadonlySet<string> = new Set([
 ]);
 
 function collectTargetFindings(
-  directory: string,
+  directory: string | null,
   target: string,
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
@@ -116,12 +116,6 @@ function collectCommandFindings(
     const words = getCommandWords(splitWords(segment.text));
     const [name, ...args] = words;
 
-    // A directory the detector cannot follow makes every relative target in
-    // the rest of the command unresolvable.
-    if (directory === null) {
-      continue;
-    }
-
     for (const target of collectRedirectTargets(segment.text)) {
       findings.push(...collectTargetFindings(directory, target, scope));
     }
@@ -147,7 +141,7 @@ function collectCommandFindings(
 function collectProgramFindings(
   name: string,
   args: readonly string[],
-  directory: string,
+  directory: string | null,
   cwd: string,
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
@@ -183,7 +177,10 @@ function collectProgramFindings(
   }
 
   if (name === 'ssh') {
-    return collectSSHFindings(args);
+    const logIndex = args.indexOf('-E');
+    const log = logIndex === -1 ? undefined : args[logIndex + 1];
+
+    return [...(log === undefined ? [] : resolve(log)), ...collectSSHFindings(args)];
   }
 
   if (name === 'scp') {
@@ -271,9 +268,7 @@ const SSH_READS = new Set([
   'du',
   'free',
   'head',
-  'hostname',
   'id',
-  'journalctl',
   'ls',
   'ps',
   'pwd',
@@ -284,8 +279,8 @@ const SSH_READS = new Set([
   'whoami',
 ]);
 
-// A remote command that is one read-only program, with no shell operators,
-// changes nothing on the host. Every other remote session counts as a write.
+// A remote command that is one read-only program, with no shell operators or
+// newlines, changes nothing on the host. Every other remote session counts as a write.
 function collectSSHFindings(args: readonly string[]): ScopeFinding[] {
   const [host, ...remote] = collectSSHOperands(args);
 
@@ -295,7 +290,7 @@ function collectSSHFindings(args: readonly string[]): ScopeFinding[] {
 
   const command = remote.join(' ');
   const [program] = command.trim().split(/\s+/u);
-  const isRead = SSH_READS.has(program ?? '') && !/[;&|<>`]|\$\(/u.test(command);
+  const isRead = SSH_READS.has(program ?? '') && !/[;&|<>`\n\r]|\$\(/u.test(command);
 
   return isRead ? [] : [{ kind: 'remote-write', target: 'ssh' }];
 }
@@ -343,25 +338,21 @@ const GIT_DIRECTORY_WRITES = new Set([
 
 function collectGitFindings(
   args: readonly string[],
-  directory: string,
+  directory: string | null,
   cwd: string,
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
-  let gitDirectory: string | null = directory;
+  let gitDirectory = directory;
   let index = 0;
 
   while (index < args.length && args[index]?.startsWith('-') === true) {
     const option = args[index];
 
-    if (option === '-C' && gitDirectory !== null) {
+    if (option === '-C') {
       gitDirectory = resolvePath(gitDirectory, args[index + 1] ?? '', scope.home);
     }
 
     index += option === '-C' || option === '-c' ? 2 : 1;
-  }
-
-  if (gitDirectory === null) {
-    return [];
   }
 
   const subcommand = args[index] ?? '';
@@ -369,7 +360,11 @@ function collectGitFindings(
   const operands = rest.filter((word) => !word.startsWith('-'));
   const findings: ScopeFinding[] = [];
 
-  if (GIT_DIRECTORY_WRITES.has(subcommand) && !isInScope(gitDirectory, scope)) {
+  if (
+    gitDirectory !== null &&
+    GIT_DIRECTORY_WRITES.has(subcommand) &&
+    !isInScope(gitDirectory, scope)
+  ) {
     findings.push({ kind: 'path', target: gitDirectory });
   }
 
@@ -778,15 +773,20 @@ function splitWords(text: string): string[] {
 }
 
 // A target built from a variable, a substitution, or another user's home
-// cannot be resolved from the command text alone.
-function resolvePath(cwd: string, path: string, home: string): string | null {
+// cannot be resolved from the command text alone, nor can a relative one
+// when the directory is unknown.
+function resolvePath(cwd: string | null, path: string, home: string): string | null {
   const expanded = path.replace(/^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u, home);
 
   if (/[$`]|^~/u.test(expanded) || expanded === '') {
     return null;
   }
 
-  const absolute = isAbsolute(expanded) ? expanded : join(cwd, expanded);
+  if (cwd === null && !isAbsolute(expanded)) {
+    return null;
+  }
+
+  const absolute = isAbsolute(expanded) || cwd === null ? expanded : join(cwd, expanded);
 
   return normalize(absolute).replace(/(?<=.)\/$/u, '');
 }
