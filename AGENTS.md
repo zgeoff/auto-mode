@@ -191,9 +191,9 @@ prompt; `config/` holds configuration and presets; `budget/` counts denials per 
 scope sources and keeps what each session created; `bypass/` lets an in-scope file edit skip Jev;
 `secrets/` scans edit content with the bundled Betterleaks rule set, which
 `scripts/build-secret-rules.ts` generates. `classify-action.ts` runs both tiers with the containment
-check and the edit bypass between them, and is the library entry point; `index.ts` is the public API;
-`cli.ts` is the entrypoint the mod runs. `mods/auto-mode/` is the Claude Code mod. `policy/` at the
-repo root holds the prompt itself. `fixtures/` holds mod requests recorded in a live Claude Code
+check and the edit bypass between them, and is the library entry point; `index.ts` is the public
+API; `cli.ts` is the entrypoint the mod runs. `mods/auto-mode/` is the Claude Code mod. `policy/` at
+the repo root holds the prompt itself. `fixtures/` holds mod requests recorded in a live Claude Code
 session.
 
 ## Runtime rules
