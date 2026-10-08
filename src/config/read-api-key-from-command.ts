@@ -17,7 +17,9 @@ export function readApiKeyFromCommand(
     const child = spawn('/bin/sh', ['-c', command], {
       detached: grouped,
       stdio: ['ignore', 'pipe', 'ignore'],
-      ...(options.host === undefined ? {} : { env: { ...options.host.env } }),
+      ...(options.host === undefined
+        ? {}
+        : { env: { HOME: options.host.home, ...options.host.env } }),
     });
 
     let output = '';

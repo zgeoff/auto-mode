@@ -135,6 +135,19 @@ test('it runs the key command in the injected environment', async () => {
   expect(key).toBe('from-injected-env');
 });
 
+test('it gives the key command the injected home when the injected environment has none', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(join(ctx.dir, 'key'), 'from-home-file');
+
+  const key = await resolveApiKey(
+    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'cat "$HOME/key"' },
+    { host: { env: {}, home: ctx.dir } },
+  );
+
+  expect(key).toBe('from-home-file');
+});
+
 test('it reports no key when neither the variable nor a command is set', async () => {
   const ctx = await setupTest();
 

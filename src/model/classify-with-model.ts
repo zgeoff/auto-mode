@@ -30,7 +30,7 @@ export async function classifyWithModel(
     return classifyWithJev(payload, config, { ...options, host });
   }
 
-  const apiKey = await resolveApiKey(config.provider, { host });
+  const apiKey = await resolveApiKey(config.provider, { ...options, host });
 
   if (apiKey === null) {
     return buildFailure(

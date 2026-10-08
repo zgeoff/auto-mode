@@ -204,3 +204,34 @@ test('it has no opinion when the policy file cannot be read', async () => {
   expect(outcome.verdict).toBeNull();
   expect(outcome.note).toInclude('policy unreadable');
 });
+
+test('it runs no key command and sends no request once the evaluation is cancelled', async () => {
+  const ctx = await setupTest();
+
+  let requests = 0;
+
+  server.use(
+    http.post(ENDPOINT, () => {
+      requests += 1;
+
+      return HttpResponse.json({ content: [{ type: 'text', text: '<block>no</block>' }] });
+    }),
+  );
+
+  const controller = new AbortController();
+
+  controller.abort();
+
+  const outcome = await classifyWithModel(
+    { ...PAYLOAD, cwd: ctx.dir },
+    {
+      ...CONFIG,
+      provider: { ...CONFIG.provider, apiKeyEnv: undefined, apiKeyCommand: 'printf from-command' },
+    },
+    { signal: controller.signal, host: { env: {}, home: ctx.dir } },
+  );
+
+  expect(outcome.verdict).toBeNull();
+  expect(outcome.note).toInclude('no API key');
+  expect(requests).toBe(0);
+});
