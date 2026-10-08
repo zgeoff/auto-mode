@@ -98,6 +98,12 @@ test('it finds no checkout when the nearest .git file names no git directory', a
   expect(findCheckout(join(ctx.dir, 'app', 'lib'), {})).resolves.toBeNull();
 });
 
+test('it finds no checkout when the walk reaches the root without a .git', () => {
+  // A sandbox can place a .git above the system temp directory, so the walk
+  // starts at the root, the one directory every host shares.
+  expect(findCheckout('/', {})).resolves.toBeNull();
+});
+
 test('it finds no checkout above the stop directory', async () => {
   const ctx = await setupTest();
 

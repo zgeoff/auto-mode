@@ -417,8 +417,8 @@ test('it hashes the parsed content of the three files', async () => {
 
   const corpus = await loadSecondJudgeCorpus(ctx.root);
 
-  expect(corpus.corpusHash).toBe(
-    'f1e214b65d826291e1f88a87747b644c06e3381ba13ca5ffd7a17fc0e6dd0303',
+  expect(corpus.corpusHash).toMatchInlineSnapshot(
+    `"f1e214b65d826291e1f88a87747b644c06e3381ba13ca5ffd7a17fc0e6dd0303"`,
   );
 });
 
