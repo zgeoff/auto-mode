@@ -6,6 +6,7 @@ import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
+import { readHostEnvironment } from '../src/config/read-host-environment.ts';
 import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
 import { loadRepositoryContext } from '../src/model/load-repository-context.ts';
@@ -57,9 +58,10 @@ async function main(): Promise<void> {
   invariant(key !== null, 'The configured evaluation credential is unavailable.');
 
   const cwd = process.cwd();
+  const host = readHostEnvironment();
 
-  const repository = await loadRepositoryContext(cwd);
-  const configuredRules = await loadClaudeRules(config.claudeSettingsPath);
+  const repository = await loadRepositoryContext(cwd, host.env);
+  const configuredRules = await loadClaudeRules(config.claudeSettingsPath, host);
   const policy = await loadPolicy({}, 'decision.md');
 
   const records: unknown[] = [];

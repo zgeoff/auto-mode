@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
 import type { DenialBudget } from '../budget/types.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
-import type { EvaluationOptions } from './types.ts';
+import { readHostEnvironment } from './read-host-environment.ts';
+import type { EvaluationOptions, HostEnvironment } from './types.ts';
 
 export { PRESETS } from './presets.ts';
 
@@ -64,14 +64,18 @@ export const DEFAULT_CONFIG: Config = {
   scopeSources: DEFAULT_SCOPE_SOURCES,
 };
 
-export function resolveConfigPath(): string {
-  const xdg = process.env['XDG_CONFIG_HOME'];
-  const base = xdg !== undefined && xdg !== '' ? xdg : join(homedir(), '.config');
+export function resolveConfigPath(host: Readonly<HostEnvironment> = readHostEnvironment()): string {
+  const xdg = host.env['XDG_CONFIG_HOME'];
+  const base = xdg !== undefined && xdg !== '' ? xdg : join(host.home, '.config');
 
   return join(base, 'auto-mode', 'config.json');
 }
 
-export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
+export async function loadConfig(
+  configPath?: string,
+  host: Readonly<HostEnvironment> = readHostEnvironment(),
+): Promise<Config> {
+  const path = configPath ?? resolveConfigPath(host);
   let raw: string;
 
   try {
@@ -92,7 +96,7 @@ export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
     throw new Error(`${path} is not valid JSON`);
   }
 
-  return buildConfig(json, path);
+  return buildConfig(json, path, host.home);
 }
 
 const text = z.string().min(1);
@@ -126,7 +130,7 @@ const configFileSchema = z.strictObject({
     .optional(),
 });
 
-function buildConfig(json: unknown, path: string): Config {
+function buildConfig(json: unknown, path: string, home: string): Config {
   const parsed = configFileSchema.safeParse(json);
 
   if (!parsed.success) {
@@ -141,7 +145,7 @@ function buildConfig(json: unknown, path: string): Config {
   );
 
   const scopeSources = buildRegistry(file.scopeSources ?? {}, (id, entry) =>
-    parseScopeSourceEntry(id, entry),
+    parseScopeSourceEntry(id, entry, home),
   );
 
   const configuredSources = file.scopeSources === undefined ? null : scopeSources.entries;
@@ -169,11 +173,11 @@ function buildConfig(json: unknown, path: string): Config {
         ? null
         : resolveRole('judge', judgeID, classifiers.entries, classifiers.droppedIDs, path),
     scopeSources: configuredSources ?? DEFAULT_SCOPE_SOURCES,
-    classifierPath: expandHomePath(policy.frameworkPath ?? undefined),
-    rulesPath: expandHomePath(policy.rulesPath ?? undefined),
+    classifierPath: expandHomePath(policy.frameworkPath ?? undefined, home),
+    rulesPath: expandHomePath(policy.rulesPath ?? undefined, home),
     onFailure: decision.onFailure ?? DEFAULT_CONFIG.onFailure,
     claudeSettingsPath:
-      policy.claudeSettingsPath === null ? null : expandHomePath(policy.claudeSettingsPath),
+      policy.claudeSettingsPath === null ? null : expandHomePath(policy.claudeSettingsPath, home),
     minConfidence: decision.minConfidence ?? DEFAULT_CONFIG.minConfidence,
     denialBudget: {
       consecutive: decision.denialBudget?.consecutive ?? DEFAULT_DENIAL_BUDGET.consecutive,
@@ -297,7 +301,7 @@ const scopeSourceEntrySchema = z.strictObject({
   paths: z.array(text).min(1).optional(),
 });
 
-function parseScopeSourceEntry(id: string, entry: unknown): ScopeSource | string {
+function parseScopeSourceEntry(id: string, entry: unknown, home: string): ScopeSource | string {
   const parsed = scopeSourceEntrySchema.safeParse(entry);
 
   if (!parsed.success) {
@@ -313,7 +317,7 @@ function parseScopeSourceEntry(id: string, entry: unknown): ScopeSource | string
   if (kind === 'globs') {
     return parsed.data.paths === undefined
       ? "kind 'globs' needs paths"
-      : { kind, paths: parsed.data.paths.map((glob) => expandHomePath(glob) ?? glob) };
+      : { kind, paths: parsed.data.paths.map((glob) => expandHomePath(glob, home) ?? glob) };
   }
 
   return parsed.data.paths === undefined ? { kind } : `kind '${kind}' takes no paths`;
@@ -372,15 +376,16 @@ function parseBuiltIn(id: string): ProviderConfig {
   return resolved;
 }
 
-function expandHomePath(path: string | undefined): string | undefined {
-  return path?.startsWith('~/') === true ? join(homedir(), path.slice(2)) : path;
+function expandHomePath(path: string | undefined, home: string): string | undefined {
+  return path?.startsWith('~/') === true ? join(home, path.slice(2)) : path;
 }
 
 export function resolveApiKey(
   provider: ProviderConfig,
   options: EvaluationOptions = {},
 ): Promise<string | null> {
-  const fromEnv = provider.apiKeyEnv === undefined ? undefined : process.env[provider.apiKeyEnv];
+  const host = options.host ?? readHostEnvironment();
+  const fromEnv = provider.apiKeyEnv === undefined ? undefined : host.env[provider.apiKeyEnv];
 
   if (fromEnv !== undefined && fromEnv !== '') {
     return Promise.resolve(fromEnv);
@@ -390,5 +395,5 @@ export function resolveApiKey(
     return Promise.resolve(null);
   }
 
-  return readApiKeyFromCommand(provider.apiKeyCommand, options);
+  return readApiKeyFromCommand(provider.apiKeyCommand, { ...options, host });
 }

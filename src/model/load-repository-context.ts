@@ -1,12 +1,14 @@
 import { readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import type { HostEnvironment } from '../config/types.ts';
 import { loadCheckoutRemotes } from '../scope/load-checkout-remotes.ts';
 import type { RepositoryContext } from './types.ts';
 
-export async function loadRepositoryContext(cwd: string): Promise<RepositoryContext | null> {
-  if (
-    ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].some((name) => process.env[name] !== undefined)
-  ) {
+export async function loadRepositoryContext(
+  cwd: string,
+  env: HostEnvironment['env'],
+): Promise<RepositoryContext | null> {
+  if (['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].some((name) => env[name] !== undefined)) {
     return null;
   }
 

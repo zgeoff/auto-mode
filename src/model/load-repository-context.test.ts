@@ -6,14 +6,6 @@ import invariant from 'tiny-invariant';
 import { loadRepositoryContext } from './load-repository-context.ts';
 
 async function setupTest() {
-  const previousGitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
-    (name) => [name, process.env[name]] as const,
-  );
-
-  for (const [name] of previousGitEnv) {
-    delete process.env[name];
-  }
-
   const dir = await mkdtemp(join(tmpdir(), 'repository-context-'));
 
   const repo = join(dir, 'repo');
@@ -26,17 +18,7 @@ async function setupTest() {
     'ref: refs/remotes/origin/main\n',
   );
 
-  onTestFinished(async () => {
-    for (const [name, value] of previousGitEnv) {
-      if (value === undefined) {
-        delete process.env[name];
-      } else {
-        process.env[name] = value;
-      }
-    }
-
-    await rm(dir, { recursive: true, force: true });
-  });
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
   return { dir, repo, gitDir };
 }
@@ -53,7 +35,7 @@ test('it reads a feature branch from a linked worktree without running Git or it
   await writeFile(join(worktreeGit, 'HEAD'), 'ref: refs/heads/fix-detail\n');
   await writeFile(join(worktreeGit, 'commondir'), '../..\n');
 
-  const context = await loadRepositoryContext(join(worktree, 'src'));
+  const context = await loadRepositoryContext(join(worktree, 'src'), {});
 
   expect(context).toStrictEqual({
     cwd: join(worktree, 'src'),
@@ -71,7 +53,7 @@ test('it reports main even when the worktree directory has a feature name', asyn
   await mkdir(join(worktree, '.git'), { recursive: true });
   await writeFile(join(worktree, '.git', 'HEAD'), 'ref: refs/heads/main\n');
 
-  const context = await loadRepositoryContext(worktree);
+  const context = await loadRepositoryContext(worktree, {});
 
   expect(context).toStrictEqual({
     cwd: worktree,
@@ -87,7 +69,7 @@ test('it keeps detached and unknown default branches unknown', async () => {
   await writeFile(join(ctx.gitDir, 'HEAD'), `${'a'.repeat(40)}\n`);
   await rm(join(ctx.gitDir, 'refs', 'remotes', 'origin', 'HEAD'));
 
-  const context = await loadRepositoryContext(ctx.repo);
+  const context = await loadRepositoryContext(ctx.repo, {});
 
   expect(context).toStrictEqual({
     cwd: ctx.repo,
@@ -107,7 +89,7 @@ test('it reads a custom default branch without assuming main', async () => {
     'ref: refs/remotes/origin/stable\n',
   );
 
-  const context = await loadRepositoryContext(ctx.repo);
+  const context = await loadRepositoryContext(ctx.repo, {});
 
   expect(context).toStrictEqual({
     cwd: ctx.repo,
@@ -119,7 +101,7 @@ test('it reads a custom default branch without assuming main', async () => {
 
 test('it returns no evidence when the checkout has no readable Git metadata', async () => {
   const ctx = await setupTest();
-  const context = await loadRepositoryContext(ctx.dir);
+  const context = await loadRepositoryContext(ctx.dir, {});
 
   expect(context).toBeNull();
 });
@@ -132,9 +114,9 @@ test('it never borrows parent branch evidence when a linked worktree has broken 
   const worktree = join(ctx.repo, '.worktrees', 'broken');
 
   await mkdir(worktree, { recursive: true });
-  await writeFile(join(worktree, '.git'), 'gitdir: /missing-worktree-gitdir\n');
+  await writeFile(join(worktree, '.git'), `gitdir: ${join(ctx.dir, 'missing-worktree-gitdir')}\n`);
 
-  const context = await loadRepositoryContext(worktree);
+  const context = await loadRepositoryContext(worktree, {});
 
   expect(context).toBeNull();
 });
@@ -146,9 +128,7 @@ test.each(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'] as const)(
 
     await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/feature\n');
 
-    process.env[name] = '/another/repository';
-
-    const context = await loadRepositoryContext(ctx.repo);
+    const context = await loadRepositoryContext(ctx.repo, { [name]: join(ctx.dir, 'another') });
 
     expect(context).toBeNull();
   },
@@ -178,7 +158,7 @@ test('it reads the checkout remotes without the user info a URL can carry', asyn
 
   await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/main\n');
 
-  const context = await loadRepositoryContext(ctx.repo);
+  const context = await loadRepositoryContext(ctx.repo, {});
 
   invariant(context !== null, 'the checkout has Git metadata');
 

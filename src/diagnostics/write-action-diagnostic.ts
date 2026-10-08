@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { DecidingStage } from '../classify-action.ts';
+import type { HostEnvironment } from '../config/types.ts';
 import type { DecisionDiagnostics } from '../model/types.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
 import { resolveStateDir } from '../state/resolve-state-dir.ts';
@@ -25,9 +26,10 @@ interface ActionDiagnostic {
 export async function writeActionDiagnostic(
   payload: ActionRequest,
   entry: Readonly<ActionDiagnostic>,
+  host: Readonly<HostEnvironment>,
 ): Promise<void> {
   const path =
-    process.env['AUTO_MODE_DIAGNOSTICS_PATH'] ?? join(resolveStateDir(), 'actions.jsonl');
+    host.env['AUTO_MODE_DIAGNOSTICS_PATH'] ?? join(resolveStateDir(host), 'actions.jsonl');
 
   if (path === '') {
     return;

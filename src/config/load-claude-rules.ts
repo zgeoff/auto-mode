@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
+import type { HostEnvironment } from './types.ts';
 
 export interface ClaudeRules {
   readonly environment: readonly string[];
@@ -10,15 +10,18 @@ export interface ClaudeRules {
   readonly hard_deny: readonly string[];
 }
 
-export async function loadClaudeRules(path?: string | null): Promise<ClaudeRules> {
+export async function loadClaudeRules(
+  path: string | null | undefined,
+  host: Readonly<HostEnvironment>,
+): Promise<ClaudeRules> {
   const empty: ClaudeRules = { environment: [], allow: [], soft_deny: [], hard_deny: [] };
 
   if (path === null) {
     return empty;
   }
 
-  const configDir = process.env['CLAUDE_CONFIG_DIR'];
-  const base = configDir === undefined || configDir === '' ? join(homedir(), '.claude') : configDir;
+  const configDir = host.env['CLAUDE_CONFIG_DIR'];
+  const base = configDir === undefined || configDir === '' ? join(host.home, '.claude') : configDir;
   const settingsPath = path ?? join(base, 'settings.json');
   let raw: string;
 

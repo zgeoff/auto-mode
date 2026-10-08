@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { randomUUID } from 'node:crypto';
-import { homedir } from 'node:os';
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
 import { buildRetryKey } from './budget/build-retry-key.ts';
@@ -14,6 +13,8 @@ import type { ActionOutcome } from './classify-action.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { DEFAULT_DENIAL_BUDGET, DEFAULT_SCOPE_SOURCES, loadConfig } from './config/config.ts';
+import { readHostEnvironment } from './config/read-host-environment.ts';
+import type { HostEnvironment } from './config/types.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { parseActionRequest } from './request/parse-action-request.ts';
@@ -45,6 +46,7 @@ function readStdin(): Promise<string> {
 }
 
 async function run(
+  host: Readonly<HostEnvironment>,
   explain: boolean,
   localOnly: boolean,
   jevOnly: boolean,
@@ -68,14 +70,18 @@ async function run(
 
   const invocationID = randomUUID();
 
-  await writeActionDiagnostic(request, { invocationID, status: 'started' });
+  await writeActionDiagnostic(request, { invocationID, status: 'started' }, host);
 
   let loaded;
 
   try {
-    loaded = await loadConfig();
+    loaded = await loadConfig(undefined, host);
   } catch {
-    await writeActionDiagnostic(request, { invocationID, status: 'failure', verdict: 'defer' });
+    await writeActionDiagnostic(
+      request,
+      { invocationID, status: 'failure', verdict: 'defer' },
+      host,
+    );
 
     return printNote(true, 'configuration unreadable; no verdict');
   }
@@ -85,7 +91,11 @@ async function run(
   const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
 
   if (config === null) {
-    await writeActionDiagnostic(request, { invocationID, status: 'failure', verdict: 'defer' });
+    await writeActionDiagnostic(
+      request,
+      { invocationID, status: 'failure', verdict: 'defer' },
+      host,
+    );
 
     return printNote(true, 'Jev-only evaluation requires system-one; no verdict');
   }
@@ -96,7 +106,11 @@ async function run(
     deadlineAt !== undefined &&
     (!jevOnly || !Number.isSafeInteger(deadlineAt) || deadlineAt <= 0)
   ) {
-    await writeActionDiagnostic(request, { invocationID, status: 'failure', verdict: 'defer' });
+    await writeActionDiagnostic(
+      request,
+      { invocationID, status: 'failure', verdict: 'defer' },
+      host,
+    );
 
     return printNote(true, 'invalid Jev evaluation deadline; no verdict');
   }
@@ -113,7 +127,7 @@ async function run(
   }
 
   try {
-    const statePath = resolveDenialStatePath(request);
+    const statePath = resolveDenialStatePath(request, resolveStateDir(host));
     const retryKey = buildRetryKey(request);
 
     const before = await loadDenialState(statePath);
@@ -126,6 +140,7 @@ async function run(
             localOnly,
             deadlineAt,
             signal: controller.signal,
+            host,
           })
         : {
             verdict: retry,
@@ -153,15 +168,19 @@ async function run(
       writeVerdict(plan.verdict);
     }
 
-    await writeActionDiagnostic(request, {
-      invocationID,
-      status: outcome.status,
-      verdict: plan.verdict?.kind ?? 'defer',
-      decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
-      denials: { consecutive: plan.state.consecutive, session: plan.state.session },
-      escalation: plan.escalation,
-      ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
-    });
+    await writeActionDiagnostic(
+      request,
+      {
+        invocationID,
+        status: outcome.status,
+        verdict: plan.verdict?.kind ?? 'defer',
+        decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
+        denials: { consecutive: plan.state.consecutive, session: plan.state.session },
+        escalation: plan.escalation,
+        ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
+      },
+      host,
+    );
 
     const note = plan.escalation
       ? 'denial budget exhausted; the user decides this action'
@@ -176,7 +195,7 @@ async function run(
 
 // Writes nothing on stdout: a record is not a verdict, and a failure costs the
 // session only the scope it would have gained.
-async function runRecord(): Promise<number> {
+async function runRecord(host: Readonly<HostEnvironment>): Promise<number> {
   const raw = await readStdin();
 
   let body: unknown;
@@ -194,15 +213,16 @@ async function runRecord(): Promise<number> {
   }
 
   try {
-    const config = await loadConfig();
+    const config = await loadConfig(undefined, host);
 
     const sources = Object.values(config.scopeSources ?? DEFAULT_SCOPE_SOURCES);
 
     if (sources.some((source) => source.kind === 'session')) {
       await updateSessionScope(request, {
         now: Date.now(),
-        stateDir: resolveStateDir(),
-        home: homedir(),
+        stateDir: resolveStateDir(host),
+        home: host.home,
+        env: host.env,
         readPullRequest,
       });
     }
@@ -255,6 +275,7 @@ async function main(argv: readonly string[]): Promise<number> {
   });
 
   const [command] = args.positionals;
+  const host = readHostEnvironment();
 
   if (args.values.help === true || command === undefined) {
     process.stdout.write(USAGE);
@@ -265,6 +286,7 @@ async function main(argv: readonly string[]): Promise<number> {
   if (command === 'run') {
     try {
       return await run(
+        host,
         args.values.explain === true,
         args.values['local-only'] === true,
         args.values['jev-only'] === true,
@@ -278,11 +300,11 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   if (command === 'record') {
-    return runRecord();
+    return runRecord(host);
   }
 
   if (command === 'print-prompt') {
-    const config = await loadConfig();
+    const config = await loadConfig(undefined, host);
 
     printWarnings(config.warnings);
 

@@ -12,18 +12,6 @@ import { classifyWithModel } from './classify-with-model.ts';
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'jev-classifier-'));
 
-  const previousGitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
-    (name) => [name, process.env[name]] as const,
-  );
-
-  for (const [name] of previousGitEnv) {
-    delete process.env[name];
-  }
-
-  const previous = process.env['AUTO_MODE_JEV_TEST_KEY'];
-
-  process.env['AUTO_MODE_JEV_TEST_KEY'] = 'test-key';
-
   await writeFile(join(dir, 'classifier.md'), 'Decision framework\n<rules>\n');
 
   await writeFile(
@@ -32,24 +20,11 @@ async function setupTest() {
   );
 
   return {
+    dir,
     settings: join(dir, 'settings.json'),
     classifier: join(dir, 'classifier.md'),
     rules: join(dir, 'rules.md'),
     async [Symbol.asyncDispose]() {
-      for (const [name, value] of previousGitEnv) {
-        if (value === undefined) {
-          delete process.env[name];
-        } else {
-          process.env[name] = value;
-        }
-      }
-
-      if (previous === undefined) {
-        delete process.env['AUTO_MODE_JEV_TEST_KEY'];
-      } else {
-        process.env['AUTO_MODE_JEV_TEST_KEY'] = previous;
-      }
-
       await rm(dir, { recursive: true, force: true });
     },
   };
@@ -99,7 +74,7 @@ test('it sends configured rules and the supplied direct user message through the
   const outcome = await classifyWithModel(
     {
       sessionID: 's',
-      cwd: '/repo',
+      cwd: ctx.dir,
       decisionContext: {
         agentID: null,
         originalUserTask: null,
@@ -121,6 +96,7 @@ test('it sends configured rules and the supplied direct user message through the
       classifierPath: ctx.classifier,
       rulesPath: ctx.rules,
     },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
   expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
@@ -157,7 +133,7 @@ test.each(['defer', 'deny'] as const)(
     const outcome = await classifyWithModel(
       {
         sessionID: 's',
-        cwd: '/repo',
+        cwd: ctx.dir,
         toolName: 'Bash',
         toolInput: { command: 'git push' },
       },
@@ -173,6 +149,7 @@ test.each(['defer', 'deny'] as const)(
         classifierPath: ctx.classifier,
         rulesPath: ctx.rules,
       },
+      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
     );
 
     expect(outcome.unavailable).toBe(true);
@@ -235,7 +212,7 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
     const outcome = await classifyWithModel(
       {
         sessionID: 's',
-        cwd: '/repo',
+        cwd: ctx.dir,
         decisionContext: {
           agentID: null,
           originalUserTask: null,
@@ -255,6 +232,7 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
         },
         claudeSettingsPath: ctx.settings,
       },
+      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
     );
 
     expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
@@ -329,7 +307,7 @@ test('it retains a separate shipped hard block after the self-protection finding
   const outcome = await classifyWithModel(
     {
       sessionID: 's',
-      cwd: '/repo',
+      cwd: ctx.dir,
       decisionContext: {
         agentID: null,
         originalUserTask: null,
@@ -354,6 +332,7 @@ test('it retains a separate shipped hard block after the self-protection finding
       },
       claudeSettingsPath: ctx.settings,
     },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
   expect(outcome.verdict).toStrictEqual({
@@ -398,7 +377,7 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
     const outcome = await classifyWithModel(
       {
         sessionID: 's',
-        cwd: '/repo',
+        cwd: ctx.dir,
         decisionContext: {
           agentID: null,
           originalUserTask: null,
@@ -422,6 +401,7 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
         claudeSettingsPath: null,
         rulesPath: ctx.rules,
       },
+      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
     );
 
     expect(outcome.verdict).toStrictEqual({
@@ -478,7 +458,7 @@ test('it returns the configured denial before the outer cap after a slow helper 
   const result = await classifyWithModel(
     {
       sessionID: 'slow-helper-check',
-      cwd: '/repo',
+      cwd: ctx.dir,
       toolName: 'Write',
       toolInput: { file_path: '/repo/fixture', content: 'green' },
     },
@@ -496,7 +476,10 @@ test('it returns the configured denial before the outer cap after a slow helper 
         timeoutMs: 5000,
       },
     },
-    { deadlineAt: Date.now() + 7500 },
+    {
+      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      deadlineAt: Date.now() + 7500,
+    },
   );
 
   expect(result.verdict).toMatchObject({ kind: 'deny', rule: 'Classifier Unavailable' });
@@ -543,7 +526,7 @@ test('it evaluates child task context without reading parent consent on resume',
     }),
   );
 
-  for (const cwd of ['/child', '/changed-child']) {
+  for (const cwd of [join(ctx.dir, 'child'), join(ctx.dir, 'changed-child')]) {
     const result = await classifyWithModel(
       {
         sessionID: 's',
@@ -569,6 +552,7 @@ test('it evaluates child task context without reading parent consent on resume',
         classifierPath: ctx.classifier,
         rulesPath: ctx.rules,
       },
+      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
     );
 
     expect(result.verdict).toStrictEqual({
@@ -580,7 +564,7 @@ test('it evaluates child task context without reading parent consent on resume',
   }
 
   expect(requests).toMatchObject(
-    ['/child', '/changed-child'].map((cwd) => ({
+    [join(ctx.dir, 'child'), join(ctx.dir, 'changed-child')].map((cwd) => ({
       state: {
         lastUserMessage: null,
         action: { cwd },
@@ -604,7 +588,7 @@ test('it separates missing credentials from a classifier ask without calling the
   const result = await classifyWithModel(
     {
       sessionID: 's',
-      cwd: '/repo',
+      cwd: ctx.dir,
       toolName: 'Bash',
       toolInput: { command: 'git commit' },
     },
@@ -615,6 +599,7 @@ test('it separates missing credentials from a classifier ask without calling the
       classifierPath: ctx.classifier,
       rulesPath: ctx.rules,
     },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
   expect(result.verdict).toBeNull();
@@ -726,6 +711,7 @@ test.each([
         },
         claudeSettingsPath: null,
       },
+      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
     );
 
     const actionSchema = z.object({ input: z.unknown() });
@@ -751,14 +737,14 @@ test.each([
 );
 
 test.each([
-  ['Write', null],
-  ['Edit', null],
-  ['Write', 'GIT_DIR'],
-  ['Edit', 'GIT_WORK_TREE'],
-  ['Write', 'GIT_COMMON_DIR'],
+  ['Write', 'none', {}],
+  ['Edit', 'none', {}],
+  ['Write', 'GIT_DIR', { GIT_DIR: '/another/repository' }],
+  ['Edit', 'GIT_WORK_TREE', { GIT_WORK_TREE: '/another/repository' }],
+  ['Write', 'GIT_COMMON_DIR', { GIT_COMMON_DIR: '/another/repository' }],
 ] as const)(
   'it supplies cwd references for %s with override %s without clearing a secret block',
-  async (toolName, override) => {
+  async (toolName, override, gitEnv) => {
     await using ctx = await setupTest();
 
     const cwd = join(ctx.classifier, '..');
@@ -771,10 +757,6 @@ test.each([
       join(gitDir, 'refs', 'remotes', 'origin', 'HEAD'),
       'ref: refs/remotes/origin/main\n',
     );
-
-    if (override !== null) {
-      process.env[override] = '/another/repository';
-    }
 
     let received: unknown;
 
@@ -823,12 +805,13 @@ test.each([
         classifierPath: ctx.classifier,
         rulesPath: ctx.rules,
       },
+      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key', ...gitEnv }, home: ctx.dir } },
     );
 
     const request = z.object({ state: z.record(z.string(), z.unknown()) }).parse(received);
 
     const expectedRepository =
-      override === null ? { cwd, branch: 'feature', defaultBranch: 'main', remotes: [] } : null;
+      override === 'none' ? { cwd, branch: 'feature', defaultBranch: 'main', remotes: [] } : null;
 
     expect(request.state['repositoryContext'] ?? null).toStrictEqual(expectedRepository);
     expect(request.state['action']).toStrictEqual({ tool: toolName, cwd, input });
@@ -868,7 +851,7 @@ test('it denies an uncertain response, distinct from a timeout, and preserves ev
   const result = await classifyWithModel(
     {
       sessionID: 's',
-      cwd: '/repo',
+      cwd: ctx.dir,
       toolName: 'Bash',
       toolInput: { command: 'private-action-canary' },
     },
@@ -883,6 +866,7 @@ test('it denies an uncertain response, distinct from a timeout, and preserves ev
       classifierPath: ctx.classifier,
       rulesPath: ctx.rules,
     },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
   expect(result.verdict).toStrictEqual({
@@ -989,7 +973,7 @@ test('it sends a 249-line test Edit with the shipped policy and an operator-size
   const result = await classifyWithModel(
     {
       sessionID: 's',
-      cwd: '/repo',
+      cwd: ctx.dir,
       toolName: 'Edit',
       toolInput: {
         file_path: '/repo/src/client/ui.test.ts',
@@ -1006,6 +990,7 @@ test('it sends a 249-line test Edit with the shipped policy and an operator-size
       },
       claudeSettingsPath: ctx.settings,
     },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
   expect(result.verdict).toStrictEqual({ kind: 'allow' });
@@ -1030,7 +1015,7 @@ test('it defers an oversized Edit before any request and records only the failur
   const result = await classifyWithModel(
     {
       sessionID: 's',
-      cwd: '/repo',
+      cwd: ctx.dir,
       toolName: 'Edit',
       toolInput: {
         file_path: '/repo/src/client/ui.test.ts',
@@ -1050,6 +1035,7 @@ test('it defers an oversized Edit before any request and records only the failur
       classifierPath: ctx.classifier,
       rulesPath: ctx.rules,
     },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
   expect(result.verdict).toBeNull();
@@ -1082,7 +1068,7 @@ test('it reports a provider timeout as a timeout with the request size', async (
   const result = await classifyWithModel(
     {
       sessionID: 's',
-      cwd: '/repo',
+      cwd: ctx.dir,
       toolName: 'Bash',
       toolInput: { command: 'git push' },
     },
@@ -1099,6 +1085,7 @@ test('it reports a provider timeout as a timeout with the request size', async (
       classifierPath: ctx.classifier,
       rulesPath: ctx.rules,
     },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
   expect(result.verdict).toBeNull();
@@ -1156,7 +1143,7 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       },
       claudeSettingsPath: null,
     },
-    { taskScope },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, taskScope },
   );
 
   const stateSchema = z.object({ repositoryContext: z.unknown() });

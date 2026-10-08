@@ -1,55 +1,27 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { execFileSync } from 'node:child_process';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runGit } from '../../test-utils/run-git.ts';
 import { loadTaskScope } from './load-task-scope.ts';
 import { updateSessionScope } from './update-session-scope.ts';
 
 async function setupTest() {
-  const gitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE'].map(
-    (name) => [name, process.env[name]] as const,
-  );
-
-  for (const [name] of gitEnv) {
-    delete process.env[name];
-  }
-
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-record-'));
   const root = await realpath(created);
 
-  onTestFinished(async () => {
-    for (const [name, value] of gitEnv) {
-      if (value !== undefined) {
-        process.env[name] = value;
-      }
-    }
-
-    await rm(root, { recursive: true, force: true });
-  });
+  onTestFinished(() => rm(root, { recursive: true, force: true }));
 
   const repo = join(root, 'app');
   const other = join(root, 'other');
-  const gitProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null' };
-
-  const runGit = (directory: string, ...args: readonly string[]): string =>
-    execFileSync(
-      'git',
-      ['-C', directory, '-c', 'user.name=dev', '-c', 'user.email=dev@example.com', ...args],
-      {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env: gitProcessEnv,
-      },
-    );
 
   for (const [directory, url] of [
     [repo, 'git@github.com:dev/app.git'],
     [other, 'git@github.com:dev/other.git'],
   ] as const) {
-    execFileSync('git', ['init', '-q', '-b', 'main', directory]);
-    runGit(directory, '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'init');
-    runGit(directory, 'remote', 'add', 'origin', url);
+    runGit(root, ['init', '-q', '-b', 'main', directory]);
+    runGit(root, ['-C', directory, 'commit', '-q', '--allow-empty', '-m', 'init']);
+    runGit(root, ['-C', directory, 'remote', 'add', 'origin', url]);
   }
 
   // The forge knows no PR unless a test says otherwise; `gh pr view` is the
@@ -58,10 +30,11 @@ async function setupTest() {
     now: Date.now(),
     stateDir: join(root, 'state'),
     home: root,
+    env: {},
     readPullRequest: () => Promise.resolve(null),
   };
 
-  return { repo, other, runGit, options };
+  return { root, repo, other, options };
 }
 
 test('it records a worktree and its branch made during the call, and a later load reads them', async () => {
@@ -69,7 +42,7 @@ test('it records a worktree and its branch made during the call, and a later loa
 
   const startedAt = Date.now();
 
-  ctx.runGit(ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x');
+  runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
 
   await updateSessionScope(
     {
@@ -85,6 +58,7 @@ test('it records a worktree and its branch made during the call, and a later loa
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: ctx.repo, stateDir: ctx.options.stateDir },
     { cwd: { kind: 'cwd' }, session: { kind: 'session' } },
+    { env: {}, home: ctx.root },
   );
 
   expect([scope.worktrees, scope.branches]).toStrictEqual([
@@ -98,8 +72,8 @@ test('it owns a recorded branch only in the repository the session made it in', 
 
   const startedAt = Date.now();
 
-  ctx.runGit(ctx.repo, 'branch', 'shared');
-  ctx.runGit(ctx.other, 'branch', 'shared');
+  runGit(ctx.root, ['-C', ctx.repo, 'branch', 'shared']);
+  runGit(ctx.root, ['-C', ctx.other, 'branch', 'shared']);
 
   await updateSessionScope(
     {
@@ -117,6 +91,7 @@ test('it owns a recorded branch only in the repository the session made it in', 
       loadTaskScope(
         { sessionID: 'session-1', cwd, stateDir: ctx.options.stateDir },
         { cwd: { kind: 'cwd' }, session: { kind: 'session' } },
+        { env: {}, home: ctx.root },
       ),
     ),
   );
@@ -127,8 +102,8 @@ test('it owns a recorded branch only in the repository the session made it in', 
 test('it records no worktree or branch that existed before the call started', async () => {
   const ctx = await setupTest();
 
-  ctx.runGit(ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x');
-  ctx.runGit(ctx.repo, 'branch', 'feat/y');
+  runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
+  runGit(ctx.root, ['-C', ctx.repo, 'branch', 'feat/y']);
 
   const scope = await updateSessionScope(
     {
@@ -147,7 +122,7 @@ test('it records no worktree or branch that existed before the call started', as
 test('it records nothing when the command fails on a worktree made just before the call', async () => {
   const ctx = await setupTest();
 
-  ctx.runGit(ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x');
+  runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
 
   const startedAt = Date.now() + 100;
   const command = 'git worktree add .worktrees/x -b feat/x';
@@ -169,7 +144,7 @@ test('it records nothing when the command fails on a worktree made just before t
 test('it records a branch reset by checkout -B as nothing, since it already existed', async () => {
   const ctx = await setupTest();
 
-  ctx.runGit(ctx.repo, 'branch', 'feat/y');
+  runGit(ctx.root, ['-C', ctx.repo, 'branch', 'feat/y']);
 
   const scope = await updateSessionScope(
     {
@@ -278,7 +253,7 @@ test('it keeps every branch when calls of one session record at the same time', 
   const startedAt = Date.now();
 
   for (const name of names) {
-    ctx.runGit(ctx.repo, 'branch', name);
+    runGit(ctx.root, ['-C', ctx.repo, 'branch', name]);
   }
 
   await Promise.all(
@@ -299,6 +274,7 @@ test('it keeps every branch when calls of one session record at the same time', 
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: ctx.repo, stateDir: ctx.options.stateDir },
     { session: { kind: 'session' } },
+    { env: {}, home: ctx.root },
   );
 
   expect(scope.branches).toIncludeSameMembers(names);
@@ -307,7 +283,7 @@ test('it keeps every branch when calls of one session record at the same time', 
 test('it records nothing for a call that claims to have started long ago', async () => {
   const ctx = await setupTest();
 
-  ctx.runGit(ctx.repo, 'branch', 'feat/old');
+  runGit(ctx.root, ['-C', ctx.repo, 'branch', 'feat/old']);
 
   const scope = await updateSessionScope(
     {

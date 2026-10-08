@@ -1,5 +1,6 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
+import { readHostEnvironment } from '../config/read-host-environment.ts';
 import type { EvaluationOptions } from '../config/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
@@ -23,11 +24,13 @@ export async function classifyWithModel(
   config: Config,
   options: EvaluationOptions = {},
 ): Promise<ModelOutcome> {
+  const host = options.host ?? readHostEnvironment();
+
   if (config.provider.protocol === 'system-one') {
-    return classifyWithJev(payload, config, options);
+    return classifyWithJev(payload, config, { ...options, host });
   }
 
-  const apiKey = await resolveApiKey(config.provider);
+  const apiKey = await resolveApiKey(config.provider, { ...options, host });
 
   if (apiKey === null) {
     return buildFailure(
@@ -54,9 +57,11 @@ export async function classifyWithModel(
 
   const transcript = directMessage === null ? [] : [{ role: 'user', text: directMessage.text }];
 
-  const repositoryContext = await loadRepositoryEvidence(payload.cwd, options.taskScope).catch(
-    () => null,
-  );
+  const repositoryContext = await loadRepositoryEvidence(
+    payload.cwd,
+    options.taskScope,
+    host.env,
+  ).catch(() => null);
 
   const user = buildUserMessage(payload, transcript, config.provider.reasoning, repositoryContext);
 
