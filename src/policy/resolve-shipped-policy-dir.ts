@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { dirname, join, parse } from 'node:path';
 
-export function resolveShippedPolicyDir(): string {
+export function resolveShippedPolicyDir(startDir: string = import.meta.dirname): string {
   // tsdown flattens dist/ while the source stays nested, so a fixed `..` count
   // is right for only one of the two layouts. Walk up instead.
-  let dir = import.meta.dirname;
+  let dir = startDir;
 
   for (;;) {
     if (existsSync(join(dir, 'policy', 'classifier.md'))) {
