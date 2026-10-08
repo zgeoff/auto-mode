@@ -38,7 +38,7 @@ interface CallInput {
   readonly command?: unknown;
 }
 
-interface CallResult {
+export interface CallResult {
   readonly result?: unknown;
   readonly deny?: string;
   readonly text?: string;
@@ -104,6 +104,7 @@ interface LogOptions {
 export interface ModAPI {
   readonly ui: { readonly log: (text: string, options?: LogOptions) => void };
   readonly session: { readonly cwd: () => Promise<string> };
+  readonly clock: { readonly now: () => Promise<number> };
   readonly process: {
     readonly run: (argv: readonly string[], init?: ProcessInput['init']) => Promise<ProcessResult>;
   };
