@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { loadMCPServers } from './load-mcp-servers.ts';
 
 async function setupTest() {
@@ -46,7 +47,10 @@ test('it lists user and local servers by name, scope, transport and host, and dr
     }),
   );
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([
     { name: 'docs', scope: 'local', transport: 'ws', host: 'docs.example.test:8443' },
@@ -88,7 +92,10 @@ test('it keeps one definition per server name, local before project before user'
     }),
   );
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([
     { name: 'linear', scope: 'local', transport: 'http', host: 'mcp.linear.app' },
@@ -118,7 +125,10 @@ test('it reads a nested checkout as its own project, not its parent', async () =
     JSON.stringify({ projects: { [ctx.repo]: { mcpServers: { parent: { command: 'parent' } } } } }),
   );
 
-  const servers = await loadMCPServers(nested, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    nested,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([
     { name: 'nested', scope: 'project', transport: 'stdio', host: null },
@@ -150,7 +160,10 @@ test('it lists a project server only when the user settings approve it, not the 
     JSON.stringify({ enabledMcpjsonServers: ['approved'] }),
   );
 
-  const servers = await loadMCPServers(join(ctx.repo, 'src'), { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    join(ctx.repo, 'src'),
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([
     { name: 'approved', scope: 'project', transport: 'http', host: 'approved.example.test' },
@@ -180,7 +193,10 @@ test('it drops a project server that the project entry disables, even when all a
     JSON.stringify({ projects: { [ctx.repo]: { disabledMcpjsonServers: ['blocked'] } } }),
   );
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([
     { name: 'kept', scope: 'project', transport: 'stdio', host: null },
@@ -204,10 +220,10 @@ test('it reads the Claude Code state in the directory CLAUDE_CONFIG_DIR names', 
     JSON.stringify({ mcpServers: { ignored: { command: 'ignored' } } }),
   );
 
-  const servers = await loadMCPServers(ctx.repo, {
-    env: { CLAUDE_CONFIG_DIR: configDir },
-    home: ctx.dir,
-  });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: { CLAUDE_CONFIG_DIR: configDir }, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([
     { name: 'linear', scope: 'user', transport: 'sse', host: 'mcp.linear.app' },
@@ -224,7 +240,10 @@ test('it leaves the host unknown when the server URL holds an unexpanded variabl
     }),
   );
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([{ name: 'api', scope: 'user', transport: 'http', host: null }]);
 });
@@ -234,7 +253,10 @@ test('it lists nothing when the Claude Code state is not JSON', async () => {
 
   await writeFile(join(ctx.dir, '.claude.json'), '{ not json');
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([]);
 });
@@ -248,7 +270,10 @@ test.each([
 
   await writeFile(join(ctx.dir, '.claude.json'), JSON.stringify({ mcpServers: { [name]: entry } }));
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([]);
 });
@@ -261,7 +286,10 @@ test('it keeps a server whose name is exactly 128 characters', async () => {
     JSON.stringify({ mcpServers: { ['n'.repeat(128)]: { command: 'tool' } } }),
   );
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([
     { name: 'n'.repeat(128), scope: 'user', transport: 'stdio', host: null },
@@ -278,7 +306,10 @@ test('it reads a streamable-http server as http', async () => {
     }),
   );
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([
     { name: 'api', scope: 'user', transport: 'http', host: 'api.example.test' },
@@ -295,7 +326,10 @@ test('it leaves the host unknown when the server URL is not http or ws', async (
     }),
   );
 
-  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(servers).toStrictEqual([{ name: 'files', scope: 'user', transport: 'http', host: null }]);
 });

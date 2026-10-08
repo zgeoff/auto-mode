@@ -12,6 +12,7 @@ import { sendDecisionReply } from '../mocks/send-decision-reply.ts';
 import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import { classifyAction } from './classify-action.ts';
 
@@ -45,7 +46,7 @@ test('it allows a read-only tool in the local tier', async () => {
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
+    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }) },
   );
 
   expect(outcome).toStrictEqual({
@@ -70,7 +71,10 @@ test('it gives no verdict for an escalated action when the model tier is skipped
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -100,7 +104,10 @@ test('it sends a local allowance to the model tier when configured deny rules ex
       judge: null,
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -128,7 +135,7 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
       onFailure: 'deny',
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
+    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }) },
   );
 
   expect(outcome).toStrictEqual({
@@ -179,7 +186,13 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { TYPESAFE_API_KEY: 'test-key' }, home: ctx.dir, scratchPaths: [] } },
+    {
+      host: buildMockHostEnvironment({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -248,7 +261,7 @@ test('it ends a failure reason with a full stop before the safer-path instructio
       onFailure: 'deny',
       minConfidence: 0.8,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] } },
+    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }) },
   );
 
   expect(outcome).toStrictEqual({
@@ -320,7 +333,13 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
       judge: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
-    { host: { env: { TYPESAFE_API_KEY: 'test-key' }, home: ctx.dir, scratchPaths: [] } },
+    {
+      host: buildMockHostEnvironment({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -351,7 +370,10 @@ test('it passes a target it cannot resolve to the classifier', async () => {
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -376,7 +398,10 @@ test('it denies a local regenerable-output removal in another worktree', async (
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -405,7 +430,10 @@ test('it still allows a local regenerable-output removal inside the task worktre
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -430,7 +458,10 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -455,7 +486,10 @@ test('it sends an in-scope edit to the model tier when it writes an env file', a
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -485,7 +519,10 @@ test('it sends an in-scope edit to the model tier when it writes a secret', asyn
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -515,7 +552,10 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
       judge: null,
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
-    { host: { env: {}, home: ctx.dir, scratchPaths: [] }, localOnly: true },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+    },
   );
 
   expect(outcome).toStrictEqual({

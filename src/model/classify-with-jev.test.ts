@@ -12,6 +12,7 @@ import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockTaskScopeSummary } from '../../test-utils/factories/build-mock-task-scope-summary.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
@@ -73,7 +74,12 @@ test('it sends the configured rules and the direct user message without the sett
       onFailure: 'defer',
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -144,7 +150,12 @@ test.each([
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -204,7 +215,10 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
     });
 
     const outcome = await classifyWithJev(payload, config, {
-      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
     });
 
     const questionSchema = z.object({
@@ -319,7 +333,12 @@ test('it keeps a separate shipped hard block after the self-protection finding c
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   const questionSchema = z.object({ instructions: z.string() });
@@ -423,7 +442,12 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         claudeSettingsPath: null,
         minConfidence: 0.8,
       }),
-      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+      {
+        host: buildMockHostEnvironment({
+          env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+          home: ctx.dir,
+        }),
+      },
     );
 
     expect(outcome).toStrictEqual({
@@ -527,7 +551,12 @@ test('it returns the configured denial when the deadline passes during the reque
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: {}, home: ctx.dir }, deadlineAt, now: () => now, timeout: timer.timeout },
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+      deadlineAt,
+      now: () => now,
+      timeout: timer.timeout,
+    },
   );
 
   now += 4000;
@@ -630,7 +659,12 @@ test('it evaluates a subagent on its task context without the parent consent', a
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -754,7 +788,12 @@ test('it separates missing credentials from a classifier ask without calling the
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(requested).not.toHaveBeenCalled();
@@ -811,7 +850,12 @@ test('it sends checked branch evidence for a routine feature commit and allows i
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -929,7 +973,12 @@ test.each([
         claudeSettingsPath: null,
         minConfidence: 0.8,
       }),
-      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+      {
+        host: buildMockHostEnvironment({
+          env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+          home: ctx.dir,
+        }),
+      },
     );
 
     expect(outcome).toStrictEqual({
@@ -1059,7 +1108,12 @@ test.each(['Write', 'Edit'])(
         claudeSettingsPath: null,
         minConfidence: 0.8,
       }),
-      { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+      {
+        host: buildMockHostEnvironment({
+          env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+          home: ctx.dir,
+        }),
+      },
     );
 
     expect(outcome).toStrictEqual({
@@ -1197,10 +1251,10 @@ test.each([
         minConfidence: 0.8,
       }),
       {
-        host: {
+        host: buildMockHostEnvironment({
           env: { AUTO_MODE_JEV_TEST_KEY: 'test-key', [override]: join(ctx.dir, 'another') },
           home: ctx.dir,
-        },
+        }),
       },
     );
 
@@ -1325,7 +1379,12 @@ test('it denies an uncertain answer and keeps every contributing confidence', as
       onFailure: 'defer',
       claudeSettingsPath: null,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -1424,7 +1483,12 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
       onFailure: 'defer',
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   invariant(outcome.diagnostics, 'the decision has diagnostics');
@@ -1476,7 +1540,12 @@ test('it defers an oversized Edit before any request and records only the failur
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(requested).not.toHaveBeenCalled();
@@ -1523,7 +1592,10 @@ test('it reports a provider timeout as a timeout with the request size', async (
       minConfidence: 0.8,
     }),
     {
-      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
       timeout: timer.timeout,
     },
   );
@@ -1573,7 +1645,12 @@ test('it times out on the provider deadline with the real timer', async () => {
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(reached).toHaveBeenCalledOnce();
@@ -1620,7 +1697,10 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
       minConfidence: 0.8,
     }),
     {
-      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
       timeout: timer.timeout,
     },
   );
@@ -1677,7 +1757,10 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       minConfidence: 0.8,
     }),
     {
-      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
       taskScope: buildMockTaskScopeSummary({
         worktrees: [ctx.dir],
         branches: ['feature'],

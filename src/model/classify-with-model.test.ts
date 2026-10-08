@@ -10,6 +10,7 @@ import { server } from '../../mocks/node.ts';
 import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { classifyWithModel } from './classify-with-model.ts';
@@ -44,7 +45,12 @@ test('it hands a decision service provider to Jev', async () => {
       onFailure: 'defer',
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -96,7 +102,12 @@ test('it reads an allow out of the model answer', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -140,7 +151,12 @@ test('it reads a deny with its rule and reason out of the model answer', async (
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -179,7 +195,12 @@ test('it reports the cache counts alongside the verdict', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -206,7 +227,7 @@ test('it has no opinion when no API key is configured', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: {}, home: ctx.dir } },
+    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
   );
 
   expect(outcome).toStrictEqual({
@@ -242,7 +263,12 @@ test('it has no opinion when the model call fails', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -283,7 +309,10 @@ test('it names the timeout when the model call outlives it', async () => {
       onFailure: 'defer',
     }),
     {
-      host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir },
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
       timeout: timer.timeout,
     },
   );
@@ -329,7 +358,12 @@ test('it times out on the model call deadline with the real timer', async () => 
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(reached).toHaveBeenCalledOnce();
@@ -372,7 +406,10 @@ test('it starts the model call timer at the next whole millisecond for a fractio
       onFailure: 'defer',
     }),
     {
-      host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir },
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
       timeout: timer.timeout,
     },
   );
@@ -417,7 +454,12 @@ test('it treats an empty answer as a failure rather than an allow', async () => 
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -453,7 +495,12 @@ test('it denies rather than deferring when configured to fail closed', async () 
       },
       onFailure: 'deny',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -485,7 +532,12 @@ test('it has no opinion when the policy file cannot be read', async () => {
       classifierPath: join(ctx.dir, 'missing', 'classifier.md'),
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({ verdict: null, note: expect.toBeString() });
@@ -523,7 +575,7 @@ test('it runs no key command and sends no request once the evaluation is cancell
       },
       onFailure: 'defer',
     }),
-    { signal: controller.signal, host: { env: {}, home: ctx.dir } },
+    { signal: controller.signal, host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
   );
 
   expect(requested).not.toHaveBeenCalled();
@@ -576,7 +628,12 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
       },
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -658,7 +715,12 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
   );
 
   expect(outcome).toStrictEqual({
