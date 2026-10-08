@@ -1,4 +1,4 @@
-import { copyFile, readFile, rename, writeFile } from 'node:fs/promises';
+import { constants, copyFile, readFile, rename, writeFile } from 'node:fs/promises';
 import { normalizeConfigFile } from './normalize-config-file.ts';
 
 export async function writeMigratedConfig(path: string): Promise<string> {
@@ -31,7 +31,18 @@ export async function writeMigratedConfig(path: string): Promise<string> {
   const backup = `${path}.bak`;
   const staged = `${path}.migrating`;
 
-  await copyFile(path, backup);
+  try {
+    await copyFile(path, backup, constants.COPYFILE_EXCL);
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'EEXIST') {
+      throw new Error(`${backup} already exists; move it aside and run the migration again`, {
+        cause: error,
+      });
+    }
+
+    throw error;
+  }
+
   await writeFile(staged, `${JSON.stringify(normalized.file, null, 2)}\n`, { mode: 0o600 });
   await rename(staged, path);
 

@@ -391,3 +391,21 @@ test('it disables the Claude rule import when the policy sets the settings path 
 
   expect(config.claudeSettingsPath).toBeNull();
 });
+
+test.each(['constructor', 'toString', '__proto__'])(
+  'it refuses a decision role named %s, which only an inherited property matches',
+  async (id) => {
+    const ctx = await setupTest();
+
+    await writeFile(
+      ctx.configFile,
+      `{"classifiers":{"${id}":{"kind":"gpt"}},"decision":{"classifier":"${id}"}}`,
+    );
+
+    const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
+
+    invariant(failure instanceof Error, 'an inherited name rejects with an Error');
+
+    expect(failure.message).toInclude(`decision.classifier names '${id}'`);
+  },
+);

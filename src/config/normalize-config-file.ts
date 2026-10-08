@@ -1,6 +1,6 @@
 import * as z from 'zod';
 import type { ProviderConfig } from './config.ts';
-import { MESSAGES_DEFAULTS, PRESETS } from './presets.ts';
+import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 
 export interface NormalizedConfigFile {
   readonly file: unknown;
@@ -133,7 +133,7 @@ function getLegacyClassifierID(legacy: Readonly<LegacyConfig>): string {
 }
 
 function buildLegacyProvider(legacy: Readonly<LegacyConfig>, path: string): ProviderConfig {
-  const preset = PRESETS[getLegacyClassifierID(legacy)];
+  const preset = findPreset(getLegacyClassifierID(legacy));
 
   if (preset === undefined) {
     throw new Error(
@@ -172,7 +172,7 @@ function buildClassifierEntry(id: string, provider: Readonly<ProviderConfig>): u
   const kind = pickEntryKind(id, provider);
 
   const base: Partial<ProviderConfig> =
-    kind === 'messages' ? MESSAGES_DEFAULTS : (PRESETS[kind] ?? {});
+    kind === 'messages' ? MESSAGES_DEFAULTS : (findPreset(kind) ?? {});
 
   const fields = Object.fromEntries(
     PROVIDER_FIELDS.filter(
@@ -184,7 +184,7 @@ function buildClassifierEntry(id: string, provider: Readonly<ProviderConfig>): u
 }
 
 function pickEntryKind(id: string, provider: Readonly<ProviderConfig>): string {
-  const preset = PRESETS[id];
+  const preset = findPreset(id);
 
   if (preset !== undefined && (preset.protocol ?? 'messages') === provider.protocol) {
     return id;

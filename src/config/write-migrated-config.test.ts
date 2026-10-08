@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import invariant from 'tiny-invariant';
 import { loadConfig } from './config.ts';
 import { writeMigratedConfig } from './write-migrated-config.ts';
 
@@ -66,4 +67,27 @@ test('it reports a missing file instead of creating one', async () => {
   const message = await writeMigratedConfig(ctx.configFile);
 
   expect(message).toBe(`${ctx.configFile} does not exist; nothing to migrate`);
+});
+
+test('it refuses to overwrite an existing backup', async () => {
+  const ctx = await setupTest();
+
+  const legacy = JSON.stringify({ preset: 'jev' });
+
+  await writeFile(ctx.configFile, legacy);
+  await writeFile(`${ctx.configFile}.bak`, 'an older backup');
+
+  const failure = await writeMigratedConfig(ctx.configFile).catch((error: unknown) => error);
+
+  invariant(failure instanceof Error, 'an existing backup rejects with an Error');
+
+  const backup = await readFile(`${ctx.configFile}.bak`, 'utf8');
+  const config = await readFile(ctx.configFile, 'utf8');
+
+  expect(failure.message).toBe(
+    `${ctx.configFile}.bak already exists; move it aside and run the migration again`,
+  );
+
+  expect(backup).toBe('an older backup');
+  expect(config).toBe(legacy);
 });

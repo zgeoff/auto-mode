@@ -54,3 +54,8 @@ export const MESSAGES_DEFAULTS: Omit<ProviderConfig, 'model'> = {
   maxTokens: 3000,
   timeoutMs: 45_000,
 };
+
+// A plain index would also find inherited names such as `constructor`.
+export function findPreset(id: string): ProviderConfig | undefined {
+  return Object.hasOwn(PRESETS, id) ? PRESETS[id] : undefined;
+}

@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
 import { normalizeConfigFile } from './normalize-config-file.ts';
-import { MESSAGES_DEFAULTS, PRESETS } from './presets.ts';
+import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 import type { EvaluationOptions } from './types.ts';
 
@@ -41,7 +41,7 @@ export interface Config {
   readonly warnings?: readonly string[];
 }
 
-const DEFAULT_PROVIDER = PRESETS['jev'];
+const DEFAULT_PROVIDER = findPreset('jev');
 
 if (DEFAULT_PROVIDER === undefined) {
   throw new Error('the jev preset is missing');
@@ -171,7 +171,8 @@ function buildRegistry<T>(
   raw: Readonly<Record<string, unknown>>,
   parseEntry: (id: string, entry: unknown) => T | string,
 ): Registry<T> {
-  const entries: Record<string, T> = {};
+  const entries = new Map<string, T>();
+
   const dropped: string[] = [];
   const droppedIDs: string[] = [];
 
@@ -182,11 +183,11 @@ function buildRegistry<T>(
       dropped.push(`${id} dropped: ${result}`);
       droppedIDs.push(id);
     } else {
-      entries[id] = result;
+      entries.set(id, result);
     }
   }
 
-  return { entries, dropped, droppedIDs };
+  return { entries: Object.fromEntries(entries), dropped, droppedIDs };
 }
 
 const CLASSIFIER_KINDS = [...Object.keys(PRESETS), 'messages'];
@@ -229,7 +230,7 @@ function parseClassifierEntry(id: string, entry: unknown): ProviderConfig | stri
     return `unknown kind '${kind}'; known kinds are ${CLASSIFIER_KINDS.join(', ')}`;
   }
 
-  const base: KindDefaults | undefined = kind === 'messages' ? MESSAGES_DEFAULTS : PRESETS[kind];
+  const base: KindDefaults | undefined = kind === 'messages' ? MESSAGES_DEFAULTS : findPreset(kind);
   const model = parsed.data.model ?? base?.model;
 
   if (base === undefined || model === undefined) {
@@ -299,7 +300,7 @@ function resolveRole(
   droppedIDs: readonly string[],
   path: string,
 ): ProviderConfig {
-  const entry = entries[id];
+  const entry = Object.hasOwn(entries, id) ? entries[id] : undefined;
 
   if (entry !== undefined) {
     return entry;
@@ -309,7 +310,7 @@ function resolveRole(
     throw new Error(`${path}: decision.${role} names '${id}', whose entry was dropped`);
   }
 
-  if (PRESETS[id] === undefined) {
+  if (findPreset(id) === undefined) {
     throw new Error(
       `${path}: decision.${role} names '${id}', which is neither a classifiers entry nor a built-in kind (${Object.keys(PRESETS).join(', ')})`,
     );
