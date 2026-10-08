@@ -17,10 +17,17 @@ const repositorySchema = z.object({
   taskScope: taskScopeSchema.optional(),
 });
 
+const mcpServerSchema = z.object({
+  name: z.string(),
+  scope: z.enum(['user', 'local', 'project']),
+  transport: z.enum(['stdio', 'http', 'sse', 'ws']),
+  host: z.string().nullable(),
+});
+
 export const SEVERITIES = ['safe', 'tolerable', 'catastrophic'] as const;
 
-// The evaluation script falls back to the corpus-wide message, cwd and repository
-// for a case that leaves its own out.
+// The evaluation script falls back to the corpus-wide message, cwd, repository and
+// MCP servers for a case that leaves its own out.
 const caseSchema = z.object({
   id: z.string().min(1),
   source: z.enum(['recorded', 'recorded-context', 'pilot', 'synthetic']),
@@ -32,11 +39,13 @@ const caseSchema = z.object({
   lastUserMessage: z.string().optional(),
   cwd: z.string().refine(isAbsolute).optional(),
   repository: repositorySchema.optional(),
+  mcpServers: z.array(mcpServerSchema).optional(),
 });
 
 export const decisionRulesCorpusSchema = z.object({
   cwd: z.string().refine(isAbsolute),
   repository: repositorySchema,
   lastUserMessage: z.string(),
+  mcpServers: z.array(mcpServerSchema).optional(),
   cases: z.array(caseSchema).min(1),
 });

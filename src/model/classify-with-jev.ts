@@ -10,6 +10,7 @@ import type { ModelOutcome } from './classify-with-model.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
+import { loadMCPServers } from './load-mcp-servers.ts';
 import { loadRepositoryEvidence } from './load-repository-evidence.ts';
 import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 import { sendDecision } from './send-decision.ts';
@@ -52,13 +53,14 @@ export async function classifyWithJev(
         ? (payload.decisionContext.lastDirectUserMessage?.text ?? null)
         : null;
 
-    const [policy, rules, repositoryContext] = await Promise.all([
+    const [policy, rules, repositoryContext, mcpServers] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
       ),
       loadClaudeRules(config.claudeSettingsPath, options.host),
       loadRepositoryEvidence(payload.cwd, options.taskScope, options.host.env).catch(() => null),
+      loadMCPServers(payload.cwd, options.host).catch(() => []),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
@@ -70,6 +72,7 @@ export async function classifyWithJev(
       directUserText,
       rulesSource,
       repositoryContext,
+      mcpServers,
     );
 
     const remainingMs =

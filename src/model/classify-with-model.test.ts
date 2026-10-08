@@ -1,9 +1,9 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, delay, http } from 'msw';
-import { MESSAGES_URL } from '../../mocks/handlers.ts';
+import { DECISION_URL, MESSAGES_URL } from '../../mocks/handlers.ts';
 import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { server } from '../../mocks/node.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
@@ -506,4 +506,104 @@ test('it runs no key command and sends no request once the evaluation is cancell
     verdict: null,
     note: 'no API key: set the configured environment variable or key command; no verdict',
   });
+});
+
+test('it sends Jev the configured MCP servers by name and host, with no credential', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, '.claude.json'),
+    JSON.stringify({
+      mcpServers: {
+        linear: {
+          type: 'http',
+          url: 'https://user:planted-userinfo@mcp.linear.app/planted-path?token=planted-query',
+          headers: { Authorization: 'Bearer planted-header' },
+        },
+        tool: { command: 'tool', args: ['--token', 'planted-arg'], env: { KEY: 'planted-env' } },
+      },
+    }),
+  );
+
+  let body: unknown = null;
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      body = await info.request.clone().json();
+    }),
+  );
+
+  const outcome = await classifyWithModel(
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'mcp__linear__list_issues',
+      toolInput: { query: 'refusal detail' },
+    }),
+    buildMockConfig({ provider: { apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY' } }),
+    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+  );
+
+  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+
+  expect(body).toMatchObject({
+    state: {
+      mcpServers: [
+        { name: 'linear', scope: 'user', transport: 'http', host: 'mcp.linear.app' },
+        { name: 'tool', scope: 'user', transport: 'stdio', host: null },
+      ],
+    },
+  });
+
+  expect(JSON.stringify(body)).not.toInclude('planted');
+});
+
+test('it gives the Messages classifier the configured MCP servers by name and host, with no credential', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, '.claude.json'),
+    JSON.stringify({
+      mcpServers: {
+        linear: {
+          type: 'http',
+          url: 'https://user:planted-userinfo@mcp.linear.app/planted-path?token=planted-query',
+          headers: { Authorization: 'Bearer planted-header' },
+        },
+      },
+    }),
+  );
+
+  messagesReplies.push(
+    buildMockMessagesResponse({ content: [{ type: 'text', text: '<block>no</block>' }] }),
+  );
+
+  let body = '';
+
+  server.use(
+    http.post(MESSAGES_URL, async (info) => {
+      body = await info.request.clone().text();
+    }),
+  );
+
+  const outcome = await classifyWithModel(
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'mcp__linear__list_issues',
+      toolInput: { query: 'refusal detail' },
+    }),
+    buildMockConfig({
+      provider: {
+        protocol: 'messages',
+        baseURL: 'https://gateway.test',
+        model: 'test-model',
+        apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
+      },
+    }),
+    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
+  );
+
+  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+  expect(body).toInclude('<mcp-servers>');
+  expect(body).toInclude(String.raw`\"host\": \"mcp.linear.app\"`);
+  expect(body).not.toInclude('planted');
 });

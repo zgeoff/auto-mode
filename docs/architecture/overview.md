@@ -108,11 +108,21 @@ remote URL, because a URL can hold a token. When the task scope loads, the reque
 the worktrees, branches, and pull requests the task owns. Jev reads these facts as
 `repositoryContext`, and the Messages classifier reads them in a `<repository>` block, so a
 destination is compared with the remotes rather than judged by its name. The evaluator omits the
-facts when inherited Git directory overrides exist. The branch references describe cwd only, not the
-edited file's checkout or a generated script's future execution cwd. Ordinary non-Git source edits
-need no branch evidence to settle Default Branch Write; delayed Git effects need evidence for their
-actual targets. The local `origin/HEAD` reference can be stale; the evaluator does not refresh the
-remote. Branch evidence supplies no consent and never removes the named main/master/trunk/develop
+facts when inherited Git directory overrides exist.
+
+The evaluator also reads the MCP servers configured for the session from Claude Code's own
+configuration: the user and local servers in `~/.claude.json` (or
+`$CLAUDE_CONFIG_DIR/.claude.json`), and the project's `.mcp.json` servers that the user settings or
+the project entry in that file approve. An approval inside the checkout does not count. Each server
+goes out as its name, scope, transport and endpoint host only; its command, arguments, environment,
+headers, and the URL's user info, path and query stay on the machine. Jev reads the list as
+`mcpServers` and the Messages classifier as an `<mcp-servers>` block, so a call to
+`mcp__<server>__<tool>` is compared with a server the user configured. Plugin, managed and
+`--mcp-config` servers are not listed. The branch references describe cwd only, not the edited
+file's checkout or a generated script's future execution cwd. Ordinary non-Git source edits need no
+branch evidence to settle Default Branch Write; delayed Git effects need evidence for their actual
+targets. The local `origin/HEAD` reference can be stale; the evaluator does not refresh the remote.
+Branch evidence supplies no consent and never removes the named main/master/trunk/develop
 restrictions.
 
 Each named shipped or configured block rule has a Choice question with `allow`, `block`, and `ask`

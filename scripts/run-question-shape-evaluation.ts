@@ -104,6 +104,7 @@ async function main(): Promise<void> {
       entry.lastUserMessage ?? corpus.lastUserMessage,
       'shipped',
       repository,
+      entry.mcpServers ?? corpus.mcpServers ?? [],
     );
 
     return shapes.map((shape) => {

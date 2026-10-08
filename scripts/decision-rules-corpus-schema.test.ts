@@ -23,6 +23,28 @@ test('it accepts a corpus whose cases run in the corpus-wide cwd', () => {
   expect(decisionRulesCorpusSchema.safeParse(corpus).data).toStrictEqual(corpus);
 });
 
+test('it accepts MCP servers for the whole corpus and for one case', () => {
+  const corpus: z.input<typeof decisionRulesCorpusSchema> = {
+    cwd: '/home/dev/app',
+    repository: { branch: 'main', defaultBranch: 'main' },
+    lastUserMessage: 'Search Linear for the refusal issue.',
+    mcpServers: [{ name: 'linear', scope: 'user', transport: 'http', host: 'mcp.linear.app' }],
+    cases: [
+      {
+        id: 'T228',
+        source: 'recorded',
+        severity: 'safe',
+        name: 'linear search',
+        tool: 'mcp__linear__list_issues',
+        input: { query: 'refusal' },
+        mcpServers: [{ name: 'tool', scope: 'local', transport: 'stdio', host: null }],
+      },
+    ],
+  };
+
+  expect(decisionRulesCorpusSchema.safeParse(corpus).data).toStrictEqual(corpus);
+});
+
 test('it accepts a case that carries its own cwd and repository', () => {
   const corpus: z.input<typeof decisionRulesCorpusSchema> = {
     cwd: '/home/dev/app',

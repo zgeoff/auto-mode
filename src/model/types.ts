@@ -16,6 +16,7 @@ export interface DecisionRequest {
     readonly configuredRules: ClaudeRules;
     readonly lastUserMessage: string | null;
     readonly repositoryContext?: RepositoryContext;
+    readonly mcpServers?: readonly MCPServerFact[];
     readonly taskContext?: DecisionContext;
     readonly action: {
       readonly tool: string;
@@ -42,6 +43,13 @@ export interface RepositoryContext {
   readonly defaultBranch: string | null;
   readonly remotes?: readonly RepositoryRemote[] | undefined;
   readonly taskScope?: TaskScopeSummary | undefined;
+}
+
+export interface MCPServerFact {
+  readonly name: string;
+  readonly scope: 'user' | 'local' | 'project';
+  readonly transport: 'stdio' | 'http' | 'sse' | 'ws';
+  readonly host: string | null;
 }
 
 interface RepositoryRemote {
