@@ -6,6 +6,10 @@ export interface ProcessState {
   readonly startTime: string;
 }
 
+// A process that exits between the open and the read of its stat file fails
+// the read with ESRCH, not ENOENT.
+const GONE_CODES = new Set(['ENOENT', 'ESRCH']);
+
 // procfs fixes /proc/<pid>/stat: after the parenthesised command name, the
 // first field is the state and the twentieth the start time, which tells a
 // reused process ID apart from the process a test started.
@@ -18,7 +22,7 @@ export async function loadProcessState(
   try {
     stat = await readFile(join(procDir, String(pid), 'stat'), 'utf8');
   } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+    if (error instanceof Error && 'code' in error && GONE_CODES.has(String(error.code))) {
       return null;
     }
 
