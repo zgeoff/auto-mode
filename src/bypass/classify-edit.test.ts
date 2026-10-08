@@ -20,8 +20,10 @@ test('it bypasses an Edit into an in-scope worktree', () => {
 
 test('it bypasses a Write into an in-scope worktree nested in another', () => {
   const action = buildMockEditAction({
+    toolName: 'Write',
     toolInput: { content: '# notes' },
     target: '/repo/.worktrees/feat/README.md',
+    checkout: null,
   });
 
   expect(
@@ -31,6 +33,7 @@ test('it bypasses a Write into an in-scope worktree nested in another', () => {
 
 test('it bypasses a write to the parent worktree while a nested worktree is also in scope', () => {
   const action = buildMockEditAction({
+    toolName: 'Write',
     toolInput: { content: 'export const a = 1;\n' },
     target: '/repo/src/a.ts',
     checkout: '/repo',
@@ -43,8 +46,10 @@ test('it bypasses a write to the parent worktree while a nested worktree is also
 
 test('it bypasses an in-scope write while an unrelated directory is protected', () => {
   const action = buildMockEditAction({
+    toolName: 'Write',
     toolInput: { content: 'export const a = 1;\n' },
     target: '/repo/src/a.ts',
+    checkout: null,
   });
 
   expect(
@@ -217,8 +222,10 @@ test('it sends an Edit of a file with no current content to Jev', () => {
 
 test('it scans content of exactly the size the scan reads', () => {
   const action = buildMockEditAction({
+    toolName: 'Write',
     toolInput: { content: 'a'.repeat(256 * 1024) },
     target: '/repo/big.txt',
+    checkout: null,
   });
 
   expect(classifyEdit(action, { worktrees: ['/repo'], protectedDirs: [] })).toStrictEqual({
@@ -229,6 +236,7 @@ test('it scans content of exactly the size the scan reads', () => {
 
 test('it sends content one byte larger than the scan reads to Jev without scanning part of it', () => {
   const action = buildMockEditAction({
+    toolName: 'Write',
     toolInput: { content: 'a'.repeat(256 * 1024 + 1) },
     target: '/repo/big.txt',
   });
@@ -265,8 +273,10 @@ test('it sends content that is not text to Jev', () => {
 
 test('it bypasses a write below a worktree whose own path holds an excluded name', () => {
   const action = buildMockEditAction({
+    toolName: 'Write',
     toolInput: { content: 'export const a = 1;\n' },
     target: '/home/dev/.docker/app/src/a.ts',
+    checkout: null,
   });
 
   expect(

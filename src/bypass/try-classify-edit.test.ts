@@ -18,6 +18,7 @@ async function setupTest() {
 
   const repo = join(dir, 'repo');
 
+  // the classifier finds the target's checkout through git, so a real repository has to exist
   runGit(dir, ['init', '-q', '-b', 'main', repo]);
 
   return { dir, repo };

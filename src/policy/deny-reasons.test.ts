@@ -17,9 +17,7 @@ test('it holds a reason template for every shipped rule and no other', async () 
     'shipped',
   );
 
-  expect(Object.keys(DENY_REASONS)).toIncludeSameMembers(
-    Object.values(request.rules).map((rule) => rule.name),
-  );
+  expect(DENY_REASONS).toContainAllKeys(Object.values(request.rules).map((rule) => rule.name));
 });
 
 test('it files each template under the tier of its shipped rule', async () => {
