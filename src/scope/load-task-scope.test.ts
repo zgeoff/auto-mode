@@ -289,10 +289,12 @@ test('it never owns a recorded branch of another repository', async () => {
   await mkdir(dirname(path), { recursive: true });
 
   const recorded = buildMockSessionScope({
+    worktrees: [],
     branches: [
       { name: 'docs', commonDir: join(repo, '.git') },
       { name: 'elsewhere', commonDir: join(other, '.git') },
     ],
+    pullRequests: [],
   });
 
   await writeFile(path, JSON.stringify(recorded));

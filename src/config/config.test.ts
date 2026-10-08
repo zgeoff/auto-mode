@@ -16,7 +16,11 @@ async function setupTest(): Promise<{ readonly dir: string; readonly configFile:
 
 test('#loadConfig falls back to the shipped defaults when there is no config file', async () => {
   const ctx = await setupTest();
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -76,7 +80,7 @@ test('#loadConfig refuses a config file it cannot read', async () => {
   await mkdir(ctx.configFile);
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(Error, 'auto-mode configuration unreadable');
 });
 
@@ -87,7 +91,7 @@ test('#loadConfig refuses a config that is not JSON', async () => {
   await writeFile(ctx.configFile, 'oops {');
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(Error, `${ctx.configFile} is not valid JSON`);
 });
 
@@ -97,7 +101,7 @@ test('#loadConfig refuses a config that is not an object', async () => {
   await writeFile(ctx.configFile, '[]');
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile} is not a valid config: ✖ Invalid input: expected object, received array`,
@@ -110,7 +114,7 @@ test('#loadConfig names the built-in kinds when a role names one that is not', a
   await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'gpt' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.classifier names 'gpt', which is neither a classifiers entry nor a built-in kind (jev, spark, claude, glm)`,
@@ -128,7 +132,10 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
     }),
   );
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config.provider).toStrictEqual({
     protocol: 'messages',
@@ -153,7 +160,10 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
     }),
   );
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config.provider).toStrictEqual({
     protocol: 'system-one',
@@ -185,7 +195,10 @@ test('#loadConfig resolves the decision classifier from the registry by id', asy
     }),
   );
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -224,7 +237,10 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'glm' } }));
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -271,7 +287,10 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
     }),
   );
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -315,7 +334,7 @@ test('#loadConfig refuses a decision role that names a dropped entry', async () 
   );
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.classifier names 'mine', whose entry was dropped`,
@@ -328,7 +347,7 @@ test('#loadConfig refuses a decision role that names no entry and no built-in ki
   await writeFile(ctx.configFile, JSON.stringify({ decision: { judge: 'nobody' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.judge names 'nobody', which is neither a classifiers entry nor a built-in kind (jev, spark, claude, glm)`,
@@ -350,7 +369,7 @@ test.each([
   await writeFile(ctx.configFile, JSON.stringify({ [key]: value }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile} is not a valid config: ✖ Unrecognized key: "${key}"`,
@@ -372,7 +391,10 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
     }),
   );
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -402,7 +424,10 @@ test('#loadConfig disables the Claude rule import when the policy sets the setti
 
   await writeFile(ctx.configFile, JSON.stringify({ policy: { claudeSettingsPath: null } }));
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -445,7 +470,7 @@ test.each([
     );
 
     expect(
-      loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir })),
+      loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
     ).rejects.toThrowWithMessage(Error, `${ctx.configFile}: decision.classifier ${refusal}`);
   },
 );
@@ -481,7 +506,10 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
     }),
   );
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -516,7 +544,10 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { denialBudget: {} } }));
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -546,7 +577,10 @@ test('#loadConfig runs the cwd, session, and atc sources when the file has no sc
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { onFailure: 'defer' } }));
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -581,7 +615,10 @@ test('#loadConfig warns about a registry without the cwd source and a glob over 
     }),
   );
 
-  const config = await loadConfig(ctx.configFile, buildMockHostEnvironment({ home: ctx.dir }));
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
 
   expect(config).toStrictEqual({
     provider: {

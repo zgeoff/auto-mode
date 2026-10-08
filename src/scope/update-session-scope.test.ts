@@ -417,6 +417,7 @@ test('it records the worktree and branch that the check of a claimed event confi
     confirms: buildMockSessionScope({
       worktrees: [join(ctx.root, 'app-fix')],
       branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+      pullRequests: [],
     }),
   });
 
@@ -452,6 +453,7 @@ test('it writes the confirmed worktree and branch to the session scope', async (
     confirms: buildMockSessionScope({
       worktrees: [join(ctx.root, 'app-fix')],
       branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+      pullRequests: [],
     }),
   });
 

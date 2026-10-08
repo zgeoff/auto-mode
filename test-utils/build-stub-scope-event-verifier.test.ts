@@ -5,7 +5,7 @@ import { buildMockSessionScope } from './factories/build-mock-session-scope.ts';
 
 test('it confirms the scope given for any claimed event', () => {
   const verifier = buildStubScopeEventVerifier({
-    confirms: buildMockSessionScope({ worktrees: ['/w/app-fix'] }),
+    confirms: buildMockSessionScope({ worktrees: ['/w/app-fix'], branches: [], pullRequests: [] }),
   });
 
   expect(

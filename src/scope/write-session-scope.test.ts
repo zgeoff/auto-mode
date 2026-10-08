@@ -123,6 +123,7 @@ test('it merges the added scope into the scope already written', async () => {
     JSON.stringify(
       buildMockSessionScope({
         worktrees: ['/work/app/.worktrees/x'],
+        branches: [],
         pullRequests: [{ number: 3, head: 'feat/x', repository: 'github.com/dev/app' }],
       }),
     ),

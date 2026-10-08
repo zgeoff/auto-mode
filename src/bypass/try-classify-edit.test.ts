@@ -33,7 +33,7 @@ test('it lets a Write inside an in-scope checkout skip Jev', async () => {
       toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
     }),
     buildMockOwnedScope({ worktrees: [ctx.repo] }),
-    buildMockHostEnvironment({ home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
   );
 
   expect(classification).toStrictEqual({ kind: 'bypass', target: join(ctx.repo, 'src', 'a.ts') });
@@ -51,7 +51,7 @@ test('it sends an Edit to Jev when its text is not in the file on disk', async (
       toolInput: { file_path: 'a.ts', old_string: 'a = 1', new_string: 'a = 3' },
     }),
     buildMockOwnedScope({ worktrees: [ctx.repo] }),
-    buildMockHostEnvironment({ home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
   );
 
   expect(classification).toStrictEqual({ kind: 'jev', reason: 'the edit text is not in the file' });
@@ -61,7 +61,7 @@ test('it classifies nothing for an action that is not a file-tool edit', async (
   const classification = await tryClassifyEdit(
     buildMockActionRequest({ cwd: '/w/app', toolName: 'Bash', toolInput: { command: 'ls' } }),
     buildMockOwnedScope({ worktrees: ['/w/app'] }),
-    buildMockHostEnvironment(),
+    buildMockHostEnvironment({ env: {} }),
   );
 
   expect(classification).toBeNull();
@@ -90,7 +90,7 @@ test('it lets an Edit through a link skip Jev when the link resolves inside an i
       toolInput: { file_path: 'link.ts', old_string: 'a = 1', new_string: 'a = 2' },
     }),
     buildMockOwnedScope({ worktrees: ['/w/app'] }),
-    buildMockHostEnvironment(),
+    buildMockHostEnvironment({ env: {} }),
     buildStubEditFileReader({
       checkout: '/w/app',
       links: { '/w/app/link.ts': '/w/app/a.ts' },
@@ -109,7 +109,7 @@ test('it sends an Edit to Jev when its file cannot be read', async () => {
       toolInput: { file_path: 'a.ts', old_string: 'a = 1', new_string: 'a = 2' },
     }),
     buildMockOwnedScope({ worktrees: ['/w/app'] }),
-    buildMockHostEnvironment(),
+    buildMockHostEnvironment({ env: {} }),
     buildStubEditFileReader({ checkout: '/w/app', files: {} }),
   );
 
@@ -127,7 +127,7 @@ test('it classifies nothing when the checkout of the target cannot be found', as
       toolInput: { file_path: 'a.ts', content: 'a' },
     }),
     buildMockOwnedScope({ worktrees: ['/w/app'] }),
-    buildMockHostEnvironment(),
+    buildMockHostEnvironment({ env: {} }),
     buildStubEditFileReader({ checkout: '/w/app', checkoutError: 'git failed' }),
   );
 
