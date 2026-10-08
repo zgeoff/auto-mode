@@ -7,6 +7,7 @@ import { sendMessage } from './anthropic-client.ts';
 import { buildUserMessage } from './build-request.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
+import { loadRepositoryEvidence } from './load-repository-evidence.ts';
 import { parseModelVerdict } from './parse-verdict.ts';
 import type { DecisionDiagnostics } from './types.ts';
 
@@ -52,7 +53,10 @@ export async function classifyWithModel(
       : null;
 
   const transcript = directMessage === null ? [] : [{ role: 'user', text: directMessage.text }];
-  const user = buildUserMessage(payload, transcript, config.provider.reasoning);
+
+  const repositoryContext = await loadRepositoryEvidence(payload.cwd, options.taskScope);
+
+  const user = buildUserMessage(payload, transcript, config.provider.reasoning, repositoryContext);
 
   try {
     const result = await sendMessage(config.provider, apiKey, { system, user });

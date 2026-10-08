@@ -309,6 +309,7 @@ async function runJudgeStage(
           buildEvaluationPayload(entry),
           [{ role: 'user', text: entry.lastUserMessage }],
           provider.reasoning,
+          entry.repositoryContext,
         );
 
         const started = performance.now();

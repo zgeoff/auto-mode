@@ -132,7 +132,7 @@ test.each([true, false])(
     );
 
     expect(request.state.policy).toInclude(
-      "It describes cwd only, not the edited file's checkout or a generated script's future execution cwd",
+      "The branch references describe cwd only, not the edited file's checkout or a generated script's future execution cwd",
     );
 
     expect(question.instructions).toInclude(

@@ -1,5 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { loadCheckoutRemotes } from '../scope/load-checkout-remotes.ts';
 import type { RepositoryContext } from './types.ts';
 
 export async function loadRepositoryContext(cwd: string): Promise<RepositoryContext | null> {
@@ -78,7 +79,17 @@ export async function loadRepositoryContext(cwd: string): Promise<RepositoryCont
       defaultBranch = null;
     }
 
-    return { cwd: resolve(cwd), branch: parseReference(head, 'refs/heads/'), defaultBranch };
+    const remotes = await loadCheckoutRemotes(commonDir);
+
+    return {
+      cwd: resolve(cwd),
+      branch: parseReference(head, 'refs/heads/'),
+      defaultBranch,
+      remotes: remotes.map((remote) => ({
+        name: remote.name,
+        url: normalizeRemoteURL(remote.url),
+      })),
+    };
   }
 }
 
@@ -93,4 +104,10 @@ function parseReference(content: string, prefix: string): string | null {
   const branch = value.slice(marker.length);
 
   return branch !== '' && branch.length <= 256 && !/\s/u.test(branch) ? branch : null;
+}
+
+// A remote URL can hold a token as its user info, and the request leaves the
+// machine, so only the host and path go into it.
+function normalizeRemoteURL(url: string): string {
+  return url.replace(/^(?<scheme>[a-z][a-z0-9+.-]*:\/\/)[^/@]*@/iu, '$<scheme>');
 }

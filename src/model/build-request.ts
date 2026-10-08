@@ -1,4 +1,5 @@
 import type { ActionRequest } from '../request/types.ts';
+import type { RepositoryContext } from './types.ts';
 
 const MAX_INPUT_CHARS = 4000;
 
@@ -11,6 +12,7 @@ export function buildUserMessage(
   payload: ActionRequest,
   transcript: readonly TranscriptEntry[],
   reasoning: boolean,
+  repositoryContext: Readonly<RepositoryContext> | null = null,
 ): string {
   const history =
     transcript.length === 0
@@ -26,11 +28,16 @@ export function buildUserMessage(
     ? 'Work through the classification process, then end your reply with the output contract tags.'
     : 'Reply with the output contract tags and nothing else.';
 
+  const repository =
+    repositoryContext === null
+      ? ''
+      : `<repository>\n${JSON.stringify(repositoryContext, null, 2)}\n</repository>\n\n`;
+
   return `<transcript>
 ${history}
 </transcript>
 
-<action>
+${repository}<action>
 tool: ${payload.toolName}
 cwd: ${payload.cwd}
 input:

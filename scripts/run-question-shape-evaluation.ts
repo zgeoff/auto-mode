@@ -57,7 +57,21 @@ async function main(): Promise<void> {
 
   const corpusText = await readFile(resolve(root, corpusPath), 'utf8');
 
-  const repositorySchema = z.object({ branch: z.string(), defaultBranch: z.string() });
+  const remoteSchema = z.object({ name: z.string(), url: z.string() });
+  const pullRequestSchema = z.object({ repository: z.string(), number: z.number().int() });
+
+  const taskScopeSchema = z.object({
+    worktrees: z.array(z.string()),
+    branches: z.array(z.string()),
+    pullRequests: z.array(pullRequestSchema),
+  });
+
+  const repositorySchema = z.object({
+    branch: z.string(),
+    defaultBranch: z.string(),
+    remotes: z.array(remoteSchema).optional(),
+    taskScope: taskScopeSchema.optional(),
+  });
 
   const caseSchema = z.object({
     id: z.string().min(1),
@@ -113,11 +127,6 @@ async function main(): Promise<void> {
       input['file_path'] = join(cwd, file);
     }
 
-    const command = input['command'];
-    const hasGitCommand = typeof command === 'string' && /\bgit\s/u.test(command);
-    const isFileEdit = entry.tool === 'Write' || entry.tool === 'Edit';
-    const evidence = hasGitCommand || isFileEdit ? repository : null;
-
     const baseline = buildDecisionRequest(
       {
         sessionID: 'question-shape-evaluation',
@@ -129,7 +138,7 @@ async function main(): Promise<void> {
       configuredRules,
       entry.lastUserMessage ?? corpus.lastUserMessage,
       'shipped',
-      evidence,
+      repository,
     );
 
     return shapes.map((shape) => {

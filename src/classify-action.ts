@@ -9,6 +9,7 @@ import { loadClaudeRules } from './config/load-claude-rules.ts';
 import type { EvaluationOptions } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { OwnedScope } from './containment/collect-scope-findings.ts';
+import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
@@ -110,8 +111,10 @@ export async function classifyAction(
     };
   }
 
+  const taskScope = scope === null ? undefined : buildTaskScopeSummary(scope);
+
   const [outcome, guidance] = await Promise.all([
-    classifyWithModel(request, config, options),
+    classifyWithModel(request, config, { ...options, taskScope }),
     tryReadDenialGuidance(),
   ]);
 
