@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.9.0...auto-mode-v0.10.0) (2026-10-08)
+
+
+### Features
+
+* **geo-154:** deny writes outside the task scope ([#54](https://github.com/zgeoff/auto-mode/issues/54)) ([2b61948](https://github.com/zgeoff/auto-mode/commit/2b619485344cfab714b8f7ecf02c3740b377f942))
+
 ## [0.9.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.8.0...auto-mode-v0.9.0) (2026-10-08)
 
 
