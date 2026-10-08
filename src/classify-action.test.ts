@@ -12,7 +12,22 @@ import { DEFAULT_CONFIG } from './config/config.ts';
 async function setupTest(): Promise<{ readonly settings: string }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-classify-action-'));
 
+  // A git hook runs with these set, and they hide which checkout a path is in.
+  const gitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
+    (name) => [name, process.env[name]] as const,
+  );
+
+  for (const [name] of gitEnv) {
+    delete process.env[name];
+  }
+
   onTestFinished(async () => {
+    for (const [name, value] of gitEnv) {
+      if (value !== undefined) {
+        process.env[name] = value;
+      }
+    }
+
     await rm(dir, { recursive: true, force: true });
   });
 
