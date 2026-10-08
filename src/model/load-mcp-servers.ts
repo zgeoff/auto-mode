@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import * as z from 'zod';
 import type { HostEnvironment } from '../config/types.ts';
 import { findCheckout } from '../scope/find-checkout.ts';
@@ -44,11 +44,14 @@ export async function loadMCPServers(
     readJSON(settingsPath, approvalSchema),
   ]);
 
+  // Claude Code keys a project by the top level of the checkout it runs in, so a
+  // nested checkout never takes its parent's entry.
   const directory = resolve(cwd);
-  const projectKey = findProjectKey(directory, Object.keys(state?.projects ?? {}));
-  const project = projectKey === null ? undefined : state?.projects?.[projectKey];
-  const checkout = projectKey === null ? await findCheckout(directory, host.env) : null;
-  const projectDir = projectKey ?? checkout?.worktree ?? directory;
+
+  const checkout = await findCheckout(directory, host.env);
+
+  const projectDir = checkout?.worktree ?? directory;
+  const project = state?.projects?.[projectDir];
 
   const projectFile = await readJSON(join(projectDir, '.mcp.json'), projectFileSchema);
 
@@ -66,13 +69,18 @@ export async function loadMCPServers(
         entry.enabledMcpjsonServers?.includes(name) === true,
     );
 
-  return [
-    ...buildServerFacts(state?.mcpServers, 'user'),
+  // Claude Code runs one definition per name, local before project before user.
+  const facts = [
     ...buildServerFacts(project?.mcpServers, 'local'),
     ...buildServerFacts(projectFile?.mcpServers, 'project').filter(
       (server) => isEnabled(server.name) && !isDisabled(server.name),
     ),
+    ...buildServerFacts(state?.mcpServers, 'user'),
   ];
+
+  return facts.filter(
+    (server, index) => facts.findIndex((other) => other.name === server.name) === index,
+  );
 }
 
 async function readJSON<T extends z.ZodType>(path: string, schema: T): Promise<z.infer<T> | null> {
@@ -84,22 +92,6 @@ async function readJSON<T extends z.ZodType>(path: string, schema: T): Promise<z
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
-  }
-}
-
-// Claude Code keys local servers by the directory a session starts in, so the
-// nearest key at or above the action's directory is the session's project.
-function findProjectKey(directory: string, keys: readonly string[]): string | null {
-  const known = new Set(keys);
-
-  for (let current = directory; ; current = dirname(current)) {
-    if (known.has(current)) {
-      return current;
-    }
-
-    if (dirname(current) === current) {
-      return null;
-    }
   }
 }
 
