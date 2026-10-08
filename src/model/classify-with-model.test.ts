@@ -8,6 +8,7 @@ import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { server } from '../../mocks/node.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
+import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { classifyWithModel } from './classify-with-model.ts';
 
 async function setupTest() {
@@ -60,15 +61,17 @@ test('it hands a decision service provider to Jev', async () => {
 test('it reads an allow out of the model answer', async () => {
   const ctx = await setupTest();
 
-  messagesReplies.push({
-    content: [{ type: 'text', text: '<block>no</block>' }],
-    usage: {
-      cache_read_input_tokens: 0,
-      cache_creation_input_tokens: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-    },
-  });
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [{ type: 'text', text: '<block>no</block>' }],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
+  );
 
   const outcome = await classifyWithModel(
     buildMockActionRequest({
@@ -97,20 +100,22 @@ test('it reads an allow out of the model answer', async () => {
 test('it reads a deny with its rule and reason out of the model answer', async () => {
   const ctx = await setupTest();
 
-  messagesReplies.push({
-    content: [
-      {
-        type: 'text',
-        text: '<block>yes</block><rule>History Rewrite</rule><reason>Force push to main.</reason>',
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [
+        {
+          type: 'text',
+          text: '<block>yes</block><rule>History Rewrite</rule><reason>Force push to main.</reason>',
+        },
+      ],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
       },
-    ],
-    usage: {
-      cache_read_input_tokens: 0,
-      cache_creation_input_tokens: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-    },
-  });
+    }),
+  );
 
   const outcome = await classifyWithModel(
     buildMockActionRequest({
@@ -139,15 +144,17 @@ test('it reads a deny with its rule and reason out of the model answer', async (
 test('it reports the cache counts alongside the verdict', async () => {
   const ctx = await setupTest();
 
-  messagesReplies.push({
-    content: [{ type: 'text', text: '<block>no</block>' }],
-    usage: {
-      cache_read_input_tokens: 7025,
-      cache_creation_input_tokens: 0,
-      input_tokens: 42,
-      output_tokens: 130,
-    },
-  });
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [{ type: 'text', text: '<block>no</block>' }],
+      usage: {
+        cache_read_input_tokens: 7025,
+        cache_creation_input_tokens: 0,
+        input_tokens: 42,
+        output_tokens: 130,
+      },
+    }),
+  );
 
   const outcome = await classifyWithModel(
     buildMockActionRequest({
@@ -359,15 +366,17 @@ test('it starts the model call timer at the next whole millisecond for a fractio
 test('it treats an empty answer as a failure rather than an allow', async () => {
   const ctx = await setupTest();
 
-  messagesReplies.push({
-    content: [],
-    usage: {
-      cache_read_input_tokens: 0,
-      cache_creation_input_tokens: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-    },
-  });
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
+  );
 
   const outcome = await classifyWithModel(
     buildMockActionRequest({
@@ -448,8 +457,10 @@ test('it has no opinion when the policy file cannot be read', async () => {
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
 
-  expect(outcome.verdict).toBeNull();
-  expect(outcome.note).toMatch(/^policy unreadable: ENOENT: .+; no verdict$/u);
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    note: `policy unreadable: ENOENT: no such file or directory, open '${join(ctx.dir, 'missing', 'classifier.md')}'; no verdict`,
+  });
 });
 
 test('it runs no key command and sends no request once the evaluation is cancelled', async () => {

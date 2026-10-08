@@ -3,6 +3,7 @@ import { HttpResponse, delay, http } from 'msw';
 import { MESSAGES_URL } from '../../mocks/handlers.ts';
 import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { server } from '../../mocks/node.ts';
+import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
 import { sendMessage } from './anthropic-client.ts';
 
@@ -18,15 +19,17 @@ test('it posts to the Messages endpoint with the key and version headers', async
     }),
   );
 
-  messagesReplies.push({
-    content: [{ type: 'text', text: 'ok' }],
-    usage: {
-      cache_read_input_tokens: 0,
-      cache_creation_input_tokens: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-    },
-  });
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [{ type: 'text', text: 'ok' }],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
+  );
 
   await sendMessage(
     buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),
@@ -51,15 +54,17 @@ test('it marks the system prompt for caching', async () => {
     }),
   );
 
-  messagesReplies.push({
-    content: [],
-    usage: {
-      cache_read_input_tokens: 0,
-      cache_creation_input_tokens: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-    },
-  });
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
+  );
 
   await sendMessage(
     buildMockProviderConfig({
@@ -82,18 +87,20 @@ test('it marks the system prompt for caching', async () => {
 });
 
 test('it joins the text blocks of the answer', async () => {
-  messagesReplies.push({
-    content: [
-      { type: 'text', text: '<block>yes</block>' },
-      { type: 'text', text: '<rule>History Rewrite</rule>' },
-    ],
-    usage: {
-      cache_read_input_tokens: 0,
-      cache_creation_input_tokens: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-    },
-  });
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [
+        { type: 'text', text: '<block>yes</block>' },
+        { type: 'text', text: '<rule>History Rewrite</rule>' },
+      ],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
+  );
 
   const result = await sendMessage(
     buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),
@@ -142,15 +149,17 @@ test('it drops a thinking block', async () => {
 });
 
 test('it reports the token counts the response carries', async () => {
-  messagesReplies.push({
-    content: [{ type: 'text', text: 'ok' }],
-    usage: {
-      cache_read_input_tokens: 7025,
-      cache_creation_input_tokens: 0,
-      input_tokens: 42,
-      output_tokens: 130,
-    },
-  });
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [{ type: 'text', text: 'ok' }],
+      usage: {
+        cache_read_input_tokens: 7025,
+        cache_creation_input_tokens: 0,
+        input_tokens: 42,
+        output_tokens: 130,
+      },
+    }),
+  );
 
   const result = await sendMessage(
     buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),
@@ -239,6 +248,7 @@ test('it aborts a call when its signal fires', () => {
     timer.signal,
   );
 
+  expect(response).rejects.toBeInstanceOf(Error);
   expect(response).rejects.toMatchObject({ name: 'AbortError' });
 });
 
@@ -252,15 +262,17 @@ test('it reaches the same endpoint whether the base URL ends in a slash', async 
     }),
   );
 
-  messagesReplies.push({
-    content: [],
-    usage: {
-      cache_read_input_tokens: 0,
-      cache_creation_input_tokens: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-    },
-  });
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
+  );
 
   await sendMessage(
     buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test/' }),

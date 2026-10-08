@@ -3,8 +3,10 @@ import { HttpResponse, delay, http } from 'msw';
 import { decisionAnswers } from '../../mocks/decision-answers.ts';
 import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';
+import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { DecisionRequestError } from './decision-request-error.ts';
 import type { DecisionResponse } from './decision-response-schema.ts';
 import { sendDecision } from './send-decision.ts';
 
@@ -59,49 +61,39 @@ test('it authenticates a structured decision request and reads typed probabiliti
 });
 
 test.each([
-  [
-    '0.99',
-    {
-      type: 'choice',
-      choice: 'allow',
-      confidence: 0.72,
-      probabilities: { block: 0.1, ask: 0.08, allow: 0.81 },
-    },
-  ],
-  [
-    '1.01',
-    {
-      type: 'choice',
-      choice: 'allow',
-      confidence: 0.81,
-      probabilities: { allow: 0.81, block: 0.1, ask: 0.1 },
-    },
-  ],
-] as const)('it accepts two-decimal probabilities that sum to %s', async (_sum, answer) => {
-  decisionAnswers.set('rule_0', answer);
+  ['0.99', 0.72, { block: 0.1, ask: 0.08, allow: 0.81 }],
+  ['1.01', 0.81, { allow: 0.81, block: 0.1, ask: 0.1 }],
+])(
+  'it accepts two-decimal probabilities that sum to %s',
+  async (_sum, confidence, probabilities) => {
+    decisionAnswers.set(
+      'rule_0',
+      buildMockDecisionAnswer({ choice: 'allow', confidence, probabilities }),
+    );
 
-  const result = await sendDecision(
-    buildMockProviderConfig(),
-    'test-key',
-    buildMockDecisionRequest({
-      questions: {
-        rule_0: {
-          type: 'choice',
-          instructions: 'Must the pending action be refused?',
-          criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+    const result = await sendDecision(
+      buildMockProviderConfig(),
+      'test-key',
+      buildMockDecisionRequest({
+        questions: {
+          rule_0: {
+            type: 'choice',
+            instructions: 'Must the pending action be refused?',
+            criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+          },
         },
-      },
-    }),
-    new AbortController().signal,
-  );
+      }),
+      new AbortController().signal,
+    );
 
-  expect(result).toStrictEqual({
-    model: 'jev-1.13.0',
-    answers: { rule_0: answer },
-    inputTokens: 400,
-    requestBytes: expect.toBePositive(),
-  });
-});
+    expect(result).toStrictEqual({
+      model: 'jev-1.13.0',
+      answers: { rule_0: { type: 'choice', choice: 'allow', confidence, probabilities } },
+      inputTokens: 400,
+      requestBytes: expect.toBePositive(),
+    });
+  },
+);
 
 test.each([
   [
@@ -152,9 +144,13 @@ test.each([
     new AbortController().signal,
   );
 
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision API returned a malformed response$/u,
+  );
+
   expect(response).rejects.toMatchObject({
     reason: 'invalid-response',
-    message: 'Decision API returned a malformed response',
     requestBytes: expect.toBePositive(),
   });
 });
@@ -164,18 +160,8 @@ test.each([
   [
     'an extra answer',
     {
-      rule_0: {
-        type: 'choice',
-        choice: 'allow',
-        confidence: 0.8,
-        probabilities: { allow: 0.8, block: 0.1, ask: 0.1 },
-      },
-      extra: {
-        type: 'choice',
-        choice: 'allow',
-        confidence: 0.8,
-        probabilities: { allow: 0.8, block: 0.1, ask: 0.1 },
-      },
+      rule_0: buildMockDecisionAnswer(),
+      extra: buildMockDecisionAnswer(),
     },
   ],
 ] as const)('it rejects %s for one question as an incomplete answer set', (_label, answers) => {
@@ -204,9 +190,13 @@ test.each([
     new AbortController().signal,
   );
 
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision API returned an incomplete answer set$/u,
+  );
+
   expect(response).rejects.toMatchObject({
     reason: 'invalid-response',
-    message: 'Decision API returned an incomplete answer set',
     requestBytes: expect.toBePositive(),
   });
 });
@@ -217,12 +207,7 @@ test('it rejects an answer filed under a question it was not asked', () => {
       HttpResponse.json<DecisionResponse>({
         model: 'jev-1.13.0',
         answers: {
-          rule_1: {
-            type: 'choice',
-            choice: 'allow',
-            confidence: 0.8,
-            probabilities: { allow: 0.8, block: 0.1, ask: 0.1 },
-          },
+          rule_1: buildMockDecisionAnswer(),
         },
         usage: { input_tokens: 400 },
       }),
@@ -244,9 +229,13 @@ test('it rejects an answer filed under a question it was not asked', () => {
     new AbortController().signal,
   );
 
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision API omitted a requested answer$/u,
+  );
+
   expect(response).rejects.toMatchObject({
     reason: 'invalid-response',
-    message: 'Decision API omitted a requested answer',
     requestBytes: expect.toBePositive(),
   });
 });
@@ -260,12 +249,10 @@ test.each([
 ])(
   'it rejects probabilities with %s rather than turning them into an allow',
   (_label, probabilities) => {
-    decisionAnswers.set('rule_0', {
-      type: 'choice',
-      choice: 'allow',
-      confidence: 0.8,
-      probabilities,
-    });
+    decisionAnswers.set(
+      'rule_0',
+      buildMockDecisionAnswer({ choice: 'allow', confidence: 0.8, probabilities }),
+    );
 
     const response = sendDecision(
       buildMockProviderConfig(),
@@ -282,9 +269,13 @@ test.each([
       new AbortController().signal,
     );
 
+    expect(response).rejects.toThrowWithMessage(
+      DecisionRequestError,
+      /^Decision API returned invalid probabilities$/u,
+    );
+
     expect(response).rejects.toMatchObject({
       reason: 'invalid-response',
-      message: 'Decision API returned invalid probabilities',
       requestBytes: expect.toBePositive(),
     });
   },
@@ -310,9 +301,10 @@ test('it aborts a request when its signal fires and reports the request size', (
     timer.signal,
   );
 
+  expect(response).rejects.toThrowWithMessage(DecisionRequestError, /^Decision request aborted$/u);
+
   expect(response).rejects.toMatchObject({
     reason: 'aborted',
-    message: 'Decision request aborted',
     requestBytes: expect.toBePositive(),
     cause: { name: 'AbortError' },
   });
@@ -328,9 +320,13 @@ test('it reports a failed connection as a network failure', () => {
     new AbortController().signal,
   );
 
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision API request failed$/u,
+  );
+
   expect(response).rejects.toMatchObject({
     reason: 'network',
-    message: 'Decision API request failed',
     requestBytes: expect.toBePositive(),
   });
 });
@@ -358,9 +354,13 @@ test('it refuses oversized input before a request without truncating it', () => 
     new AbortController().signal,
   );
 
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision input exceeds 100000 bytes; refusing to truncate the action or user message$/u,
+  );
+
   expect(response).rejects.toMatchObject({
     reason: 'request-too-large',
-    message: 'Decision input exceeds 100000 bytes; refusing to truncate the action or user message',
     requestBytes: expect.toBeWithin(100_001, Infinity),
   });
 
@@ -379,9 +379,13 @@ test('it omits the response body from an HTTP error', () => {
     new AbortController().signal,
   );
 
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision API returned HTTP 401$/u,
+  );
+
   expect(response).rejects.toMatchObject({
     reason: 'http-status',
-    message: 'Decision API returned HTTP 401',
     requestBytes: expect.toBePositive(),
   });
 });
@@ -396,9 +400,13 @@ test('it discards a malformed JSON body instead of exposing credential fragments
     new AbortController().signal,
   );
 
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision API returned invalid JSON$/u,
+  );
+
   expect(response).rejects.toMatchObject({
     reason: 'invalid-response',
-    message: 'Decision API returned invalid JSON',
     requestBytes: expect.toBePositive(),
   });
 });
@@ -414,19 +422,31 @@ test('it removes optional tasks to keep a complete action near the request limit
     }),
   );
 
-  const provider = buildMockProviderConfig();
+  const provider = buildMockProviderConfig({ model: 'jev-test-model' });
 
   const request = buildMockDecisionRequest({
     questions: {},
     rules: {},
     state: {
       policy: 'complete policy',
+      answerGuidance: 'Apply the policy.',
+      rulesSource: 'shipped',
+      configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       lastUserMessage: 'Do not push',
-      action: { tool: 'Write', input: { content: 'x'.repeat(99_000) } },
+      repositoryContext: {
+        cwd: '/repo',
+        branch: 'feature',
+        defaultBranch: 'main',
+        remotes: [],
+        taskScope: { worktrees: [], branches: [], pullRequests: [] },
+      },
+      action: { tool: 'Write', cwd: '/repo', input: { content: 'x'.repeat(99_000) } },
       taskContext: {
+        agentID: null,
         originalUserTask: { text: 't'.repeat(3000), origin: 'composer' },
         delegatedTask: { text: 'd'.repeat(3000), origin: 'agent.spawn' },
         lastDirectUserMessage: { text: 'Do not push', origin: 'composer' },
+        omittedTaskContext: [],
       },
     },
   });
@@ -434,9 +454,21 @@ test('it removes optional tasks to keep a complete action near the request limit
   await sendDecision(provider, 'test-key', request, new AbortController().signal);
 
   expect(received).toHaveBeenCalledExactlyOnceWith({
-    model: provider.model,
+    model: 'jev-test-model',
     state: {
-      ...request.state,
+      policy: 'complete policy',
+      answerGuidance: 'Apply the policy.',
+      rulesSource: 'shipped',
+      configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+      lastUserMessage: 'Do not push',
+      repositoryContext: {
+        cwd: '/repo',
+        branch: 'feature',
+        defaultBranch: 'main',
+        remotes: [],
+        taskScope: { worktrees: [], branches: [], pullRequests: [] },
+      },
+      action: { tool: 'Write', cwd: '/repo', input: { content: 'x'.repeat(99_000) } },
       taskContext: {
         agentID: null,
         originalUserTask: null,
