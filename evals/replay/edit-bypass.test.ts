@@ -12,8 +12,12 @@ test('it lets 83 of the 96 real file-tool edits skip Jev in the cwd scope of the
     edits.map((entry) => classifyRecordedEdit(entry, entry.repository)),
   );
 
+  const bypassed = classifications.filter(
+    (outcome) => outcome !== null && outcome.kind === 'bypass',
+  );
+
   expect(classifications).toHaveLength(96);
-  expect(classifications.filter((outcome) => outcome?.kind === 'bypass')).toHaveLength(83);
+  expect(bypassed).toHaveLength(83);
 });
 
 test('it sends the other real file-tool edits, 3 secret-shaped edits among them, to Jev', async () => {
@@ -25,11 +29,11 @@ test('it sends the other real file-tool edits, 3 secret-shaped edits among them,
     edits.map((entry) => classifyRecordedEdit(entry, entry.repository)),
   );
 
-  expect(
-    countValues(
-      classifications.flatMap((outcome) => (outcome?.kind === 'jev' ? [outcome.reason] : [])),
-    ),
-  ).toStrictEqual({
+  const reasons = classifications.flatMap((outcome) =>
+    outcome !== null && outcome.kind === 'jev' ? [outcome.reason] : [],
+  );
+
+  expect(countValues(reasons)).toStrictEqual({
     'secret scan matched generic-credential-uri': 2,
     'secret scan matched generic-password': 1,
     'target in a nested worktree outside the scope': 2,

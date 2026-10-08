@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { buildStubEditFileReader } from '../../test-utils/build-stub-edit-file-reader.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
 import { runGit } from '../../test-utils/run-git.ts';
@@ -21,7 +22,7 @@ async function setupTest() {
   return { dir, repo };
 }
 
-test('it lets a Write inside an in-scope checkout on disk skip Jev', async () => {
+test('it lets a Write inside an in-scope checkout skip Jev', async () => {
   const ctx = await setupTest();
 
   const classification = await tryClassifyEdit(
@@ -37,7 +38,7 @@ test('it lets a Write inside an in-scope checkout on disk skip Jev', async () =>
   expect(classification).toStrictEqual({ kind: 'bypass', target: join(ctx.repo, 'src', 'a.ts') });
 });
 
-test('it reads an Edit target file on disk to place the edit text', async () => {
+test('it sends an Edit to Jev when its text is not in the file on disk', async () => {
   const ctx = await setupTest();
 
   await writeFile(join(ctx.repo, 'a.ts'), 'export const a = 2;\n');
@@ -74,17 +75,13 @@ test('it classifies nothing when a git override names another checkout', async (
     }),
     buildMockOwnedScope({ worktrees: ['/w/app'] }),
     { env: { GIT_DIR: '/w/other/.git' }, home: '/home/dev' },
-    {
-      resolveEditTarget: (path) => Promise.resolve(path),
-      findCheckout: () => Promise.resolve({ worktree: '/w/app', commonDir: '/w/app/.git' }),
-      readFile: () => Promise.resolve(''),
-    },
+    buildStubEditFileReader({ checkout: '/w/app' }),
   );
 
   expect(classification).toBeNull();
 });
 
-test('it places the target with the injected reader instead of the disk', async () => {
+test('it lets an Edit through a link skip Jev when the link resolves inside an in-scope checkout', async () => {
   const classification = await tryClassifyEdit(
     buildMockActionRequest({
       cwd: '/w/app',
@@ -93,17 +90,17 @@ test('it places the target with the injected reader instead of the disk', async 
     }),
     buildMockOwnedScope({ worktrees: ['/w/app'] }),
     { env: {}, home: '/home/dev' },
-    {
-      resolveEditTarget: (path) => Promise.resolve(path.replace('/w/app/link.ts', '/w/app/a.ts')),
-      findCheckout: () => Promise.resolve({ worktree: '/w/app', commonDir: '/w/app/.git' }),
-      readFile: () => Promise.resolve('export const a = 1;\n'),
-    },
+    buildStubEditFileReader({
+      checkout: '/w/app',
+      links: { '/w/app/link.ts': '/w/app/a.ts' },
+      files: { '/w/app/a.ts': 'export const a = 1;\n' },
+    }),
   );
 
   expect(classification).toStrictEqual({ kind: 'bypass', target: '/w/app/a.ts' });
 });
 
-test('it sends an Edit to Jev when the injected reader cannot read the file', async () => {
+test('it sends an Edit to Jev when its file cannot be read', async () => {
   const classification = await tryClassifyEdit(
     buildMockActionRequest({
       cwd: '/w/app',
@@ -112,11 +109,7 @@ test('it sends an Edit to Jev when the injected reader cannot read the file', as
     }),
     buildMockOwnedScope({ worktrees: ['/w/app'] }),
     { env: {}, home: '/home/dev' },
-    {
-      resolveEditTarget: (path) => Promise.resolve(path),
-      findCheckout: () => Promise.resolve({ worktree: '/w/app', commonDir: '/w/app/.git' }),
-      readFile: () => Promise.reject(new Error('ENOENT')),
-    },
+    buildStubEditFileReader({ checkout: '/w/app', files: {} }),
   );
 
   expect(classification).toStrictEqual({
@@ -125,7 +118,7 @@ test('it sends an Edit to Jev when the injected reader cannot read the file', as
   });
 });
 
-test('it classifies nothing when the injected reader fails to find the checkout', async () => {
+test('it classifies nothing when the checkout of the target cannot be found', async () => {
   const classification = await tryClassifyEdit(
     buildMockActionRequest({
       cwd: '/w/app',
@@ -135,9 +128,8 @@ test('it classifies nothing when the injected reader fails to find the checkout'
     buildMockOwnedScope({ worktrees: ['/w/app'] }),
     { env: {}, home: '/home/dev' },
     {
-      resolveEditTarget: (path) => Promise.resolve(path),
+      ...buildStubEditFileReader({ checkout: '/w/app' }),
       findCheckout: () => Promise.reject(new Error('git failed')),
-      readFile: () => Promise.resolve(''),
     },
   );
 

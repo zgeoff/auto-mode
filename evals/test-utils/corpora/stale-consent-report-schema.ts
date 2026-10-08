@@ -11,6 +11,7 @@ const recordSchema = z.object({
   model: z.string(),
   status: z.enum(['allow', 'ask', 'deny']),
   rule: z.string().nullable(),
+  elapsedMs: z.number().int(),
   answers: z.record(z.string(), recordedAnswerSchema),
 });
 
@@ -19,6 +20,7 @@ export const staleConsentReportSchema = z.object({
   threshold: z.number(),
   samplesPerCase: z.number().int(),
   retries: z.number().int(),
+  completedAt: z.string(),
   corpusHash: z.string(),
   records: z.array(recordSchema),
 });

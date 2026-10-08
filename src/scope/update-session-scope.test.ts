@@ -34,6 +34,7 @@ test('it records a worktree and its branch made during the call and writes them 
   runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
 
   const request = buildMockScopeRecordRequest({
+    sessionID: 'session-1',
     cwd: ctx.repo,
     startedAt,
     command: 'git worktree add .worktrees/x -b feat/x',
@@ -48,7 +49,7 @@ test('it records a worktree and its branch made during the call and writes them 
   });
 
   const written = await loadSessionScope(
-    resolveSessionScopePath(join(ctx.root, 'state'), request.sessionID),
+    resolveSessionScopePath(join(ctx.root, 'state'), 'session-1'),
   );
 
   expect(scope).toStrictEqual({
@@ -406,7 +407,7 @@ test('it records every PR one call created', async () => {
   });
 });
 
-test('it records what an injected verifier confirms for a claimed event', async () => {
+test('it records the worktree and branch that the check of a claimed event confirms', async () => {
   const ctx = await setupTest();
 
   const scope = await updateSessionScope(
@@ -439,7 +440,7 @@ test('it records what an injected verifier confirms for a claimed event', async 
   });
 });
 
-test('it writes what an injected verifier confirms to the session scope', async () => {
+test('it writes the confirmed worktree and branch to the session scope', async () => {
   const ctx = await setupTest();
 
   await updateSessionScope(
@@ -476,7 +477,7 @@ test('it writes what an injected verifier confirms to the session scope', async 
   });
 });
 
-test('it records nothing for an event the injected verifier cannot confirm', async () => {
+test('it records nothing for a claimed event whose check fails', async () => {
   const ctx = await setupTest();
 
   const scope = await updateSessionScope(

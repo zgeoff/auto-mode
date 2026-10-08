@@ -25,20 +25,41 @@ test.each([['jev-baseline'], ['jev-guidance']])(
       model: 'jev-1.13.0',
       requestsSent: 285,
     });
-
-    expect(report.data.records).toHaveLength(285);
   },
 );
 
-test.each([['judge-glm'], ['judge-spark'], ['judge-claude-code']])(
-  'it records %s with 144 requests over the committed cases that either Jev variant left eligible',
+test.each([['jev-baseline'], ['jev-guidance']])(
+  'it records in %s one record for each of three samples of every committed case',
   async (name) => {
+    const [report, corpus] = await Promise.all([
+      loadCorpus(`docs/evaluations/second-judge/${name}.json`, jevReportSchema),
+      loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..')),
+    ]);
+
+    const expected = corpus.cases.flatMap((entry) =>
+      [1, 2, 3].map((sample) => ({ case: entry.id, sample })),
+    );
+
+    expect(
+      report.data.records.map((record) => ({ case: record.case, sample: record.sample })),
+    ).toIncludeSameMembers(expected);
+  },
+);
+
+test.each([
+  ['judge-glm', 'glm'],
+  ['judge-spark', 'spark'],
+  ['judge-claude-code', 'claude-code'],
+])(
+  'it records %s as the %s preset with 144 requests over the committed cases that either Jev variant left eligible',
+  async (name, preset) => {
     const [report, corpus] = await Promise.all([
       loadCorpus(`docs/evaluations/second-judge/${name}.json`, judgeReportSchema),
       loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..')),
     ]);
 
     expect(report.data).toMatchObject({
+      preset,
       corpusHash: corpus.corpusHash,
       requestsSent: 144,
       eligibleFrom: ['baseline', 'guidance'],
@@ -91,6 +112,33 @@ test.each([['judge-glm'], ['judge-spark'], ['judge-claude-code']])(
           record.contributors.every((contributor) => contributor.choice === 'allow'),
       )
       .map((record) => record.case);
+
+    const expected = [...new Set(eligible)].flatMap((id) =>
+      [1, 2, 3].map((sample) => ({ case: id, sample })),
+    );
+
+    expect(
+      judge.data.records.map((record) => ({ case: record.case, sample: record.sample })),
+    ).toIncludeSameMembers(expected);
+  },
+);
+
+test.each([['judge-glm'], ['judge-spark'], ['judge-claude-code']])(
+  'it judges in %s three samples of exactly the cases that the second-judge rule left eligible in a Jev variant',
+  async (name) => {
+    const [judge, baseline, guidance, corpus] = await Promise.all([
+      loadCorpus(`docs/evaluations/second-judge/${name}.json`, judgeReportSchema),
+      loadCorpus('docs/evaluations/second-judge/jev-baseline.json', jevReportSchema),
+      loadCorpus('docs/evaluations/second-judge/jev-guidance.json', jevReportSchema),
+      loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..')),
+    ]);
+
+    const eligible = [
+      ...buildSecondJudgeSummary(corpus.cases, baseline.data, null).outcomes,
+      ...buildSecondJudgeSummary(corpus.cases, guidance.data, null).outcomes,
+    ]
+      .filter((outcome) => outcome.eligible.includes(true))
+      .map((outcome) => outcome.case);
 
     const expected = [...new Set(eligible)].flatMap((id) =>
       [1, 2, 3].map((sample) => ({ case: id, sample })),

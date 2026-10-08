@@ -24,20 +24,26 @@ test('it accepts a corpus of 6 pairs', () => {
 });
 
 test('it rejects a pair whose first arm is neither stale nor null', () => {
+  const pairs = Array.from({ length: 6 }, (_, index) => ({
+    pair: index + 1,
+    action: 'push',
+    name: `push ${index + 1}`,
+    variant: 'earlier-consent',
+    firstArm: 'stale',
+    staleMessage: 'Push it.',
+    tool: 'Bash',
+    input: { command: 'git push' },
+    repositoryContext: null,
+  }));
+
+  const [first, ...rest] = pairs;
+
+  invariant(first);
+
   const result = staleConsentCorpusSchema.safeParse({
     cwd: '/home/dev/app',
     staleOrigin: 'composer',
-    pairs: Array.from({ length: 6 }, (_, index) => ({
-      pair: index + 1,
-      action: 'push',
-      name: `push ${index + 1}`,
-      variant: 'earlier-consent',
-      firstArm: 'fresh',
-      staleMessage: 'Push it.',
-      tool: 'Bash',
-      input: { command: 'git push' },
-      repositoryContext: null,
-    })),
+    pairs: [{ ...first, firstArm: 'fresh' }, ...rest],
   });
 
   invariant(result.error);

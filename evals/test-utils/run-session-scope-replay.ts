@@ -2,9 +2,9 @@ import { join } from 'node:path';
 import type { ContainmentDeny } from '../../src/containment/check-containment.ts';
 import { checkContainment } from '../../src/containment/check-containment.ts';
 import { buildTaskScope } from '../../src/scope/build-task-scope.ts';
-import type { Checkout } from '../../src/scope/find-checkout.ts';
 import { pickScopeSourceReader } from '../../src/scope/pick-scope-source-reader.ts';
 import { updateSessionScope } from '../../src/scope/update-session-scope.ts';
+import { makeStubCheckoutFinder } from '../../test-utils/make-stub-checkout-finder.ts';
 import { buildStubSessionScope } from './build-stub-session-scope.ts';
 import type { TaskScopeSessions } from './corpora/task-scope-sessions-schema.ts';
 import type { DecisionRulesCase } from './load-decision-rules-cases.ts';
@@ -96,7 +96,10 @@ async function checkSessionContainment(
   const facts = await Promise.all([
     pickScopeSourceReader({ kind: 'cwd' })(context),
     pickScopeSourceReader({ kind: 'session' })(context),
-    pickScopeSourceReader({ kind: 'atc' }, getRecordedCheckout)(context),
+
+    // A recording holds no checkout on disk; every recorded checkout is in the
+    // action's repository.
+    pickScopeSourceReader({ kind: 'atc' }, makeStubCheckoutFinder({}, COMMON_DIR))(context),
   ]);
 
   const scope = buildTaskScope({
@@ -111,10 +114,4 @@ async function checkSessionContainment(
     { sessionID: sessionName, cwd: action.cwd, toolName: action.tool, toolInput: action.input },
     scope,
   );
-}
-
-// A recording holds no checkout on disk; every recorded checkout is in the
-// action's repository.
-function getRecordedCheckout(path: string): Promise<Checkout> {
-  return Promise.resolve({ worktree: path, commonDir: COMMON_DIR });
 }

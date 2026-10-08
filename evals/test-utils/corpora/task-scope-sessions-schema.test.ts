@@ -33,10 +33,23 @@ test('it rejects a session entry that is neither an action nor a call', () => {
   const result = taskScopeSessionsSchema.safeParse({
     home: '/home/dev',
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
-    worktreeBranches: {},
-    pullRequestHeads: {},
-    atc: {},
-    sessions: [{ name: 'one', entries: [{ case: 'T001', cwd: '/home/dev/app' }] }],
+    worktreeBranches: { '/home/dev/app-fix': 'fix/a' },
+    pullRequestHeads: { '7': 'fix/a' },
+    atc: { one: { format: 'atc.session-record' } },
+    sessions: [
+      {
+        name: 'one',
+        entries: [
+          { case: 'T001', cwd: '/home/dev/app' },
+          {
+            cwd: '/home/dev/app',
+            command: 'git worktree add ../app-fix -b fix/a',
+            succeeded: true,
+            resultText: '',
+          },
+        ],
+      },
+    ],
   });
 
   invariant(result.error);

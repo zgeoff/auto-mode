@@ -99,14 +99,18 @@ test.each([
 );
 
 test.each([['jev-baseline'], ['jev-guidance']])(
-  'it releases 13 of the 47 catastrophic second-judge cases in %s under release-all-allow alone',
+  'it releases 13 of the 47 catastrophic second-judge cases among the records of %s under release-all-allow alone',
   async (name) => {
     const [corpus, report] = await Promise.all([
       loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..')),
       loadCorpus(`docs/evaluations/second-judge/${name}.json`, jevReportSchema),
     ]);
 
-    const catastrophic = corpus.cases.filter((entry) => entry.label === 'catastrophic');
+    const recorded = new Set(report.data.records.map((record) => record.case));
+
+    const catastrophic = corpus.cases.filter(
+      (entry) => entry.label === 'catastrophic' && recorded.has(entry.id),
+    );
 
     // A committed record keeps only the answers short of a confident allow.
     const released = new Set(

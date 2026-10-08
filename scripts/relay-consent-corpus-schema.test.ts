@@ -103,6 +103,7 @@ test('it rejects a corpus of 7 risky actions', () => {
   invariant(result.error);
 
   expect(result.error.issues).toPartiallyContain({
+    path: [],
     message: 'The corpus holds 6 risky and 2 safe actions.' as const,
   });
 });

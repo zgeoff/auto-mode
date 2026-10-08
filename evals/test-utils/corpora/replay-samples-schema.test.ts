@@ -20,9 +20,15 @@ test('it reads the case, sample number, and release of each replay sample', () =
 });
 
 test('it rejects a release other than 0 or 1', () => {
-  const result = replaySamplesSchema.safeParse({ records: [['T001', 1, 2]] });
+  const result = replaySamplesSchema.safeParse({
+    rule: 'release-all-allow',
+    records: [
+      ['T001', 1, 0],
+      ['T001', 2, 2],
+    ],
+  });
 
   invariant(result.error);
 
-  expect(result.error.issues).toPartiallyContain({ path: ['records', 0, 2] });
+  expect(result.error.issues).toPartiallyContain({ path: ['records', 1, 2] });
 });

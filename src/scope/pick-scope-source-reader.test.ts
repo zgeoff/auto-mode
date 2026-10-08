@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
 import { buildMockScopeSourceContext } from '../../test-utils/factories/build-mock-scope-source-context.ts';
+import { makeStubCheckoutFinder } from '../../test-utils/make-stub-checkout-finder.ts';
 import { pickScopeSourceReader } from './pick-scope-source-reader.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 
@@ -241,7 +242,7 @@ test('it writes no diagnostic when the session has no atc record', async () => {
   expect(write).not.toHaveBeenCalled();
 });
 
-test('it owns the atc branches whose checkout an injected lookup places in the action repository', async () => {
+test('it owns only the atc branches whose checkout shares the action repository by the checkout lookup it is given', async () => {
   const ctx = await setupTest();
 
   const recordPath = join(ctx.dir, 'record.json');
@@ -262,8 +263,9 @@ test('it owns the atc branches whose checkout an injected lookup places in the a
     ),
   );
 
-  const facts = await pickScopeSourceReader({ kind: 'atc' }, (path) =>
-    Promise.resolve({ worktree: path, commonDir: `${path}.git` }),
+  const facts = await pickScopeSourceReader(
+    { kind: 'atc' },
+    makeStubCheckoutFinder({ '/w/app': '/w/app.git', '/w/other': '/w/other.git' }),
   )(
     buildMockScopeSourceContext({
       commonDir: '/w/app.git',

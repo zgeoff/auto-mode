@@ -29,6 +29,8 @@ test('it runs jev-1.13.0 once per arm, without retries, at the 0.8 threshold', a
 test('it records every answer from the model of the run', async () => {
   const report = await loadCorpus('docs/evaluations/stale-consent.json', staleConsentReportSchema);
 
+  expect(report.data.records).toHaveLength(12);
+
   expect(report.data.records.map((record) => record.model)).toSatisfyAll(
     (model: string) => model === report.data.model,
   );

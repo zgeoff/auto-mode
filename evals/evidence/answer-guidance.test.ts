@@ -123,6 +123,7 @@ test('it shrinks the request for every case by more than 20,000 bytes', async ()
     return record.requestBytes - later.requestBytes;
   });
 
+  expect(saved).toHaveLength(12);
   expect(saved).toSatisfyAll((bytes: number) => bytes > 20_000);
 });
 
