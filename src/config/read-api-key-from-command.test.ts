@@ -160,17 +160,28 @@ test('it limits a key helper to the shared deadline', async () => {
   expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(100);
 });
 
-// The stand-in timer never runs AbortSignal.timeout, so this helper, which would
-// sleep for 30 s, can stop only on the real default timer.
+// The stand-in timer never runs AbortSignal.timeout, so this helper can stop
+// only on the real default timer.
 test('it stops a key helper on the real default timer at the shared deadline', async () => {
   const startedAt = performance.now();
 
-  const key = await readApiKeyFromCommand('sleep 30; printf offline-test-key', {
+  const key = await readApiKeyFromCommand('sleep 0.5; printf offline-test-key', {
     deadlineAt: Date.now() + 50,
   });
 
   expect(key).toBeNull();
-  expect(performance.now() - startedAt).toBeWithin(40, 5000);
+  expect(performance.now() - startedAt).toBeWithin(40, 500);
+});
+
+test('it reads the key of a helper that outlasts a 50 ms deadline when the deadline leaves it time', async () => {
+  const startedAt = performance.now();
+
+  const key = await readApiKeyFromCommand('sleep 0.5; printf offline-test-key', {
+    deadlineAt: Date.now() + 5000,
+  });
+
+  expect(key).toBe('offline-test-key');
+  expect(performance.now() - startedAt).toBeGreaterThanOrEqual(500);
 });
 
 test('it limits a key helper to 5 s without a shared deadline', async () => {
