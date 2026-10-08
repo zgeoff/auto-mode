@@ -23,7 +23,7 @@ export type EditClassification =
 
 // The scan reads about 18 ms per 100 KB under node, so anything larger than
 // this goes to Jev unscanned rather than scanned in part.
-export const MAX_SCANNED_BYTES = 256 * 1024;
+const MAX_SCANNED_BYTES = 256 * 1024;
 
 export function classifyEdit(
   action: Readonly<EditAction>,

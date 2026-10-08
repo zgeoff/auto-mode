@@ -45,7 +45,7 @@ export function pickScopeSourceReader(source: Readonly<ScopeSource>): ScopeSourc
     const loaded = await loadAtcSessionRecord(context.atcRecordPath, context.atcSessionID);
 
     if (loaded.kind === 'malformed') {
-      process.stderr.write(`auto-mode: ${loaded.diagnostic}\n`);
+      context.stderr.write(`auto-mode: ${loaded.diagnostic}\n`);
     }
 
     if (loaded.kind !== 'record') {

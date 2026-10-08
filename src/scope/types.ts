@@ -30,6 +30,7 @@ interface ScopeSourceContext {
   readonly stateDir: string;
   readonly atcRecordPath?: string | undefined;
   readonly atcSessionID?: string | undefined;
+  readonly stderr: { readonly write: (text: string) => unknown };
 }
 
 export type ScopeSourceReader = (context: Readonly<ScopeSourceContext>) => Promise<ScopeFacts>;
