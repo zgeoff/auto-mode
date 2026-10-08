@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.7.0...auto-mode-v0.8.0) (2026-10-08)
+
+
+### Features
+
+* **geo-155:** reach a human only through a denial budget ([#50](https://github.com/zgeoff/auto-mode/issues/50)) ([974100a](https://github.com/zgeoff/auto-mode/commit/974100ab602bd0004463627baf90e7b72ec0e785))
+
 ## [0.7.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.6.0...auto-mode-v0.7.0) (2026-10-08)
 
 
