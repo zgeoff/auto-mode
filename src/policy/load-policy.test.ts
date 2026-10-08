@@ -93,7 +93,7 @@ test('it puts the rules where the marker was', async () => {
   await writeFile(ctx.classifierPath, 'before\n\n<rules>\n\nafter\n');
   await writeFile(ctx.rulesPath, '  RULES  ');
 
-  const prompt = await loadPolicy(ctx);
+  const prompt = await loadPolicy({ classifierPath: ctx.classifierPath, rulesPath: ctx.rulesPath });
 
   expect(prompt).toBe('before\n\nRULES\n\nafter\n');
 });
@@ -106,5 +106,7 @@ test('it refuses a classifier file that has nowhere to put the rules', async () 
   await writeFile(ctx.classifierPath, 'no marker here');
   await writeFile(ctx.rulesPath, 'RULES');
 
-  expect(loadPolicy(ctx)).rejects.toThrowWithMessage(Error, /has no <rules> line/u);
+  expect(
+    loadPolicy({ classifierPath: ctx.classifierPath, rulesPath: ctx.rulesPath }),
+  ).rejects.toThrowWithMessage(Error, /has no <rules> line/u);
 });

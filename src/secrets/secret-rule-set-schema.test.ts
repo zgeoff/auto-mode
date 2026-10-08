@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import invariant from 'tiny-invariant';
 import { secretRuleSetSchema } from './secret-rule-set-schema.ts';
 
 test('it accepts a rule set with a windowed pattern and each kind of filter term', () => {
@@ -70,7 +71,11 @@ test('it rejects a pattern for an engine the scanner does not run', () => {
     unported: [{ rule: 'curl-auth-user', part: 'filter' }],
   };
 
-  expect(secretRuleSetSchema.safeParse(payload).error?.issues).toPartiallyContain({
+  const result = secretRuleSetSchema.safeParse(payload);
+
+  invariant(result.error, 'the payload is rejected');
+
+  expect(result.error.issues).toPartiallyContain({
     path: ['prefilter', 0, 'engine'],
   });
 });
@@ -111,7 +116,11 @@ test('it rejects a rule that carries a field the scanner does not read', () => {
     unported: [{ rule: 'curl-auth-user', part: 'filter' }],
   };
 
-  expect(secretRuleSetSchema.safeParse(payload).error?.issues).toPartiallyContain({
+  const result = secretRuleSetSchema.safeParse(payload);
+
+  invariant(result.error, 'the payload is rejected');
+
+  expect(result.error.issues).toPartiallyContain({
     code: 'unrecognized_keys',
     path: ['rules', 0],
     keys: ['tags'],
