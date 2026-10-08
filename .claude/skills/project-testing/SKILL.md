@@ -53,11 +53,12 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
   `test-utils/build-stub-output.ts` stands in for stdout and stderr, and its `read()` returns what
   was written. `buildStubStopSignals` from `test-utils/build-stub-stop-signals.ts` stands in for the
   signals: its `stop()` calls every callback still subscribed.
-- `e2e/cli.test.ts` spawns the built `dist/cli.js` under node with a minimal environment rooted in
-  the temp dir. It fails at once when `dist/cli.js` is missing. Only `bun run test` rebuilds
-  `dist/`, so a bare `bun test e2e/…` runs whatever `dist/` already holds. The child runs the binary
-  that `node -p process.execPath` resolves, because a version manager's node shim needs the user's
-  HOME.
+- `e2e/cli-usage.test.ts`, `e2e/cli-run.test.ts`, `e2e/cli-print-prompt.test.ts` and
+  `e2e/cli-fail-closed.test.ts` spawn the built `dist/cli.js` under node with a minimal environment
+  rooted in the temp dir. Each fails at once when `dist/cli.js` is missing or node is not 24. Only
+  `bun run test` rebuilds `dist/`, so a bare `bun test e2e/…` runs whatever `dist/` already holds.
+  The child runs the binary that `node -p process.execPath` resolves, because a version manager's
+  node shim needs the user's HOME.
 
 ## Git
 

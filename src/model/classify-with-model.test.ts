@@ -601,6 +601,7 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
           url: 'https://user:planted-userinfo@mcp.linear.app/planted-path?token=planted-query',
           headers: { Authorization: 'Bearer planted-header' },
         },
+        tool: { command: 'tool', args: ['--token', 'planted-arg'], env: { KEY: 'planted-env' } },
       },
     }),
   );
@@ -655,7 +656,13 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
   });
 
   expect(received).toHaveBeenCalledExactlyOnceWith(
-    expect.toIncludeMultiple(['<mcp-servers>', String.raw`\"host\": \"mcp.linear.app\"`]),
+    expect.toIncludeMultiple([
+      '<mcp-servers>',
+      String.raw`\"name\": \"linear\"`,
+      String.raw`\"host\": \"mcp.linear.app\"`,
+      String.raw`\"name\": \"tool\"`,
+      String.raw`\"transport\": \"stdio\"`,
+    ]),
   );
 
   expect(received).not.toHaveBeenCalledWith(expect.toInclude('planted'));

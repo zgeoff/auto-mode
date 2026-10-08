@@ -64,6 +64,10 @@ test('it assembles the shipped decision framework when asked for it', async () =
 test.each([
   ['a source edit needs no branch evidence', 'This does not require branch evidence'],
   [
+    'Default Branch Write needs no branch evidence to set a non-Git edit apart',
+    'branch evidence is not required for that distinction',
+  ],
+  [
     'the branch references cover cwd only',
     "The branch references describe cwd only, not the edited file's checkout or a generated script's future execution cwd",
   ],

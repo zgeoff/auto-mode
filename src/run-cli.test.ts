@@ -63,6 +63,8 @@ async function setupTest(): Promise<{
         // the CLI reads Claude Code's settings.json under this directory
         CLAUDE_CONFIG_DIR: dir,
       },
+
+      // the CLI expands ~ in commands and config paths to this directory
       home: dir,
     },
     stdout: buildStubOutput(),

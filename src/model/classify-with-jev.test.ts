@@ -23,7 +23,8 @@ async function setupTest() {
   onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
   // The repository readers walk up from the cwd to the nearest .git, so a
-  // repository here keeps that walk inside the temp tree.
+  // repository here keeps that walk inside the temp tree. Its branch is main,
+  // which every test that reads the repository context expects.
   runGit(dir, ['init', '--quiet', '--initial-branch=main']);
 
   return { dir };
