@@ -65,8 +65,10 @@ test('it reports its own and its running child process IDs on the socket', async
 
   expect(report).toStrictEqual({ helper: group, child: expect.toBeNumber() });
 
+  // A live process can read as D (uninterruptible sleep) while it waits on I/O
+  // on a loaded host, so only the zombie and dead states rule it out.
   expect(child).toStrictEqual({
-    state: expect.toBeOneOf(['R', 'S']),
+    state: expect.not.toBeOneOf(['Z', 'X']),
     startTime: expect.toBeString(),
   });
 });

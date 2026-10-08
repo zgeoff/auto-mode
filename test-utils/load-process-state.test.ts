@@ -16,9 +16,24 @@ test('it reads the state and start time of a running process', async () => {
   const state = await loadProcessState(process.pid);
 
   expect(state).toStrictEqual({
-    state: expect.toBeOneOf(['R', 'S']),
+    state: expect.not.toBeOneOf(['Z', 'X']),
     startTime: expect.toBeString(),
   });
+});
+
+test('it reads the state and start time of a process in uninterruptible sleep', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, '42'));
+
+  await writeFile(
+    join(ctx.dir, '42', 'stat'),
+    '42 (sleep) D 41 41 41 0 -1 4194304 127 0 0 0 0 0 0 0 20 0 1 0 165670795 3227648 416\n',
+  );
+
+  const state = await loadProcessState(42, ctx.dir);
+
+  expect(state).toStrictEqual({ state: 'D', startTime: '165670795' });
 });
 
 // The kernel hands out process IDs below pid_max, so that number never names a
