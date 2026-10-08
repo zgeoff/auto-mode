@@ -9,6 +9,7 @@ import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadProcessState } from './load-process-state.ts';
+import { stopProcessGroup } from './stop-process-group.ts';
 
 async function setupTest() {
   const stack = new AsyncDisposableStack();
@@ -53,7 +54,7 @@ test('it reports its own and its running child process IDs on the socket', async
   const group = helper.pid;
 
   onTestFinished(() => {
-    process.kill(-group, 'SIGKILL');
+    stopProcessGroup(group);
   });
 
   const body = await ctx.report;
@@ -84,20 +85,20 @@ test('it prints no key by the time it reports', async () => {
   const group = helper.pid;
 
   onTestFinished(() => {
-    process.kill(-group, 'SIGKILL');
+    stopProcessGroup(group);
   });
 
-  let output = '';
-
-  helper.stdout.setEncoding('utf8');
-
-  helper.stdout.on('data', (chunk: string) => {
-    output += chunk;
-  });
+  const output = text(helper.stdout);
 
   await ctx.report;
 
-  expect(output).toBe('');
+  // Stdout and the socket are separate channels, so the pipe is read to its end
+  // after the kill: anything printed before the report is in it by then.
+  stopProcessGroup(group);
+
+  const printed = await output;
+
+  expect(printed).toBe('');
 });
 
 test('it prints its key once the delay it is given passes', async () => {
@@ -114,7 +115,7 @@ test('it prints its key once the delay it is given passes', async () => {
   const group = helper.pid;
 
   onTestFinished(() => {
-    process.kill(-group, 'SIGKILL');
+    stopProcessGroup(group);
   });
 
   let output = '';

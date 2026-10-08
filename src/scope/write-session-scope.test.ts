@@ -1,4 +1,5 @@
 import { expect, onTestFinished, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -85,9 +86,8 @@ test('it removes a lock older than the stale age and records the scope', async (
   await writeFile(ctx.lock, 'held by another record\n');
   await utimes(ctx.lock, new Date(lockedAt), new Date(lockedAt));
 
-  const staleLock = await readFile(ctx.lock, 'utf8');
-
-  const clock = buildStubLockClock({ startAt: lockedAt + 10_001, advancesOnWait: true });
+  const stub = buildStubLockClock({ startAt: lockedAt + 10_001, advancesOnWait: true });
+  const locksSeen: string[] = [];
 
   await writeSessionScope(
     ctx.path,
@@ -96,13 +96,20 @@ test('it removes a lock older than the stale age and records the scope', async (
       branches: [{ name: 'feat/x', commonDir: '/work/app/.git' }],
       pullRequests: [],
     }),
-    clock,
+    {
+      now: () => {
+        locksSeen.push(readFileSync(ctx.lock, 'utf8'));
+
+        return stub.now();
+      },
+      wait: stub.wait,
+    },
   );
 
   const scope = await loadSessionScope(ctx.path);
 
-  expect(staleLock).toBe('held by another record\n');
-  expect(clock.wait).not.toHaveBeenCalled();
+  expect(locksSeen.at(-1)).toBe('held by another record\n');
+  expect(stub.wait).not.toHaveBeenCalled();
 
   expect(scope).toStrictEqual({
     worktrees: ['/work/app/.worktrees/x'],

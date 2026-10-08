@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import type { EditClassification } from '../../src/bypass/classify-edit.ts';
 import { classifyRecordedEdit } from '../test-utils/classify-recorded-edit.ts';
 import { countValues } from '../test-utils/count-values.ts';
 import { loadDecisionRulesCases } from '../test-utils/load-decision-rules-cases.ts';
@@ -29,9 +30,11 @@ test('it sends the other real file-tool edits, 3 secret-shaped edits among them,
     edits.map((entry) => classifyRecordedEdit(entry, entry.repository)),
   );
 
-  const reasons = classifications.flatMap((outcome) =>
-    outcome !== null && outcome.kind === 'jev' ? [outcome.reason] : [],
-  );
+  const reasons = classifications
+    .filter(
+      (outcome): outcome is Extract<EditClassification, { kind: 'jev' }> => outcome?.kind === 'jev',
+    )
+    .map((outcome) => outcome.reason);
 
   expect(countValues(reasons)).toStrictEqual({
     'secret scan matched generic-credential-uri': 2,

@@ -9,6 +9,17 @@ export interface ModelRequest {
   readonly user: string;
 }
 
+export interface MessagesRequest {
+  readonly model: string;
+  readonly max_tokens: number;
+  readonly system: readonly {
+    readonly type: 'text';
+    readonly text: string;
+    readonly cache_control: { readonly type: 'ephemeral' };
+  }[];
+  readonly messages: readonly { readonly role: 'user'; readonly content: string }[];
+}
+
 export interface ModelResult {
   readonly text: string;
   readonly cachedInputTokens: number;
@@ -50,7 +61,7 @@ export async function sendMessage(
 
         system: [{ type: 'text', text: request.system, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: request.user }],
-      }),
+      } satisfies MessagesRequest),
     });
 
     if (!response.ok) {
@@ -117,6 +128,26 @@ interface ThinkingBlock {
 export type MessagesResponse = Omit<z.input<typeof responseSchema>, 'content'> & {
   readonly content: readonly (z.input<typeof textBlockSchema> | ThinkingBlock)[];
 };
+
+// A failed call is reported by its HTTP status alone; the API sends this body with it.
+export interface MessagesErrorBody {
+  readonly type: 'error';
+  readonly error: {
+    readonly type:
+      | 'invalid_request_error'
+      | 'authentication_error'
+      | 'billing_error'
+      | 'permission_error'
+      | 'not_found_error'
+      | 'conflict_error'
+      | 'request_too_large'
+      | 'rate_limit_error'
+      | 'api_error'
+      | 'timeout_error'
+      | 'overloaded_error';
+    readonly message: string;
+  };
+}
 
 function readResult(body: unknown): ModelResult {
   const response = responseSchema.parse(body);

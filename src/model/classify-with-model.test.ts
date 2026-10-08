@@ -12,6 +12,7 @@ import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { runGit } from '../../test-utils/run-git.ts';
+import type { MessagesErrorBody } from './anthropic-client.ts';
 import { classifyWithModel } from './classify-with-model.ts';
 
 async function setupTest() {
@@ -244,7 +245,7 @@ test('it has no opinion when the model call fails', async () => {
 
   server.use(
     http.post(MESSAGES_URL, () =>
-      HttpResponse.json(
+      HttpResponse.json<MessagesErrorBody>(
         { type: 'error', error: { type: 'api_error', message: 'Internal server error' } },
         { status: 500 },
       ),
@@ -476,7 +477,7 @@ test('it denies rather than deferring when configured to fail closed', async () 
 
   server.use(
     http.post(MESSAGES_URL, () =>
-      HttpResponse.json(
+      HttpResponse.json<MessagesErrorBody>(
         { type: 'error', error: { type: 'api_error', message: 'Internal server error' } },
         { status: 500 },
       ),

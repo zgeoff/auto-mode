@@ -5,6 +5,7 @@ import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { server } from '../../mocks/node.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import type { MessagesErrorBody } from './anthropic-client.ts';
 import { sendMessage } from './anthropic-client.ts';
 
 test('it posts to the Messages endpoint with the key and version headers', async () => {
@@ -242,7 +243,7 @@ test('it reads a response it cannot understand as empty rather than failing', as
 test('it reports the status without the private body of a failed call', () => {
   server.use(
     http.post(MESSAGES_URL, () =>
-      HttpResponse.json(
+      HttpResponse.json<MessagesErrorBody>(
         {
           type: 'error',
           error: { type: 'rate_limit_error', message: 'private over-quota detail' },

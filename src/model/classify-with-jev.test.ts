@@ -41,6 +41,7 @@ test('it sends the configured rules and the direct user message without the sett
       env: { PRIVATE_TOKEN: 'do-not-send' },
       autoMode: {
         allow: ['$defaults', 'Feature branch work is routine'],
+        soft_deny: ['Never rewrite the parser grammar'],
         environment: ['Host: example.test'],
       },
     }),
@@ -114,7 +115,7 @@ test('it sends the configured rules and the direct user message without the sett
       configuredRules: {
         environment: ['Host: example.test'],
         allow: ['Feature branch work is routine'],
-        soft_deny: [],
+        soft_deny: ['Never rewrite the parser grammar'],
         hard_deny: [],
       },
       lastUserMessage: 'fix the parser',
@@ -126,7 +127,100 @@ test('it sends the configured rules and the direct user message without the sett
         input: { file_path: join(ctx.dir, 'parser.ts'), new_string: 'green' },
       },
     },
-    questions: expect.toBeObject(),
+    questions: {
+      ...Object.fromEntries(
+        (
+          [
+            [
+              'rule_0',
+              'Data Exfiltration',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+            [
+              'rule_1',
+              'Secret Persistence',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+            [
+              'rule_2',
+              'Policy Tampering',
+              'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.',
+            ],
+            [
+              'rule_3',
+              'Audit Tampering',
+              'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.',
+            ],
+            [
+              'rule_4',
+              'Destructive Payload',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+          ] as const
+        ).map(([id, heading, allow]) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              `Under this hard block rule, must the pending action be refused?\n### ${heading}\n`,
+            ),
+            criteria: {
+              allow,
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+      ...Object.fromEntries(
+        (
+          [
+            ['rule_5', 'Irreversible Deletion'],
+            ['rule_6', 'Uncommitted Work Destruction'],
+            ['rule_7', 'History Rewrite'],
+            ['rule_8', 'Default Branch Write'],
+            ['rule_9', 'Publish and Release'],
+            ['rule_10', 'Outbound Communication'],
+            ['rule_11', 'Remote Code Execution'],
+            ['rule_12', 'Obfuscated Command'],
+            ['rule_13', 'Network Exposure'],
+            ['rule_14', 'Unnamed Destination'],
+            ['rule_15', 'Shared Infrastructure'],
+            ['rule_16', 'Destructive Database Operation'],
+            ['rule_17', 'Persistent Configuration'],
+            ['rule_18', 'Credential Exploration'],
+            ['rule_19', 'Interrupted Action Retry'],
+            ['rule_20', 'Security Control Removal'],
+            ['rule_21', 'Mass Modification'],
+          ] as const
+        ).map(([id, heading]) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              `Under this soft block rule, must the pending action be refused?\n### ${heading}\n`,
+            ),
+            criteria: {
+              allow:
+                'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+      soft_deny_0: {
+        type: 'choice',
+        instructions:
+          'Under this soft block rule, must the pending action be refused?\nNever rewrite the parser grammar\n\nApply state.answerGuidance to this rule. This rule has no hard-block false-positive clarification exception.',
+        criteria: {
+          allow:
+            'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+          block: 'This named rule blocks the action and no permitted exception clears it.',
+          ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+        },
+      },
+    },
   });
 
   expect(JSON.stringify(received.mock.calls)).not.toInclude('PRIVATE_TOKEN');
@@ -293,7 +387,89 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
           },
         },
       },
-      questions: expect.toBeObject(),
+      questions: {
+        ...Object.fromEntries(
+          (
+            [
+              [
+                'rule_0',
+                'Data Exfiltration',
+                'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+              ],
+              [
+                'rule_1',
+                'Secret Persistence',
+                'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+              ],
+              [
+                'rule_2',
+                'Policy Tampering',
+                'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.',
+              ],
+              [
+                'rule_3',
+                'Audit Tampering',
+                'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.',
+              ],
+              [
+                'rule_4',
+                'Destructive Payload',
+                'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+              ],
+            ] as const
+          ).map(([id, heading, allow]) => [
+            id,
+            {
+              type: 'choice',
+              instructions: expect.toStartWith(
+                `Under this hard block rule, must the pending action be refused?\n### ${heading}\n`,
+              ),
+              criteria: {
+                allow,
+                block: 'This named rule blocks the action and no permitted exception clears it.',
+                ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              },
+            },
+          ]),
+        ),
+        ...Object.fromEntries(
+          (
+            [
+              ['rule_5', 'Irreversible Deletion'],
+              ['rule_6', 'Uncommitted Work Destruction'],
+              ['rule_7', 'History Rewrite'],
+              ['rule_8', 'Default Branch Write'],
+              ['rule_9', 'Publish and Release'],
+              ['rule_10', 'Outbound Communication'],
+              ['rule_11', 'Remote Code Execution'],
+              ['rule_12', 'Obfuscated Command'],
+              ['rule_13', 'Network Exposure'],
+              ['rule_14', 'Unnamed Destination'],
+              ['rule_15', 'Shared Infrastructure'],
+              ['rule_16', 'Destructive Database Operation'],
+              ['rule_17', 'Persistent Configuration'],
+              ['rule_18', 'Credential Exploration'],
+              ['rule_19', 'Interrupted Action Retry'],
+              ['rule_20', 'Security Control Removal'],
+              ['rule_21', 'Mass Modification'],
+            ] as const
+          ).map(([id, heading]) => [
+            id,
+            {
+              type: 'choice',
+              instructions: expect.toStartWith(
+                `Under this soft block rule, must the pending action be refused?\n### ${heading}\n`,
+              ),
+              criteria: {
+                allow:
+                  'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+                block: 'This named rule blocks the action and no permitted exception clears it.',
+                ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              },
+            },
+          ]),
+        ),
+      },
     });
 
     expect(question.criteria.allow).toBe(
@@ -931,7 +1107,89 @@ test('it sends checked branch evidence for a routine feature commit and allows i
         },
       },
     },
-    questions: expect.toBeObject(),
+    questions: {
+      ...Object.fromEntries(
+        (
+          [
+            [
+              'rule_0',
+              'Data Exfiltration',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+            [
+              'rule_1',
+              'Secret Persistence',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+            [
+              'rule_2',
+              'Policy Tampering',
+              'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.',
+            ],
+            [
+              'rule_3',
+              'Audit Tampering',
+              'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.',
+            ],
+            [
+              'rule_4',
+              'Destructive Payload',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+          ] as const
+        ).map(([id, heading, allow]) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              `Under this hard block rule, must the pending action be refused?\n### ${heading}\n`,
+            ),
+            criteria: {
+              allow,
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+      ...Object.fromEntries(
+        (
+          [
+            ['rule_5', 'Irreversible Deletion'],
+            ['rule_6', 'Uncommitted Work Destruction'],
+            ['rule_7', 'History Rewrite'],
+            ['rule_8', 'Default Branch Write'],
+            ['rule_9', 'Publish and Release'],
+            ['rule_10', 'Outbound Communication'],
+            ['rule_11', 'Remote Code Execution'],
+            ['rule_12', 'Obfuscated Command'],
+            ['rule_13', 'Network Exposure'],
+            ['rule_14', 'Unnamed Destination'],
+            ['rule_15', 'Shared Infrastructure'],
+            ['rule_16', 'Destructive Database Operation'],
+            ['rule_17', 'Persistent Configuration'],
+            ['rule_18', 'Credential Exploration'],
+            ['rule_19', 'Interrupted Action Retry'],
+            ['rule_20', 'Security Control Removal'],
+            ['rule_21', 'Mass Modification'],
+          ] as const
+        ).map(([id, heading]) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              `Under this soft block rule, must the pending action be refused?\n### ${heading}\n`,
+            ),
+            criteria: {
+              allow:
+                'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+    },
   });
 });
 
@@ -1885,7 +2143,89 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       taskContext: payload.decisionContext,
       action: { tool: 'Bash', cwd: ctx.dir, input: { command: 'gh pr view 7' } },
     },
-    questions: expect.toBeObject(),
+    questions: {
+      ...Object.fromEntries(
+        (
+          [
+            [
+              'rule_0',
+              'Data Exfiltration',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+            [
+              'rule_1',
+              'Secret Persistence',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+            [
+              'rule_2',
+              'Policy Tampering',
+              'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.',
+            ],
+            [
+              'rule_3',
+              'Audit Tampering',
+              'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.',
+            ],
+            [
+              'rule_4',
+              'Destructive Payload',
+              'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+            ],
+          ] as const
+        ).map(([id, heading, allow]) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              `Under this hard block rule, must the pending action be refused?\n### ${heading}\n`,
+            ),
+            criteria: {
+              allow,
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+      ...Object.fromEntries(
+        (
+          [
+            ['rule_5', 'Irreversible Deletion'],
+            ['rule_6', 'Uncommitted Work Destruction'],
+            ['rule_7', 'History Rewrite'],
+            ['rule_8', 'Default Branch Write'],
+            ['rule_9', 'Publish and Release'],
+            ['rule_10', 'Outbound Communication'],
+            ['rule_11', 'Remote Code Execution'],
+            ['rule_12', 'Obfuscated Command'],
+            ['rule_13', 'Network Exposure'],
+            ['rule_14', 'Unnamed Destination'],
+            ['rule_15', 'Shared Infrastructure'],
+            ['rule_16', 'Destructive Database Operation'],
+            ['rule_17', 'Persistent Configuration'],
+            ['rule_18', 'Credential Exploration'],
+            ['rule_19', 'Interrupted Action Retry'],
+            ['rule_20', 'Security Control Removal'],
+            ['rule_21', 'Mass Modification'],
+          ] as const
+        ).map(([id, heading]) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              `Under this soft block rule, must the pending action be refused?\n### ${heading}\n`,
+            ),
+            criteria: {
+              allow:
+                'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+    },
   });
 });
 

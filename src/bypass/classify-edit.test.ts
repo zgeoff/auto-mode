@@ -76,7 +76,7 @@ test.each([
   ['/repository/a.ts', 'target outside every in-scope worktree'],
   ['/repo/.worktrees/other/a.ts', 'target in a nested worktree outside the scope'],
 ])('it sends a write to %s to Jev as a %s', (target, reason) => {
-  const action = buildMockEditAction({ toolName: 'Write', target });
+  const action = buildMockEditAction({ toolName: 'Write', target, checkout: null });
 
   expect(
     classifyEdit(action, { worktrees: ['/repo', '/repo/.worktrees/feat'], protectedDirs: [] }),
@@ -121,7 +121,11 @@ test.each([
   ['keys/id_ed25519', 'a credential file'],
   ['infra/prod.tfvars', 'a credential file'],
 ])('it sends a write to %s to Jev as %s', (path, exclusion) => {
-  const action = buildMockEditAction({ toolName: 'Write', target: `/repo/${path}` });
+  const action = buildMockEditAction({
+    toolName: 'Write',
+    target: `/repo/${path}`,
+    checkout: null,
+  });
 
   expect(classifyEdit(action, { worktrees: ['/repo'], protectedDirs: [] })).toStrictEqual({
     kind: 'jev',
@@ -133,7 +137,7 @@ test.each([
   ['/repo/.claude/settings.json', '/repo/config/permissions.json', 'agent configuration'],
   ['/repo/notes.md', '/repo/.git/hooks/pre-commit', 'git metadata'],
 ])('it sends an edit of %s that resolves to %s to Jev as %s', (requested, target, exclusion) => {
-  const action = buildMockEditAction({ toolName: 'Write', requested, target });
+  const action = buildMockEditAction({ toolName: 'Write', requested, target, checkout: null });
 
   expect(classifyEdit(action, { worktrees: ['/repo'], protectedDirs: [] })).toStrictEqual({
     kind: 'jev',
@@ -142,7 +146,11 @@ test.each([
 });
 
 test("it sends a write to a linked worktree's .git file to Jev", () => {
-  const action = buildMockEditAction({ toolName: 'Write', target: '/repo/.worktrees/feat/.git' });
+  const action = buildMockEditAction({
+    toolName: 'Write',
+    target: '/repo/.worktrees/feat/.git',
+    checkout: null,
+  });
 
   expect(
     classifyEdit(action, { worktrees: ['/repo', '/repo/.worktrees/feat'], protectedDirs: [] }),
@@ -153,6 +161,7 @@ test("it sends a write into auto-mode's configuration or state to Jev", () => {
   const action = buildMockEditAction({
     toolName: 'Write',
     target: '/home/dev/.config/auto-mode/config.json',
+    checkout: null,
   });
 
   expect(
@@ -170,6 +179,7 @@ test('it sends content with a secret to Jev and names the rule', () => {
     toolName: 'Write',
     toolInput: { content: `aws_access_key_id = "${key}"` },
     target: '/repo/src/aws.ts',
+    checkout: null,
   });
 
   expect(classifyEdit(action, { worktrees: ['/repo'], protectedDirs: [] })).toStrictEqual({
@@ -257,6 +267,7 @@ test('it sends a tool that is not a file edit to Jev', () => {
   const action = buildMockEditAction({
     toolName: 'Bash',
     target: '/repo/a',
+    checkout: null,
   });
 
   expect(classifyEdit(action, { worktrees: ['/repo'], protectedDirs: [] })).toStrictEqual({
@@ -270,6 +281,7 @@ test('it sends content that is not text to Jev', () => {
     toolName: 'Write',
     toolInput: { content: 42 },
     target: '/repo/a',
+    checkout: null,
   });
 
   expect(classifyEdit(action, { worktrees: ['/repo'], protectedDirs: [] })).toStrictEqual({
@@ -296,6 +308,7 @@ test('it sends a write requested outside every worktree through an excluded name
     toolName: 'Write',
     requested: '/home/dev/.claude/a.md',
     target: '/home/dev/.docker/app/src/a.ts',
+    checkout: null,
   });
 
   expect(

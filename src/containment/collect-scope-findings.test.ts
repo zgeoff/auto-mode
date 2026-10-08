@@ -37,6 +37,28 @@ test('it finds a sibling worktree removed by path', () => {
   expect(findings).toStrictEqual([{ kind: 'path', target: '/home/dev/src/app/.worktrees/other' }]);
 });
 
+test.each([
+  ['&&', 'rm -rf ../other && gh pr comment 40 -b x'],
+  [';', 'rm -rf ../other; gh pr comment 40 -b x'],
+])('it finds a write in each command joined by %s, in command order', (_separator, command) => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other' },
+    { kind: 'remote-write', target: 'gh pr comment' },
+  ]);
+});
+
 test('it finds a sibling worktree removed by git', () => {
   const findings = collectScopeFindings(
     {
@@ -74,12 +96,30 @@ test('it finds a write to a nested worktree from its parent checkout', () => {
   expect(findings).toStrictEqual([{ kind: 'path', target: '/home/dev/src/app/.worktrees/other' }]);
 });
 
-test('it finds another branch deleted and a push to the default branch from the main checkout', () => {
+test('it finds another branch deleted from the main checkout', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app',
-      input: { command: 'git branch -D feature other && git push origin HEAD:main 2>&1' },
+      input: { command: 'git branch -D feature other' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature'],
+      currentBranch: 'feature',
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'branch', target: 'other' }]);
+});
+
+test('it finds a push to the default branch from the main checkout', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app',
+      input: { command: 'git push origin HEAD:main 2>&1' },
     },
     buildMockOwnedScope({
       worktrees: ['/home/dev/src/app/.worktrees/feature'],
@@ -90,19 +130,17 @@ test('it finds another branch deleted and a push to the default branch from the 
   );
 
   expect(findings).toStrictEqual([
-    { kind: 'branch', target: 'other' },
     { kind: 'path', target: '/home/dev/src/app' },
     { kind: 'branch', target: 'main' },
   ]);
 });
 
-test('it finds a comment on another pull request and a merge of the owned one', () => {
+test.each([
+  ['a comment on another pull request', 'gh pr comment 40 -b x', 'gh pr comment'],
+  ['a merge of the owned pull request', 'gh pr merge 12', 'gh pr merge'],
+])('it finds %s', (_label, command, target) => {
   const findings = collectScopeFindings(
-    {
-      tool: 'Bash',
-      cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'gh pr comment 40 -b x; gh pr merge 12' },
-    },
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
     buildMockOwnedScope({
       worktrees: ['/home/dev/src/app/.worktrees/feature'],
       branches: ['feature'],
@@ -111,30 +149,20 @@ test('it finds a comment on another pull request and a merge of the owned one', 
     }),
   );
 
-  expect(findings).toStrictEqual([
-    { kind: 'remote-write', target: 'gh pr comment' },
-    { kind: 'remote-write', target: 'gh pr merge' },
-  ]);
+  expect(findings).toStrictEqual([{ kind: 'remote-write', target }]);
 });
 
-test('it finds credential changes and volume prunes', () => {
+test.each([
+  ['op item edit deploy password=x', 'credential', 'op item edit'],
+  ['chmod 600 ~/.ssh/id_ed25519', 'credential', '/home/dev/.ssh/id_ed25519'],
+  ['docker volume prune -af', 'prune', 'docker volume prune -af'],
+] as const)('it finds %s as a %s change', (command, kind, target) => {
   const findings = collectScopeFindings(
-    {
-      tool: 'Bash',
-      cwd: '/home/dev/src/app/.worktrees/feature',
-      input: {
-        command:
-          'op item edit deploy password=x; chmod 600 ~/.ssh/id_ed25519; docker volume prune -af',
-      },
-    },
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
     buildMockOwnedScope({ home: '/home/dev', worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 
-  expect(findings).toStrictEqual([
-    { kind: 'credential', target: 'op item edit' },
-    { kind: 'credential', target: '/home/dev/.ssh/id_ed25519' },
-    { kind: 'prune', target: 'docker volume prune -af' },
-  ]);
+  expect(findings).toStrictEqual([{ kind, target }]);
 });
 
 test('it finds a quoted redirect target outside the worktree', () => {
@@ -152,12 +180,12 @@ test('it finds a quoted redirect target outside the worktree', () => {
   ]);
 });
 
-test('it finds a redirect with a descriptor number and ignores a descriptor copy', () => {
+test('it finds a redirect with a descriptor number', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'bun test 2>../other/err.log; bun test 2>&1 | tail -3' },
+      input: { command: 'bun test 2>../other/err.log' },
     },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
@@ -167,22 +195,30 @@ test('it finds a redirect with a descriptor number and ignores a descriptor copy
   ]);
 });
 
-test('it finds the target directory that cp, mv, and ln name with -t', () => {
+test('it finds nothing in a descriptor copy', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: {
-        command: 'cp -t ../other a.ts; ln -s -t ../other b.ts; mv --target-directory=../x c.ts',
-      },
+      input: { command: 'bun test 2>&1 | tail -3' },
     },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 
-  expect(findings).toStrictEqual([
-    { kind: 'path', target: '/home/dev/src/app/.worktrees/other' },
-    { kind: 'path', target: '/home/dev/src/app/.worktrees/x' },
-  ]);
+  expect(findings).toStrictEqual([]);
+});
+
+test.each([
+  ['cp -t ../other a.ts', '/home/dev/src/app/.worktrees/other'],
+  ['ln -s -t ../other b.ts', '/home/dev/src/app/.worktrees/other'],
+  ['mv --target-directory=../x c.ts', '/home/dev/src/app/.worktrees/x'],
+])('it finds the target directory that %s names', (command, target) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'path', target }]);
 });
 
 test('it finds a push to a URL that only contains the repository name', () => {
@@ -273,15 +309,12 @@ test.each([['Read'], ['Grep'], ['Glob']])(
   },
 );
 
-test('it resolves ssh-keygen -f against the directory and skips a fingerprint read', () => {
+test('it finds a key that ssh-keygen -f writes outside the worktree', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: {
-        command:
-          "ssh-keygen -t ed25519 -f ./deploy_key -N ''; ssh-keygen -l -f ~/.ssh/id_ed25519; ssh-keygen -f ../other/key",
-      },
+      input: { command: 'ssh-keygen -f ../other/key' },
     },
     buildMockOwnedScope({ home: '/home/dev', worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
@@ -289,6 +322,18 @@ test('it resolves ssh-keygen -f against the directory and skips a fingerprint re
   expect(findings).toStrictEqual([
     { kind: 'path', target: '/home/dev/src/app/.worktrees/other/key' },
   ]);
+});
+
+test.each([
+  ['a key it writes inside the worktree', "ssh-keygen -t ed25519 -f ./deploy_key -N ''"],
+  ['a fingerprint read of a credential', 'ssh-keygen -l -f ~/.ssh/id_ed25519'],
+])('it finds nothing in ssh-keygen with %s', (_label, command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({ home: '/home/dev', worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([]);
 });
 
 test('it finds a bare push of the default branch checked out in the cwd', () => {
@@ -395,12 +440,16 @@ test('it finds a gh api graphql query that carries a mutation', () => {
   expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh api graphql mutation' }]);
 });
 
-test('it leaves a target held in a variable or a substitution to the classifier', () => {
+test.each([
+  ['a removal of a target in a variable', 'rm -rf "$TARGET"'],
+  ['a copy to a target in a substitution', 'cp a.ts "$(pwd)/../b"'],
+  ['a removal after a cd to a variable', 'cd "$DIR" && rm -rf x'],
+])('it leaves %s to the classifier', (_label, command) => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'rm -rf "$TARGET"; cp a.ts "$(pwd)/../b"; cd "$DIR" && rm -rf x' },
+      input: { command },
     },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
@@ -421,12 +470,15 @@ test('it finds nothing in gh api with an explicit GET method, even with fields',
   expect(findings).toStrictEqual([]);
 });
 
-test('it leaves a push to a branch or remote held in a variable to the classifier', () => {
+test.each([
+  ['a push to a branch held in a variable', 'git push origin "$BRANCH"'],
+  ['a push to a remote held in a variable', 'git push "$REMOTE" feature'],
+])('it leaves %s to the classifier', (_label, command) => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'git push origin "$BRANCH"; git push "$REMOTE" feature' },
+      input: { command },
     },
     buildMockOwnedScope({
       worktrees: ['/home/dev/src/app/.worktrees/feature'],
@@ -452,47 +504,43 @@ test('it leaves the directory unknown after a cd inside a pipeline', () => {
   expect(findings).toStrictEqual([]);
 });
 
-test('it finds no write in an ssh read or an scp download into the worktree', () => {
+test.each([
+  ['an ssh read', 'ssh host cat /etc/os-release'],
+  ['an ssh listing', 'ssh host ls -l /var/log'],
+  ['an scp download into the worktree', 'scp host:/var/log/app.log ./app.log'],
+])('it finds no write in %s', (_label, command) => {
   const findings = collectScopeFindings(
-    {
-      tool: 'Bash',
-      cwd: '/home/dev/src/app/.worktrees/feature',
-      input: {
-        command:
-          'ssh host cat /etc/os-release; ssh host ls -l /var/log; scp host:/var/log/app.log ./app.log',
-      },
-    },
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 
   expect(findings).toStrictEqual([]);
 });
 
-test('it finds a write in an ssh command, an scp upload, and an scp download outside the worktree', () => {
+test.each([
+  ['an ssh command', "ssh host 'cat a > b'", 'remote-write', 'ssh'],
+  ['an scp upload', 'scp ./app.log host:/tmp/', 'remote-write', 'scp'],
+  [
+    'an scp download outside the worktree',
+    'scp host:/a ../other/a',
+    'path',
+    '/home/dev/src/app/.worktrees/other/a',
+  ],
+] as const)('it finds a write in %s', (_label, command, kind, target) => {
   const findings = collectScopeFindings(
-    {
-      tool: 'Bash',
-      cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: "ssh host 'cat a > b'; scp ./app.log host:/tmp/; scp host:/a ../other/a" },
-    },
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 
-  expect(findings).toStrictEqual([
-    { kind: 'remote-write', target: 'ssh' },
-    { kind: 'remote-write', target: 'scp' },
-    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/a' },
-  ]);
+  expect(findings).toStrictEqual([{ kind, target }]);
 });
 
-test('it finds an IAM change but not an IAM read', () => {
+test('it finds an IAM change', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: {
-        command: 'aws iam get-user; aws iam list-roles; aws iam attach-user-policy --user-name x',
-      },
+      input: { command: 'aws iam attach-user-policy --user-name x' },
     },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
@@ -500,12 +548,37 @@ test('it finds an IAM change but not an IAM read', () => {
   expect(findings).toStrictEqual([{ kind: 'credential', target: 'aws iam attach-user-policy' }]);
 });
 
-test('it still checks absolute targets and remote writes after a cd inside a pipeline', () => {
+test.each([['aws iam get-user'], ['aws iam list-roles']])(
+  'it finds nothing in the IAM read %s',
+  (command) => {
+    const findings = collectScopeFindings(
+      { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+      buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+    );
+
+    expect(findings).toStrictEqual([]);
+  },
+);
+
+test('it still checks an absolute target after a cd inside a pipeline, but not a relative one', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'cd /repo && cat a | head; rm -rf /other; rm -rf local; gh pr merge 12' },
+      input: { command: 'cd /repo && cat a | head; rm -rf /other; rm -rf local' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'path', target: '/other' }]);
+});
+
+test('it still checks a remote write after a cd inside a pipeline', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'cd /repo && cat a | head; gh pr merge 12' },
     },
     buildMockOwnedScope({
       worktrees: ['/home/dev/src/app/.worktrees/feature'],
@@ -514,10 +587,7 @@ test('it still checks absolute targets and remote writes after a cd inside a pip
     }),
   );
 
-  expect(findings).toStrictEqual([
-    { kind: 'path', target: '/other' },
-    { kind: 'remote-write', target: 'gh pr merge' },
-  ]);
+  expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr merge' }]);
 });
 
 test.each([
