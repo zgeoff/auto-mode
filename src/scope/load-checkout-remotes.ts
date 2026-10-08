@@ -16,13 +16,40 @@ export async function loadCheckoutRemotes(commonDir: string): Promise<ScopeRemot
     } else if (/^\s*\[/u.test(line)) {
       section = null;
     } else if (section !== null) {
-      const url = /^\s*(?:push)?url\s*=\s*(?<url>\S+)/u.exec(line)?.groups?.['url'];
+      const value = /^\s*(?:push)?url\s*=(?<value>.*)$/iu.exec(line)?.groups?.['value'];
+      const url = value === undefined ? '' : parseConfigValue(value);
 
-      if (url !== undefined) {
+      if (url !== '') {
         remotes.push({ name: section, url });
       }
     }
   }
 
   return remotes;
+}
+
+// Git reads a config value with its quotes removed, its escapes resolved, and
+// an unquoted `#` or `;` starting a comment.
+function parseConfigValue(raw: string): string {
+  let value = '';
+  let isQuoted = false;
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw[index] ?? '';
+
+    if (char === '\\') {
+      const next = raw[index + 1] ?? '';
+
+      value += ({ n: '\n', t: '\t', b: '' } as Record<string, string>)[next] ?? next;
+      index += 1;
+    } else if (char === '"') {
+      isQuoted = !isQuoted;
+    } else if (!isQuoted && (char === '#' || char === ';')) {
+      break;
+    } else {
+      value += char;
+    }
+  }
+
+  return value.trim();
 }

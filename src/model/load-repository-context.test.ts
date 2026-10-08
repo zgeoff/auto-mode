@@ -161,7 +161,17 @@ test('it reads the checkout remotes without the user info a URL can carry', asyn
 
   await writeFile(
     join(ctx.gitDir, 'config'),
-    `[remote "origin"]\n\turl = git@github.com:dev/app.git\n[remote "mirror"]\n\turl = https://dev:${token}@git.example.com/dev/app.git\n`,
+    [
+      '[remote "origin"]',
+      '\turl = git@github.com:dev/app.git',
+      '[remote "mirror"]',
+      `\turl = https://dev:${token}@git.example.com/dev/app.git`,
+      '[remote "quoted"]',
+      `\turl = "https://dev:${token}@git.example.com/dev/app.git" # mirror`,
+      '[remote "odd"]',
+      `\turl = dev:${token}@git.example.com:dev/app.git`,
+      '',
+    ].join('\n'),
   );
 
   await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/main\n');
@@ -173,5 +183,6 @@ test('it reads the checkout remotes without the user info a URL can carry', asyn
   expect(context.remotes).toStrictEqual([
     { name: 'origin', url: 'git@github.com:dev/app.git' },
     { name: 'mirror', url: 'https://git.example.com/dev/app.git' },
+    { name: 'quoted', url: 'https://git.example.com/dev/app.git' },
   ]);
 });

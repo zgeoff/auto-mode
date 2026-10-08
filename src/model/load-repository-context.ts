@@ -85,10 +85,11 @@ export async function loadRepositoryContext(cwd: string): Promise<RepositoryCont
       cwd: resolve(cwd),
       branch: parseReference(head, 'refs/heads/'),
       defaultBranch,
-      remotes: remotes.map((remote) => ({
-        name: remote.name,
-        url: normalizeRemoteURL(remote.url),
-      })),
+      remotes: remotes.flatMap((remote) => {
+        const url = normalizeRemoteURL(remote.url);
+
+        return url === null ? [] : [{ name: remote.name, url }];
+      }),
     };
   }
 }
@@ -107,7 +108,27 @@ function parseReference(content: string, prefix: string): string | null {
 }
 
 // A remote URL can hold a token as its user info, and the request leaves the
-// machine, so only the host and path go into it.
-function normalizeRemoteURL(url: string): string {
-  return url.replace(/^(?<scheme>[a-z][a-z0-9+.-]*:\/\/)[^/@]*@/iu, '$<scheme>');
+// machine, so only the host and path go into it; a URL that does not parse is
+// left out rather than sent with what it might hold.
+function normalizeRemoteURL(url: string): string | null {
+  if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(url)) {
+    const parsed = URL.parse(url);
+
+    if (parsed === null) {
+      return null;
+    }
+
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+
+    return parsed.href;
+  }
+
+  // The scp form `user@host:path` names an account, never a secret, unless the
+  // user part holds a colon.
+  const at = url.indexOf('@');
+
+  return at !== -1 && url.slice(0, at).includes(':') ? null : url;
 }
