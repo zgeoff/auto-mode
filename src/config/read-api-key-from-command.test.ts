@@ -68,14 +68,19 @@ test('it stops a key helper and its child on cancellation', async () => {
 
   // The kill returns before the kernel finishes it, so a process can still read
   // as running for a moment after the reader resolves.
-  const helperAfter = await waitFor(
-    () => loadProcessState(pids.helper),
-    (state) => state === null || state.state === 'Z' || state.state === 'X',
-  );
+  const after = await waitFor(
+    async () => {
+      const [helperState, childState] = await Promise.all([
+        loadProcessState(pids.helper),
+        loadProcessState(pids.child),
+      ]);
 
-  const childAfter = await waitFor(
-    () => loadProcessState(pids.child),
-    (state) => state === null || state.state === 'Z' || state.state === 'X',
+      return { helper: helperState, child: childState };
+    },
+    (states) =>
+      [states.helper, states.child].every(
+        (state) => state === null || state.state === 'Z' || state.state === 'X',
+      ),
   );
 
   expect(key).toBeNull();
@@ -84,13 +89,13 @@ test('it stops a key helper and its child on cancellation', async () => {
 
   // A stopped process is gone or a zombie awaiting its reaper; the start time
   // keeps a reused process ID from passing as the stopped one.
-  expect(helperAfter).toBeOneOf([
+  expect(after.helper).toBeOneOf([
     null,
     { ...helperBefore, state: 'Z' },
     { ...helperBefore, state: 'X' },
   ]);
 
-  expect(childAfter).toBeOneOf([
+  expect(after.child).toBeOneOf([
     null,
     { ...childBefore, state: 'Z' },
     { ...childBefore, state: 'X' },

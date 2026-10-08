@@ -15,9 +15,6 @@ async function setupTest() {
   // The project lookup walks up to the nearest checkout, so the cwd sits in one.
   await mkdir(join(repo, '.git'), { recursive: true });
 
-  // Claude Code keeps the user settings in .claude under the home.
-  await mkdir(join(dir, '.claude'));
-
   return { dir, repo };
 }
 
@@ -74,6 +71,8 @@ test('it keeps one definition per server name, local before project before user'
     }),
   );
 
+  await mkdir(join(ctx.dir, '.claude'));
+
   await writeFile(
     join(ctx.dir, '.claude', 'settings.json'),
     JSON.stringify({ enableAllProjectMcpServers: true }),
@@ -115,6 +114,8 @@ test('it reads a nested checkout as its own project, not its parent', async () =
     JSON.stringify({ mcpServers: { nested: { command: 'nested' } } }),
   );
 
+  await mkdir(join(ctx.dir, '.claude'));
+
   await writeFile(
     join(ctx.dir, '.claude', 'settings.json'),
     JSON.stringify({ enabledMcpjsonServers: ['nested'] }),
@@ -155,6 +156,8 @@ test('it lists a project server only when the user settings approve it, not the 
     JSON.stringify({ enableAllProjectMcpServers: true }),
   );
 
+  await mkdir(join(ctx.dir, '.claude'));
+
   await writeFile(
     join(ctx.dir, '.claude', 'settings.json'),
     JSON.stringify({ enabledMcpjsonServers: ['approved'] }),
@@ -182,6 +185,8 @@ test('it drops a project server that the project entry disables, even when all a
       },
     }),
   );
+
+  await mkdir(join(ctx.dir, '.claude'));
 
   await writeFile(
     join(ctx.dir, '.claude', 'settings.json'),
@@ -265,6 +270,8 @@ test.each([
   ['an empty name', '', { command: 'tool' }],
   ['a name longer than 128 characters', 'n'.repeat(129), { command: 'tool' }],
   ['an unknown transport type', 'grpc', { type: 'grpc', url: 'https://grpc.example.test/mcp' }],
+  ['a URL but no transport type', 'api', { url: 'https://api.example.test/mcp' }],
+  ['an entry that is not an object', 'tool', 'tool'],
 ])('it drops a server with %s', async (_label, name, entry) => {
   const ctx = await setupTest();
 
@@ -332,4 +339,20 @@ test('it leaves the host unknown when the server URL is not http or ws', async (
   );
 
   expect(servers).toStrictEqual([{ name: 'files', scope: 'user', transport: 'http', host: null }]);
+});
+
+test('it leaves the host unknown when the server URL does not parse', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, '.claude.json'),
+    JSON.stringify({ mcpServers: { api: { type: 'http', url: 'not a url' } } }),
+  );
+
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
+
+  expect(servers).toStrictEqual([{ name: 'api', scope: 'user', transport: 'http', host: null }]);
 });

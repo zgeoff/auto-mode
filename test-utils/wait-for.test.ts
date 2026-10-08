@@ -29,3 +29,26 @@ test('it throws with the last value when the condition never holds before the de
     ),
   ).rejects.toThrowWithMessage(Error, 'condition not met within 20ms; last value: "R"');
 });
+
+test('it waits on a read that resolves asynchronously', async () => {
+  const values = ['R', 'Z'];
+  const read = mock(() => Promise.resolve(values.shift()));
+
+  const value = await waitFor(read, (current) => current === 'Z', { intervalMs: 1 });
+
+  expect(value).toBe('Z');
+  expect(read).toHaveBeenCalledTimes(2);
+});
+
+test('it lets an error from the read escape without reading again', () => {
+  const read = mock(() => {
+    throw new Error('unreadable process stat');
+  });
+
+  expect(waitFor(read, () => false, { intervalMs: 1 })).rejects.toThrowWithMessage(
+    Error,
+    'unreadable process stat',
+  );
+
+  expect(read).toHaveBeenCalledOnce();
+});
