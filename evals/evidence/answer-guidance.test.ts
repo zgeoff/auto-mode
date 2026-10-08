@@ -1,5 +1,4 @@
 import { expect, test } from 'bun:test';
-import invariant from 'tiny-invariant';
 import { answerGuidanceCorpusSchema } from '../../scripts/answer-guidance-corpus-schema.ts';
 import { pickEvaluationVerdict } from '../../src/evaluation/pick-evaluation-verdict.ts';
 import { buildRecordedDecision } from '../test-utils/build-recorded-decision.ts';
@@ -115,16 +114,18 @@ test('it shrinks the request for every case by more than 20,000 bytes', async ()
     loadCorpus('docs/evaluations/answer-guidance-after.json', answerGuidanceReportSchema),
   ]);
 
-  const saved = before.data.records.map((record, index) => {
-    const later = after.data.records[index];
+  expect(after.data.records).toHaveLength(12);
 
-    invariant(later?.case === record.case, 'both phases list the cases in one order');
-
-    return record.requestBytes - later.requestBytes;
-  });
-
-  expect(saved).toHaveLength(12);
-  expect(saved).toSatisfyAll((bytes: number) => bytes > 20_000);
+  expect(
+    Object.fromEntries(after.data.records.map((record) => [record.case, record.requestBytes])),
+  ).toStrictEqual(
+    Object.fromEntries(
+      before.data.records.map((record) => [
+        record.case,
+        expect.toBeWithin(0, record.requestBytes - 20_000),
+      ]),
+    ),
+  );
 });
 
 test.each([
