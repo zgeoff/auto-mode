@@ -1,7 +1,7 @@
 import type { ClaudeRules } from '../config/load-claude-rules.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildTaskContext } from './build-task-context.ts';
-import type { DecisionRequest, DecisionRule, RepositoryContext } from './types.ts';
+import type { DecisionRequest, DecisionRule, MCPServerFact, RepositoryContext } from './types.ts';
 
 export function buildDecisionRequest(
   payload: ActionRequest,
@@ -10,6 +10,7 @@ export function buildDecisionRequest(
   lastUserMessage: string | null,
   rulesSource: 'shipped' | 'replacement' = 'replacement',
   repositoryContext: RepositoryContext | null = null,
+  mcpServers: readonly MCPServerFact[] = [],
 ): DecisionRequest {
   const rules: Record<string, DecisionRule> = {};
   let tier: DecisionRule['tier'] | null = null;
@@ -96,6 +97,7 @@ export function buildDecisionRequest(
       rulesSource,
       configuredRules,
       ...(repositoryContext === null ? {} : { repositoryContext }),
+      ...(mcpServers.length === 0 ? {} : { mcpServers }),
       lastUserMessage:
         payload.decisionContext === undefined || payload.decisionContext.agentID === null
           ? lastUserMessage

@@ -1,5 +1,5 @@
 import type { ActionRequest } from '../request/types.ts';
-import type { RepositoryContext } from './types.ts';
+import type { MCPServerFact, RepositoryContext } from './types.ts';
 
 const MAX_INPUT_CHARS = 4000;
 
@@ -13,6 +13,7 @@ export function buildUserMessage(
   transcript: readonly TranscriptEntry[],
   reasoning: boolean,
   repositoryContext: Readonly<RepositoryContext> | null = null,
+  mcpServers: readonly MCPServerFact[] = [],
 ): string {
   const history =
     transcript.length === 0
@@ -33,11 +34,16 @@ export function buildUserMessage(
       ? ''
       : `<repository>\n${JSON.stringify(repositoryContext, null, 2)}\n</repository>\n\n`;
 
+  const servers =
+    mcpServers.length === 0
+      ? ''
+      : `<mcp-servers>\n${JSON.stringify(mcpServers, null, 2)}\n</mcp-servers>\n\n`;
+
   return `<transcript>
 ${history}
 </transcript>
 
-${repository}<action>
+${repository}${servers}<action>
 tool: ${payload.toolName}
 cwd: ${payload.cwd}
 input:

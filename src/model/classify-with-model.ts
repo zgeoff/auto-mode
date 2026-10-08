@@ -9,6 +9,7 @@ import { sendMessage } from './anthropic-client.ts';
 import { buildUserMessage } from './build-request.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
+import { loadMCPServers } from './load-mcp-servers.ts';
 import { loadRepositoryEvidence } from './load-repository-evidence.ts';
 import { parseModelVerdict } from './parse-verdict.ts';
 import type { DecisionDiagnostics } from './types.ts';
@@ -58,13 +59,18 @@ export async function classifyWithModel(
 
   const transcript = directMessage === null ? [] : [{ role: 'user', text: directMessage.text }];
 
-  const repositoryContext = await loadRepositoryEvidence(
-    payload.cwd,
-    options.taskScope,
-    host.env,
-  ).catch(() => null);
+  const [repositoryContext, mcpServers] = await Promise.all([
+    loadRepositoryEvidence(payload.cwd, options.taskScope, host.env).catch(() => null),
+    loadMCPServers(payload.cwd, host).catch(() => []),
+  ]);
 
-  const user = buildUserMessage(payload, transcript, config.provider.reasoning, repositoryContext);
+  const user = buildUserMessage(
+    payload,
+    transcript,
+    config.provider.reasoning,
+    repositoryContext,
+    mcpServers,
+  );
 
   try {
     const timeout = options.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
