@@ -234,6 +234,30 @@ test('it builds the same request from the same input', async () => {
   );
 });
 
+// The classifier walks the rules in this order and the first block in a tier
+// wins, and a reader sees each question's options in this order.
+test('it orders shipped rules before configured ones and each question as allow, block, ask', () => {
+  const request = buildDecisionRequest(
+    buildMockActionRequest(),
+    '## HARD BLOCK rules\n### Secret Persistence\nNever commit keys\n## SOFT BLOCK rules\n### History Rewrite\nNever rewrite shared history',
+    buildMockClaudeRules({ soft_deny: ['Keep main protected'], hard_deny: ['Never send keys'] }),
+    null,
+  );
+
+  const question = request.questions['rule_0'];
+
+  invariant(question, 'the first rule has a question');
+
+  expect(Object.keys(request.rules)).toStrictEqual([
+    'rule_0',
+    'rule_1',
+    'hard_deny_0',
+    'soft_deny_0',
+  ]);
+
+  expect(Object.keys(question.criteria)).toStrictEqual(['allow', 'block', 'ask']);
+});
+
 test('it leaves out the task context and keeps the last user message when the request carries no decision context', () => {
   const request = buildDecisionRequest(
     buildMockActionRequest({ decisionContext: undefined }),
