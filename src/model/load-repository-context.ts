@@ -1,5 +1,5 @@
 import { readFile, stat } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, parse, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
 import { loadCheckoutRemotes } from '../scope/load-checkout-remotes.ts';
 import type { RepositoryContext } from './types.ts';
@@ -7,6 +7,7 @@ import type { RepositoryContext } from './types.ts';
 export async function loadRepositoryContext(
   cwd: string,
   env: HostEnvironment['env'],
+  stopDir: string = parse(resolve(cwd)).root,
 ): Promise<RepositoryContext | null> {
   if (['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].some((name) => env[name] !== undefined)) {
     return null;
@@ -26,7 +27,7 @@ export async function loadRepositoryContext(
 
       const parent = dirname(directory);
 
-      if (parent === directory) {
+      if (parent === directory || directory === resolve(stopDir)) {
         return null;
       }
 
