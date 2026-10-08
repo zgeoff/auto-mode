@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.8.0...auto-mode-v0.9.0) (2026-10-08)
+
+
+### Features
+
+* **geo-176:** read only the registry config shape ([#52](https://github.com/zgeoff/auto-mode/issues/52)) ([fae9e0d](https://github.com/zgeoff/auto-mode/commit/fae9e0d782a091a8e29d9460796a4d1d4b801d6c))
+
 ## [0.8.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.7.0...auto-mode-v0.8.0) (2026-10-08)
 
 
