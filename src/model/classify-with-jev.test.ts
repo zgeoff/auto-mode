@@ -23,15 +23,16 @@ async function setupTest() {
   onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
   // The repository readers walk up from the cwd to the nearest .git, so a
-  // repository here keeps that walk inside the temp tree. Its branch is main,
-  // which every test that reads the repository context expects.
-  runGit(dir, ['init', '--quiet', '--initial-branch=main']);
+  // repository here keeps that walk inside the temp tree.
+  runGit(dir, ['init', '--quiet']);
 
   return { dir };
 }
 
 test('it sends the configured rules and the direct user message without the settings environment', async () => {
   const ctx = await setupTest();
+
+  runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
 
   const settings = join(ctx.dir, 'settings.json');
 
@@ -283,6 +284,8 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
   'it offers the clarification path for the shipped %s rule and passes the clarification on',
   async (name) => {
     const ctx = await setupTest();
+
+    runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
 
     const clarification = `The ${name} finding is wrong: this is my disposable test fixture, not the active policy or an audit record.`;
     const received = mock<(body: unknown) => void>();
@@ -586,6 +589,8 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
   async (name) => {
     const ctx = await setupTest();
 
+    runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+
     const rules = join(ctx.dir, 'rules.md');
 
     await writeFile(
@@ -803,6 +808,8 @@ test('it returns the configured denial when the deadline passes during the reque
 
 test('it evaluates a subagent on its task context without the parent consent', async () => {
   const ctx = await setupTest();
+
+  runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
 
   const rules = join(ctx.dir, 'rules.md');
 

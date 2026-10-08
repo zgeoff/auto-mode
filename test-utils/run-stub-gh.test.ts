@@ -145,7 +145,7 @@ test('it prints its row only once the delay a pull request names has passed', as
         number: 12,
         headRefName: 'feat/a',
         createdAt: '2026-01-01T00:00:00Z',
-        delayMs: 300,
+        delayMs: 50,
       },
     ]),
   );
@@ -178,7 +178,16 @@ test('it prints its row only once the delay a pull request names has passed', as
     stderr: '',
   });
 
-  expect(elapsedMs).toBeGreaterThanOrEqual(300);
+  expect(elapsedMs).toBeGreaterThanOrEqual(50);
+});
+
+test('it fails without the path of its pull request file', () => {
+  const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-gh.ts')], {
+    encoding: 'utf8',
+  });
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toInclude('run-stub-gh needs the path of its pull request file');
 });
 
 test('it exits with the code a pull request names after printing its row', async () => {

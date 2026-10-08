@@ -1,5 +1,5 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
-import { HttpResponse, http, passthrough } from 'msw';
+import { HttpResponse, http } from 'msw';
 import { server } from '../mocks/node.ts';
 import { buildStubStalledBody } from './build-stub-stalled-body.ts';
 
@@ -92,8 +92,6 @@ test('it relies on a real transport failing a stalled body parse with an AbortEr
   });
 
   onTestFinished(() => listener.stop(true));
-
-  server.use(http.get(listener.url.href, () => passthrough()));
 
   const controller = new AbortController();
 

@@ -26,7 +26,16 @@ faker.seed(142);
 faker.setDefaultRefDate(new Date('2026-01-01T00:00:00Z'));
 
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'error' });
+  server.listen({
+    // the stalled-body suite calls a test server on an ephemeral loopback port
+    onUnhandledRequest: (request, print) => {
+      if (['127.0.0.1', '[::1]', 'localhost'].includes(new URL(request.url).hostname)) {
+        return;
+      }
+
+      print.error();
+    },
+  });
 });
 
 afterEach(() => {

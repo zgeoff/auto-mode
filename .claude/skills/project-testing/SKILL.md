@@ -19,9 +19,9 @@ harness that a test author needs to follow those rules here.
 - `bunfig.toml` preloads `@zgeoff/bun-test-extended` (the jest-extended matchers) and
   `test-setup.ts`.
 - `test-setup.ts` seeds faker with a fixed value and sets its reference date to a fixed date, so a
-  faker date never reads the wall clock. It starts the MSW server with
-  `onUnhandledRequest: 'error'`, and after each test resets the handlers and clears both reply
-  stores.
+  faker date never reads the wall clock. It starts the MSW server with an `onUnhandledRequest`
+  callback that lets loopback hosts through and fails every other unmatched request, and after each
+  test resets the handlers and clears both reply stores.
 - `test-setup.ts` also deletes the `GIT_*` names a git hook exports and the `ATC_*` names an atc
   session exports. The deletion reaches in-process reads and `node:child_process` children only: a
   `Bun.spawn` or `Bun.$` child gets the environment bun started with.
