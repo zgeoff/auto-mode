@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect, mock, test } from 'bun:test';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -113,12 +113,58 @@ setTimeout(() => console.log('offline-test-key'), 30000);
 });
 
 test('it limits a key helper to the shared deadline', async () => {
-  const started = performance.now();
+  const now = Date.now();
 
-  const key = await readApiKeyFromCommand('sleep 30; printf offline-test-key', {
-    deadlineAt: Date.now() + 100,
+  const timer = new AbortController();
+
+  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+
+  const result = readApiKeyFromCommand('sleep 30; printf offline-test-key', {
+    deadlineAt: now + 100,
+    now: () => now,
+    timeout,
+  });
+
+  timer.abort();
+
+  const key = await result;
+
+  expect(key).toBeNull();
+  expect(timeout).toHaveBeenCalledExactlyOnceWith(100);
+});
+
+test('it limits a key helper to 5 s without a shared deadline', async () => {
+  const timer = new AbortController();
+
+  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const result = readApiKeyFromCommand('sleep 30; printf offline-test-key', { timeout });
+
+  timer.abort();
+
+  const key = await result;
+
+  expect(key).toBeNull();
+  expect(timeout).toHaveBeenCalledExactlyOnceWith(5000);
+});
+
+test('it starts no key helper once the shared deadline has passed', async () => {
+  const now = Date.now();
+  const timeout = mock<(ms: number) => AbortSignal>(() => new AbortController().signal);
+
+  const key = await readApiKeyFromCommand('printf offline-test-key', {
+    deadlineAt: now,
+    now: () => now,
+    timeout,
   });
 
   expect(key).toBeNull();
-  expect(performance.now() - started).toBeLessThan(1000);
+  expect(timeout).not.toHaveBeenCalled();
+});
+
+test('it stops a key helper at once when its timer has already fired', async () => {
+  const key = await readApiKeyFromCommand('sleep 30; printf offline-test-key', {
+    timeout: () => AbortSignal.abort(),
+  });
+
+  expect(key).toBeNull();
 });

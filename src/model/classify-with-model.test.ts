@@ -1,8 +1,8 @@
-import { expect, onTestFinished, test } from 'bun:test';
+import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, delay, http } from 'msw';
 import invariant from 'tiny-invariant';
 import { server } from '../../mocks/node.ts';
 import type { Config } from '../config/config.ts';
@@ -134,11 +134,15 @@ test('it has no opinion when the model call fails', async () => {
 test('it names the timeout when the model call outlives it', async () => {
   const ctx = await setupTest();
 
+  const timer = new AbortController();
+
+  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+
   server.use(
     http.post(ENDPOINT, async () => {
-      await new Promise((resolve) => {
-        setTimeout(resolve, 200);
-      });
+      timer.abort();
+
+      await delay('infinite');
 
       return HttpResponse.json({ content: [] });
     }),
@@ -146,14 +150,60 @@ test('it names the timeout when the model call outlives it', async () => {
 
   const outcome = await classifyWithModel(
     { ...PAYLOAD, cwd: ctx.dir },
-    {
-      ...CONFIG,
-      provider: { ...CONFIG.provider, timeoutMs: 20 },
-    },
+    { ...CONFIG, provider: { ...CONFIG.provider, timeoutMs: 20 } },
+    { host: { env: { [KEY_ENV]: 'test-key' }, home: ctx.dir }, timeout },
+  );
+
+  expect(timeout).toHaveBeenCalledExactlyOnceWith(20);
+  expect(outcome.note).toInclude('timed out after 20ms');
+});
+
+// The handler never answers, so only the real timer can end the model call.
+test('it times out on the model call deadline with the real timer', async () => {
+  const ctx = await setupTest();
+
+  server.use(
+    http.post(ENDPOINT, async () => {
+      await delay('infinite');
+
+      return HttpResponse.json({ content: [] });
+    }),
+  );
+
+  const outcome = await classifyWithModel(
+    { ...PAYLOAD, cwd: ctx.dir },
+    { ...CONFIG, provider: { ...CONFIG.provider, timeoutMs: 1 } },
     { host: { env: { [KEY_ENV]: 'test-key' }, home: ctx.dir } },
   );
 
-  expect(outcome.note).toInclude('timed out after 20ms');
+  expect(outcome.note).toInclude('timed out after 1ms');
+});
+
+test('it starts the model call timer at the next whole millisecond for a fractional timeout', async () => {
+  const ctx = await setupTest();
+
+  const timer = new AbortController();
+
+  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+
+  server.use(
+    http.post(ENDPOINT, async () => {
+      timer.abort();
+
+      await delay('infinite');
+
+      return HttpResponse.json({ content: [] });
+    }),
+  );
+
+  const outcome = await classifyWithModel(
+    { ...PAYLOAD, cwd: ctx.dir },
+    { ...CONFIG, provider: { ...CONFIG.provider, timeoutMs: 1000.5 } },
+    { host: { env: { [KEY_ENV]: 'test-key' }, home: ctx.dir }, timeout },
+  );
+
+  expect(timeout).toHaveBeenCalledExactlyOnceWith(1001);
+  expect(outcome.note).toInclude('timed out after 1000.5ms');
 });
 
 // Spark returns nothing at all when maxTokens is too low for it to finish

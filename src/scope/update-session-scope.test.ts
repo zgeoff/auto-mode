@@ -1,9 +1,11 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { buildStubLockClock } from '../../test-utils/build-stub-lock-clock.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { loadTaskScope } from './load-task-scope.ts';
+import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import { updateSessionScope } from './update-session-scope.ts';
 
 async function setupTest() {
@@ -124,7 +126,9 @@ test('it records nothing when the command fails on a worktree made just before t
 
   runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
 
-  const startedAt = Date.now() + 100;
+  const link = await stat(join(ctx.repo, '.worktrees', 'x', '.git'));
+
+  const startedAt = link.mtimeMs + 1000;
   const command = 'git worktree add .worktrees/x -b feat/x';
 
   const scope = await updateSessionScope(
@@ -256,7 +260,13 @@ test('it keeps every branch when calls of one session record at the same time', 
     runGit(ctx.root, ['-C', ctx.repo, 'branch', name]);
   }
 
-  await Promise.all(
+  const lock = `${resolveSessionScopePath(ctx.options.stateDir, 'session-1')}.lock`;
+  const lockClock = buildStubLockClock({ startAt: startedAt, advancesOnWait: false });
+
+  await mkdir(dirname(lock), { recursive: true, mode: 0o700 });
+  await writeFile(lock, '');
+
+  const recording = Promise.all(
     names.map((name) =>
       updateSessionScope(
         {
@@ -266,10 +276,14 @@ test('it keeps every branch when calls of one session record at the same time', 
           command: `git branch ${name}`,
           resultText: '',
         },
-        ctx.options,
+        { ...ctx.options, lockClock },
       ),
     ),
   );
+
+  await lockClock.waited;
+  await rm(lock);
+  await recording;
 
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: ctx.repo, stateDir: ctx.options.stateDir },

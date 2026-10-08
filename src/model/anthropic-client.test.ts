@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'bun:test';
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, delay, http } from 'msw';
 import invariant from 'tiny-invariant';
 import { server } from '../../mocks/node.ts';
 import type { ProviderConfig } from '../config/config.ts';
@@ -29,7 +29,12 @@ test('it posts to the Messages endpoint with the key and version headers', async
     }),
   );
 
-  await sendMessage(PROVIDER, 'secret-key', { system: 'policy', user: 'action' });
+  await sendMessage(
+    PROVIDER,
+    'secret-key',
+    { system: 'policy', user: 'action' },
+    new AbortController().signal,
+  );
 
   expect(track).toHaveBeenCalledExactlyOnceWith({
     key: 'secret-key',
@@ -52,7 +57,12 @@ test('it marks the system prompt for caching', async () => {
     }),
   );
 
-  await sendMessage(PROVIDER, 'k', { system: 'the policy', user: 'the action' });
+  await sendMessage(
+    PROVIDER,
+    'k',
+    { system: 'the policy', user: 'the action' },
+    new AbortController().signal,
+  );
 
   expect(track).toHaveBeenCalledExactlyOnceWith({
     model: 'test-model',
@@ -74,7 +84,12 @@ test('it joins the text blocks of the answer', async () => {
     ),
   );
 
-  const result = await sendMessage(PROVIDER, 'k', { system: 's', user: 'u' });
+  const result = await sendMessage(
+    PROVIDER,
+    'k',
+    { system: 's', user: 'u' },
+    new AbortController().signal,
+  );
 
   expect(result.text).toBe('<block>yes</block>\n<rule>History Rewrite</rule>');
 });
@@ -93,7 +108,12 @@ test('it drops a thinking block', async () => {
     ),
   );
 
-  const result = await sendMessage(PROVIDER, 'k', { system: 's', user: 'u' });
+  const result = await sendMessage(
+    PROVIDER,
+    'k',
+    { system: 's', user: 'u' },
+    new AbortController().signal,
+  );
 
   expect(result.text).toBe('<block>no</block>');
 });
@@ -113,7 +133,12 @@ test('it reports the token counts the response carries', async () => {
     ),
   );
 
-  const result = await sendMessage(PROVIDER, 'k', { system: 's', user: 'u' });
+  const result = await sendMessage(
+    PROVIDER,
+    'k',
+    { system: 's', user: 'u' },
+    new AbortController().signal,
+  );
 
   expect(result).toStrictEqual({
     text: 'ok',
@@ -127,7 +152,12 @@ test('it reports the token counts the response carries', async () => {
 test('it reports zero counts when the response carries no usage', async () => {
   server.use(http.post(ENDPOINT, () => HttpResponse.json({ content: [] })));
 
-  const result = await sendMessage(PROVIDER, 'k', { system: 's', user: 'u' });
+  const result = await sendMessage(
+    PROVIDER,
+    'k',
+    { system: 's', user: 'u' },
+    new AbortController().signal,
+  );
 
   expect(result).toStrictEqual({
     text: '',
@@ -141,7 +171,12 @@ test('it reports zero counts when the response carries no usage', async () => {
 test('it reads a response it cannot understand as empty rather than failing', async () => {
   server.use(http.post(ENDPOINT, () => HttpResponse.json({ unexpected: 'shape' })));
 
-  const result = await sendMessage(PROVIDER, 'k', { system: 's', user: 'u' });
+  const result = await sendMessage(
+    PROVIDER,
+    'k',
+    { system: 's', user: 'u' },
+    new AbortController().signal,
+  );
 
   expect(result.text).toBe('');
 });
@@ -149,9 +184,12 @@ test('it reads a response it cannot understand as empty rather than failing', as
 test('it reports the status without the private body of a failed call', async () => {
   server.use(http.post(ENDPOINT, () => HttpResponse.text('over quota', { status: 429 })));
 
-  const failure = await sendMessage(PROVIDER, 'k', { system: 's', user: 'u' }).catch(
-    (error: unknown) => error,
-  );
+  const failure = await sendMessage(
+    PROVIDER,
+    'k',
+    { system: 's', user: 'u' },
+    new AbortController().signal,
+  ).catch((error: unknown) => error);
 
   invariant(failure instanceof Error, 'a non-ok response rejects with an Error');
 
@@ -159,21 +197,22 @@ test('it reports the status without the private body of a failed call', async ()
   expect(failure.message).not.toInclude('over quota');
 });
 
-test('it aborts a call that outlives the configured timeout', async () => {
+test('it aborts a call when its signal fires', async () => {
+  const timer = new AbortController();
+
   server.use(
     http.post(ENDPOINT, async () => {
-      await new Promise((resolve) => {
-        setTimeout(resolve, 200);
-      });
+      timer.abort();
+
+      await delay('infinite');
 
       return HttpResponse.json({ content: [] });
     }),
   );
 
-  const failure = await sendMessage({ ...PROVIDER, timeoutMs: 20 }, 'k', {
-    system: 's',
-    user: 'u',
-  }).catch((error: unknown) => error);
+  const failure = await sendMessage(PROVIDER, 'k', { system: 's', user: 'u' }, timer.signal).catch(
+    (error: unknown) => error,
+  );
 
   invariant(failure instanceof Error, 'a timed-out call rejects with an Error');
 
@@ -192,10 +231,15 @@ test('it reaches the same endpoint whether the base URL ends in a slash', async 
     }),
   );
 
-  await sendMessage({ ...PROVIDER, baseURL: 'https://gateway.test/' }, 'k', {
-    system: 's',
-    user: 'u',
-  });
+  await sendMessage(
+    { ...PROVIDER, baseURL: 'https://gateway.test/' },
+    'k',
+    {
+      system: 's',
+      user: 'u',
+    },
+    new AbortController().signal,
+  );
 
   expect(track).toHaveBeenCalledExactlyOnceWith(ENDPOINT);
 });
@@ -203,10 +247,15 @@ test('it reaches the same endpoint whether the base URL ends in a slash', async 
 test('it discards malformed response text instead of exposing credential fragments', () => {
   server.use(http.post(ENDPOINT, () => HttpResponse.text('test-secret-prefix {')));
 
-  const response = sendMessage(PROVIDER, 'test-secret-prefix-and-tail', {
-    system: 'policy',
-    user: 'action',
-  });
+  const response = sendMessage(
+    PROVIDER,
+    'test-secret-prefix-and-tail',
+    {
+      system: 'policy',
+      user: 'action',
+    },
+    new AbortController().signal,
+  );
 
   expect(response).rejects.toThrow('Messages API returned invalid JSON');
 });

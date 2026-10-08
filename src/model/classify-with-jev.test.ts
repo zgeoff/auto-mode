@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect, mock, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -438,24 +438,32 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
   },
 );
 
-test('it returns the configured denial before the outer cap after a slow helper and API timeout', async () => {
+test('it returns the configured denial when the deadline passes during the request after the clock moves 4 s while the key is read', async () => {
   await using ctx = await setupTest();
 
-  const helper = join(ctx.classifier, '..', 'slow-key-helper.cjs');
+  let now = Date.now();
+  const deadlineAt = now + 7500;
 
-  await writeFile(helper, "setTimeout(() => console.log('offline-deadline-test-key'), 4000);\n");
+  const helperTimer = new AbortController();
+  const requestTimer = new AbortController();
+
+  const timeout = mock<(ms: number) => AbortSignal>()
+    .mockReturnValueOnce(helperTimer.signal)
+    .mockReturnValueOnce(requestTimer.signal);
+
+  const requestSent = Promise.withResolvers<void>();
 
   server.use(
     http.post('https://decision.test/v1/systemone', async () => {
-      await delay(5000);
+      requestSent.resolve();
+
+      await delay('infinite');
 
       return HttpResponse.json({});
     }),
   );
 
-  const started = performance.now();
-
-  const result = await classifyWithModel(
+  const pending = classifyWithModel(
     {
       sessionID: 'slow-helper-check',
       cwd: ctx.dir,
@@ -472,16 +480,32 @@ test('it returns the configured denial before the outer cap after a slow helper 
         ...DEFAULT_CONFIG.provider,
         baseURL: 'https://decision.test',
         apiKeyEnv: undefined,
-        apiKeyCommand: `${process.execPath} ${helper}`,
+        apiKeyCommand: 'printf offline-deadline-test-key',
         timeoutMs: 5000,
       },
     },
     {
       host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
-      deadlineAt: Date.now() + 7500,
+      deadlineAt,
+      now: () => now,
+      timeout,
     },
   );
 
+  now += 4000;
+
+  await requestSent.promise;
+
+  now = deadlineAt;
+
+  requestTimer.abort();
+
+  const result = await pending;
+
+  expect(timeout).toHaveBeenCalledTimes(2);
+  expect(timeout).toHaveBeenNthCalledWith(1, 5000);
+  expect(timeout).toHaveBeenNthCalledWith(2, 3500);
+  expect(helperTimer.signal.aborted).toBe(false);
   expect(result.verdict).toMatchObject({ kind: 'deny', rule: 'Classifier Unavailable' });
   expect(result.unavailable).toBe(true);
   expect(result.note).toInclude('evaluation deadline expired');
@@ -493,9 +517,7 @@ test('it returns the configured denial before the outer cap after a slow helper 
     keySource: 'command',
     contributors: [],
   });
-
-  expect(performance.now() - started).toBeLessThan(8000);
-}, 10_000);
+});
 
 test('it evaluates child task context without reading parent consent on resume', async () => {
   await using ctx = await setupTest();
@@ -1057,9 +1079,15 @@ test('it defers an oversized Edit before any request and records only the failur
 test('it reports a provider timeout as a timeout with the request size', async () => {
   await using ctx = await setupTest();
 
+  const timer = new AbortController();
+
+  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+
   server.use(
     http.post('https://decision.test/v1/systemone', async () => {
-      await delay(200);
+      timer.abort();
+
+      await delay('infinite');
 
       return HttpResponse.json({});
     }),
@@ -1085,9 +1113,10 @@ test('it reports a provider timeout as a timeout with the request size', async (
       classifierPath: ctx.classifier,
       rulesPath: ctx.rules,
     },
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, timeout },
   );
 
+  expect(timeout).toHaveBeenCalledExactlyOnceWith(20);
   expect(result.verdict).toBeNull();
   expect(result.note).toInclude('timed out after 20ms');
 
@@ -1100,6 +1129,96 @@ test('it reports a provider timeout as a timeout with the request size', async (
   invariant(result.diagnostics, 'the timeout has diagnostics');
 
   expect(result.diagnostics.requestBytes).toBeGreaterThan(0);
+});
+
+// The handler never answers, so only the real provider timer can end the request.
+test('it times out on the provider deadline with the real timer', async () => {
+  await using ctx = await setupTest();
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', async () => {
+      await delay('infinite');
+
+      return HttpResponse.json({});
+    }),
+  );
+
+  const result = await classifyWithModel(
+    {
+      sessionID: 's',
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push' },
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+        timeoutMs: 1,
+      },
+      claudeSettingsPath: null,
+      onFailure: 'defer',
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+    },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
+  );
+
+  expect(result.verdict).toBeNull();
+  expect(result.note).toInclude('timed out after 1ms');
+
+  expect(result.diagnostics).toMatchObject({
+    status: 'timeout',
+    stage: 'request',
+    failureReason: 'aborted',
+  });
+});
+
+test('it starts the provider timer at the next whole millisecond for a fractional timeout', async () => {
+  await using ctx = await setupTest();
+
+  const timer = new AbortController();
+
+  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', async () => {
+      timer.abort();
+
+      await delay('infinite');
+
+      return HttpResponse.json({});
+    }),
+  );
+
+  const result = await classifyWithModel(
+    {
+      sessionID: 's',
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push' },
+    },
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+        timeoutMs: 1000.5,
+      },
+      claudeSettingsPath: null,
+      onFailure: 'defer',
+      classifierPath: ctx.classifier,
+      rulesPath: ctx.rules,
+    },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, timeout },
+  );
+
+  expect(timeout).toHaveBeenCalledExactlyOnceWith(1001);
+  expect(result.verdict).toBeNull();
+  expect(result.note).toInclude('timed out after 1000.5ms');
 });
 
 test('it sends the checkout remotes and the task scope with a non-Git action', async () => {
