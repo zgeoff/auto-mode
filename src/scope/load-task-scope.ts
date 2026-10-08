@@ -40,6 +40,7 @@ export async function loadTaskScope(
     stateDir: request.stateDir,
     atcRecordPath: host.env['ATC_SESSION_RECORD'],
     atcSessionID: host.env['ATC_SESSION_ID'],
+    stderr: process.stderr,
   };
 
   const [remotes, ...facts] = await Promise.all([
