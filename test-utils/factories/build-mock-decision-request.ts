@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import type { DecisionRequest } from '../../src/model/types.ts';
 import { buildMockClaudeRules } from './build-mock-claude-rules.ts';
 import { buildMockDecisionContext } from './build-mock-decision-context.ts';
+import { buildMockDecisionQuestion } from './build-mock-decision-question.ts';
 import { buildMockDecisionRule } from './build-mock-decision-rule.ts';
 import { buildMockRepositoryContext } from './build-mock-repository-context.ts';
 
@@ -29,17 +30,7 @@ export function buildMockDecisionRequest(
   const { configuredRules, repositoryContext, taskContext, action, ...stateRest } = state ?? {};
 
   return {
-    questions: {
-      rule_0: {
-        type: 'choice',
-        instructions: faker.lorem.paragraph(),
-        criteria: {
-          allow: faker.lorem.sentence(),
-          block: faker.lorem.sentence(),
-          ask: faker.lorem.sentence(),
-        },
-      },
-    },
+    questions: { rule_0: buildMockDecisionQuestion() },
     rules: { rule_0: buildMockDecisionRule() },
     ...rest,
     state: {

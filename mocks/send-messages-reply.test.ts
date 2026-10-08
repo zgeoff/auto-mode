@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { sendMessage } from '../src/model/anthropic-client.ts';
+import { buildMockMessagesResponse } from '../test-utils/factories/build-mock-messages-response.ts';
 import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
 import { MESSAGES_URL } from './handlers.ts';
 import { messagesReplies } from './messages-replies.ts';
@@ -11,7 +12,7 @@ test('it replies with the queued responses in order', async () => {
   });
 
   messagesReplies.push(
-    {
+    buildMockMessagesResponse({
       content: [{ type: 'text', text: '<block>no</block>' }],
       usage: {
         cache_read_input_tokens: 0,
@@ -19,8 +20,8 @@ test('it replies with the queued responses in order', async () => {
         input_tokens: 10,
         output_tokens: 2,
       },
-    },
-    {
+    }),
+    buildMockMessagesResponse({
       content: [{ type: 'text', text: '<block>yes</block>' }],
       usage: {
         cache_read_input_tokens: 10,
@@ -28,7 +29,7 @@ test('it replies with the queued responses in order', async () => {
         input_tokens: 0,
         output_tokens: 3,
       },
-    },
+    }),
   );
 
   const first = await sendMessage(

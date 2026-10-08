@@ -3,11 +3,12 @@ import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { buildStubLockClock } from '../../test-utils/build-stub-lock-clock.ts';
+import { buildStubPullRequestReader } from '../../test-utils/build-stub-pull-request-reader.ts';
+import { buildStubScopeEventVerifier } from '../../test-utils/build-stub-scope-event-verifier.ts';
 import { buildMockScopeRecordRequest } from '../../test-utils/factories/build-mock-scope-record-request.ts';
-import { makeStubPullRequestReader } from '../../test-utils/make-stub-pull-request-reader.ts';
+import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { loadSessionScope } from './load-session-scope.ts';
-import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import { updateSessionScope } from './update-session-scope.ts';
 
 async function setupTest() {
@@ -45,11 +46,12 @@ test('it records a worktree and its branch made during the call and writes them 
     stateDir: join(ctx.root, 'state'),
     home: ctx.root,
     env: {},
-    readPullRequest: makeStubPullRequestReader([]),
+    ...buildStubPullRequestReader([]),
   });
 
+  // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const written = await loadSessionScope(
-    resolveSessionScopePath(join(ctx.root, 'state'), 'session-1'),
+    join(ctx.root, 'state', 'session-scope', '84097828fc31a8c8d29210df48901a85.json'),
   );
 
   expect(scope).toStrictEqual({
@@ -89,7 +91,7 @@ test('it ties a recorded branch to the repository the session made it in', async
     stateDir: join(ctx.root, 'state'),
     home: ctx.root,
     env: {},
-    readPullRequest: makeStubPullRequestReader([]),
+    ...buildStubPullRequestReader([]),
   });
 
   expect(scope).toStrictEqual({
@@ -116,7 +118,7 @@ test('it records no worktree or branch that existed before the call started', as
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([]),
+      ...buildStubPullRequestReader([]),
     },
   );
 
@@ -142,7 +144,7 @@ test('it records nothing when the command fails on a worktree made just before t
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([]),
+      ...buildStubPullRequestReader([]),
     },
   );
 
@@ -165,7 +167,7 @@ test('it records a branch reset by checkout -B as nothing, since it already exis
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([]),
+      ...buildStubPullRequestReader([]),
     },
   );
 
@@ -191,7 +193,7 @@ test('it records a PR the forge dates from the call, with the head branch it rep
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([
+      ...buildStubPullRequestReader([
         {
           repository: 'github.com/dev/app',
           number: 12,
@@ -229,7 +231,7 @@ test('it records no PR that already existed when gh pr create printed its addres
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([
+      ...buildStubPullRequestReader([
         {
           repository: 'github.com/dev/app',
           number: 12,
@@ -262,7 +264,7 @@ test('it records no PR printed for another repository', async () => {
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([
+      ...buildStubPullRequestReader([
         { repository: 'github.com/someone/app', number: 12, head: 'feat/x', createdAt: startedAt },
       ]),
     },
@@ -288,7 +290,7 @@ test('it records no PR the forge does not know', async () => {
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([]),
+      ...buildStubPullRequestReader([]),
     },
   );
 
@@ -305,7 +307,8 @@ test('it keeps every branch when calls of one session record at the same time', 
     runGit(ctx.root, ['-C', ctx.repo, 'branch', name]);
   }
 
-  const path = resolveSessionScopePath(join(ctx.root, 'state'), 'session-1');
+  // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
+  const path = join(ctx.root, 'state', 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
   const lockClock = buildStubLockClock({ startAt: startedAt, advancesOnWait: false });
 
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
@@ -325,7 +328,7 @@ test('it keeps every branch when calls of one session record at the same time', 
           stateDir: join(ctx.root, 'state'),
           home: ctx.root,
           env: {},
-          readPullRequest: makeStubPullRequestReader([]),
+          ...buildStubPullRequestReader([]),
           lockClock,
         },
       ),
@@ -364,7 +367,7 @@ test('it records nothing for a call that claims to have started long ago', async
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([]),
+      ...buildStubPullRequestReader([]),
     },
   );
 
@@ -390,7 +393,7 @@ test('it records every PR one call created', async () => {
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([
+      ...buildStubPullRequestReader([
         { repository: 'github.com/dev/app', number: 3, head: 'feat/a', createdAt: startedAt },
         { repository: 'github.com/dev/app', number: 4, head: 'feat/b', createdAt: startedAt },
       ]),
@@ -410,6 +413,13 @@ test('it records every PR one call created', async () => {
 test('it records the worktree and branch that the check of a claimed event confirms', async () => {
   const ctx = await setupTest();
 
+  const verifier = buildStubScopeEventVerifier({
+    confirms: buildMockSessionScope({
+      worktrees: [join(ctx.root, 'app-fix')],
+      branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+    }),
+  });
+
   const scope = await updateSessionScope(
     buildMockScopeRecordRequest({
       sessionID: 'session-1',
@@ -423,13 +433,8 @@ test('it records the worktree and branch that the check of a claimed event confi
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([]),
-      verifyEvent: () =>
-        Promise.resolve({
-          worktrees: [join(ctx.root, 'app-fix')],
-          branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
-          pullRequests: [],
-        }),
+      ...buildStubPullRequestReader([]),
+      ...verifier,
     },
   );
 
@@ -442,6 +447,13 @@ test('it records the worktree and branch that the check of a claimed event confi
 
 test('it writes the confirmed worktree and branch to the session scope', async () => {
   const ctx = await setupTest();
+
+  const verifier = buildStubScopeEventVerifier({
+    confirms: buildMockSessionScope({
+      worktrees: [join(ctx.root, 'app-fix')],
+      branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
+    }),
+  });
 
   await updateSessionScope(
     buildMockScopeRecordRequest({
@@ -456,18 +468,14 @@ test('it writes the confirmed worktree and branch to the session scope', async (
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([]),
-      verifyEvent: () =>
-        Promise.resolve({
-          worktrees: [join(ctx.root, 'app-fix')],
-          branches: [{ name: 'fix/a', commonDir: join(ctx.repo, '.git') }],
-          pullRequests: [],
-        }),
+      ...buildStubPullRequestReader([]),
+      ...verifier,
     },
   );
 
+  // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const written = await loadSessionScope(
-    resolveSessionScopePath(join(ctx.root, 'state'), 'session-1'),
+    join(ctx.root, 'state', 'session-scope', '84097828fc31a8c8d29210df48901a85.json'),
   );
 
   expect(written).toStrictEqual({
@@ -493,8 +501,8 @@ test('it records nothing for a claimed event whose check fails', async () => {
       stateDir: join(ctx.root, 'state'),
       home: ctx.root,
       env: {},
-      readPullRequest: makeStubPullRequestReader([]),
-      verifyEvent: () => Promise.reject(new Error('the checkout is gone')),
+      ...buildStubPullRequestReader([]),
+      ...buildStubScopeEventVerifier({ fails: 'the checkout is gone' }),
     },
   );
 
