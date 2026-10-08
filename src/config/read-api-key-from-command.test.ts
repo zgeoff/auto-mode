@@ -10,6 +10,7 @@ import * as z from 'zod';
 import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { loadProcessState } from '../../test-utils/load-process-state.ts';
+import { waitFor } from '../../test-utils/wait-for.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 
 async function setupTest() {
@@ -64,8 +65,18 @@ test('it stops a key helper and its child on cancellation', async () => {
   controller.abort();
 
   const key = await result;
-  const helperAfter = await loadProcessState(pids.helper);
-  const childAfter = await loadProcessState(pids.child);
+
+  // The kill returns before the kernel finishes it, so a process can still read
+  // as running for a moment after the reader resolves.
+  const helperAfter = await waitFor(
+    () => loadProcessState(pids.helper),
+    (state) => state === null || state.state === 'Z' || state.state === 'X',
+  );
+
+  const childAfter = await waitFor(
+    () => loadProcessState(pids.child),
+    (state) => state === null || state.state === 'Z' || state.state === 'X',
+  );
 
   expect(key).toBeNull();
   expect(helperBefore.state).toBeOneOf(['R', 'S']);
