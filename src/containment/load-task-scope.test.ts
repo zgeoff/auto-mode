@@ -5,9 +5,25 @@ import { join } from 'node:path';
 import { loadTaskScope } from './load-task-scope.ts';
 
 async function setupTest(): Promise<{ readonly root: string; readonly worktree: string }> {
+  const previousGitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
+    (name) => [name, process.env[name]] as const,
+  );
+
+  for (const [name] of previousGitEnv) {
+    delete process.env[name];
+  }
+
   const root = await mkdtemp(join(tmpdir(), 'auto-mode-scope-'));
 
   onTestFinished(async () => {
+    for (const [name, value] of previousGitEnv) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
+
     await rm(root, { recursive: true, force: true });
   });
 
@@ -63,17 +79,7 @@ test('it owns the main checkout but not its default branch', async () => {
 test('it owns only the cwd when git directory overrides hide the checkout', async () => {
   const ctx = await setupTest();
 
-  const previous = process.env['GIT_DIR'];
-
   process.env['GIT_DIR'] = join(ctx.root, '.git');
-
-  onTestFinished(() => {
-    if (previous === undefined) {
-      delete process.env['GIT_DIR'];
-    } else {
-      process.env['GIT_DIR'] = previous;
-    }
-  });
 
   const scope = await loadTaskScope(ctx.worktree);
 
