@@ -422,7 +422,13 @@ test('it removes optional tasks to keep a complete action near the request limit
   });
 
   const request = buildMockDecisionRequest({
-    questions: {},
+    questions: {
+      rule_0: {
+        type: 'choice',
+        instructions: 'Is the push allowed?',
+        criteria: { allow: 'yes', block: 'no', ask: 'unsure' },
+      },
+    },
     rules: {},
     state: {
       policy: 'complete policy',
@@ -440,7 +446,14 @@ test('it removes optional tasks to keep a complete action near the request limit
 
   expect(result).toStrictEqual({
     model: 'jev-1.13.0',
-    answers: {},
+    answers: {
+      rule_0: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 1,
+        probabilities: { allow: 1, block: 0, ask: 0 },
+      },
+    },
     inputTokens: 400,
     requestBytes: expect.toBePositive(),
   });
@@ -465,6 +478,31 @@ test('it removes optional tasks to keep a complete action near the request limit
         ],
       },
     },
-    questions: {},
+    questions: {
+      rule_0: {
+        type: 'choice',
+        instructions: 'Is the push allowed?',
+        criteria: { allow: 'yes', block: 'no', ask: 'unsure' },
+      },
+    },
+  });
+});
+
+test('it reports the HTTP status when Jev rejects a request with no question as invalid', () => {
+  const response = sendDecision(
+    buildMockProviderConfig(),
+    'test-key',
+    buildMockDecisionRequest({ questions: {}, rules: {} }),
+    new AbortController().signal,
+  );
+
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision API returned HTTP 422$/u,
+  );
+
+  expect(response).rejects.toMatchObject({
+    reason: 'http-status',
+    requestBytes: expect.toBePositive(),
   });
 });
