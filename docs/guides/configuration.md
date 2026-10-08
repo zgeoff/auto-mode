@@ -122,7 +122,7 @@ sources name.
   and the declared pull requests whose head branch is in scope. It reads version 1 of the
   `atc.session-record` format at `$ATC_SESSION_RECORD` and never writes it. Without the variable or
   the file the source contributes nothing; a record that does not parse, holds another version, or
-  names another session than `$ATC_SESSION_ID` contributes nothing and prints one line to stderr.
+  does not name the session in `$ATC_SESSION_ID` contributes nothing and prints one line to stderr.
   atc owns the format, and only a caller outside the session can extend the record.
 
 No source can hand a task the default branch, or `main`, `master`, `trunk` or `develop` when the

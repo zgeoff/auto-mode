@@ -84,7 +84,14 @@ export async function loadAtcSessionRecord(
     };
   }
 
-  if (sessionID !== undefined && sessionID !== '' && result.data.session !== sessionID) {
+  if (sessionID === undefined || sessionID === '') {
+    return {
+      kind: 'malformed',
+      diagnostic: `atc session record has no session to match: ${location}`,
+    };
+  }
+
+  if (result.data.session !== sessionID) {
     return {
       kind: 'malformed',
       diagnostic: `atc session record belongs to another session: ${location}`,

@@ -71,7 +71,7 @@ test('it reports no record when the variable is unset or empty, or the file is m
   expect(loads).toStrictEqual([{ kind: 'absent' }, { kind: 'absent' }, { kind: 'absent' }]);
 });
 
-test('it gives one diagnostic for a record that is not JSON, another version, or another session', async () => {
+test('it gives one diagnostic for a record that is not JSON, another version, or not this session', async () => {
   const ctx = await setupTest();
 
   const files = ['broken.json', 'v2.json', 'other.json'].map((file) => join(ctx.dir, file));
@@ -85,7 +85,11 @@ test('it gives one diagnostic for a record that is not JSON, another version, or
   const loads = await Promise.all(files.map((file) => loadAtcSessionRecord(file, 'atc-1')));
   const relative = await loadAtcSessionRecord('record.json', 'atc-1');
 
-  expect([...loads, relative]).toStrictEqual([
+  await writeFile(ctx.path, JSON.stringify(ctx.record));
+
+  const unmatched = await loadAtcSessionRecord(ctx.path, undefined);
+
+  expect([...loads, relative, unmatched]).toStrictEqual([
     { kind: 'malformed', diagnostic: `atc session record is not JSON: ${files[0]}` },
     {
       kind: 'malformed',
@@ -96,5 +100,6 @@ test('it gives one diagnostic for a record that is not JSON, another version, or
       diagnostic: `atc session record belongs to another session: ${files[2]}`,
     },
     { kind: 'malformed', diagnostic: 'atc session record path is not absolute: record.json' },
+    { kind: 'malformed', diagnostic: `atc session record has no session to match: ${ctx.path}` },
   ]);
 });
