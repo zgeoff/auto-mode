@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
+import { getHostEnvironment } from '../src/config/get-host-environment.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
 import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
@@ -65,7 +66,7 @@ async function main(): Promise<void> {
 
   invariant((config.minConfidence ?? 0.8) === 0.8, 'Keep the configured threshold at 0.8.');
 
-  const configuredRules = await loadClaudeRules(config.claudeSettingsPath);
+  const configuredRules = await loadClaudeRules(config.claudeSettingsPath, getHostEnvironment());
   const policy = await loadPolicy({}, 'decision.md');
 
   const cases = corpus.pairs.flatMap((entry) =>

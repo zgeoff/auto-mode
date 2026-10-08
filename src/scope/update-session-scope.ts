@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { HostEnvironment } from '../config/types.ts';
 import { toRepositorySlug } from '../containment/to-repository-slug.ts';
 import { loadRepositoryContext } from '../model/load-repository-context.ts';
 import { collectPullRequestAddresses } from './collect-pull-request-addresses.ts';
@@ -26,6 +27,7 @@ export interface ScopeRecordOptions {
   readonly now: number;
   readonly stateDir: string;
   readonly home: string;
+  readonly env: HostEnvironment['env'];
   readonly readPullRequest: (
     repository: string,
     number: number,
@@ -90,7 +92,7 @@ async function verifyScopeEvent(
 ): Promise<SessionScope> {
   if (event.kind === 'worktree') {
     const link = await stat(join(event.path, '.git'));
-    const checkout = await findCheckout(event.path);
+    const checkout = await findCheckout(event.path, options.env);
 
     if (
       !link.isFile() ||
@@ -100,7 +102,7 @@ async function verifyScopeEvent(
       return EMPTY_SESSION_SCOPE;
     }
 
-    const context = await loadRepositoryContext(event.path);
+    const context = await loadRepositoryContext(event.path, options.env);
 
     const branch = context?.branch ?? null;
 
@@ -117,7 +119,7 @@ async function verifyScopeEvent(
     };
   }
 
-  const checkout = await findCheckout(event.directory);
+  const checkout = await findCheckout(event.directory, options.env);
 
   if (checkout === null) {
     return EMPTY_SESSION_SCOPE;

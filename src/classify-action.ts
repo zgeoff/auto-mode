@@ -5,8 +5,9 @@ import { getEditFields } from './bypass/get-edit-fields.ts';
 import { resolveEditTarget } from './bypass/resolve-edit-target.ts';
 import type { Config } from './config/config.ts';
 import { DEFAULT_SCOPE_SOURCES, resolveConfigPath } from './config/config.ts';
+import { getHostEnvironment } from './config/get-host-environment.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
-import type { EvaluationOptions } from './config/types.ts';
+import type { EvaluationOptions, HostEnvironment } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { OwnedScope } from './containment/collect-scope-findings.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
@@ -39,11 +40,12 @@ export async function classifyAction(
   config: Config,
   options: ClassifyOptions = {},
 ): Promise<ActionOutcome> {
+  const host = options.host ?? getHostEnvironment();
   let configured = null;
 
   if (config.provider.protocol === 'system-one') {
     try {
-      configured = await loadClaudeRules(config.claudeSettingsPath);
+      configured = await loadClaudeRules(config.claudeSettingsPath, host);
     } catch {
       const guidance = config.onFailure === 'deny' ? await tryReadDenialGuidance() : null;
 
@@ -71,7 +73,7 @@ export async function classifyAction(
     return buildLocalAllow(local.exception);
   }
 
-  const scope = await tryLoadTaskScope(request, config);
+  const scope = await tryLoadTaskScope(request, config, host);
 
   const containment = scope === null ? null : checkContainment(request, scope);
 
@@ -91,7 +93,8 @@ export async function classifyAction(
   }
 
   // A configured deny entry is the user's own rule, and only Jev reads it.
-  const edit = hasConfiguredDenies || scope === null ? null : await tryClassifyEdit(request, scope);
+  const edit =
+    hasConfiguredDenies || scope === null ? null : await tryClassifyEdit(request, scope, host);
 
   if (edit?.kind === 'bypass') {
     return {
@@ -114,7 +117,7 @@ export async function classifyAction(
   const taskScope = scope === null ? undefined : buildTaskScopeSummary(scope);
 
   const [outcome, guidance] = await Promise.all([
-    classifyWithModel(request, config, { ...options, taskScope }),
+    classifyWithModel(request, config, { ...options, taskScope, host }),
     tryReadDenialGuidance(),
   ]);
 
@@ -136,11 +139,13 @@ const READ_ONLY_EXCEPTION = 'Read-only actions';
 async function tryLoadTaskScope(
   request: Readonly<ActionRequest>,
   config: Readonly<Config>,
+  host: Readonly<HostEnvironment>,
 ): Promise<OwnedScope | null> {
   try {
     return await loadTaskScope(
-      { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveStateDir() },
+      { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveStateDir(host) },
       config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
+      host,
     );
   } catch {
     return null;
@@ -154,6 +159,7 @@ const GIT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
 async function tryClassifyEdit(
   request: Readonly<ActionRequest>,
   scope: Readonly<OwnedScope>,
+  host: Readonly<HostEnvironment>,
 ): Promise<EditClassification | null> {
   const fields = getEditFields(request.toolName);
   const path = fields === null ? undefined : request.toolInput[fields.path];
@@ -163,7 +169,7 @@ async function tryClassifyEdit(
   }
 
   try {
-    const ownDirs = [dirname(resolveConfigPath()), resolveStateDir()];
+    const ownDirs = [dirname(resolveConfigPath(host)), resolveStateDir(host)];
     const requested = resolve(request.cwd, path);
 
     const [target, worktrees, protectedDirs] = await Promise.all([
@@ -172,12 +178,12 @@ async function tryClassifyEdit(
       Promise.all(ownDirs.map((dir) => resolveEditTarget(dir))),
     ]);
 
-    if (target === null || GIT_OVERRIDES.some((name) => process.env[name] !== undefined)) {
+    if (target === null || GIT_OVERRIDES.some((name) => host.env[name] !== undefined)) {
       return null;
     }
 
     const [checkout, current] = await Promise.all([
-      findCheckout(dirname(target)),
+      findCheckout(dirname(target), host.env),
       request.toolName === 'Edit' ? readFile(target, 'utf8').catch(() => null) : null,
     ]);
 

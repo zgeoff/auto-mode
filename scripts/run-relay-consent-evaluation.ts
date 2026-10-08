@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
+import { getHostEnvironment } from '../src/config/get-host-environment.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
 import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
@@ -63,7 +64,7 @@ async function main(): Promise<void> {
   invariant((config.minConfidence ?? THRESHOLD) === THRESHOLD, 'Keep the threshold at 0.8.');
   invariant(config.provider.model === corpus.model, 'The configured model is the frozen model.');
 
-  const configuredRules = await loadClaudeRules(config.claudeSettingsPath);
+  const configuredRules = await loadClaudeRules(config.claudeSettingsPath, getHostEnvironment());
   const policy = await loadPolicy({}, 'decision.md');
 
   const variants = corpus.actions.flatMap((action) =>

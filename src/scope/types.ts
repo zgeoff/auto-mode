@@ -1,3 +1,5 @@
+import type { HostEnvironment } from '../config/types.ts';
+
 export interface ScopePullRequest {
   readonly number: number;
   readonly head: string;
@@ -19,6 +21,7 @@ export const EMPTY_SCOPE_FACTS: ScopeFacts = {
 };
 
 interface ScopeSourceContext {
+  readonly env: HostEnvironment['env'];
   readonly sessionID: string;
   readonly cwd: string;
   readonly worktree: string;

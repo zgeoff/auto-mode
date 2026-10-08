@@ -1,6 +1,6 @@
 import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { loadTaskScope } from './load-task-scope.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
@@ -10,27 +10,9 @@ async function setupTest(): Promise<{
   readonly worktree: string;
   readonly stateDir: string;
 }> {
-  const previousGitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
-    (name) => [name, process.env[name]] as const,
-  );
-
-  for (const [name] of previousGitEnv) {
-    delete process.env[name];
-  }
-
   const root = await mkdtemp(join(tmpdir(), 'auto-mode-scope-'));
 
-  onTestFinished(async () => {
-    for (const [name, value] of previousGitEnv) {
-      if (value === undefined) {
-        delete process.env[name];
-      } else {
-        process.env[name] = value;
-      }
-    }
-
-    await rm(root, { recursive: true, force: true });
-  });
+  onTestFinished(() => rm(root, { recursive: true, force: true }));
 
   const common = join(root, '.git');
   const worktree = join(root, '.worktrees', 'feature');
@@ -64,10 +46,11 @@ test('it owns the linked worktree that holds the cwd, its branch, and the remote
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: join(ctx.worktree, 'src'), stateDir: ctx.stateDir },
     { cwd: { kind: 'cwd' } },
+    { env: {}, home: ctx.root },
   );
 
   expect(scope).toStrictEqual({
-    home: homedir(),
+    home: ctx.root,
     worktrees: [ctx.worktree],
     branches: ['feature'],
     currentBranch: 'feature',
@@ -83,6 +66,7 @@ test('it owns the main checkout but not its default branch', async () => {
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: ctx.root, stateDir: ctx.stateDir },
     { cwd: { kind: 'cwd' } },
+    { env: {}, home: ctx.root },
   );
 
   expect([scope.worktrees, scope.branches, scope.currentBranch]).toStrictEqual([
@@ -95,15 +79,14 @@ test('it owns the main checkout but not its default branch', async () => {
 test('it owns only the cwd when git directory overrides hide the checkout', async () => {
   const ctx = await setupTest();
 
-  process.env['GIT_DIR'] = join(ctx.root, '.git');
-
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: ctx.worktree, stateDir: ctx.stateDir },
     { cwd: { kind: 'cwd' } },
+    { env: { GIT_DIR: join(ctx.root, '.git') }, home: ctx.root },
   );
 
   expect(scope).toStrictEqual({
-    home: homedir(),
+    home: ctx.root,
     worktrees: [ctx.worktree],
     branches: [],
     currentBranch: null,
@@ -139,6 +122,7 @@ test('it adds what the session recorded and the PRs whose head branch is in scop
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: ctx.root, stateDir: ctx.stateDir },
     { cwd: { kind: 'cwd' }, session: { kind: 'session' } },
+    { env: {}, home: ctx.root },
   );
 
   expect([scope.worktrees, scope.branches, scope.pullRequests]).toStrictEqual([
@@ -163,6 +147,7 @@ test('it reads no session scope when the registry has no session source', async 
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: ctx.root, stateDir: ctx.stateDir },
     { cwd: { kind: 'cwd' } },
+    { env: {}, home: ctx.root },
   );
 
   expect(scope.worktrees).toStrictEqual([ctx.root]);
@@ -183,6 +168,7 @@ test("it reads another session's recorded scope as nothing", async () => {
   const scope = await loadTaskScope(
     { sessionID: 'session-2', cwd: ctx.root, stateDir: ctx.stateDir },
     { cwd: { kind: 'cwd' }, session: { kind: 'session' } },
+    { env: {}, home: ctx.root },
   );
 
   expect(scope.worktrees).toStrictEqual([ctx.root]);
@@ -194,6 +180,7 @@ test('it adds the configured path globs', async () => {
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: ctx.root, stateDir: ctx.stateDir },
     { cwd: { kind: 'cwd' }, scratch: { kind: 'globs', paths: ['/scratch/**'] } },
+    { env: {}, home: ctx.root },
   );
 
   expect(scope.pathGlobs).toStrictEqual(['/scratch/**']);
@@ -204,23 +191,6 @@ test('it owns the worktree and branch in the atc record from the main checkout',
 
   const recordPath = join(ctx.root, 'record.json');
 
-  const previousAtcEnv = ['ATC_SESSION_RECORD', 'ATC_SESSION_ID'].map(
-    (name) => [name, process.env[name]] as const,
-  );
-
-  process.env['ATC_SESSION_RECORD'] = recordPath;
-  process.env['ATC_SESSION_ID'] = 'atc-1';
-
-  onTestFinished(() => {
-    for (const [name, value] of previousAtcEnv) {
-      if (value === undefined) {
-        delete process.env[name];
-      } else {
-        process.env[name] = value;
-      }
-    }
-  });
-
   const scope = {
     workspace: { path: ctx.worktree, branch: 'feature' },
     worktrees: [],
@@ -229,14 +199,15 @@ test('it owns the worktree and branch in the atc record from the main checkout',
 
   const record = { format: 'atc.session-record', version: 1, session: 'atc-1', scope };
   const request = { sessionID: 'session-1', cwd: ctx.root, stateDir: ctx.stateDir };
+  const host = { env: { ATC_SESSION_RECORD: recordPath, ATC_SESSION_ID: 'atc-1' }, home: ctx.root };
 
   await writeFile(recordPath, JSON.stringify({ ...record, scope: { ...scope, pullRequests: [] } }));
 
-  const owned = await loadTaskScope(request, { atc: { kind: 'atc' } });
+  const owned = await loadTaskScope(request, { atc: { kind: 'atc' } }, host);
 
   await writeFile(recordPath, JSON.stringify({ ...record, version: 2 }));
 
-  const malformed = await loadTaskScope(request, { atc: { kind: 'atc' } });
+  const malformed = await loadTaskScope(request, { atc: { kind: 'atc' } }, host);
 
   expect([owned.worktrees, owned.branches]).toStrictEqual([[ctx.worktree], ['feature']]);
   expect([malformed.worktrees, malformed.branches]).toStrictEqual([[], []]);

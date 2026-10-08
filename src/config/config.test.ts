@@ -1,24 +1,25 @@
 import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import { DEFAULT_CONFIG, PRESETS, loadConfig, resolveApiKey } from './config.ts';
 
 const KEY_ENV = 'AUTO_MODE_TEST_KEY';
 
-async function setupTest(): Promise<{ readonly configFile: string }> {
+async function setupTest(): Promise<{ readonly dir: string; readonly configFile: string }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-config-'));
 
   onTestFinished(async () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  return { configFile: join(dir, 'config.json') };
+  return { dir, configFile: join(dir, 'config.json') };
 }
 
 test('it falls back to the shipped defaults when there is no config file', async () => {
-  const config = await loadConfig('/nowhere/config.json');
+  const ctx = await setupTest();
+  const config = await loadConfig(ctx.configFile);
 
   expect(config).toStrictEqual(DEFAULT_CONFIG);
 });
@@ -86,39 +87,45 @@ test('it names the built-in kinds when a role names one that is not', async () =
 });
 
 test('it reads the API key from the environment variable first', async () => {
-  process.env[KEY_ENV] = 'from-env';
+  const ctx = await setupTest();
 
-  onTestFinished(() => {
-    delete process.env[KEY_ENV];
-  });
-
-  const key = await resolveApiKey({ ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV });
+  const key = await resolveApiKey(
+    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'printf from-command' },
+    { host: { env: { [KEY_ENV]: 'from-env' }, home: ctx.dir } },
+  );
 
   expect(key).toBe('from-env');
 });
 
 test('it falls back to the key command when the variable is unset', async () => {
-  const key = await resolveApiKey({
-    ...DEFAULT_CONFIG.provider,
-    apiKeyEnv: KEY_ENV,
-    apiKeyCommand: 'printf from-command',
-  });
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'printf from-command' },
+    { host: { env: {}, home: ctx.dir } },
+  );
 
   expect(key).toBe('from-command');
 });
 
 test('it reports no key when neither the variable nor a command is set', async () => {
-  const key = await resolveApiKey({ ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV });
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV },
+    { host: { env: {}, home: ctx.dir } },
+  );
 
   expect(key).toBeNull();
 });
 
 test('it reports no key when the key command fails', async () => {
-  const key = await resolveApiKey({
-    ...DEFAULT_CONFIG.provider,
-    apiKeyEnv: KEY_ENV,
-    apiKeyCommand: 'exit 1',
-  });
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'exit 1' },
+    { host: { env: {}, home: ctx.dir } },
+  );
 
   expect(key).toBeNull();
 });
@@ -209,13 +216,13 @@ test('it drops a bad registry entry with one diagnostic line and loads the other
     }),
   );
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
   expect(config.provider.timeoutMs).toBe(4000);
 
   expect(config.scopeSources).toStrictEqual({
     cwd: { kind: 'cwd' },
-    scratch: { kind: 'globs', paths: [join(homedir(), 'scratch/**')] },
+    scratch: { kind: 'globs', paths: [join(ctx.dir, 'scratch/**')] },
   });
 
   expect(config.warnings).toStrictEqual([
@@ -293,9 +300,9 @@ test('it reads the policy block, expanding a leading tilde', async () => {
     }),
   );
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.rulesPath).toBe(join(homedir(), 'rules.md'));
+  expect(config.rulesPath).toBe(join(ctx.dir, 'rules.md'));
   expect(config.classifierPath).toBeUndefined();
   expect(config.claudeSettingsPath).toBe('/claude/settings.json');
   expect(config.minConfidence).toBe(0.9);

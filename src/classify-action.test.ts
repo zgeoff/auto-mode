@@ -9,33 +9,16 @@ import { createMockActionRequest } from '../test-utils/factories/create-mock-act
 import { classifyAction } from './classify-action.ts';
 import { DEFAULT_CONFIG } from './config/config.ts';
 
-async function setupTest(): Promise<{ readonly settings: string }> {
+async function setupTest(): Promise<{ readonly dir: string; readonly settings: string }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-classify-action-'));
 
-  // A git hook runs with these set, and they hide which checkout a path is in.
-  const gitEnv = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'].map(
-    (name) => [name, process.env[name]] as const,
-  );
-
-  for (const [name] of gitEnv) {
-    delete process.env[name];
-  }
-
-  onTestFinished(async () => {
-    for (const [name, value] of gitEnv) {
-      if (value !== undefined) {
-        process.env[name] = value;
-      }
-    }
-
-    await rm(dir, { recursive: true, force: true });
-  });
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
   const settings = join(dir, 'settings.json');
 
   await writeFile(settings, '{}');
 
-  return { settings };
+  return { dir, settings };
 }
 
 test('it allows a read-only tool in the local tier', async () => {
@@ -44,6 +27,7 @@ test('it allows a read-only tool in the local tier', async () => {
   const outcome = await classifyAction(
     createMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/a.ts' } }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
+    { host: { env: {}, home: ctx.dir } },
   );
 
   expect(outcome).toStrictEqual({
@@ -64,7 +48,7 @@ test('it gives no verdict for an escalated action when the model tier is skipped
       toolInput: { command: 'touch /repo/a.ts' },
     }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { localOnly: true },
+    { host: { env: {}, home: ctx.dir }, localOnly: true },
   );
 
   expect(outcome).toStrictEqual({
@@ -86,7 +70,7 @@ test('it sends a local allowance to the model tier when configured deny rules ex
   const outcome = await classifyAction(
     createMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/key.pem' } }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { localOnly: true },
+    { host: { env: {}, home: ctx.dir }, localOnly: true },
   );
 
   expect(outcome.status).toBe('skipped');
@@ -100,6 +84,7 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
   const outcome = await classifyAction(
     createMockActionRequest({ toolName: 'Read', toolInput: { file_path: '/repo/a.ts' } }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings, onFailure: 'deny' },
+    { host: { env: {}, home: ctx.dir } },
   );
 
   expect(outcome).toStrictEqual({
@@ -118,18 +103,6 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
 
 test('it denies an uncertain Jev decision with the rule, its fixed reason, and the safer-path instruction', async () => {
   const ctx = await setupTest();
-
-  const previous = process.env['AUTO_MODE_JEV_TEST_KEY'];
-
-  process.env['AUTO_MODE_JEV_TEST_KEY'] = 'test-key';
-
-  onTestFinished(() => {
-    if (previous === undefined) {
-      delete process.env['AUTO_MODE_JEV_TEST_KEY'];
-    } else {
-      process.env['AUTO_MODE_JEV_TEST_KEY'] = previous;
-    }
-  });
 
   server.use(
     http.post('https://decision.test/v1/systemone', async (info) => {
@@ -164,6 +137,7 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
       },
       claudeSettingsPath: ctx.settings,
     },
+    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
   expect(outcome.verdict).toStrictEqual({
@@ -191,6 +165,7 @@ test('it ends a failure reason with a full stop before the safer-path instructio
       claudeSettingsPath: ctx.settings,
       onFailure: 'deny',
     },
+    { host: { env: {}, home: ctx.dir } },
   );
 
   expect(outcome.verdict).toStrictEqual({
@@ -235,6 +210,7 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
       judge,
       claudeSettingsPath: ctx.settings,
     },
+    { host: { env: {}, home: ctx.dir } },
   );
 
   expect(outcome).toStrictEqual({
@@ -262,7 +238,7 @@ test('it passes a target it cannot resolve to the classifier', async () => {
       toolInput: { command: 'rm -rf "$OTHER_WORKTREE"' },
     }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { localOnly: true },
+    { host: { env: {}, home: ctx.dir }, localOnly: true },
   );
 
   expect(outcome.decidingStage).toBe('local');
@@ -279,7 +255,7 @@ test('it denies a local regenerable-output removal in another worktree', async (
       toolInput: { command: 'rm -rf .worktrees/other/dist' },
     }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { localOnly: true },
+    { host: { env: {}, home: ctx.dir }, localOnly: true },
   );
 
   expect([outcome.decidingStage, outcome.status, outcome.note]).toStrictEqual([
@@ -299,7 +275,7 @@ test('it still allows a local regenerable-output removal inside the task worktre
       toolInput: { command: 'rm -rf dist' },
     }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { localOnly: true },
+    { host: { env: {}, home: ctx.dir }, localOnly: true },
   );
 
   expect(outcome).toStrictEqual({
@@ -320,7 +296,7 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
       toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
     }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { localOnly: true },
+    { host: { env: {}, home: ctx.dir }, localOnly: true },
   );
 
   expect(outcome).toStrictEqual({
@@ -344,7 +320,7 @@ test('it sends an in-scope edit to the model tier when it writes an env file or 
       classifyAction(
         createMockActionRequest({ cwd: '/repo', toolName: 'Write', toolInput }),
         { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-        { localOnly: true },
+        { host: { env: {}, home: ctx.dir }, localOnly: true },
       ),
     ),
   );
@@ -364,7 +340,7 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
       toolInput: { file_path: '/repo/a.ts', content: 'x' },
     }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
-    { localOnly: true },
+    { host: { env: {}, home: ctx.dir }, localOnly: true },
   );
 
   expect(outcome.status).toBe('skipped');

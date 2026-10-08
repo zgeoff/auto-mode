@@ -4,12 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { runGit } from '../test-utils/run-git.ts';
 
 const CLI = join(import.meta.dirname, 'cli.ts');
 
-// XDG_CONFIG_HOME isolates the operator's config. No run reaches a model: each passes --local-only,
-// fails before the request, or uses the denying setup, whose unreadable Claude settings deny every
-// escalated action under onFailure deny.
+// The child gets PATH to find bun and everything else from the temp root, never the host's
+// environment. No run reaches a model: each passes --local-only, fails before the request, or uses
+// the denying setup, whose unreadable Claude settings deny every escalated action under onFailure deny.
 async function setupTest(
   options: { readonly denying?: boolean; readonly denialBudget?: Readonly<object> } = {},
 ): Promise<{ readonly dir: string; readonly env: NodeJS.ProcessEnv }> {
@@ -37,7 +38,8 @@ async function setupTest(
   return {
     dir,
     env: {
-      ...process.env,
+      PATH: process.env['PATH'],
+      HOME: dir,
       XDG_CONFIG_HOME: dir,
       XDG_STATE_HOME: dir,
       AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
@@ -476,22 +478,13 @@ test('it keeps a branch the session created in its scope across processes, for t
 
   const repo = join(ctx.dir, 'repo');
 
-  const env = Object.fromEntries(
-    Object.entries({ ...ctx.env, GIT_CONFIG_GLOBAL: '/dev/null' }).filter(
-      ([name]) => !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE'].includes(name),
-    ),
-  );
-
-  await Bun.$`git init -q -b main ${repo}`.env(env).quiet();
-  await Bun.$`git -C ${repo} remote add origin git@github.com:dev/app.git`.env(env).quiet();
-
-  await Bun.$`git -C ${repo} -c user.name=dev -c user.email=dev@example.com -c commit.gpgsign=false commit -q --allow-empty -m init`
-    .env(env)
-    .quiet();
+  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.dir, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  runGit(ctx.dir, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
 
   const startedAt = Date.now();
 
-  await Bun.$`git -C ${repo} worktree add -q .worktrees/x -b feat/x`.env(env).quiet();
+  runGit(ctx.dir, ['-C', repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
   const record = JSON.stringify({
     sessionID: 'cli-session',
@@ -517,18 +510,18 @@ test('it keeps a branch the session created in its scope across processes, for t
     });
 
   const recorded = await Bun.$`bun ${CLI} record < ${new Response(record)}`
-    .env(env)
+    .env(ctx.env)
     .quiet()
     .nothrow();
 
   const own = await Bun.$`bun ${CLI} run --local-only < ${new Response(buildPush('cli-session'))}`
-    .env(env)
+    .env(ctx.env)
     .quiet()
     .nothrow();
 
   const other =
     await Bun.$`bun ${CLI} run --local-only < ${new Response(buildPush('other-session'))}`
-      .env(env)
+      .env(ctx.env)
       .quiet()
       .nothrow();
 

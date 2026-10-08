@@ -8,22 +8,9 @@ import { writeActionDiagnostic } from './write-action-diagnostic.ts';
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'action-diagnostics-'));
 
-  const previous = process.env['AUTO_MODE_DIAGNOSTICS_PATH'];
-  const path = join(dir, 'private', 'actions.jsonl');
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
-  process.env['AUTO_MODE_DIAGNOSTICS_PATH'] = path;
-
-  onTestFinished(async () => {
-    if (previous === undefined) {
-      delete process.env['AUTO_MODE_DIAGNOSTICS_PATH'];
-    } else {
-      process.env['AUTO_MODE_DIAGNOSTICS_PATH'] = previous;
-    }
-
-    await rm(dir, { recursive: true, force: true });
-  });
-
-  return { dir, path };
+  return { dir };
 }
 
 test('it appends private correlated records without action, task, credential, or identifier contents', async () => {
@@ -37,18 +24,25 @@ test('it appends private correlated records without action, task, credential, or
     toolUseID: 'private-action-canary',
   };
 
-  await writeActionDiagnostic(payload, { invocationID: 'invocation', status: 'started' });
+  const path = join(ctx.dir, 'private', 'actions.jsonl');
+  const host = { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir };
 
-  await writeActionDiagnostic(payload, {
-    invocationID: 'invocation',
-    status: 'deny',
-    verdict: 'deny',
-    decidingStage: 'jev',
-    denials: { consecutive: 1, session: 1 },
-    escalation: false,
-  });
+  await writeActionDiagnostic(payload, { invocationID: 'invocation', status: 'started' }, host);
 
-  const text = await readFile(ctx.path, 'utf8');
+  await writeActionDiagnostic(
+    payload,
+    {
+      invocationID: 'invocation',
+      status: 'deny',
+      verdict: 'deny',
+      decidingStage: 'jev',
+      denials: { consecutive: 1, session: 1 },
+      escalation: false,
+    },
+    host,
+  );
+
+  const text = await readFile(path, 'utf8');
 
   const records: unknown[] = text
     .trim()
@@ -89,7 +83,7 @@ test('it appends private correlated records without action, task, credential, or
 
   expect(text).not.toInclude('private-');
 
-  const info = await stat(ctx.path);
+  const info = await stat(path);
 
   expect(info.mode & 0o777).toBe(0o600);
 });
@@ -107,5 +101,23 @@ test('it preserves the verdict path when the diagnostic destination is unavailab
       toolInput: {},
     },
     { invocationID: 'i', status: 'failure', verdict: 'defer' },
+    {
+      env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.dir, 'private', 'actions.jsonl') },
+      home: ctx.dir,
+    },
   );
+});
+
+test('it appends to the auto-mode state directory when no diagnostics path is set', async () => {
+  const ctx = await setupTest();
+
+  await writeActionDiagnostic(
+    { sessionID: 's', cwd: ctx.dir, toolName: 'Bash', toolInput: {} },
+    { invocationID: 'i', status: 'started' },
+    { env: { XDG_STATE_HOME: join(ctx.dir, 'state') }, home: ctx.dir },
+  );
+
+  const text = await readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8');
+
+  expect(text).toInclude('"invocationID":"i"');
 });

@@ -1,7 +1,7 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { loadClaudeRules } from '../config/load-claude-rules.ts';
-import type { EvaluationOptions } from '../config/types.ts';
+import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
@@ -17,7 +17,7 @@ import type { DecisionDiagnostics } from './types.ts';
 export async function classifyWithJev(
   payload: ActionRequest,
   config: Config,
-  options: EvaluationOptions = {},
+  options: Readonly<EvaluationOptions & { readonly host: Readonly<HostEnvironment> }>,
 ): Promise<ModelOutcome> {
   const start = performance.now();
   let key: string | null = null;
@@ -26,7 +26,9 @@ export async function classifyWithJev(
   let keySource: DecisionDiagnostics['keySource'] = 'none';
 
   const envKey =
-    config.provider.apiKeyEnv === undefined ? undefined : process.env[config.provider.apiKeyEnv];
+    config.provider.apiKeyEnv === undefined
+      ? undefined
+      : options.host.env[config.provider.apiKeyEnv];
 
   if (envKey !== undefined && envKey !== '') {
     keySource = 'environment';
@@ -53,8 +55,8 @@ export async function classifyWithJev(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
       ),
-      loadClaudeRules(config.claudeSettingsPath),
-      loadRepositoryEvidence(payload.cwd, options.taskScope).catch(() => null),
+      loadClaudeRules(config.claudeSettingsPath, options.host),
+      loadRepositoryEvidence(payload.cwd, options.taskScope, options.host.env).catch(() => null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
