@@ -14,8 +14,8 @@ harness that a test author needs to follow those rules here.
 
 ## Running
 
-- `bun run test` runs the suite (`bun --no-env-file test`): one process, files in sequence. The
-  `--no-env-file` flag keeps a local `.env` out of the run.
+- `bun run test` builds `dist/` and then runs the suite (`bun --no-env-file test`): one process,
+  files in sequence. The `--no-env-file` flag keeps a local `.env` out of the run.
 - `bunfig.toml` preloads `@zgeoff/bun-test-extended` (the jest-extended matchers) and
   `test-setup.ts`.
 - `test-setup.ts` seeds faker with a fixed value, starts the MSW server with
@@ -38,6 +38,23 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
 - The scope and repository readers walk up from a cwd to the nearest `.git`. A test roots every cwd
   in a repository it creates inside its temp tree, so the walk never leaves it. A stray `.git` above
   the system temp directory otherwise becomes the task's worktree.
+
+## The CLI
+
+- `src/run-cli.ts` holds the CLI as `runCLI(argv, io)`: `io` carries `stdin` (a function that
+  returns the body), `stdout`, `stderr`, the `host` and `subscribeToStopSignals`, and the result is
+  the exit code. A `--jev-only` run subscribes for the length of its evaluation and unsubscribes
+  after it. `src/cli.ts` only wires the real process into it, and its subscription listens for
+  SIGTERM and SIGINT.
+- `src/run-cli.test.ts` runs `runCLI` in-process. `buildStubOutput` from
+  `test-utils/build-stub-output.ts` stands in for stdout and stderr, and its `read()` returns what
+  was written. `buildStubStopSignals` from `test-utils/build-stub-stop-signals.ts` stands in for the
+  signals: its `stop()` calls every callback still subscribed.
+- `e2e/cli.test.ts` spawns the built `dist/cli.js` under node with a minimal environment rooted in
+  the temp dir. It fails at once when `dist/cli.js` is missing. Only `bun run test` rebuilds
+  `dist/`, so a bare `bun test e2e/…` runs whatever `dist/` already holds. The child runs the binary
+  that `node -p process.execPath` resolves, because a version manager's node shim needs the user's
+  HOME.
 
 ## Git
 

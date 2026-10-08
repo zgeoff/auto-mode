@@ -1,4 +1,4 @@
-import { expect, onTestFinished, test } from 'bun:test';
+import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -41,6 +41,7 @@ test('it owns the linked worktree that holds the cwd, its branch, and the remote
     { sessionID: 'session-1', cwd: join(worktree, 'src'), stateDir: join(ctx.dir, 'state') },
     { cwd: { kind: 'cwd' } },
     { env: {}, home: ctx.dir },
+    { write: mock() },
   );
 
   expect(scope).toStrictEqual({
@@ -74,6 +75,7 @@ test('it owns the main checkout but not its default branch', async () => {
     { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.dir, 'state') },
     { cwd: { kind: 'cwd' } },
     { env: {}, home: ctx.dir },
+    { write: mock() },
   );
 
   expect(scope).toStrictEqual({
@@ -99,6 +101,7 @@ test('it owns only the cwd when git directory overrides hide the checkout', asyn
     { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.dir, 'state') },
     { cwd: { kind: 'cwd' } },
     { env: { GIT_DIR: join(repo, '.git') }, home: ctx.dir },
+    { write: mock() },
   );
 
   expect(scope).toStrictEqual({
@@ -156,6 +159,7 @@ test('it unites the sources and owns the PRs whose head branch and repository ar
       scratch: { kind: 'globs', paths: ['/scratch/**'] },
     },
     { env: {}, home: ctx.dir },
+    { write: mock() },
   );
 
   expect(scope).toStrictEqual({
@@ -197,6 +201,7 @@ test('it reads no session scope when the registry has no session source', async 
     { sessionID: 'session-1', cwd: repo, stateDir },
     { cwd: { kind: 'cwd' } },
     { env: {}, home: ctx.dir },
+    { write: mock() },
   );
 
   expect(scope).toStrictEqual({
@@ -243,6 +248,7 @@ test('it owns the atc record that the host environment names, from the main chec
     { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.dir, 'state') },
     { atc: { kind: 'atc' } },
     { env: { ATC_SESSION_RECORD: recordPath, ATC_SESSION_ID: 'atc-1' }, home: ctx.dir },
+    { write: mock() },
   );
 
   expect(scope).toStrictEqual({
@@ -293,6 +299,7 @@ test('it never owns a recorded branch of another repository', async () => {
     { sessionID: 'session-1', cwd: repo, stateDir },
     { session: { kind: 'session' } },
     { env: {}, home: ctx.dir },
+    { write: mock() },
   );
 
   expect(scope).toStrictEqual({

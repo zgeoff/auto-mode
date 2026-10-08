@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import type { ScopeSource } from '../config/config.ts';
-import type { HostEnvironment } from '../config/types.ts';
+import type { HostEnvironment, OutputStream } from '../config/types.ts';
 import type { OwnedScope } from '../containment/collect-scope-findings.ts';
 import { loadRepositoryContext } from '../model/load-repository-context.ts';
 import { buildTaskScope } from './build-task-scope.ts';
@@ -20,6 +20,7 @@ export async function loadTaskScope(
   request: Readonly<TaskScopeRequest>,
   sources: Readonly<Record<string, ScopeSource>>,
   host: Readonly<HostEnvironment>,
+  stderr: Readonly<OutputStream>,
 ): Promise<OwnedScope> {
   const cwd = resolve(request.cwd);
 
@@ -40,7 +41,7 @@ export async function loadTaskScope(
     stateDir: request.stateDir,
     atcRecordPath: host.env['ATC_SESSION_RECORD'],
     atcSessionID: host.env['ATC_SESSION_ID'],
-    stderr: process.stderr,
+    stderr,
   };
 
   const [remotes, ...facts] = await Promise.all([

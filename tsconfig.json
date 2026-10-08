@@ -5,6 +5,7 @@
   },
   "include": [
     "src/**/*.ts",
+    "e2e/**/*.ts",
     "test-utils/**/*.ts",
     "evals/**/*.ts",
     "mocks/**/*.ts",
