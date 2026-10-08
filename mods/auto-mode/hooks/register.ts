@@ -73,9 +73,8 @@ export function register(on: ModOn, options: ModOptions): void {
         ? e.command
         : null;
 
-    const isRecorded = command !== null && sessionID !== null;
-    const startedAt = isRecorded ? await $.clock.now() : null;
-    const cwd = isRecorded ? await $.session.cwd() : null;
+    const startedAt = Date.now();
+    const cwd = command === null || sessionID === null ? null : await $.session.cwd();
     let result;
 
     try {
@@ -84,13 +83,7 @@ export function register(on: ModOn, options: ModOptions): void {
       activeCalls.delete(e.tool_use_id);
     }
 
-    if (
-      command !== null &&
-      cwd !== null &&
-      sessionID !== null &&
-      startedAt !== null &&
-      result.deny === undefined
-    ) {
+    if (command !== null && cwd !== null && sessionID !== null && result.deny === undefined) {
       const executable = typeof options.command === 'string' ? options.command : 'auto-mode';
       const request = { sessionID, cwd, startedAt, command, resultText: result.text ?? '' };
 
@@ -174,7 +167,7 @@ export function register(on: ModOn, options: ModOptions): void {
         return decided;
       }
 
-      const deadlineAt = (await $.clock.now()) + childTimeoutMs - 500;
+      const deadlineAt = Date.now() + childTimeoutMs - 500;
 
       $.ui.log(`${logPrefix} evaluator invoked`, { to: 'debug' });
 
