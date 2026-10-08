@@ -18,8 +18,19 @@ export function pickScopeSourceReader(source: Readonly<ScopeSource>): ScopeSourc
   }
 
   if (source.kind === 'session') {
-    return (context) =>
-      loadSessionScope(resolveSessionScopePath(context.stateDir, context.sessionID));
+    return async (context) => {
+      const scope = await loadSessionScope(
+        resolveSessionScopePath(context.stateDir, context.sessionID),
+      );
+
+      return buildFacts({
+        worktrees: scope.worktrees,
+        branches: scope.branches
+          .filter((branch) => branch.commonDir === context.commonDir)
+          .map((branch) => branch.name),
+        pullRequests: scope.pullRequests,
+      });
+    };
   }
 
   if (source.kind === 'globs') {

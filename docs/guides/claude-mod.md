@@ -80,9 +80,11 @@ or a pull request (`git worktree add`, `git checkout -b`, `git switch -c`, `git 
 
 `cwd` is the directory before the call ran, and `resultText` is the output the agent read. The CLI
 writes nothing on stdout. It adds to the session's scope only what the call made: a worktree whose
-link file and a branch whose first reflog entry date from after `startedAt`, and a pull request
-whose head branch `gh pr view` reports. Any other Bash call and any denied call run no subprocess.
-The record body is strict, as the request is.
+link file dates from after `startedAt`, a branch whose reflog starts with its creation and whose ref
+file dates from after `startedAt`, and a pull request that `gh pr view` dates from the call, with
+the head branch it reports. A branch counts only in the repository it was made in. Parallel records
+of one session take a lock file, so none loses another's additions. Any other Bash call and any
+denied call run no subprocess. The record body is strict, as the request is.
 
 Each optional task prompt has a 4,096-byte limit. An oversized task is omitted whole. If the
 complete request exceeds 100,000 bytes, the client omits optional tasks before it refuses the

@@ -20,7 +20,7 @@ import { parseActionRequest } from './request/parse-action-request.ts';
 import { parseScopeRecordRequest } from './request/parse-scope-record-request.ts';
 import { renderVerdict } from './request/render-verdict.ts';
 import type { Verdict } from './request/types.ts';
-import { readPullRequestHead } from './scope/read-pull-request-head.ts';
+import { readPullRequest } from './scope/read-pull-request.ts';
 import { updateSessionScope } from './scope/update-session-scope.ts';
 import { resolveStateDir } from './state/resolve-state-dir.ts';
 
@@ -202,7 +202,7 @@ async function runRecord(): Promise<number> {
       await updateSessionScope(request, {
         stateDir: resolveStateDir(),
         home: homedir(),
-        readPullRequestHead,
+        readPullRequest,
       });
     }
   } catch {

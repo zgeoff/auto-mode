@@ -30,6 +30,7 @@ export async function loadTaskScope(
     sessionID: request.sessionID,
     cwd,
     worktree: checkout?.worktree ?? cwd,
+    commonDir: checkout?.commonDir ?? null,
     branch,
     stateDir: request.stateDir,
   };

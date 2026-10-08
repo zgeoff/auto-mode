@@ -28,56 +28,56 @@ async function setupTest() {
     await rm(root, { recursive: true, force: true });
   });
 
-  const repo = join(root, 'repo');
+  const repo = join(root, 'app');
+  const other = join(root, 'other');
+  const gitProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null' };
 
-  const runGit = (...args: readonly string[]): string =>
+  const runGit = (directory: string, ...args: readonly string[]): string =>
     execFileSync(
       'git',
-      [
-        '-c',
-        'user.name=dev',
-        '-c',
-        'user.email=dev@example.com',
-        '-c',
-        'commit.gpgsign=false',
-        ...args,
-      ],
+      ['-C', directory, '-c', 'user.name=dev', '-c', 'user.email=dev@example.com', ...args],
       {
-        cwd: repo,
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null' },
+        env: gitProcessEnv,
       },
     );
 
-  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
-  runGit('commit', '-q', '--allow-empty', '-m', 'init');
-  runGit('remote', 'add', 'origin', 'git@github.com:dev/app.git');
+  for (const [directory, url] of [
+    [repo, 'git@github.com:dev/app.git'],
+    [other, 'git@github.com:dev/other.git'],
+  ] as const) {
+    execFileSync('git', ['init', '-q', '-b', 'main', directory]);
+    runGit(directory, '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'init');
+    runGit(directory, 'remote', 'add', 'origin', url);
+  }
 
-  // The recorder confirms each claim against a forge lookup; this stands in
-  // for `gh pr view` with the head branches the forge would report.
-  const heads = new Map([['github.com/dev/app#12', 'feat/x']]);
-
+  // The forge knows no PR unless a test says otherwise; `gh pr view` is the
+  // command layer this stands in for.
   const options = {
     stateDir: join(root, 'state'),
     home: root,
-    readPullRequestHead: (repository: string, number: number) =>
-      Promise.resolve(heads.get(`${repository}#${String(number)}`) ?? null),
+    readPullRequest: () => Promise.resolve(null),
   };
 
-  return { repo, runGit, options };
+  return { repo, other, runGit, options };
 }
 
 test('it records a worktree and its branch made during the call, and a later load reads them', async () => {
   const ctx = await setupTest();
 
   const startedAt = Date.now();
-  const command = 'git worktree add .worktrees/x -b feat/x';
 
-  ctx.runGit(...command.split(' ').slice(1));
+  ctx.runGit(ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x');
 
   await updateSessionScope(
-    { sessionID: 'session-1', cwd: ctx.repo, startedAt, command, resultText: '' },
+    {
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt,
+      command: 'git worktree add .worktrees/x -b feat/x',
+      resultText: '',
+    },
     ctx.options,
   );
 
@@ -92,89 +92,171 @@ test('it records a worktree and its branch made during the call, and a later loa
   ]);
 });
 
-test('it records no worktree or branch that existed before the call started', async () => {
+test('it owns a recorded branch only in the repository the session made it in', async () => {
   const ctx = await setupTest();
 
-  const command = 'git worktree add .worktrees/x -b feat/x; git checkout -b feat/y';
+  const startedAt = Date.now();
 
-  ctx.runGit('worktree', 'add', '.worktrees/x', '-b', 'feat/x');
-  ctx.runGit('branch', 'feat/y');
+  ctx.runGit(ctx.repo, 'branch', 'shared');
+  ctx.runGit(ctx.other, 'branch', 'shared');
 
-  const facts = await updateSessionScope(
+  await updateSessionScope(
     {
       sessionID: 'session-1',
       cwd: ctx.repo,
-      startedAt: Date.now() + 5000,
-      command,
+      startedAt,
+      command: 'git branch shared',
       resultText: '',
     },
     ctx.options,
   );
 
-  expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
+  const [here, there] = await Promise.all(
+    [ctx.repo, ctx.other].map((cwd) =>
+      loadTaskScope(
+        { sessionID: 'session-1', cwd, stateDir: ctx.options.stateDir },
+        { cwd: { kind: 'cwd' }, session: { kind: 'session' } },
+      ),
+    ),
+  );
+
+  expect([here?.branches, there?.branches]).toStrictEqual([['shared'], []]);
+});
+
+test('it records no worktree or branch that existed before the call started', async () => {
+  const ctx = await setupTest();
+
+  ctx.runGit(ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x');
+  ctx.runGit(ctx.repo, 'branch', 'feat/y');
+
+  const scope = await updateSessionScope(
+    {
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt: Date.now() + 5000,
+      command: 'git worktree add .worktrees/x -b feat/x; git checkout -b feat/y',
+      resultText: '',
+    },
+    ctx.options,
+  );
+
+  expect(scope).toStrictEqual({ worktrees: [], branches: [], pullRequests: [] });
+});
+
+test('it records nothing when the command fails on a worktree made just before the call', async () => {
+  const ctx = await setupTest();
+
+  ctx.runGit(ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x');
+
+  const startedAt = Date.now() + 100;
+  const command = 'git worktree add .worktrees/x -b feat/x';
+
+  const scope = await updateSessionScope(
+    {
+      sessionID: 'session-2',
+      cwd: ctx.repo,
+      startedAt,
+      command,
+      resultText: "fatal: a branch named 'feat/x' already exists",
+    },
+    ctx.options,
+  );
+
+  expect(scope).toStrictEqual({ worktrees: [], branches: [], pullRequests: [] });
 });
 
 test('it records a branch reset by checkout -B as nothing, since it already existed', async () => {
   const ctx = await setupTest();
 
-  ctx.runGit('branch', 'feat/y');
+  ctx.runGit(ctx.repo, 'branch', 'feat/y');
 
-  const startedAt = Date.now() + 5000;
-
-  const facts = await updateSessionScope(
+  const scope = await updateSessionScope(
     {
       sessionID: 'session-1',
       cwd: ctx.repo,
-      startedAt,
+      startedAt: Date.now() + 5000,
       command: 'git checkout -B feat/y',
       resultText: '',
     },
     ctx.options,
   );
 
-  expect(facts.branches).toStrictEqual([]);
+  expect(scope.branches).toStrictEqual([]);
 });
 
-test('it records a created PR with the head branch the forge reports', async () => {
+test('it records a PR the forge dates from the call, with the head branch it reports', async () => {
   const ctx = await setupTest();
 
-  const facts = await updateSessionScope(
+  const startedAt = Date.now();
+
+  const scope = await updateSessionScope(
     {
       sessionID: 'session-1',
       cwd: ctx.repo,
-      startedAt: Date.now(),
+      startedAt,
       command: 'gh pr create --fill',
       resultText: 'https://github.com/dev/app/pull/12\n',
     },
-    ctx.options,
+    {
+      ...ctx.options,
+      readPullRequest: () => Promise.resolve({ head: 'feat/x', createdAt: startedAt + 900 }),
+    },
   );
 
-  expect(facts.pullRequests).toStrictEqual([
+  expect(scope.pullRequests).toStrictEqual([
     { number: 12, head: 'feat/x', repository: 'github.com/dev/app' },
   ]);
+});
+
+test('it records no PR that already existed when gh pr create printed its address', async () => {
+  const ctx = await setupTest();
+
+  const startedAt = Date.now();
+
+  const scope = await updateSessionScope(
+    {
+      sessionID: 'session-1',
+      cwd: ctx.repo,
+      startedAt,
+      command: 'gh pr create --fill',
+      resultText:
+        'a pull request for branch "feat/x" into branch "main" already exists:\nhttps://github.com/dev/app/pull/12\n',
+    },
+    {
+      ...ctx.options,
+      readPullRequest: () => Promise.resolve({ head: 'feat/x', createdAt: startedAt - 3_600_000 }),
+    },
+  );
+
+  expect(scope.pullRequests).toStrictEqual([]);
 });
 
 test('it records no PR printed for another repository', async () => {
   const ctx = await setupTest();
 
-  const facts = await updateSessionScope(
+  const startedAt = Date.now();
+
+  const scope = await updateSessionScope(
     {
       sessionID: 'session-1',
       cwd: ctx.repo,
-      startedAt: Date.now(),
+      startedAt,
       command: 'gh pr create --fill',
       resultText: 'https://github.com/someone/app/pull/12\n',
     },
-    ctx.options,
+    {
+      ...ctx.options,
+      readPullRequest: () => Promise.resolve({ head: 'feat/x', createdAt: startedAt }),
+    },
   );
 
-  expect(facts.pullRequests).toStrictEqual([]);
+  expect(scope.pullRequests).toStrictEqual([]);
 });
 
 test('it records no PR the forge does not know', async () => {
   const ctx = await setupTest();
 
-  const facts = await updateSessionScope(
+  const scope = await updateSessionScope(
     {
       sessionID: 'session-1',
       cwd: ctx.repo,
@@ -185,5 +267,38 @@ test('it records no PR the forge does not know', async () => {
     ctx.options,
   );
 
-  expect(facts.pullRequests).toStrictEqual([]);
+  expect(scope.pullRequests).toStrictEqual([]);
+});
+
+test('it keeps every branch when calls of one session record at the same time', async () => {
+  const ctx = await setupTest();
+
+  const names = Array.from({ length: 10 }, (_, index) => `feat/${String(index)}`);
+  const startedAt = Date.now();
+
+  for (const name of names) {
+    ctx.runGit(ctx.repo, 'branch', name);
+  }
+
+  await Promise.all(
+    names.map((name) =>
+      updateSessionScope(
+        {
+          sessionID: 'session-1',
+          cwd: ctx.repo,
+          startedAt,
+          command: `git branch ${name}`,
+          resultText: '',
+        },
+        ctx.options,
+      ),
+    ),
+  );
+
+  const scope = await loadTaskScope(
+    { sessionID: 'session-1', cwd: ctx.repo, stateDir: ctx.options.stateDir },
+    { session: { kind: 'session' } },
+  );
+
+  expect(scope.branches).toIncludeSameMembers(names);
 });

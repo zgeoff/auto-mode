@@ -124,7 +124,10 @@ test('it adds what the session recorded and the PRs whose head branch is in scop
     path,
     JSON.stringify({
       worktrees: [join(ctx.root, '.worktrees', 'docs')],
-      branches: ['docs', 'main'],
+      branches: [
+        { name: 'docs', commonDir: join(ctx.root, '.git') },
+        { name: 'main', commonDir: join(ctx.root, '.git') },
+      ],
       pullRequests: [
         { number: 7, head: 'docs', repository: 'github.com/dev/app' },
         { number: 8, head: 'someone-else', repository: 'github.com/dev/app' },
