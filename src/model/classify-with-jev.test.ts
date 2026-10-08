@@ -10,6 +10,7 @@ import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
+import { buildMockTaskScopeSummary } from '../../test-utils/factories/build-mock-task-scope-summary.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
 
 async function setupTest() {
@@ -1276,11 +1277,11 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
 
   await classifyWithJev(payload, config, {
     host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
-    taskScope: {
+    taskScope: buildMockTaskScopeSummary({
       worktrees: [ctx.dir],
       branches: ['feature'],
       pullRequests: [{ repository: 'dev/app', number: 7 }],
-    },
+    }),
   });
 
   expect(received).toHaveBeenCalledExactlyOnceWith({
