@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.6.0...auto-mode-v0.7.0) (2026-10-08)
+
+
+### Features
+
+* **geo-174:** reshape the config around classifier and scope registries ([#48](https://github.com/zgeoff/auto-mode/issues/48)) ([dafd8f7](https://github.com/zgeoff/auto-mode/commit/dafd8f73f631c748ac6f4731052d4174ba2678c0))
+
 ## [0.6.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.5.0...auto-mode-v0.6.0) (2026-10-07)
 
 
