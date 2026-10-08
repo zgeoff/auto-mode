@@ -6,21 +6,63 @@ import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-clau
 import { buildDecisionRequest } from '../model/build-decision-request.ts';
 import { DENY_REASONS } from './deny-reasons.ts';
 
-test('it holds a reason template for every shipped rule and no other', async () => {
-  const policy = await readFile(join(import.meta.dirname, '../../policy/rules.md'), 'utf8');
-
-  const request = buildDecisionRequest(
-    buildMockActionRequest(),
-    policy,
-    buildMockClaudeRules(),
-    null,
-    'shipped',
-  );
-
-  expect(DENY_REASONS).toContainAllKeys(Object.values(request.rules).map((rule) => rule.name));
+test('it holds a reason template for every shipped rule and no other', () => {
+  expect(DENY_REASONS).toContainAllKeys([
+    'Data Exfiltration',
+    'Secret Persistence',
+    'Policy Tampering',
+    'Audit Tampering',
+    'Destructive Payload',
+    'Irreversible Deletion',
+    'Uncommitted Work Destruction',
+    'History Rewrite',
+    'Default Branch Write',
+    'Publish and Release',
+    'Outbound Communication',
+    'Remote Code Execution',
+    'Obfuscated Command',
+    'Network Exposure',
+    'Unnamed Destination',
+    'Shared Infrastructure',
+    'Destructive Database Operation',
+    'Persistent Configuration',
+    'Credential Exploration',
+    'Interrupted Action Retry',
+    'Security Control Removal',
+    'Mass Modification',
+  ]);
 });
 
-test('it files each template under the tier of its shipped rule', async () => {
+test('it files each template under the tier of its shipped rule', () => {
+  expect(
+    Object.fromEntries(Object.entries(DENY_REASONS).map(([name, entry]) => [name, entry.tier])),
+  ).toStrictEqual({
+    'Data Exfiltration': 'hard',
+    'Secret Persistence': 'hard',
+    'Policy Tampering': 'hard',
+    'Audit Tampering': 'hard',
+    'Destructive Payload': 'hard',
+    'Irreversible Deletion': 'soft',
+    'Uncommitted Work Destruction': 'soft',
+    'History Rewrite': 'soft',
+    'Default Branch Write': 'soft',
+    'Publish and Release': 'soft',
+    'Outbound Communication': 'soft',
+    'Remote Code Execution': 'soft',
+    'Obfuscated Command': 'soft',
+    'Network Exposure': 'soft',
+    'Unnamed Destination': 'soft',
+    'Shared Infrastructure': 'soft',
+    'Destructive Database Operation': 'soft',
+    'Persistent Configuration': 'soft',
+    'Credential Exploration': 'soft',
+    'Interrupted Action Retry': 'soft',
+    'Security Control Removal': 'soft',
+    'Mass Modification': 'soft',
+  });
+});
+
+test('it files the same rules under the same tiers as the shipped policy', async () => {
   const policy = await readFile(join(import.meta.dirname, '../../policy/rules.md'), 'utf8');
 
   const request = buildDecisionRequest(

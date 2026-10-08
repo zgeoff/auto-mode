@@ -337,14 +337,15 @@ test('it keeps every branch when calls of one session record at the same time', 
 
   await lockClock.waited;
 
-  const waitsWhileHeld = lockClock.wait.mock.calls.length;
+  const scopeWhileHeld = await loadSessionScope(path);
 
   await rm(`${path}.lock`);
   await recording;
 
   const written = await loadSessionScope(path);
 
-  expect(waitsWhileHeld).toBeGreaterThan(0);
+  expect(lockClock.wait).toHaveBeenCalledWith(10);
+  expect(scopeWhileHeld).toStrictEqual({ worktrees: [], branches: [], pullRequests: [] });
 
   expect(written).toStrictEqual({
     worktrees: [],

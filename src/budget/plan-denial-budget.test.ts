@@ -1,13 +1,15 @@
 import { expect, test } from 'bun:test';
+import { buildMockDenialBudget } from '../../test-utils/factories/build-mock-denial-budget.ts';
 import { buildMockDenialState } from '../../test-utils/factories/build-mock-denial-state.ts';
+import { buildMockVerdict } from '../../test-utils/factories/build-mock-verdict.ts';
 import { planDenialBudget } from './plan-denial-budget.ts';
 
 test('it counts a deny and states the denials left', () => {
   const plan = planDenialBudget(
     buildMockDenialState({ consecutive: 0, session: 0, lastDenied: null }),
-    { kind: 'deny', rule: 'Rule', reason: 'Base reason.' },
+    buildMockVerdict({ kind: 'deny', rule: 'Rule', reason: 'Base reason.' }),
     'action-a',
-    { consecutive: 3, perSession: 20 },
+    buildMockDenialBudget({ consecutive: 3, perSession: 20 }),
   );
 
   expect(plan).toStrictEqual({
@@ -28,9 +30,9 @@ test('it counts a deny and states the denials left', () => {
 test('it tells the agent to stop and report on the last deny before the limit', () => {
   const plan = planDenialBudget(
     buildMockDenialState({ consecutive: 2, session: 2, lastDenied: null }),
-    { kind: 'deny', rule: 'Rule', reason: 'Base reason.' },
+    buildMockVerdict({ kind: 'deny', rule: 'Rule', reason: 'Base reason.' }),
     'action-c',
-    { consecutive: 3, perSession: 20 },
+    buildMockDenialBudget({ consecutive: 3, perSession: 20 }),
   );
 
   expect(plan).toStrictEqual({
@@ -56,9 +58,9 @@ test('it resets the consecutive count on an allow and keeps the session count', 
       session: 7,
       lastDenied: { retryKey: 'action-a', rule: 'Rule', reason: 'Base reason.' },
     }),
-    { kind: 'allow' },
+    buildMockVerdict({ kind: 'allow' }),
     'action-b',
-    { consecutive: 3, perSession: 20 },
+    buildMockDenialBudget({ consecutive: 3, perSession: 20 }),
   );
 
   expect(plan).toStrictEqual({
@@ -71,9 +73,9 @@ test('it resets the consecutive count on an allow and keeps the session count', 
 test('it gives the action that exceeds the consecutive budget to the user and resets both counts', () => {
   const plan = planDenialBudget(
     buildMockDenialState({ consecutive: 3, session: 3, lastDenied: null }),
-    { kind: 'deny', rule: 'Rule', reason: 'Base reason.' },
+    buildMockVerdict({ kind: 'deny', rule: 'Rule', reason: 'Base reason.' }),
     'action-d',
-    { consecutive: 3, perSession: 20 },
+    buildMockDenialBudget({ consecutive: 3, perSession: 20 }),
   );
 
   expect(plan).toStrictEqual({
@@ -86,9 +88,9 @@ test('it gives the action that exceeds the consecutive budget to the user and re
 test('it gives the action that exceeds the per-session budget to the user', () => {
   const plan = planDenialBudget(
     buildMockDenialState({ consecutive: 1, session: 20, lastDenied: null }),
-    { kind: 'deny', rule: 'Rule', reason: 'Base reason.' },
+    buildMockVerdict({ kind: 'deny', rule: 'Rule', reason: 'Base reason.' }),
     'action-e',
-    { consecutive: 3, perSession: 20 },
+    buildMockDenialBudget({ consecutive: 3, perSession: 20 }),
   );
 
   expect(plan).toStrictEqual({
@@ -101,9 +103,9 @@ test('it gives the action that exceeds the per-session budget to the user', () =
 test('it counts the per-session budget in the denials left when it is the nearer limit', () => {
   const plan = planDenialBudget(
     buildMockDenialState({ consecutive: 0, session: 18, lastDenied: null }),
-    { kind: 'deny', rule: 'Rule', reason: 'Base reason.' },
+    buildMockVerdict({ kind: 'deny', rule: 'Rule', reason: 'Base reason.' }),
     'action-f',
-    { consecutive: 3, perSession: 20 },
+    buildMockDenialBudget({ consecutive: 3, perSession: 20 }),
   );
 
   expect(plan).toStrictEqual({
@@ -124,9 +126,9 @@ test('it counts the per-session budget in the denials left when it is the nearer
 test('it states the last denial at once under a configured budget of one in a row', () => {
   const plan = planDenialBudget(
     buildMockDenialState({ consecutive: 0, session: 0, lastDenied: null }),
-    { kind: 'deny', rule: 'Rule', reason: 'Base reason.' },
+    buildMockVerdict({ kind: 'deny', rule: 'Rule', reason: 'Base reason.' }),
     'action-a',
-    { consecutive: 1, perSession: 5 },
+    buildMockDenialBudget({ consecutive: 1, perSession: 5 }),
   );
 
   expect(plan).toStrictEqual({
@@ -152,9 +154,9 @@ test('it gives the next action to the user under a configured budget of one in a
       session: 1,
       lastDenied: { retryKey: 'action-a', rule: 'Rule', reason: 'Base reason.' },
     }),
-    { kind: 'deny', rule: 'Rule', reason: 'Base reason.' },
+    buildMockVerdict({ kind: 'deny', rule: 'Rule', reason: 'Base reason.' }),
     'action-b',
-    { consecutive: 1, perSession: 5 },
+    buildMockDenialBudget({ consecutive: 1, perSession: 5 }),
   );
 
   expect(plan).toStrictEqual({
@@ -166,7 +168,13 @@ test('it gives the next action to the user under a configured budget of one in a
 
 test('it leaves the counts alone when there is no verdict', () => {
   const state = buildMockDenialState({ consecutive: 2, session: 2, lastDenied: null });
-  const plan = planDenialBudget(state, null, 'action-a', { consecutive: 3, perSession: 20 });
+
+  const plan = planDenialBudget(
+    state,
+    null,
+    'action-a',
+    buildMockDenialBudget({ consecutive: 3, perSession: 20 }),
+  );
 
   expect(plan).toStrictEqual({ verdict: null, state, escalation: false });
 });

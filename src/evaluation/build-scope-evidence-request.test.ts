@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { buildMockDecisionQuestion } from '../../test-utils/factories/build-mock-decision-question.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
 import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
+import { buildMockScopeFinding } from '../../test-utils/factories/build-mock-scope-finding.ts';
 import { buildScopeEvidenceRequest } from './build-scope-evidence-request.ts';
 
 test('it sends the request unchanged when the detector finds nothing', () => {
@@ -21,7 +22,9 @@ test('it adds the owned scope, the findings, and one instruction to every questi
     pullRequests: [{ number: 7, repository: 'github.com/dev/app' }],
   });
 
-  const evidenced = buildScopeEvidenceRequest(request, scope, [{ kind: 'path', target: '/w/b' }]);
+  const evidenced = buildScopeEvidenceRequest(request, scope, [
+    buildMockScopeFinding({ kind: 'path', target: '/w/b' }),
+  ]);
 
   expect(evidenced).toStrictEqual({
     ...request,
