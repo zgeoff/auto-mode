@@ -21,6 +21,7 @@ test('it never borrows parent consent for a child', () => {
 
 test('it omits whole oversized task prompts and keeps current consent intact', () => {
   const context = buildMockDecisionContext({
+    agentID: null,
     originalUserTask: { text: 'x'.repeat(4097) },
     delegatedTask: { text: '🙂'.repeat(1025) },
     lastDirectUserMessage: { text: 'Do not push' },

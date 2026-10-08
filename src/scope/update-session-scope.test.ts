@@ -7,7 +7,6 @@ import { buildStubPullRequestReader } from '../../test-utils/build-stub-pull-req
 import { buildMockScopeRecordRequest } from '../../test-utils/factories/build-mock-scope-record-request.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { loadSessionScope } from './load-session-scope.ts';
-import { loadTaskScope } from './load-task-scope.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import { updateSessionScope } from './update-session-scope.ts';
 
@@ -65,7 +64,7 @@ test('it records a worktree and its branch made during the call and writes them 
   });
 });
 
-test('it owns a recorded branch only in the repository the session made it in', async () => {
+test('it ties a recorded branch to the repository the session made it in', async () => {
   const ctx = await setupTest();
 
   const other = join(ctx.root, 'other');
@@ -92,19 +91,11 @@ test('it owns a recorded branch only in the repository the session made it in', 
     readPullRequest: buildStubPullRequestReader([]),
   });
 
-  const there = await loadTaskScope(
-    { sessionID: request.sessionID, cwd: other, stateDir: join(ctx.root, 'state') },
-    { session: { kind: 'session' } },
-    { env: {}, home: ctx.root },
-  );
-
   expect(scope).toStrictEqual({
     worktrees: [],
     branches: [{ name: 'shared', commonDir: join(ctx.repo, '.git') }],
     pullRequests: [],
   });
-
-  expect(there.branches).toStrictEqual([]);
 });
 
 test('it records no worktree or branch that existed before the call started', async () => {

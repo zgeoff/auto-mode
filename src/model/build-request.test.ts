@@ -74,7 +74,7 @@ test('it renders the same message from the same input', () => {
 
 test('it marks the transcript unavailable when there is none', () => {
   const message = buildUserMessage(
-    buildMockActionRequest({ cwd: '/repo', toolInput: { command: 'ls' } }),
+    buildMockActionRequest({ cwd: '/repo', toolName: 'Bash', toolInput: { command: 'ls' } }),
     [],
     true,
   );
@@ -88,7 +88,7 @@ test('it marks the transcript unavailable when there is none', () => {
 // breaks the parse.
 test('it asks a non-reasoning model for the tags and nothing else', () => {
   const message = buildUserMessage(
-    buildMockActionRequest({ cwd: '/repo', toolInput: { command: 'ls' } }),
+    buildMockActionRequest({ cwd: '/repo', toolName: 'Bash', toolInput: { command: 'ls' } }),
     [{ role: 'user', text: 'list the files' }],
     false,
   );
