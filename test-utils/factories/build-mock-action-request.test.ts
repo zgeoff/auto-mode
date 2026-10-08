@@ -41,3 +41,13 @@ test('it applies overrides on top of the defaults', () => {
     },
   });
 });
+
+test('it leaves out the decision context when the override is undefined', () => {
+  expect(buildMockActionRequest({ decisionContext: undefined })).toStrictEqual({
+    sessionID: expect.toBeString(),
+    toolUseID: expect.toStartWith('toolu_'),
+    cwd: expect.toStartWith('/'),
+    toolName: 'Bash',
+    toolInput: { command: expect.toBeString() },
+  });
+});
