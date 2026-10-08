@@ -255,3 +255,53 @@ test('it owns the atc record that the host environment names, from the main chec
     pathGlobs: [],
   });
 });
+
+test('it never owns a recorded branch of another repository', async () => {
+  const ctx = await setupTest();
+
+  const repo = join(ctx.dir, 'app');
+  const other = join(ctx.dir, 'other');
+  const stateDir = join(ctx.dir, 'state');
+  const path = resolveSessionScopePath(stateDir, 'session-1');
+
+  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.dir, ['init', '-q', '-b', 'main', other]);
+
+  runGit(ctx.dir, [
+    '-C',
+    repo,
+    'symbolic-ref',
+    'refs/remotes/origin/HEAD',
+    'refs/remotes/origin/main',
+  ]);
+
+  await mkdir(dirname(path), { recursive: true });
+
+  await writeFile(
+    path,
+    JSON.stringify({
+      worktrees: [],
+      branches: [
+        { name: 'docs', commonDir: join(repo, '.git') },
+        { name: 'elsewhere', commonDir: join(other, '.git') },
+      ],
+      pullRequests: [],
+    }),
+  );
+
+  const scope = await loadTaskScope(
+    { sessionID: 'session-1', cwd: repo, stateDir },
+    { session: { kind: 'session' } },
+    { env: {}, home: ctx.dir },
+  );
+
+  expect(scope).toStrictEqual({
+    home: ctx.dir,
+    worktrees: [],
+    branches: ['docs'],
+    currentBranch: 'main',
+    remotes: [],
+    pullRequests: [],
+    pathGlobs: [],
+  });
+});
