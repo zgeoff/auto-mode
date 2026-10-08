@@ -33,6 +33,7 @@ test('it allows a read-only tool in the local tier', async () => {
 
   expect(outcome).toStrictEqual({
     verdict: { kind: 'allow' },
+    decidingStage: 'local',
     note: 'allowed by Read-only actions (local)',
     status: 'allow',
   });
@@ -49,6 +50,7 @@ test('it gives no verdict for an escalated action when the model tier is skipped
 
   expect(outcome).toStrictEqual({
     verdict: null,
+    decidingStage: 'local',
     note: 'Write needs the model tier, which this run skipped',
     status: 'skipped',
   });
@@ -88,6 +90,7 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
       reason:
         'Claude settings unreadable. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
     },
+    decidingStage: 'jev',
     note: 'Claude settings unreadable; classifier unavailable',
     status: 'failure',
     unavailable: true,

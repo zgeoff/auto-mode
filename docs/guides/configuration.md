@@ -24,7 +24,8 @@ leaves the action without a verdict and writes a diagnostic.
     "classifier": "jev",
     "judge": null,
     "minConfidence": 0.8,
-    "onFailure": "defer"
+    "onFailure": "defer",
+    "denialBudget": { "consecutive": 3, "perSession": 20 }
   },
   "policy": {
     "rulesPath": null,
@@ -107,16 +108,37 @@ follows it read them.
 
 ## Decision
 
-| Field           | Default | Effect                                                        |
-| --------------- | ------- | ------------------------------------------------------------- |
-| `classifier`    | `jev`   | The classifiers id that judges each escalated action          |
-| `judge`         | `null`  | The classifiers id that reviews each deny; `null` for none    |
-| `minConfidence` | `0.8`   | Require confidence and selected probability at this threshold |
-| `onFailure`     | `defer` | Keep the manual approval, or deny, when the classifier fails  |
+| Field           | Default | Effect                                                            |
+| --------------- | ------- | ----------------------------------------------------------------- |
+| `classifier`    | `jev`   | The classifiers id that judges each escalated action              |
+| `judge`         | `null`  | The classifiers id that reviews each deny; `null` for none        |
+| `minConfidence` | `0.8`   | Require confidence and selected probability at this threshold     |
+| `onFailure`     | `defer` | Keep the manual approval, or deny, when the classifier fails      |
+| `denialBudget`  | 3, 20   | Denials allowed in a row and per session before the user is asked |
 
 A role names a registry id. When the registry has no entry by that id and the id is a built-in kind,
 the role uses that kind's defaults, so `"classifier": "glm"` works without a `glm` entry. A role
 that names a dropped entry, or an id that is neither an entry nor a kind, makes the file invalid.
+
+### Denial budget
+
+`denialBudget` takes `consecutive` and `perSession`, each a positive whole number, defaulting to 3
+and 20. A deny is the normal outcome of a refused action: the agent reads the reason and continues
+on another path. The budget is the only way the user is asked. Each deny states how many denials
+remain, and the last one tells the agent to stop and report what consent it needs. The action that
+would exceed either limit gets no verdict, so Claude Code shows its normal permission prompt, and
+both counts start again from zero. An allow resets the consecutive count. A retry of the action just
+denied is denied again without a classifier call and counts as a denial. A retry is the same tool,
+directory and input; a new Bash `description` or `timeout` does not make it new, while a new direct
+user message does, so new consent reaches the classifier.
+
+The counts live in `$XDG_STATE_HOME/auto-mode/denials/`, one file per session and subagent, so they
+survive a reload of the mod and a `--resume` of the session. Two tool calls checked at the same
+moment in one session can each read the same count, so the count can fall one short.
+
+```json
+{ "decision": { "denialBudget": { "consecutive": 5, "perSession": 40 } } }
+```
 
 `minConfidence` accepts values from `0.5` to `1`. The default is a starting threshold, not a
 measured accuracy guarantee. An uncertain Jev decision is a denial with a reason regardless of

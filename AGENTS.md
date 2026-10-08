@@ -186,10 +186,11 @@ path, the policy, or the mod — grep locates code, it does not teach the invari
 Single package, no workspaces. `src/` groups modules by concern, one primary export per file:
 `request/` parses a mod request and renders a verdict; `rules/` is the deterministic first tier;
 `model/` is the second tier and its decision and Messages API clients; `policy/` assembles the
-prompt; `config/` holds configuration and presets. `classify-action.ts` runs both tiers and is the
-library entry point; `index.ts` is the public API; `cli.ts` is the entrypoint the mod runs.
-`mods/auto-mode/` is the Claude Code mod. `policy/` at the repo root holds the prompt itself.
-`fixtures/` holds mod requests recorded in a live Claude Code session.
+prompt; `config/` holds configuration and presets; `budget/` counts denials per session.
+`classify-action.ts` runs both tiers and is the library entry point; `index.ts` is the public API;
+`cli.ts` is the entrypoint the mod runs. `mods/auto-mode/` is the Claude Code mod. `policy/` at the
+repo root holds the prompt itself. `fixtures/` holds mod requests recorded in a live Claude Code
+session.
 
 ## Runtime rules
 
@@ -200,8 +201,9 @@ library entry point; `index.ts` is the public API; `cli.ts` is the entrypoint th
   decides the outcome.
 - Writing nothing is a verdict, not a failure: it means auto-mode has no opinion and the mod keeps
   the prompt Claude Code was about to show. A body that is not a mod request, a body that is not
-  JSON, and a failed model call under `onFailure: "defer"` all write nothing. A classifier decision
-  is always an allow or a deny with a reason; it never asks.
+  JSON, a failed model call under `onFailure: "defer"`, and the action that exceeds the denial
+  budget all write nothing. A classifier decision is always an allow or a deny with a reason; it
+  never asks. The denial budget is the only path to a human.
 - Runtime dependencies are bundled, not external. The CLI starts once per prompted tool call, so
   resolving a package from `node_modules` is paid on every call.
 - Everything CI and the git hooks run is a root `package.json` script; invoke a gate by script name,

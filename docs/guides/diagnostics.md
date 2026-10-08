@@ -4,7 +4,8 @@ Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/act
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
 an empty string to disable the file. A failed diagnostic write does not change the verdict. Records
-carry `schemaVersion` 2. A version 1 record in an older file also carries `harness` and `event`.
+carry `schemaVersion` 3. A version 2 record lacks the three budget fields below, and a version 1
+record in an older file also carries `harness` and `event`.
 
 The records exclude commands, paths, prompts, configuration contents, credentials, provider
 responses, and exception text. Configured and replacement rules use question identifiers; only
@@ -27,8 +28,24 @@ decision uncertain, with its choice, confidence, and selected probability. A den
 contributors hold no confident block is an uncertain one. `minConfidence` records the unchanged
 threshold. The final `verdict` distinguishes a failure that defers from one that fails closed.
 
-A completed decision always writes a verdict to stdout. A start without a final record proves only
-that the CLI started; a killed process may leave that pair incomplete.
+Each final record also measures the task, so escalations can be counted per session:
+
+| Field           | Values                                                                |
+| --------------- | --------------------------------------------------------------------- |
+| `decidingStage` | `local`, `jev`, `messages`, `retry`, or `budget`; `null` on `started` |
+| `denials`       | `{ consecutive, session }` after this action; `null` on `started`     |
+| `escalation`    | `true` when the denial budget left this action to the user            |
+
+`local` is the deterministic tier and `jev` or `messages` the classifier. `retry` is a repeat of the
+action just denied, denied again without a classifier call. `budget` marks the action that exceeded
+the [denial budget](./configuration.md#denial-budget): auto-mode wrote no verdict, Claude Code
+showed its prompt, and `denials` restarts at zero. Denial counts outside these records live in
+`$XDG_STATE_HOME/auto-mode/denials/`, keyed by a hash of the session and subagent identifiers;
+`AUTO_MODE_DIAGNOSTICS_PATH` does not move or disable them.
+
+A completed decision always writes a verdict to stdout, except an escalation, which writes nothing.
+A start without a final record proves only that the CLI started; a killed process may leave that
+pair incomplete.
 
 The Claude mod also writes bounded debug messages for invocation and fallback: insufficient budget,
 nonzero exit, truncated output, no usable verdict, subprocess failure, or subprocess timeout. It

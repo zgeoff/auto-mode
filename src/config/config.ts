@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
+import type { DenialBudget } from '../budget/types.ts';
 import { normalizeConfigFile } from './normalize-config-file.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
@@ -38,6 +39,7 @@ export interface Config {
   readonly onFailure: 'defer' | 'deny';
   readonly claudeSettingsPath?: string | null | undefined;
   readonly minConfidence?: number | undefined;
+  readonly denialBudget?: DenialBudget;
   readonly warnings?: readonly string[];
 }
 
@@ -47,10 +49,13 @@ if (DEFAULT_PROVIDER === undefined) {
   throw new Error('the jev preset is missing');
 }
 
+export const DEFAULT_DENIAL_BUDGET: DenialBudget = { consecutive: 3, perSession: 20 };
+
 export const DEFAULT_CONFIG: Config = {
   provider: DEFAULT_PROVIDER,
   onFailure: 'defer',
   minConfidence: 0.8,
+  denialBudget: DEFAULT_DENIAL_BUDGET,
 };
 
 export function resolveConfigPath(): string {
@@ -89,6 +94,11 @@ export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
 const text = z.string().min(1);
 const positive = z.number().positive();
 
+const denialBudgetSchema = z.strictObject({
+  consecutive: z.number().int().positive().optional(),
+  perSession: z.number().int().positive().optional(),
+});
+
 // Registry values stay unknown here so one bad entry drops alone instead of
 // failing the file; each entry is parsed on its own below.
 const configFileSchema = z.strictObject({
@@ -100,6 +110,7 @@ const configFileSchema = z.strictObject({
       judge: text.nullable().optional(),
       minConfidence: z.number().min(0.5).max(1).optional(),
       onFailure: z.enum(['defer', 'deny']).optional(),
+      denialBudget: denialBudgetSchema.optional(),
     })
     .optional(),
   policy: z
@@ -157,6 +168,10 @@ function buildConfig(json: unknown, path: string, legacyWarnings: readonly strin
     claudeSettingsPath:
       policy.claudeSettingsPath === null ? null : expandHomePath(policy.claudeSettingsPath),
     minConfidence: decision.minConfidence ?? DEFAULT_CONFIG.minConfidence,
+    denialBudget: {
+      consecutive: decision.denialBudget?.consecutive ?? DEFAULT_DENIAL_BUDGET.consecutive,
+      perSession: decision.denialBudget?.perSession ?? DEFAULT_DENIAL_BUDGET.perSession,
+    },
     warnings,
   };
 }

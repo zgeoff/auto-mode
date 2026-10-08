@@ -409,3 +409,51 @@ test.each(['constructor', 'toString', '__proto__'])(
     expect(failure.message).toInclude(`decision.classifier names '${id}'`);
   },
 );
+
+test('it loads the approved shape with no diagnostics and reads the denial budget', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({
+      classifiers: {
+        jev: { apiKeyEnv: 'TYPESAFE_API_KEY' },
+        haiku: {
+          kind: 'messages',
+          model: 'claude-haiku-4-5-20251001',
+          apiKeyEnv: 'ANTHROPIC_API_KEY',
+        },
+      },
+      scopeSources: {
+        cwd: {},
+        session: {},
+        scratch: { kind: 'globs', paths: ['~/scratch/**'] },
+        atc: {},
+      },
+      decision: {
+        classifier: 'jev',
+        judge: null,
+        minConfidence: 0.8,
+        onFailure: 'defer',
+        denialBudget: { consecutive: 5, perSession: 40 },
+      },
+      policy: { rulesPath: null, frameworkPath: null, claudeSettingsPath: null },
+    }),
+  );
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.warnings).toStrictEqual([]);
+  expect(config.denialBudget).toStrictEqual({ consecutive: 5, perSession: 40 });
+});
+
+test('it defaults the denial budget to 3 in a row and 20 per session', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { denialBudget: {} } }));
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.denialBudget).toStrictEqual({ consecutive: 3, perSession: 20 });
+  expect(DEFAULT_CONFIG.denialBudget).toStrictEqual({ consecutive: 3, perSession: 20 });
+});

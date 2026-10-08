@@ -2,9 +2,17 @@
 import { randomUUID } from 'node:crypto';
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
+import { buildRetryKey } from './budget/build-retry-key.ts';
+import { findRetryDeny } from './budget/find-retry-deny.ts';
+import { loadDenialState } from './budget/load-denial-state.ts';
+import { planDenialBudget } from './budget/plan-denial-budget.ts';
+import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
+import type { DenialState } from './budget/types.ts';
+import { writeDenialState } from './budget/write-denial-state.ts';
+import type { ActionOutcome } from './classify-action.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
-import { loadConfig, resolveConfigPath } from './config/config.ts';
+import { DEFAULT_DENIAL_BUDGET, loadConfig, resolveConfigPath } from './config/config.ts';
 import { writeMigratedConfig } from './config/write-migrated-config.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { loadPolicy } from './policy/load-policy.ts';
@@ -101,27 +109,72 @@ async function run(
   }
 
   try {
-    const outcome = await classifyAction(request, config, {
-      localOnly,
-      deadlineAt,
-      signal: controller.signal,
-    });
+    const statePath = resolveDenialStatePath(request);
+    const retryKey = buildRetryKey(request);
 
-    if (outcome.verdict !== null) {
-      writeVerdict(outcome.verdict);
+    const before = await loadDenialState(statePath);
+
+    const retry = findRetryDeny(before, retryKey);
+
+    const outcome: ActionOutcome =
+      retry === null
+        ? await classifyAction(request, config, {
+            localOnly,
+            deadlineAt,
+            signal: controller.signal,
+          })
+        : {
+            verdict: retry,
+            decidingStage: 'retry',
+            note: 'retry of the action just denied; denied again',
+            status: 'deny',
+          };
+
+    // Re-read after the classifier, which can take seconds, so a parallel call
+    // in the same session is less likely to lose its count.
+    const latest = retry === null ? await loadDenialState(statePath) : before;
+
+    const plan = planDenialBudget(
+      latest,
+      outcome.verdict,
+      retryKey,
+      config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
+    );
+
+    if (plan.state !== latest) {
+      await tryWriteDenialState(statePath, plan.state);
+    }
+
+    if (plan.verdict !== null) {
+      writeVerdict(plan.verdict);
     }
 
     await writeActionDiagnostic(request, {
       invocationID,
       status: outcome.status,
-      verdict: outcome.verdict?.kind ?? 'defer',
+      verdict: plan.verdict?.kind ?? 'defer',
+      decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
+      denials: { consecutive: plan.state.consecutive, session: plan.state.session },
+      escalation: plan.escalation,
       ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
     });
 
-    return printNote(explain || outcome.unavailable === true, outcome.note);
+    const note = plan.escalation
+      ? 'denial budget exhausted; the user decides this action'
+      : outcome.note;
+
+    return printNote(explain || outcome.unavailable === true, note);
   } finally {
     process.off('SIGTERM', stopEvaluation);
     process.off('SIGINT', stopEvaluation);
+  }
+}
+
+async function tryWriteDenialState(path: string, state: Readonly<DenialState>): Promise<void> {
+  try {
+    await writeDenialState(path, state);
+  } catch {
+    process.stderr.write('auto-mode: denial counts unavailable\n');
   }
 }
 

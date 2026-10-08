@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { appendFile, mkdir } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import type { DecidingStage } from '../classify-action.ts';
 import type { DecisionDiagnostics } from '../model/types.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
+import { resolveStateDir } from '../state/resolve-state-dir.ts';
 
 interface ActionDiagnostic {
   readonly invocationID: string;
@@ -15,6 +16,9 @@ interface ActionDiagnostic {
     | 'skipped'
     | DecisionDiagnostics['status'];
   readonly verdict?: Verdict['kind'] | 'defer';
+  readonly decidingStage?: DecidingStage | 'budget';
+  readonly denials?: { readonly consecutive: number; readonly session: number };
+  readonly escalation?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
 }
 
@@ -22,26 +26,24 @@ export async function writeActionDiagnostic(
   payload: ActionRequest,
   entry: Readonly<ActionDiagnostic>,
 ): Promise<void> {
-  const stateHome = process.env['XDG_STATE_HOME'];
-
-  const stateDir =
-    stateHome === undefined || stateHome === '' ? join(homedir(), '.local', 'state') : stateHome;
-
   const path =
-    process.env['AUTO_MODE_DIAGNOSTICS_PATH'] ?? join(stateDir, 'auto-mode', 'actions.jsonl');
+    process.env['AUTO_MODE_DIAGNOSTICS_PATH'] ?? join(resolveStateDir(), 'actions.jsonl');
 
   if (path === '') {
     return;
   }
 
   const record = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
     sessionHash: toHash(payload.sessionID),
     actionHash: payload.toolUseID === undefined ? null : toHash(payload.toolUseID),
     status: entry.status,
     verdict: entry.verdict ?? null,
+    decidingStage: entry.decidingStage ?? null,
+    denials: entry.denials ?? null,
+    escalation: entry.escalation ?? false,
     diagnostics: entry.diagnostics ?? null,
   };
 

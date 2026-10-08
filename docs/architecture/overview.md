@@ -32,11 +32,12 @@ mod request on stdin
       │
       │ escalate
       ▼
- tier 2: Jev ──► allow / deny ──► write verdict
-      │
-      │ failure
-      ▼
- defer (write nothing) or deny, per config
+ tier 2: Jev ──► allow / deny ──┐
+      │                         │
+      │ failure                 ▼
+      ▼                   denial budget ──► write verdict
+ defer (write nothing)          │
+ or deny, per config            └──► budget spent: write nothing (the user is asked)
 ```
 
 **Tier one** matches deterministically and answers allow or escalate. It never denies on a prose
@@ -83,11 +84,28 @@ message. The provider enforces its token limits; a rejected request follows `onF
 The Messages API presets use the generative framework, with the mod's last direct user message as
 their only history. Their cache and output-token handling apply only to that protocol.
 
+## The denial budget
+
+Every verdict passes through the denial budget before it is written. auto-mode counts denials per
+session, and each subagent keeps its own count, in a file under `$XDG_STATE_HOME/auto-mode/denials/`
+keyed by the session and agent identifiers, so the counts survive a reload of the mod and a resumed
+session. An allow resets the consecutive count. A retry of the action just denied is denied again
+from the stored rule and reason, without a classifier call, so a classifier cannot be asked until it
+allows.
+
+Each deny reason ends with the denials left. The last deny before a limit tells the agent to stop
+and report what consent it needs. The action that would exceed either limit (3 in a row, 20 per
+session, both configurable) gets no verdict, so the mod keeps Claude Code's prompt and the user
+decides. The CLI never sees that answer, but the next request can only arrive after it, so both
+counts restart at zero when the action is escalated. The action log records the deciding stage, the
+counts and each escalation; [Action diagnostics](../guides/diagnostics.md) lists the fields.
+
 ## Writing nothing
 
 Writing nothing is a verdict, not a failure. It means auto-mode has no opinion, and the mod keeps
 the prompt Claude Code was about to show. That is the output for a body that is not a mod request,
-for a body that is not JSON, and for a model call that failed under `onFailure: "defer"`.
+for a body that is not JSON, for a model call that failed under `onFailure: "defer"`, and for the
+action that exceeds the denial budget.
 
 ## The mod contract
 

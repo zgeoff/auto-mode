@@ -7,8 +7,11 @@ import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 
+export type DecidingStage = 'local' | 'jev' | 'messages' | 'retry';
+
 export interface ActionOutcome {
   readonly verdict: Verdict | null;
+  readonly decidingStage: DecidingStage;
   readonly note: string;
   readonly status: 'allow' | 'skipped' | 'failure' | DecisionDiagnostics['status'];
   readonly unavailable?: boolean;
@@ -37,6 +40,7 @@ export async function classifyAction(
           config.onFailure === 'deny'
             ? buildGuidedDeny('Classifier Unavailable', 'Claude settings unreadable.', guidance)
             : null,
+        decidingStage: 'jev',
         note: 'Claude settings unreadable; classifier unavailable',
         status: 'failure',
         unavailable: true,
@@ -52,6 +56,7 @@ export async function classifyAction(
   if (local.kind === 'allow') {
     return {
       verdict: { kind: 'allow' },
+      decidingStage: 'local',
       note: `allowed by ${local.exception} (local)`,
       status: 'allow',
     };
@@ -60,6 +65,7 @@ export async function classifyAction(
   if (options.localOnly === true) {
     return {
       verdict: null,
+      decidingStage: 'local',
       note: `${request.toolName} needs the model tier, which this run skipped`,
       status: 'skipped',
     };
@@ -72,6 +78,7 @@ export async function classifyAction(
 
   return {
     ...outcome,
+    decidingStage: config.provider.protocol === 'system-one' ? 'jev' : 'messages',
     verdict:
       outcome.verdict?.kind === 'deny'
         ? buildGuidedDeny(outcome.verdict.rule, outcome.verdict.reason, guidance)
