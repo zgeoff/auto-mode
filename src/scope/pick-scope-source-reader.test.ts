@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
+import { buildMockScopeSourceContext } from '../../test-utils/factories/build-mock-scope-source-context.ts';
 import { pickScopeSourceReader } from './pick-scope-source-reader.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 
@@ -15,16 +16,9 @@ async function setupTest(): Promise<{ readonly dir: string }> {
 }
 
 test('it owns the worktree and the branch of the cwd', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'cwd' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo/.worktrees/feat/src',
-    worktree: '/repo/.worktrees/feat',
-    commonDir: '/repo/.git',
-    branch: 'feat',
-    stateDir: '/state',
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'cwd' })(
+    buildMockScopeSourceContext({ worktree: '/repo/.worktrees/feat', branch: 'feat' }),
+  );
 
   expect(facts).toStrictEqual({
     worktrees: ['/repo/.worktrees/feat'],
@@ -35,16 +29,9 @@ test('it owns the worktree and the branch of the cwd', async () => {
 });
 
 test('it owns no branch from the cwd when the checkout has none checked out', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'cwd' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: null,
-    stateDir: '/state',
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'cwd' })(
+    buildMockScopeSourceContext({ worktree: '/repo', branch: null }),
+  );
 
   expect(facts).toStrictEqual({
     worktrees: ['/repo'],
@@ -74,16 +61,9 @@ test('it owns what the session recorded, keeping only the branches of the action
     }),
   );
 
-  const facts = await pickScopeSourceReader({ kind: 'session' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: 'main',
-    stateDir,
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'session' })(
+    buildMockScopeSourceContext({ sessionID: 'session-1', commonDir: '/repo/.git', stateDir }),
+  );
 
   expect(facts).toStrictEqual({
     worktrees: ['/repo/.worktrees/docs'],
@@ -106,31 +86,17 @@ test("it owns nothing from another session's recorded scope", async () => {
     JSON.stringify({ worktrees: ['/elsewhere'], branches: [], pullRequests: [] }),
   );
 
-  const facts = await pickScopeSourceReader({ kind: 'session' })({
-    env: {},
-    sessionID: 'session-2',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: 'main',
-    stateDir,
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'session' })(
+    buildMockScopeSourceContext({ sessionID: 'session-2', stateDir }),
+  );
 
   expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
 });
 
 test('it owns the configured path globs', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'globs', paths: ['/scratch/**'] })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: 'main',
-    stateDir: '/state',
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'globs', paths: ['/scratch/**'] })(
+    buildMockScopeSourceContext(),
+  );
 
   expect(facts).toStrictEqual({
     worktrees: [],
@@ -141,16 +107,7 @@ test('it owns the configured path globs', async () => {
 });
 
 test('it owns no path glob when the globs source lists no paths', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'globs' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: 'main',
-    stateDir: '/state',
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'globs' })(buildMockScopeSourceContext());
 
   expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
 });
@@ -180,18 +137,13 @@ test('it owns the atc checkouts and only the branches that share the action repo
 
   await writeFile(recordPath, JSON.stringify(record));
 
-  const facts = await pickScopeSourceReader({ kind: 'atc' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: repo,
-    worktree: repo,
-    commonDir: join(repo, '.git'),
-    branch: 'main',
-    stateDir: join(ctx.dir, 'state'),
-    atcRecordPath: recordPath,
-    atcSessionID: 'atc-1',
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'atc' })(
+    buildMockScopeSourceContext({
+      commonDir: join(repo, '.git'),
+      atcRecordPath: recordPath,
+      atcSessionID: 'atc-1',
+    }),
+  );
 
   expect(facts).toStrictEqual({
     worktrees: [join(repo, '.worktrees', 'feat'), join(other, '.worktrees', 'x')],
@@ -219,18 +171,13 @@ test('it owns no atc branch when the action is outside every checkout', async ()
     ),
   );
 
-  const facts = await pickScopeSourceReader({ kind: 'atc' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/elsewhere',
-    worktree: '/elsewhere',
-    commonDir: null,
-    branch: null,
-    stateDir: join(ctx.dir, 'state'),
-    atcRecordPath: recordPath,
-    atcSessionID: 'atc-1',
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'atc' })(
+    buildMockScopeSourceContext({
+      commonDir: null,
+      atcRecordPath: recordPath,
+      atcSessionID: 'atc-1',
+    }),
+  );
 
   expect(facts).toStrictEqual({ worktrees: [repo], branches: [], pullRequests: [], pathGlobs: [] });
 });
@@ -245,18 +192,9 @@ test('it owns nothing from an atc record of another version', async () => {
     JSON.stringify({ ...buildMockAtcSessionRecord({ session: 'atc-1' }), version: 2 }),
   );
 
-  const facts = await pickScopeSourceReader({ kind: 'atc' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: 'main',
-    stateDir: join(ctx.dir, 'state'),
-    atcRecordPath: recordPath,
-    atcSessionID: 'atc-1',
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'atc' })(
+    buildMockScopeSourceContext({ atcRecordPath: recordPath, atcSessionID: 'atc-1' }),
+  );
 
   expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
 });
@@ -272,18 +210,13 @@ test('it writes one diagnostic line for an atc record of another version', async
     JSON.stringify({ ...buildMockAtcSessionRecord({ session: 'atc-1' }), version: 2 }),
   );
 
-  await pickScopeSourceReader({ kind: 'atc' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: 'main',
-    stateDir: join(ctx.dir, 'state'),
-    atcRecordPath: recordPath,
-    atcSessionID: 'atc-1',
-    stderr: { write },
-  });
+  await pickScopeSourceReader({ kind: 'atc' })(
+    buildMockScopeSourceContext({
+      atcRecordPath: recordPath,
+      atcSessionID: 'atc-1',
+      stderr: { write },
+    }),
+  );
 
   expect(write).toHaveBeenCalledExactlyOnceWith(
     `auto-mode: atc session record ignored: version does not match version 1: ${recordPath}\n`,
@@ -291,16 +224,9 @@ test('it writes one diagnostic line for an atc record of another version', async
 });
 
 test('it owns nothing from atc when the session has no record', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'atc' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: 'main',
-    stateDir: '/state',
-    stderr: { write: mock() },
-  });
+  const facts = await pickScopeSourceReader({ kind: 'atc' })(
+    buildMockScopeSourceContext({ atcRecordPath: undefined }),
+  );
 
   expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
 });
@@ -308,16 +234,9 @@ test('it owns nothing from atc when the session has no record', async () => {
 test('it writes no diagnostic when the session has no atc record', async () => {
   const write = mock();
 
-  await pickScopeSourceReader({ kind: 'atc' })({
-    env: {},
-    sessionID: 'session-1',
-    cwd: '/repo',
-    worktree: '/repo',
-    commonDir: '/repo/.git',
-    branch: 'main',
-    stateDir: '/state',
-    stderr: { write },
-  });
+  await pickScopeSourceReader({ kind: 'atc' })(
+    buildMockScopeSourceContext({ atcRecordPath: undefined, stderr: { write } }),
+  );
 
   expect(write).not.toHaveBeenCalled();
 });

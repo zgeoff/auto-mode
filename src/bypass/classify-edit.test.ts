@@ -5,7 +5,7 @@ import { classifyEdit } from './classify-edit.ts';
 test('it bypasses an Edit into an in-scope worktree', () => {
   const action = buildMockEditAction({
     toolName: 'Edit',
-    toolInput: { file_path: 'x', old_string: 'a = 1', new_string: 'a = 2' },
+    toolInput: { old_string: 'a = 1', new_string: 'a = 2' },
     target: '/repo/src/a.ts',
     requested: '/repo/src/a.ts',
     checkout: '/repo',
@@ -20,7 +20,7 @@ test('it bypasses an Edit into an in-scope worktree', () => {
 
 test('it bypasses a Write into an in-scope worktree nested in another', () => {
   const action = buildMockEditAction({
-    toolInput: { file_path: '/repo/.worktrees/feat/README.md', content: '# notes' },
+    toolInput: { content: '# notes' },
     target: '/repo/.worktrees/feat/README.md',
   });
 
@@ -29,10 +29,33 @@ test('it bypasses a Write into an in-scope worktree nested in another', () => {
   ).toStrictEqual({ kind: 'bypass', target: '/repo/.worktrees/feat/README.md' });
 });
 
+test('it bypasses a write to the parent worktree while a nested worktree is also in scope', () => {
+  const action = buildMockEditAction({
+    toolInput: { content: 'export const a = 1;\n' },
+    target: '/repo/src/a.ts',
+    checkout: '/repo',
+  });
+
+  expect(
+    classifyEdit(action, { worktrees: ['/repo', '/repo/.worktrees/feat'], protectedDirs: [] }),
+  ).toStrictEqual({ kind: 'bypass', target: '/repo/src/a.ts' });
+});
+
+test('it bypasses an in-scope write while an unrelated directory is protected', () => {
+  const action = buildMockEditAction({
+    toolInput: { content: 'export const a = 1;\n' },
+    target: '/repo/src/a.ts',
+  });
+
+  expect(
+    classifyEdit(action, { worktrees: ['/repo'], protectedDirs: ['/home/dev/.config/auto-mode'] }),
+  ).toStrictEqual({ kind: 'bypass', target: '/repo/src/a.ts' });
+});
+
 test('it bypasses a NotebookEdit into an in-scope worktree', () => {
   const action = buildMockEditAction({
     toolName: 'NotebookEdit',
-    toolInput: { notebook_path: 'x', new_source: 'print(1)' },
+    toolInput: { new_source: 'print(1)' },
     target: '/repo/n.ipynb',
     checkout: '/repo',
   });
@@ -135,7 +158,7 @@ test('it sends content with a secret to Jev and names the rule', () => {
   const key = ['AKIA', 'Z7QW3RTY5UIOP2LK'].join('');
 
   const action = buildMockEditAction({
-    toolInput: { file_path: '/repo/src/aws.ts', content: `aws_access_key_id = "${key}"` },
+    toolInput: { content: `aws_access_key_id = "${key}"` },
     target: '/repo/src/aws.ts',
   });
 
@@ -150,7 +173,7 @@ test('it scans an Edit with the lines around it, so a bare value in a key assign
 
   const action = buildMockEditAction({
     toolName: 'Edit',
-    toolInput: { file_path: 'x', old_string: 'PLACEHOLDER', new_string: value },
+    toolInput: { old_string: 'PLACEHOLDER', new_string: value },
     target: '/repo/src/config.ts',
     checkout: '/repo',
     current: 'const client = connect({\n  api_key = "PLACEHOLDER"\n});\n',
@@ -165,7 +188,7 @@ test('it scans an Edit with the lines around it, so a bare value in a key assign
 test('it sends an Edit whose text is not in the file to Jev', () => {
   const action = buildMockEditAction({
     toolName: 'Edit',
-    toolInput: { file_path: 'x', old_string: 'missing', new_string: 'b' },
+    toolInput: { old_string: 'missing', new_string: 'b' },
     target: '/repo/a.ts',
     checkout: '/repo',
     current: 'const a = 1;\n',
@@ -180,7 +203,7 @@ test('it sends an Edit whose text is not in the file to Jev', () => {
 test('it sends an Edit of a file with no current content to Jev', () => {
   const action = buildMockEditAction({
     toolName: 'Edit',
-    toolInput: { file_path: 'x', old_string: 'missing', new_string: 'b' },
+    toolInput: { old_string: 'missing', new_string: 'b' },
     target: '/repo/a.ts',
     checkout: '/repo',
     current: null,
@@ -194,7 +217,7 @@ test('it sends an Edit of a file with no current content to Jev', () => {
 
 test('it scans content of exactly the size the scan reads', () => {
   const action = buildMockEditAction({
-    toolInput: { file_path: '/repo/big.txt', content: 'a'.repeat(256 * 1024) },
+    toolInput: { content: 'a'.repeat(256 * 1024) },
     target: '/repo/big.txt',
   });
 
@@ -206,7 +229,7 @@ test('it scans content of exactly the size the scan reads', () => {
 
 test('it sends content one byte larger than the scan reads to Jev without scanning part of it', () => {
   const action = buildMockEditAction({
-    toolInput: { file_path: '/repo/big.txt', content: 'a'.repeat(256 * 1024 + 1) },
+    toolInput: { content: 'a'.repeat(256 * 1024 + 1) },
     target: '/repo/big.txt',
   });
 
@@ -219,7 +242,6 @@ test('it sends content one byte larger than the scan reads to Jev without scanni
 test('it sends a tool that is not a file edit to Jev', () => {
   const action = buildMockEditAction({
     toolName: 'Bash',
-    toolInput: { command: 'ls' },
     target: '/repo/a',
   });
 
@@ -231,7 +253,7 @@ test('it sends a tool that is not a file edit to Jev', () => {
 
 test('it sends content that is not text to Jev', () => {
   const action = buildMockEditAction({
-    toolInput: { file_path: '/repo/a', content: 42 },
+    toolInput: { content: 42 },
     target: '/repo/a',
   });
 
@@ -243,7 +265,7 @@ test('it sends content that is not text to Jev', () => {
 
 test('it bypasses a write below a worktree whose own path holds an excluded name', () => {
   const action = buildMockEditAction({
-    toolInput: { file_path: '/home/dev/.docker/app/src/a.ts', content: 'export const a = 1;\n' },
+    toolInput: { content: 'export const a = 1;\n' },
     target: '/home/dev/.docker/app/src/a.ts',
   });
 
