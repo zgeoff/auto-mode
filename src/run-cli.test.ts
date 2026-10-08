@@ -1405,6 +1405,9 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
 
   const questionSchema = z.object({ instructions: z.string() });
   const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+
+  expect(received).toHaveBeenCalledOnce();
+
   const [call] = received.mock.calls;
 
   invariant(call, 'the decision service received the request');

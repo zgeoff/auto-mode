@@ -213,6 +213,9 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
     });
 
     const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+
+    expect(received).toHaveBeenCalledOnce();
+
     const [call] = received.mock.calls;
 
     invariant(call, 'the decision service received the request');
@@ -321,6 +324,9 @@ test('it keeps a separate shipped hard block after the self-protection finding c
 
   const questionSchema = z.object({ instructions: z.string() });
   const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+
+  expect(received).toHaveBeenCalledOnce();
+
   const [call] = received.mock.calls;
 
   invariant(call, 'the decision service received the request');
@@ -530,7 +536,7 @@ test('it returns the configured denial when the deadline passes during the reque
 
   now = deadlineAt;
 
-  timer.expire(2);
+  timer.emitTimeout(2);
 
   const outcome = await pending;
 
@@ -1278,7 +1284,7 @@ test.each([
   },
 );
 
-test('it denies an uncertain answer, distinct from a timeout, and keeps every contributing confidence', async () => {
+test('it denies an uncertain answer and keeps every contributing confidence', async () => {
   const ctx = await setupTest();
 
   const rules = join(ctx.dir, 'rules.md');
@@ -1500,7 +1506,7 @@ test('it reports a provider timeout as a timeout with the request size', async (
 
   server.use(
     http.post(DECISION_URL, async () => {
-      timer.expire(1);
+      timer.emitTimeout(1);
 
       await delay('infinite');
 
@@ -1542,12 +1548,17 @@ test('it reports a provider timeout as a timeout with the request size', async (
   });
 });
 
-// The handler never answers, so only the real provider timer can end the request.
+// The stand-in timer never runs AbortSignal.timeout; the handler below never
+// answers, so only that real default timer can end the request.
 test('it times out on the provider deadline with the real timer', async () => {
   const ctx = await setupTest();
 
+  const reached = mock();
+
   server.use(
     http.post(DECISION_URL, async () => {
+      reached();
+
       await delay('infinite');
 
       return HttpResponse.json({});
@@ -1564,6 +1575,8 @@ test('it times out on the provider deadline with the real timer', async () => {
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
+
+  expect(reached).toHaveBeenCalledOnce();
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -1590,7 +1603,7 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
 
   server.use(
     http.post(DECISION_URL, async () => {
-      timer.expire(1);
+      timer.emitTimeout(1);
 
       await delay('infinite');
 

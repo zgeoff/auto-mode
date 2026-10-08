@@ -21,9 +21,8 @@ interface DecisionRequestOverrides extends Partial<Omit<DecisionRequest, 'state'
   readonly state?: StateOverrides;
 }
 
-// One shipped rule and one question under the same key, the shape the request
-// builder gives each rule; a rules override gets one question per rule unless
-// the test states the questions. The action is a Bash command.
+// The client refuses an answer set that does not match the questions, so every
+// rule gets a question under its own key unless a test states the questions.
 export function buildMockDecisionRequest(
   overrides: DecisionRequestOverrides = {},
 ): DecisionRequest {

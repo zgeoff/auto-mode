@@ -248,7 +248,17 @@ test('it reads a response it cannot understand as empty rather than failing', as
 });
 
 test('it reports the status without the private body of a failed call', () => {
-  server.use(http.post(MESSAGES_URL, () => HttpResponse.text('over quota', { status: 429 })));
+  server.use(
+    http.post(MESSAGES_URL, () =>
+      HttpResponse.json(
+        {
+          type: 'error',
+          error: { type: 'rate_limit_error', message: 'private over-quota detail' },
+        },
+        { status: 429 },
+      ),
+    ),
+  );
 
   const response = sendMessage(
     buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),

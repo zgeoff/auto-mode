@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { buildMockDecisionRequest } from './build-mock-decision-request.ts';
+import { buildMockDecisionRule } from './build-mock-decision-rule.ts';
 
 test('it builds a default decision request', () => {
   expect(buildMockDecisionRequest()).toStrictEqual({
@@ -115,8 +116,8 @@ test('it applies overrides on top of the defaults', () => {
 test('it asks one question per rule when the rules are overridden', () => {
   const request = buildMockDecisionRequest({
     rules: {
-      hard_deny_0: { name: 'hard_deny_0', tier: 'hard', source: 'configured', text: 'Never' },
-      soft_deny_0: { name: 'soft_deny_0', tier: 'soft', source: 'configured', text: 'Ask' },
+      hard_deny_0: buildMockDecisionRule({ source: 'configured', tier: 'hard' }),
+      soft_deny_0: buildMockDecisionRule({ source: 'configured', tier: 'soft' }),
     },
   });
 
@@ -145,7 +146,7 @@ test('it asks one question per rule when the rules are overridden', () => {
 test('it keeps the questions a test states over the ones derived from the rules', () => {
   const request = buildMockDecisionRequest({
     questions: {},
-    rules: { rule_0: { name: 'History Rewrite', tier: 'soft', source: 'shipped', text: 'Ask' } },
+    rules: { rule_0: buildMockDecisionRule() },
   });
 
   expect(request.questions).toStrictEqual({});

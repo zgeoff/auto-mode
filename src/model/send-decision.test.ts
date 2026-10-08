@@ -5,6 +5,7 @@ import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import type { DecisionResponse } from './decision-response-schema.ts';
@@ -24,7 +25,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
   );
 
   const provider = buildMockProviderConfig({ baseURL: 'https://decision.test/' });
-  const request = buildMockDecisionRequest();
+  const request = buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } });
 
   const result = await sendDecision(provider, 'test-key', request, new AbortController().signal);
 
@@ -65,7 +66,7 @@ test.each([
     const result = await sendDecision(
       buildMockProviderConfig(),
       'test-key',
-      buildMockDecisionRequest(),
+      buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
       new AbortController().signal,
     );
 
@@ -115,7 +116,7 @@ test.each([
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest(),
+    buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
     new AbortController().signal,
   );
 
@@ -147,7 +148,7 @@ test.each([
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest(),
+    buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
     new AbortController().signal,
   );
 
@@ -178,7 +179,7 @@ test('it rejects an answer filed under a question it was not asked', () => {
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest(),
+    buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
     new AbortController().signal,
   );
 
@@ -210,7 +211,7 @@ test.each([
     const response = sendDecision(
       buildMockProviderConfig(),
       'test-key',
-      buildMockDecisionRequest(),
+      buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
       new AbortController().signal,
     );
 

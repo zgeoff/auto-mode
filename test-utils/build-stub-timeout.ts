@@ -2,18 +2,17 @@ import { mock } from 'bun:test';
 
 export interface StubTimeout {
   readonly timeout: ReturnType<typeof mock<(ms: number) => AbortSignal>>;
-  readonly expire: (call: number) => void;
+  readonly emitTimeout: (call: number) => void;
 }
 
-// Stands in for AbortSignal.timeout: each call starts its own timer, and expire
-// fires the nth call's timer (from 1) with the real timer's TimeoutError, or
-// starts that timer already fired when the call has not happened yet.
+// AbortSignal.timeout aborts with a TimeoutError DOMException, so a stub timer
+// aborts with the same reason and code that reads it sees what production sees.
 export function buildStubTimeout(): StubTimeout {
   const timers = new Map<number, AbortController>();
 
   let calls = 0;
 
-  const getTimer = (call: number) => {
+  const resolveTimer = (call: number) => {
     const existing = timers.get(call);
 
     if (existing !== undefined) {
@@ -31,10 +30,10 @@ export function buildStubTimeout(): StubTimeout {
     timeout: mock<(ms: number) => AbortSignal>(() => {
       calls += 1;
 
-      return getTimer(calls).signal;
+      return resolveTimer(calls).signal;
     }),
-    expire: (call) => {
-      getTimer(call).abort(new DOMException('The operation timed out.', 'TimeoutError'));
+    emitTimeout: (call) => {
+      resolveTimer(call).abort(new DOMException('The operation timed out.', 'TimeoutError'));
     },
   };
 }

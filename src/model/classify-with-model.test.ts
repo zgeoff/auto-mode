@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, delay, http } from 'msw';
+import * as z from 'zod';
 import { DECISION_URL, MESSAGES_URL } from '../../mocks/handlers.ts';
 import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { server } from '../../mocks/node.ts';
@@ -217,7 +218,14 @@ test('it has no opinion when no API key is configured', async () => {
 test('it has no opinion when the model call fails', async () => {
   const ctx = await setupTest();
 
-  server.use(http.post(MESSAGES_URL, () => HttpResponse.text('boom', { status: 500 })));
+  server.use(
+    http.post(MESSAGES_URL, () =>
+      HttpResponse.json(
+        { type: 'error', error: { type: 'api_error', message: 'Internal server error' } },
+        { status: 500 },
+      ),
+    ),
+  );
 
   const outcome = await classifyWithModel(
     buildMockActionRequest({
@@ -250,7 +258,7 @@ test('it names the timeout when the model call outlives it', async () => {
 
   server.use(
     http.post(MESSAGES_URL, async () => {
-      timer.expire(1);
+      timer.emitTimeout(1);
 
       await delay('infinite');
 
@@ -288,12 +296,17 @@ test('it names the timeout when the model call outlives it', async () => {
   });
 });
 
-// The handler never answers, so only the real timer can end the model call.
+// The stand-in timer never runs AbortSignal.timeout; the handler below never
+// answers, so only that real default timer can end the model call.
 test('it times out on the model call deadline with the real timer', async () => {
   const ctx = await setupTest();
 
+  const reached = mock();
+
   server.use(
     http.post(MESSAGES_URL, async () => {
+      reached();
+
       await delay('infinite');
 
       return HttpResponse.json({ content: [] });
@@ -319,6 +332,8 @@ test('it times out on the model call deadline with the real timer', async () => 
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
 
+  expect(reached).toHaveBeenCalledOnce();
+
   expect(outcome).toStrictEqual({
     verdict: null,
     note: 'test-model failed: timed out after 1ms; no verdict',
@@ -332,7 +347,7 @@ test('it starts the model call timer at the next whole millisecond for a fractio
 
   server.use(
     http.post(MESSAGES_URL, async () => {
-      timer.expire(1);
+      timer.emitTimeout(1);
 
       await delay('infinite');
 
@@ -414,7 +429,14 @@ test('it treats an empty answer as a failure rather than an allow', async () => 
 test('it denies rather than deferring when configured to fail closed', async () => {
   const ctx = await setupTest();
 
-  server.use(http.post(MESSAGES_URL, () => HttpResponse.text('boom', { status: 500 })));
+  server.use(
+    http.post(MESSAGES_URL, () =>
+      HttpResponse.json(
+        { type: 'error', error: { type: 'api_error', message: 'Internal server error' } },
+        { status: 500 },
+      ),
+    ),
+  );
 
   const outcome = await classifyWithModel(
     buildMockActionRequest({
@@ -529,11 +551,14 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
     }),
   );
 
-  let body: unknown = null;
+  const received = mock<(mcpServers: unknown, body: string) => void>();
+  const bodySchema = z.object({ state: z.object({ mcpServers: z.unknown() }) });
 
   server.use(
     http.post(DECISION_URL, async (info) => {
-      body = await info.request.clone().json();
+      const body = await info.request.clone().text();
+
+      received(bodySchema.parse(JSON.parse(body)).state.mcpServers, body);
     }),
   );
 
@@ -549,16 +574,13 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
 
   expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
 
-  expect(body).toMatchObject({
-    state: {
-      mcpServers: [
-        { name: 'linear', scope: 'user', transport: 'http', host: 'mcp.linear.app' },
-        { name: 'tool', scope: 'user', transport: 'stdio', host: null },
-      ],
-    },
-  });
-
-  expect(JSON.stringify(body)).not.toInclude('planted');
+  expect(received).toHaveBeenCalledExactlyOnceWith(
+    [
+      { name: 'linear', scope: 'user', transport: 'http', host: 'mcp.linear.app' },
+      { name: 'tool', scope: 'user', transport: 'stdio', host: null },
+    ],
+    expect.not.stringContaining('planted'),
+  );
 });
 
 test('it gives the Messages classifier the configured MCP servers by name and host, with no credential', async () => {
@@ -581,11 +603,13 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
     buildMockMessagesResponse({ content: [{ type: 'text', text: '<block>no</block>' }] }),
   );
 
-  let body = '';
+  const received = mock<(body: string) => void>();
 
   server.use(
     http.post(MESSAGES_URL, async (info) => {
-      body = await info.request.clone().text();
+      const body = await info.request.clone().text();
+
+      received(body);
     }),
   );
 
@@ -607,7 +631,10 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
   );
 
   expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
-  expect(body).toInclude('<mcp-servers>');
-  expect(body).toInclude(String.raw`\"host\": \"mcp.linear.app\"`);
-  expect(body).not.toInclude('planted');
+
+  expect(received).toHaveBeenCalledExactlyOnceWith(
+    expect.toIncludeMultiple(['<mcp-servers>', String.raw`\"host\": \"mcp.linear.app\"`]),
+  );
+
+  expect(received).not.toHaveBeenCalledWith(expect.toInclude('planted'));
 });

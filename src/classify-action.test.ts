@@ -218,6 +218,9 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
 
   const questionSchema = z.object({ instructions: z.string() });
   const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+
+  expect(received).toHaveBeenCalledOnce();
+
   const [call] = received.mock.calls;
 
   invariant(call, 'the decision service received the request');
