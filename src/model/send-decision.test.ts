@@ -22,7 +22,16 @@ test('it authenticates a structured decision request and reads typed probabiliti
   );
 
   const provider = buildMockProviderConfig({ baseURL: 'https://decision.test/' });
-  const request = buildMockDecisionRequest();
+
+  const request = buildMockDecisionRequest({
+    questions: {
+      rule_0: {
+        type: 'choice',
+        instructions: 'Must the pending action be refused?',
+        criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+      },
+    },
+  });
 
   const result = await sendDecision(provider, 'test-key', request, new AbortController().signal);
 
@@ -74,7 +83,15 @@ test.each([
   const result = await sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest(),
+    buildMockDecisionRequest({
+      questions: {
+        rule_0: {
+          type: 'choice',
+          instructions: 'Must the pending action be refused?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+        },
+      },
+    }),
     new AbortController().signal,
   );
 
@@ -123,7 +140,15 @@ test.each([
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest(),
+    buildMockDecisionRequest({
+      questions: {
+        rule_0: {
+          type: 'choice',
+          instructions: 'Must the pending action be refused?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+        },
+      },
+    }),
     new AbortController().signal,
   );
 
@@ -167,7 +192,15 @@ test.each([
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest(),
+    buildMockDecisionRequest({
+      questions: {
+        rule_0: {
+          type: 'choice',
+          instructions: 'Must the pending action be refused?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+        },
+      },
+    }),
     new AbortController().signal,
   );
 
@@ -199,7 +232,15 @@ test('it rejects an answer filed under a question it was not asked', () => {
   const response = sendDecision(
     buildMockProviderConfig(),
     'test-key',
-    buildMockDecisionRequest(),
+    buildMockDecisionRequest({
+      questions: {
+        rule_0: {
+          type: 'choice',
+          instructions: 'Must the pending action be refused?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+        },
+      },
+    }),
     new AbortController().signal,
   );
 
@@ -229,7 +270,15 @@ test.each([
     const response = sendDecision(
       buildMockProviderConfig(),
       'test-key',
-      buildMockDecisionRequest(),
+      buildMockDecisionRequest({
+        questions: {
+          rule_0: {
+            type: 'choice',
+            instructions: 'Must the pending action be refused?',
+            criteria: { allow: 'no', block: 'yes', ask: 'unclear' },
+          },
+        },
+      }),
       new AbortController().signal,
     );
 

@@ -58,6 +58,7 @@ test('it sends the configured rules and the direct user message without the sett
     buildMockConfig({
       provider: { model: 'jev-test-model', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       claudeSettingsPath: settings,
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -111,6 +112,7 @@ test.each([
     buildMockConfig({
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       onFailure,
+      claudeSettingsPath: null,
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -160,7 +162,12 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
       decisionContext: { lastDirectUserMessage: { text: clarification, origin: 'composer' } },
     });
 
-    const config = buildMockConfig({ provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' } });
+    const config = buildMockConfig({
+      rulesPath: undefined,
+      provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+      onFailure: 'defer',
+      claudeSettingsPath: null,
+    });
 
     const outcome = await classifyWithJev(payload, config, {
       host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
@@ -172,7 +179,11 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
     });
 
     const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
-    const questions = requestSchema.parse(received.mock.calls[0]?.[0]).questions;
+    const [call] = received.mock.calls;
+
+    invariant(call, 'the decision service received the request');
+
+    const questions = requestSchema.parse(call[0]).questions;
 
     const question = Object.values(questions).find((candidate) =>
       candidate.instructions.includes(`### ${name}\n`),
@@ -235,7 +246,12 @@ test('it keeps a separate shipped hard block after the self-protection finding c
         },
       },
     }),
-    buildMockConfig({ provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' } }),
+    buildMockConfig({
+      rulesPath: undefined,
+      provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+      onFailure: 'defer',
+      claudeSettingsPath: null,
+    }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
 
@@ -291,6 +307,8 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
     const config = buildMockConfig({
       provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       rulesPath: rules,
+      onFailure: 'defer',
+      claudeSettingsPath: null,
     });
 
     const outcome = await classifyWithJev(payload, config, {
@@ -374,6 +392,7 @@ test('it returns the configured denial when the deadline passes during the reque
         apiKeyCommand: 'printf offline-deadline-test-key',
         timeoutMs: 5000,
       },
+      claudeSettingsPath: null,
     }),
     { host: { env: {}, home: ctx.dir }, deadlineAt, now: () => now, timeout },
   );
@@ -454,6 +473,8 @@ test.each(['child', 'changed-child'])(
     const config = buildMockConfig({
       provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       rulesPath: rules,
+      onFailure: 'defer',
+      claudeSettingsPath: null,
     });
 
     const outcome = await classifyWithJev(
@@ -526,6 +547,8 @@ test('it separates missing credentials from a classifier ask without calling the
     }),
     buildMockConfig({
       provider: { model: 'jev-1.13.0', apiKeyEnv: undefined, apiKeyCommand: undefined },
+      onFailure: 'defer',
+      claudeSettingsPath: null,
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -580,7 +603,11 @@ test('it sends checked branch evidence for a routine feature commit and allows i
     },
   });
 
-  const config = buildMockConfig({ provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' } });
+  const config = buildMockConfig({
+    provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+    onFailure: 'defer',
+    claudeSettingsPath: null,
+  });
 
   const outcome = await classifyWithJev(payload, config, {
     host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
@@ -679,6 +706,8 @@ test.each([
     const config = buildMockConfig({
       provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       rulesPath: rules,
+      onFailure: 'defer',
+      claudeSettingsPath: null,
     });
 
     const outcome = await classifyWithJev(payload, config, {
@@ -759,6 +788,8 @@ test.each(['Write', 'Edit'])(
     const config = buildMockConfig({
       provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       rulesPath: rules,
+      onFailure: 'defer',
+      claudeSettingsPath: null,
     });
 
     const outcome = await classifyWithJev(payload, config, {
@@ -846,6 +877,8 @@ test.each([
     const config = buildMockConfig({
       provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       rulesPath: rules,
+      onFailure: 'defer',
+      claudeSettingsPath: null,
     });
 
     const outcome = await classifyWithJev(payload, config, {
@@ -918,6 +951,9 @@ test('it denies an uncertain answer, distinct from a timeout, and keeps every co
     buildMockConfig({
       provider: { model: 'private-provider-canary', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       rulesPath: rules,
+      minConfidence: 0.8,
+      onFailure: 'defer',
+      claudeSettingsPath: null,
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -1010,6 +1046,7 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
     buildMockConfig({
       provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       claudeSettingsPath: settings,
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -1045,6 +1082,7 @@ test('it defers an oversized Edit before any request and records only the failur
     buildMockConfig({
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       onFailure: 'defer',
+      claudeSettingsPath: null,
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -1091,6 +1129,7 @@ test('it reports a provider timeout as a timeout with the request size', async (
     buildMockConfig({
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY', timeoutMs: 20 },
       onFailure: 'defer',
+      claudeSettingsPath: null,
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, timeout },
   );
@@ -1132,6 +1171,7 @@ test('it times out on the provider deadline with the real timer', async () => {
     buildMockConfig({
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY', timeoutMs: 1 },
       onFailure: 'defer',
+      claudeSettingsPath: null,
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -1176,6 +1216,7 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
     buildMockConfig({
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY', timeoutMs: 1000.5 },
       onFailure: 'defer',
+      claudeSettingsPath: null,
     }),
     { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, timeout },
   );
@@ -1227,7 +1268,11 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
     toolInput: { command: 'gh pr view 7' },
   });
 
-  const config = buildMockConfig({ provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' } });
+  const config = buildMockConfig({
+    provider: { apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+    onFailure: 'defer',
+    claudeSettingsPath: null,
+  });
 
   await classifyWithJev(payload, config, {
     host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },

@@ -22,13 +22,18 @@ test('it hands a decision service provider to Jev', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'system-one',
         model: 'jev-1.13.0',
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -66,7 +71,11 @@ test('it reads an allow out of the model answer', async () => {
   });
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -74,6 +83,7 @@ test('it reads an allow out of the model answer', async () => {
         model: 'test-model',
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -115,6 +125,7 @@ test('it reads a deny with its rule and reason out of the model answer', async (
         model: 'test-model',
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -139,7 +150,11 @@ test('it reports the cache counts alongside the verdict', async () => {
   });
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -147,6 +162,7 @@ test('it reports the cache counts alongside the verdict', async () => {
         model: 'test-model',
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -162,13 +178,18 @@ test('it has no opinion when no API key is configured', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
         baseURL: 'https://gateway.test',
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
+      onFailure: 'defer',
     }),
     { host: { env: {}, home: ctx.dir } },
   );
@@ -185,7 +206,11 @@ test('it has no opinion when the model call fails', async () => {
   server.use(http.post(MESSAGES_URL, () => HttpResponse.text('boom', { status: 500 })));
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -193,6 +218,7 @@ test('it has no opinion when the model call fails', async () => {
         model: 'test-model',
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -221,7 +247,11 @@ test('it names the timeout when the model call outlives it', async () => {
   );
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -230,6 +260,7 @@ test('it names the timeout when the model call outlives it', async () => {
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
         timeoutMs: 20,
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir }, timeout },
   );
@@ -255,7 +286,11 @@ test('it times out on the model call deadline with the real timer', async () => 
   );
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -264,6 +299,7 @@ test('it times out on the model call deadline with the real timer', async () => 
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
         timeoutMs: 1,
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -292,7 +328,11 @@ test('it starts the model call timer at the next whole millisecond for a fractio
   );
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -301,6 +341,7 @@ test('it starts the model call timer at the next whole millisecond for a fractio
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
         timeoutMs: 1000.5,
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir }, timeout },
   );
@@ -329,7 +370,11 @@ test('it treats an empty answer as a failure rather than an allow', async () => 
   });
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -337,6 +382,7 @@ test('it treats an empty answer as a failure rather than an allow', async () => 
         model: 'test-model',
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -353,7 +399,11 @@ test('it denies rather than deferring when configured to fail closed', async () 
   server.use(http.post(MESSAGES_URL, () => HttpResponse.text('boom', { status: 500 })));
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -381,7 +431,11 @@ test('it has no opinion when the policy file cannot be read', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -389,6 +443,7 @@ test('it has no opinion when the policy file cannot be read', async () => {
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
       classifierPath: join(ctx.dir, 'missing', 'classifier.md'),
+      onFailure: 'defer',
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -413,7 +468,11 @@ test('it runs no key command and sends no request once the evaluation is cancell
   controller.abort();
 
   const outcome = await classifyWithModel(
-    buildMockActionRequest({ cwd: ctx.dir }),
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
     buildMockConfig({
       provider: {
         protocol: 'messages',
@@ -421,6 +480,7 @@ test('it runs no key command and sends no request once the evaluation is cancell
         apiKeyEnv: undefined,
         apiKeyCommand: 'printf from-command',
       },
+      onFailure: 'defer',
     }),
     { signal: controller.signal, host: { env: {}, home: ctx.dir } },
   );
