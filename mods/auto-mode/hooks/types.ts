@@ -108,6 +108,9 @@ export interface ModAPI {
     readonly run: (argv: readonly string[], init?: ProcessInput['init']) => Promise<ProcessResult>;
   };
   readonly prompt: { readonly submit: (input: PromptInput) => Promise<object> };
+  readonly agent: {
+    readonly spawn: (input: SpawnInput) => Promise<ModEvents['agent.spawn']['result']>;
+  };
   readonly tool: {
     readonly check: (input: CheckInput) => Promise<PermissionDecision>;
     readonly call: (input: CallInput) => Promise<CallResult>;
