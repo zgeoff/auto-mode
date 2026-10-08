@@ -32,25 +32,28 @@ const requestSchema = z.strictObject({
 export async function sendMessagesReply(
   info: Readonly<ResolverInfo>,
 ): Promise<HttpResponse<MessagesResponse | MessagesErrorBody>> {
-  const json: unknown = await info.request.json();
+  let json: unknown;
+
+  try {
+    json = await info.request.json();
+  } catch {
+    return buildInvalidRequestReply('body: the request body is not valid JSON');
+  }
 
   const parsed = requestSchema.safeParse(json);
 
   if (!parsed.success) {
     // The API names an unknown field with this text in its published errors.
-    const message = parsed.error.issues
-      .flatMap((issue) =>
-        issue.code === 'unrecognized_keys'
-          ? issue.keys.map(
-              (key) => `${[...issue.path, key].join('.')}: Extra inputs are not permitted`,
-            )
-          : [`${issue.path.join('.') || 'body'}: ${issue.message}`],
-      )
-      .join('; ');
-
-    return HttpResponse.json<MessagesErrorBody>(
-      { type: 'error', error: { type: 'invalid_request_error', message } },
-      { status: 400 },
+    return buildInvalidRequestReply(
+      parsed.error.issues
+        .flatMap((issue) =>
+          issue.code === 'unrecognized_keys'
+            ? issue.keys.map(
+                (key) => `${[...issue.path, key].join('.')}: Extra inputs are not permitted`,
+              )
+            : [`${issue.path.join('.') || 'body'}: ${issue.message}`],
+        )
+        .join('; '),
     );
   }
 
@@ -64,4 +67,11 @@ export async function sendMessagesReply(
   }
 
   return HttpResponse.json<MessagesResponse>(reply);
+}
+
+function buildInvalidRequestReply(message: string): HttpResponse<MessagesErrorBody> {
+  return HttpResponse.json<MessagesErrorBody>(
+    { type: 'error', error: { type: 'invalid_request_error', message } },
+    { status: 400 },
+  );
 }

@@ -167,6 +167,23 @@ test('it answers HTTP 400 for a request that carries a field the API does not kn
   });
 });
 
+test('it answers HTTP 400 for a request body that is not JSON', async () => {
+  const request = new Request(MESSAGES_URL, { method: 'POST', body: '{"model":' });
+
+  const response = await sendMessagesReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(400);
+
+  expect(body).toStrictEqual({
+    type: 'error',
+    error: {
+      type: 'invalid_request_error',
+      message: 'body: the request body is not valid JSON',
+    },
+  });
+});
+
 test('it answers HTTP 400 for a request without max_tokens', async () => {
   const request = new Request(MESSAGES_URL, {
     method: 'POST',
