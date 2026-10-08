@@ -53,7 +53,7 @@
     "lint:fix": "oxlint --type-aware --type-check --report-unused-disable-directives-severity error --fix",
     "prepare": "command -v git > /dev/null 2>&1 && lefthook install --force || true",
     "publint": "publint",
-    "test": "bun --no-env-file test",
+    "test": "bun run build && bun --no-env-file test",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check:artifact": "bun --no-env-file scripts/check-artifact.ts",
     "check:claude-mod": "bash scripts/check-claude-mod.sh"

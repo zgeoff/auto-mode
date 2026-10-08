@@ -2,6 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "src/**/*.test.ts",
+    "e2e/**/*.test.ts",
     "test-utils/**/*.test.ts",
     "test-utils/run-stub-*.ts",
     "scripts/**/*.test.ts",
@@ -9,6 +10,6 @@
     "mocks/**/*.test.ts",
     "test-setup.ts"
   ],
-  "project": ["src/**/*.ts", "test-utils/**/*.ts", "evals/**/*.ts", "mocks/**/*.ts"],
+  "project": ["src/**/*.ts", "e2e/**/*.ts", "test-utils/**/*.ts", "evals/**/*.ts", "mocks/**/*.ts"],
   "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/oxlint-config"]
 }
