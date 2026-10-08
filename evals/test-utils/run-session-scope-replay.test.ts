@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
+import { buildMockDecisionRulesCase } from './factories/build-mock-decision-rules-case.ts';
+import { buildMockTaskScopeSessions } from './factories/build-mock-task-scope-sessions.ts';
 import { runSessionScopeReplay } from './run-session-scope-replay.ts';
 
 async function setupTest(): Promise<{ readonly stateDir: string; readonly atcRecordDir: string }> {
@@ -20,12 +22,8 @@ test('it checks an action against a worktree that a call made earlier in its ses
   const ctx = await setupTest();
 
   const denies = await runSessionScopeReplay({
-    recording: {
-      home: '/home/dev',
-      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    recording: buildMockTaskScopeSessions({
       worktreeBranches: { '/home/dev/app-fix': 'fix/a' },
-      pullRequestHeads: {},
-      atc: {},
       sessions: [
         {
           name: 'one',
@@ -41,24 +39,22 @@ test('it checks an action against a worktree that a call made earlier in its ses
           ],
         },
       ],
-    },
+    }),
     cases: [
-      {
+      buildMockDecisionRulesCase({
         id: 'R1',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'rm -rf /home/dev/app-fix/build' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
-      {
+        repository: { branch: 'feat/a' },
+      }),
+      buildMockDecisionRulesCase({
         id: 'R2',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'rm -rf /home/dev/app-fix/build' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
+        repository: { branch: 'feat/a' },
+      }),
     ],
     stateDir: ctx.stateDir,
     atcRecordDir: ctx.atcRecordDir,
@@ -82,12 +78,8 @@ test('it takes nothing from a call that failed', async () => {
   const ctx = await setupTest();
 
   const denies = await runSessionScopeReplay({
-    recording: {
-      home: '/home/dev',
-      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    recording: buildMockTaskScopeSessions({
       worktreeBranches: { '/home/dev/app-fix': 'fix/a' },
-      pullRequestHeads: {},
-      atc: {},
       sessions: [
         {
           name: 'one',
@@ -102,16 +94,15 @@ test('it takes nothing from a call that failed', async () => {
           ],
         },
       ],
-    },
+    }),
     cases: [
-      {
+      buildMockDecisionRulesCase({
         id: 'R1',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'rm -rf /home/dev/app-fix/build' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
+        repository: { branch: 'feat/a' },
+      }),
     ],
     stateDir: ctx.stateDir,
     atcRecordDir: ctx.atcRecordDir,
@@ -134,12 +125,8 @@ test('it keeps what one session made out of the scope of another session', async
   const ctx = await setupTest();
 
   const denies = await runSessionScopeReplay({
-    recording: {
-      home: '/home/dev',
-      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    recording: buildMockTaskScopeSessions({
       worktreeBranches: { '/home/dev/app-fix': 'fix/a' },
-      pullRequestHeads: {},
-      atc: {},
       sessions: [
         {
           name: 'one',
@@ -154,16 +141,15 @@ test('it keeps what one session made out of the scope of another session', async
         },
         { name: 'two', entries: [{ case: 'R1' }] },
       ],
-    },
+    }),
     cases: [
-      {
+      buildMockDecisionRulesCase({
         id: 'R1',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'rm -rf /home/dev/app-fix/build' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
+        repository: { branch: 'feat/a' },
+      }),
     ],
     stateDir: ctx.stateDir,
     atcRecordDir: ctx.atcRecordDir,
@@ -199,23 +185,17 @@ test('it adds the worktrees of the atc session record of the session', async () 
   );
 
   const denies = await runSessionScopeReplay({
-    recording: {
-      home: '/home/dev',
-      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
-      worktreeBranches: {},
-      pullRequestHeads: {},
-      atc: {},
+    recording: buildMockTaskScopeSessions({
       sessions: [{ name: 'one', entries: [{ case: 'R1' }] }],
-    },
+    }),
     cases: [
-      {
+      buildMockDecisionRulesCase({
         id: 'R1',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'rm -rf /home/dev/app-fix/build' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
+        repository: { branch: 'feat/a' },
+      }),
     ],
     stateDir: ctx.stateDir,
     atcRecordDir: ctx.atcRecordDir,
@@ -241,23 +221,17 @@ test('it adds the branches of the atc session record in the action repository', 
   );
 
   const denies = await runSessionScopeReplay({
-    recording: {
-      home: '/home/dev',
-      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
-      worktreeBranches: {},
-      pullRequestHeads: {},
-      atc: {},
+    recording: buildMockTaskScopeSessions({
       sessions: [{ name: 'one', entries: [{ case: 'R1' }] }],
-    },
+    }),
     cases: [
-      {
+      buildMockDecisionRulesCase({
         id: 'R1',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'git branch -D fix/b' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
+        repository: { branch: 'feat/a' },
+      }),
     ],
     stateDir: ctx.stateDir,
     atcRecordDir: ctx.atcRecordDir,
@@ -270,12 +244,9 @@ test('it checks an action against a PR that a call opened earlier in its session
   const ctx = await setupTest();
 
   const denies = await runSessionScopeReplay({
-    recording: {
-      home: '/home/dev',
+    recording: buildMockTaskScopeSessions({
       remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
-      worktreeBranches: {},
       pullRequestHeads: { '5': 'feat/a' },
-      atc: {},
       sessions: [
         {
           name: 'one',
@@ -291,24 +262,22 @@ test('it checks an action against a PR that a call opened earlier in its session
           ],
         },
       ],
-    },
+    }),
     cases: [
-      {
+      buildMockDecisionRulesCase({
         id: 'R1',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'gh pr comment 5 -b done' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
-      {
+        repository: { branch: 'feat/a' },
+      }),
+      buildMockDecisionRulesCase({
         id: 'R2',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'gh pr comment 5 -b done' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
+        repository: { branch: 'feat/a' },
+      }),
     ],
     stateDir: ctx.stateDir,
     atcRecordDir: ctx.atcRecordDir,
@@ -332,12 +301,7 @@ test('it checks an action against a branch that a call made earlier in its sessi
   const ctx = await setupTest();
 
   const denies = await runSessionScopeReplay({
-    recording: {
-      home: '/home/dev',
-      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
-      worktreeBranches: {},
-      pullRequestHeads: {},
-      atc: {},
+    recording: buildMockTaskScopeSessions({
       sessions: [
         {
           name: 'one',
@@ -353,24 +317,22 @@ test('it checks an action against a branch that a call made earlier in its sessi
           ],
         },
       ],
-    },
+    }),
     cases: [
-      {
+      buildMockDecisionRulesCase({
         id: 'R1',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'git branch -D fix/b' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
-      {
+        repository: { branch: 'feat/a' },
+      }),
+      buildMockDecisionRulesCase({
         id: 'R2',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'git branch -D fix/b' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
+        repository: { branch: 'feat/a' },
+      }),
     ],
     stateDir: ctx.stateDir,
     atcRecordDir: ctx.atcRecordDir,
@@ -407,23 +369,17 @@ test('it places every checkout of an atc session record in the action repository
   );
 
   const denies = await runSessionScopeReplay({
-    recording: {
-      home: '/home/dev',
-      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
-      worktreeBranches: {},
-      pullRequestHeads: {},
-      atc: {},
+    recording: buildMockTaskScopeSessions({
       sessions: [{ name: 'one', entries: [{ case: 'R1' }] }],
-    },
+    }),
     cases: [
-      {
+      buildMockDecisionRulesCase({
         id: 'R1',
-        severity: 'safe',
         tool: 'Bash',
         input: { command: 'git branch -D fix/b' },
         cwd: '/home/dev/app',
-        repository: { branch: 'feat/a', defaultBranch: 'main' },
-      },
+        repository: { branch: 'feat/a' },
+      }),
     ],
     stateDir: ctx.stateDir,
     atcRecordDir: ctx.atcRecordDir,
@@ -437,14 +393,9 @@ test('it rejects a recording that names a case the corpus lacks', async () => {
 
   expect(
     runSessionScopeReplay({
-      recording: {
-        home: '/home/dev',
-        remotes: [],
-        worktreeBranches: {},
-        pullRequestHeads: {},
-        atc: {},
+      recording: buildMockTaskScopeSessions({
         sessions: [{ name: 'one', entries: [{ case: 'R9' }] }],
-      },
+      }),
       cases: [],
       stateDir: ctx.stateDir,
       atcRecordDir: ctx.atcRecordDir,

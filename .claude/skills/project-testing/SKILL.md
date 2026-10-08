@@ -114,3 +114,18 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
   `assertDefined` live in `mods/auto-mode/hooks/test-utils/`, each with its own checks.
 - The host reports a hook that throws as skipped and raises its own error, so the mod never sees the
   thrown text. A check cannot reach the mod's "subprocess timeout" branch.
+- A handler a check registers with `on(…)` must answer synchronously. The host reads a handler that
+  returns a promise as no implementation (`HooksError: no implementation for tool.call`).
+- The host validates a handler's answer: a `tool.call` answer may not carry `deny` beside `result`,
+  and an `agent.spawn` answer needs `model` beside `agentId`.
+- The host gives every `$.tool.call` a `tool_use_id` when the check leaves it out, so a check cannot
+  reach the mod's path for a tool call without one.
+- Every hook gets `next.budget.remainingMs` of 10000 and a signal that is never aborted. Neither the
+  test's `timeoutMs` option, `mock.clock`, nor real elapsed time changes them, and `$.tool.check`
+  takes one argument. A check cannot reach the mod's "cancelled", "insufficient budget" or
+  "insufficient subprocess budget" branches.
+- A `tool.check` started from inside a `tool.call` handler reaches the mod only after the call has
+  finished, so the mod sees it as an untracked call. A check cannot drive a child agent's
+  evaluation: its agent ID, its delegated task, the omitted delegated task, the cleared last direct
+  user message, or a delegated task kept across compaction. Nor can it drive a tracked main-agent
+  call, the one evaluation whose request carries `toolUseID`.
