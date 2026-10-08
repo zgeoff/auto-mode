@@ -34,23 +34,26 @@ interface ScopeAction {
   readonly input: Readonly<Record<string, unknown>>;
 }
 
+const SCRATCH_PATHS = ['/tmp', '/dev/null', '/dev/stdout', '/dev/stderr'];
+
 // Reads the action only, never the filesystem. A target it cannot resolve,
 // such as a path held in a variable, yields no finding, so the classifier
 // still judges it.
 export function collectScopeFindings(
   action: Readonly<ScopeAction>,
   scope: Readonly<OwnedScope>,
+  scratchPaths: readonly string[] = SCRATCH_PATHS,
 ): ScopeFinding[] {
   const filePath = action.input['file_path'] ?? action.input['notebook_path'];
   const command = action.input['command'];
 
   const findings = [
     ...(FILE_WRITE_TOOLS.has(action.tool) && typeof filePath === 'string'
-      ? collectTargetFindings(action.cwd, filePath, scope)
+      ? collectTargetFindings(action.cwd, filePath, scope, scratchPaths)
       : []),
     ...(action.tool.startsWith('mcp__') ? collectToolFindings(action, scope) : []),
     ...(action.tool === 'Bash' && typeof command === 'string'
-      ? collectCommandFindings(command, action.cwd, scope)
+      ? collectCommandFindings(command, action.cwd, scope, scratchPaths)
       : []),
   ];
 
@@ -73,20 +76,25 @@ function collectTargetFindings(
   directory: string | null,
   target: string,
   scope: Readonly<OwnedScope>,
+  scratchPaths: readonly string[],
 ): ScopeFinding[] {
   const path = resolvePath(directory, target, scope.home);
 
-  return path === null ? [] : collectPathFindings(path, scope);
+  return path === null ? [] : collectPathFindings(path, scope, scratchPaths);
 }
 
 const CREDENTIAL_PATHS = ['.ssh', '.aws', '.gnupg', '.gitconfig', '.netrc', '.npmrc', '.config/gh'];
 
-function collectPathFindings(path: string, scope: Readonly<OwnedScope>): ScopeFinding[] {
+function collectPathFindings(
+  path: string,
+  scope: Readonly<OwnedScope>,
+  scratchPaths: readonly string[],
+): ScopeFinding[] {
   if (CREDENTIAL_PATHS.some((entry) => isUnder(path, join(scope.home, entry)))) {
     return [{ kind: 'credential', target: path }];
   }
 
-  return isInScope(path, scope) ? [] : [{ kind: 'path', target: path }];
+  return isInScope(path, scope, scratchPaths) ? [] : [{ kind: 'path', target: path }];
 }
 
 function collectToolFindings(
@@ -123,6 +131,7 @@ function collectCommandFindings(
   command: string,
   cwd: string,
   scope: Readonly<OwnedScope>,
+  scratchPaths: readonly string[],
 ): ScopeFinding[] {
   const findings: ScopeFinding[] = [];
   const hasPipe = /(?<!\|)\|(?!\|)/u.test(command);
@@ -133,7 +142,7 @@ function collectCommandFindings(
     const [name, ...args] = words;
 
     for (const target of collectRedirectTargets(segment.text)) {
-      findings.push(...collectTargetFindings(directory, target, scope));
+      findings.push(...collectTargetFindings(directory, target, scope, scratchPaths));
     }
 
     if (name === undefined) {
@@ -147,7 +156,7 @@ function collectCommandFindings(
     } else if (name === 'cd') {
       directory = args[0] === undefined ? scope.home : resolvePath(directory, args[0], scope.home);
     } else {
-      findings.push(...collectProgramFindings(name, args, directory, cwd, scope));
+      findings.push(...collectProgramFindings(name, args, directory, cwd, scope, scratchPaths));
     }
   }
 
@@ -160,12 +169,15 @@ function collectProgramFindings(
   directory: string | null,
   cwd: string,
   scope: Readonly<OwnedScope>,
+  scratchPaths: readonly string[],
 ): ScopeFinding[] {
-  const resolve = (path: string): ScopeFinding[] => collectTargetFindings(directory, path, scope);
+  const resolve = (path: string): ScopeFinding[] =>
+    collectTargetFindings(directory, path, scope, scratchPaths);
+
   const operands = args.filter((word) => !word.startsWith('-'));
 
   if (name === 'git') {
-    return collectGitFindings(args, directory, cwd, scope);
+    return collectGitFindings(args, directory, cwd, scope, scratchPaths);
   }
 
   if (name === 'gh') {
@@ -365,6 +377,7 @@ function collectGitFindings(
   directory: string | null,
   cwd: string,
   scope: Readonly<OwnedScope>,
+  scratchPaths: readonly string[],
 ): ScopeFinding[] {
   let gitDirectory = directory;
   let index = 0;
@@ -387,13 +400,13 @@ function collectGitFindings(
   if (
     gitDirectory !== null &&
     GIT_DIRECTORY_WRITES.has(subcommand) &&
-    !isInScope(gitDirectory, scope)
+    !isInScope(gitDirectory, scope, scratchPaths)
   ) {
     findings.push({ kind: 'path', target: gitDirectory });
   }
 
   if (subcommand === 'worktree' && operands[0] === 'remove' && operands[1] !== undefined) {
-    findings.push(...collectTargetFindings(gitDirectory, operands[1], scope));
+    findings.push(...collectTargetFindings(gitDirectory, operands[1], scope, scratchPaths));
   }
 
   if (subcommand === 'branch' && rest.some((word) => /^-(?:d|D|-delete)$/u.test(word))) {
@@ -735,13 +748,15 @@ function resolvePath(cwd: string | null, path: string, home: string): string | n
   return normalize(absolute).replace(/(?<=.)\/$/u, '');
 }
 
-const SCRATCH_PATHS = ['/tmp', '/dev/null', '/dev/stdout', '/dev/stderr'];
-
 // A worktree nested under another, as `.worktrees/<name>` is, belongs to its own
 // task: being inside the parent checkout does not put it in the parent's scope.
-function isInScope(path: string, scope: Readonly<OwnedScope>): boolean {
+function isInScope(
+  path: string,
+  scope: Readonly<OwnedScope>,
+  scratchPaths: readonly string[],
+): boolean {
   if (
-    SCRATCH_PATHS.some((entry) => isUnder(path, entry)) ||
+    scratchPaths.some((entry) => isUnder(path, entry)) ||
     scope.pathGlobs.some((glob) => matchesGlob(path, glob))
   ) {
     return true;

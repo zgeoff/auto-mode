@@ -13,10 +13,12 @@ const CONTAINMENT_RULE = 'Outside Task Scope';
 export function checkContainment(
   request: Readonly<ActionRequest>,
   scope: Readonly<OwnedScope>,
+  scratchPaths?: readonly string[],
 ): ContainmentDeny | null {
   const findings = collectScopeFindings(
     { tool: request.toolName, cwd: request.cwd, input: request.toolInput },
     scope,
+    scratchPaths,
   );
 
   if (findings.length === 0) {
