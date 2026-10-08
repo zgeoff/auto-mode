@@ -38,7 +38,7 @@ Create the classifier configuration:
 
 Save it as `~/.config/auto-mode/config.json` and export your TypeSafe API key, or set the entry's
 `apiKeyCommand` to a command that prints it. [Configuration](./docs/guides/configuration.md) covers
-the registries, credentials, and migrating an older file.
+the registries and credentials.
 
 ## Standing permissions
 
@@ -77,7 +77,6 @@ fit.
 | `auto-mode run --local-only` | Skip the model tier                       |
 | `auto-mode run --jev-only`   | Require Jev with a 5-second API timeout   |
 | `auto-mode print-prompt`     | Print the selected provider's base policy |
-| `auto-mode config migrate`   | Rewrite an older config file in place     |
 
 The mod evaluates only ask decisions and preserves existing allow and deny decisions. It runs the
 CLI as a bounded child process with `--jev-only`. The `spark`, `claude`, `glm`, and `messages`

@@ -12,8 +12,7 @@ import { writeDenialState } from './budget/write-denial-state.ts';
 import type { ActionOutcome } from './classify-action.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
-import { DEFAULT_DENIAL_BUDGET, loadConfig, resolveConfigPath } from './config/config.ts';
-import { writeMigratedConfig } from './config/write-migrated-config.ts';
+import { DEFAULT_DENIAL_BUDGET, loadConfig } from './config/config.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { parseActionRequest } from './request/parse-action-request.ts';
@@ -25,7 +24,6 @@ const USAGE = `auto-mode — a permission classifier for the auto-mode Claude Co
 Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
-  auto-mode config migrate   Rewrite the config file from the old keys into the current shape
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -254,31 +252,9 @@ async function main(argv: readonly string[]): Promise<number> {
     return 0;
   }
 
-  if (command === 'config' && args.positionals[1] === 'migrate') {
-    return runConfigMigration();
-  }
-
   process.stderr.write(`auto-mode: unknown command '${command}'\n\n${USAGE}`);
 
   return 2;
-}
-
-async function runConfigMigration(): Promise<number> {
-  const path = resolveConfigPath();
-
-  try {
-    const result = await writeMigratedConfig(path);
-
-    process.stdout.write(`${result}\n`);
-
-    return 0;
-  } catch (error) {
-    process.stderr.write(
-      `auto-mode: ${error instanceof Error ? error.message : 'config migration failed'}\n`,
-    );
-
-    return 1;
-  }
 }
 
 process.exitCode = await main(process.argv.slice(2));

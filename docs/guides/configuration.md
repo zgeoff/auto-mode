@@ -100,7 +100,11 @@ with classifiers, `kind` defaults to the id.
 | `cwd`     | none                      | The worktree that holds the action's directory |
 | `session` | none                      | What the session itself created                |
 | `globs`   | `paths`, a non-empty list | Path globs that every task owns                |
-| `atc`     | none                      | The scope file that atc writes for the task    |
+| `atc`     | none                      | atc's general session record for the session   |
+
+The `atc` source reads the record that atc publishes for each session it spawns, found through an
+environment variable that atc sets. atc owns the record's format, and the agent cannot extend it. A
+session without a record gets nothing from this source.
 
 A glob that covers every worktree, such as `.worktrees/**`, defeats the containment check that reads
 this registry. The registry holds entries today; the containment check and the scope work that
@@ -178,8 +182,10 @@ exceptions in the configuration rather than an earlier conversational message.
 ## Parsing
 
 Each block is strict: a key auto-mode does not know makes the file invalid, so a field in the wrong
-place is reported instead of ignored. Registry entries are parsed one at a time. A bad entry is left
-out with one diagnostic line naming it, and the other entries load:
+place is reported instead of ignored. That includes the top-level keys of earlier releases, such as
+`preset`, `provider` or `rulesPath`: the diagnostic names the key, and its value belongs in one of
+the four blocks above. Registry entries are parsed one at a time. A bad entry is left out with one
+diagnostic line naming it, and the other entries load:
 
 ```text
 auto-mode: /home/you/.config/auto-mode/config.json: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, spark, claude, glm, messages
@@ -188,33 +194,7 @@ auto-mode: /home/you/.config/auto-mode/config.json: classifiers.typo dropped: un
 `auto-mode run` and `auto-mode print-prompt` write these lines to stderr. The mod does not show
 stderr, so run `auto-mode print-prompt > /dev/null` after you edit the file to see them.
 
-## Migrate an older file
-
-Before this shape, the file used top-level `preset`, `provider`, `classifierPath`, `rulesPath`,
-`minConfidence`, `onFailure`, `claudeSettingsPath` and `transcriptEntries` keys. A file with those
-keys still loads and gives the same verdicts, with a warning on stderr. Rewrite it once:
-
-```bash
-auto-mode config migrate
-```
-
-The command rewrites the file in place and keeps the original at `config.json.bak`. A file already
-in the current shape is left alone. A file that mixes the old keys with the new blocks is invalid
-and is not rewritten.
-
-| Old key                      | New place                                      |
-| ---------------------------- | ---------------------------------------------- |
-| `preset`                     | A `classifiers` entry with that id             |
-| `provider.*`                 | Fields on that entry                           |
-| `provider.protocol`          | The entry's `kind`                             |
-| `classifierPath`             | `policy.frameworkPath`                         |
-| `rulesPath`                  | `policy.rulesPath`                             |
-| `claudeSettingsPath`         | `policy.claudeSettingsPath`                    |
-| `minConfidence`, `onFailure` | `decision.minConfidence`, `decision.onFailure` |
-| `transcriptEntries`          | Dropped; it had no effect                      |
-
-A `provider` block with no `preset` and no `protocol: "system-one"` has always run on the Spark
-defaults, so it migrates to a `spark` entry.
+## Inspect the prompt
 
 Run `auto-mode print-prompt` to inspect the base policy for your configured classifier. The printed
 policy excludes imported user settings and the proposed action.

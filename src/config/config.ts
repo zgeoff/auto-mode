@@ -3,7 +3,6 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
 import type { DenialBudget } from '../budget/types.ts';
-import { normalizeConfigFile } from './normalize-config-file.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 import type { EvaluationOptions } from './types.ts';
@@ -86,9 +85,7 @@ export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
     throw new Error(`${path} is not valid JSON`);
   }
 
-  const normalized = normalizeConfigFile(json, path);
-
-  return buildConfig(normalized.file, path, normalized.warnings);
+  return buildConfig(json, path);
 }
 
 const text = z.string().min(1);
@@ -122,7 +119,7 @@ const configFileSchema = z.strictObject({
     .optional(),
 });
 
-function buildConfig(json: unknown, path: string, legacyWarnings: readonly string[]): Config {
+function buildConfig(json: unknown, path: string): Config {
   const parsed = configFileSchema.safeParse(json);
 
   if (!parsed.success) {
@@ -130,7 +127,7 @@ function buildConfig(json: unknown, path: string, legacyWarnings: readonly strin
   }
 
   const file = parsed.data;
-  const warnings = [...legacyWarnings];
+  const warnings: string[] = [];
 
   const classifiers = buildRegistry(file.classifiers ?? {}, (id, entry) =>
     parseClassifierEntry(id, entry),
