@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.12.0...auto-mode-v0.13.0) (2026-10-08)
+
+
+### Features
+
+* **geo-159:** give jev and the judge the remotes and task scope ([#60](https://github.com/zgeoff/auto-mode/issues/60)) ([fb1d817](https://github.com/zgeoff/auto-mode/commit/fb1d8171aa399b8a23fcc960d38618d5ca76b8b7))
+
 ## [0.12.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.11.0...auto-mode-v0.12.0) (2026-10-08)
 
 
