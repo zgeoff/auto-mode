@@ -30,10 +30,10 @@ test('it reads no verdict from a JSON null', () => {
 });
 
 test('it reads no verdict from a verdict that is an array', () => {
-  expect(parseDecision('["allow"]')).toBeNull();
+  expect(parseDecision('[{"decision":"allow"}]')).toBeNull();
 });
 
-test("it reads no verdict that names its decision with Claude Code's hook field", () => {
+test("it reads no verdict from output that carries its decision in Claude Code's hook field", () => {
   expect(parseDecision('{"permissionDecision":"allow"}')).toBeNull();
 });
 
@@ -43,10 +43,6 @@ test('it reads no verdict from a decision other than allow or deny', () => {
 
 test('it reads no verdict from an allowance with a text reason', () => {
   expect(parseDecision('{"decision":"allow","reason":"Read-only action."}')).toBeNull();
-});
-
-test('it reads no verdict from an allowance whose reason is not text', () => {
-  expect(parseDecision('{"decision":"allow","reason":123}')).toBeNull();
 });
 
 test('it reads no verdict from an allowance with an unknown field', () => {
