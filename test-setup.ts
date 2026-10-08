@@ -1,4 +1,6 @@
 import { afterAll, afterEach, beforeAll } from 'bun:test';
+import { decisionAnswers } from './mocks/decision-answers.ts';
+import { messagesReplies } from './mocks/messages-replies.ts';
 import { server } from './mocks/node.ts';
 
 // A git hook exports the GIT_* names and an atc session the ATC_* ones. This
@@ -23,6 +25,8 @@ beforeAll(() => {
 
 afterEach(() => {
   server.resetHandlers();
+  decisionAnswers.clear();
+  messagesReplies.splice(0);
 });
 
 afterAll(() => {

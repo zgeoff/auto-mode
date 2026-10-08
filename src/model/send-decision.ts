@@ -1,6 +1,6 @@
-import * as z from 'zod';
 import type { ProviderConfig } from '../config/config.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
+import { decisionResponseSchema } from './decision-response-schema.ts';
 import type { DecisionRequest, DecisionResult } from './types.ts';
 
 export async function sendDecision(
@@ -90,21 +90,6 @@ export async function sendDecision(
       );
     }
 
-    const probability = z.number().min(0).max(1);
-
-    const answer = z.object({
-      type: z.literal('choice'),
-      choice: z.enum(['allow', 'block', 'ask']),
-      confidence: probability,
-      probabilities: z.strictObject({ allow: probability, block: probability, ask: probability }),
-    });
-
-    const schema = z.object({
-      model: z.string().min(1),
-      answers: z.record(z.string(), answer),
-      usage: z.object({ input_tokens: z.number().int().nonnegative() }),
-    });
-
     let responseBody: unknown;
 
     try {
@@ -123,7 +108,7 @@ export async function sendDecision(
       );
     }
 
-    const parsedResponse = schema.safeParse(responseBody);
+    const parsedResponse = decisionResponseSchema.safeParse(responseBody);
 
     if (!parsedResponse.success) {
       throw new DecisionRequestError(

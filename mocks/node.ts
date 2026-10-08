@@ -1,6 +1,6 @@
 import { setupServer } from 'msw/node';
+import { handlers } from './handlers.ts';
 
-// No default handler, and the preload sets onUnhandledRequest to 'error', so a
-// call this package makes without a per-test handler fails the test rather than
-// reaching the network.
-export const server = setupServer();
+// The preload sets onUnhandledRequest to 'error', so a request to any host the
+// default handlers do not answer fails the test rather than reaching the network.
+export const server = setupServer(...handlers);

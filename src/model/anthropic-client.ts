@@ -99,6 +99,12 @@ const responseSchema = z
     },
   });
 
+// The schema accepts any content block, and the verdict arrives in a text
+// block.
+export type MessagesResponse = Omit<z.input<typeof responseSchema>, 'content'> & {
+  readonly content: readonly z.input<typeof textBlockSchema>[];
+};
+
 function readResult(body: unknown): ModelResult {
   const response = responseSchema.parse(body);
   const parts = response.content.filter((block) => block !== null).map((block) => block.text);
