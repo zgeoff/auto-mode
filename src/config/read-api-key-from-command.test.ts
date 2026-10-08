@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { loadProcessState } from '../../test-utils/load-process-state.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 
@@ -110,7 +111,7 @@ test('it reads no key from a helper that prints more than 64 KiB', async () => {
 
 test('it runs the helper with the host environment it is given', async () => {
   const key = await readApiKeyFromCommand('printf %s "$AUTO_MODE_HELPER_KEY"', {
-    host: { env: { AUTO_MODE_HELPER_KEY: 'from-host' }, home: '/home/test' },
+    host: buildMockHostEnvironment({ env: { AUTO_MODE_HELPER_KEY: 'from-host' } }),
   });
 
   expect(key).toBe('from-host');
@@ -118,7 +119,7 @@ test('it runs the helper with the host environment it is given', async () => {
 
 test('it runs the helper with the given home', async () => {
   const key = await readApiKeyFromCommand('printf %s "$HOME"', {
-    host: { env: {}, home: '/home/test' },
+    host: buildMockHostEnvironment({ env: {}, home: '/home/test' }),
   });
 
   expect(key).toBe('/home/test');

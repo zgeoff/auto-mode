@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { buildStubRepositoryMembership } from '../../test-utils/build-stub-repository-membership.ts';
 import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
 import { buildAtcScopeFacts } from './build-atc-scope-facts.ts';
 
@@ -18,7 +19,7 @@ test('it owns every declared checkout and the branches that live in the action r
     },
   });
 
-  const facts = buildAtcScopeFacts(record, (path) => path === '/repo' || path.startsWith('/repo/'));
+  const facts = buildAtcScopeFacts(record, buildStubRepositoryMembership('/repo').isInRepository);
 
   expect(facts).toStrictEqual({
     worktrees: ['/repo/.worktrees/feat', '/repo/.worktrees/extra', '/other/.worktrees/x'],

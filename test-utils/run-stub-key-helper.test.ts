@@ -96,11 +96,44 @@ test('it prints no key by the time it reports', async () => {
   expect(output).toBe('');
 });
 
+test('it prints its key once the delay it is given passes', async () => {
+  const ctx = await setupTest();
+
+  const helper = spawn(
+    process.execPath,
+    [join(import.meta.dir, 'run-stub-key-helper.ts'), ctx.socketPath, '0'],
+    { detached: true, stdio: ['ignore', 'pipe', 'ignore'] },
+  );
+
+  invariant(helper.pid !== undefined, 'the stub started');
+
+  const group = helper.pid;
+
+  onTestFinished(() => {
+    process.kill(-group, 'SIGKILL');
+  });
+
+  let output = '';
+  const printed = Promise.withResolvers<void>();
+
+  helper.stdout.setEncoding('utf8');
+
+  helper.stdout.on('data', (chunk: string) => {
+    output += chunk;
+
+    printed.resolve();
+  });
+
+  await printed.promise;
+
+  expect(output).toBe('offline-test-key\n');
+});
+
 test('it refuses to start without a socket path', () => {
   const run = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-key-helper.ts')], {
     encoding: 'utf8',
   });
 
-  expect(run.status).not.toBe(0);
+  expect(run.status).toBe(1);
   expect(run.stderr).toInclude('run-stub-key-helper needs a socket path');
 });

@@ -2,13 +2,14 @@ import { expect, test } from 'bun:test';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { resolveDenialStatePath } from './resolve-denial-state-path.ts';
 
+// The expected name is the first 32 hex digits of `printf 'session-1\0' | sha256sum`.
 test('it places the session file under the denials directory of the state directory', () => {
   const path = resolveDenialStatePath(
     buildMockActionRequest({ sessionID: 'session-1', decisionContext: { agentID: null } }),
     '/state/auto-mode',
   );
 
-  expect(path).toMatch(/^\/state\/auto-mode\/denials\/[0-9a-f]{32}\.json$/u);
+  expect(path).toBe('/state/auto-mode/denials/f565642bd99fcb0dbafcb29304167c0e.json');
 });
 
 test('it keeps one file for every action of a session', () => {

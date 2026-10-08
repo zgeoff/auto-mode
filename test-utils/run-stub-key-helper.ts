@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 
-// Stands in for an apiKeyCommand helper that starts a child of its own and is
-// slow to print its key. It reports both process IDs on the socket named by
-// its first argument, so a test can check that stopping it stops both.
+// Stands in for an apiKeyCommand helper that starts a child and prints its key
+// after the delay its second argument names (30 s by default). It reports both
+// process IDs on the socket its first argument names, for a test of stopping.
 const socketPath = process.argv.at(2);
+const printDelayMs = Number(process.argv.at(3) ?? 30_000);
 
 if (socketPath === undefined) {
   throw new Error('run-stub-key-helper needs a socket path');
@@ -24,4 +25,4 @@ child.once('spawn', () => {
 
 setTimeout(() => {
   console.log('offline-test-key');
-}, 30_000);
+}, printDelayMs);

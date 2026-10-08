@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { resolveStateDir } from './resolve-state-dir.ts';
 
 async function setupTest(): Promise<{ readonly dir: string }> {
@@ -15,23 +16,26 @@ async function setupTest(): Promise<{ readonly dir: string }> {
 test('it keeps state under the home state directory when XDG_STATE_HOME is unset', async () => {
   const ctx = await setupTest();
 
-  expect(resolveStateDir({ env: {}, home: ctx.dir })).toBe(
-    join(ctx.dir, '.local', 'state', 'auto-mode'),
-  );
+  const host = buildMockHostEnvironment({ env: {}, home: ctx.dir });
+
+  expect(resolveStateDir(host)).toBe(join(ctx.dir, '.local', 'state', 'auto-mode'));
 });
 
 test('it keeps state under the home state directory when XDG_STATE_HOME is empty', async () => {
   const ctx = await setupTest();
 
-  expect(resolveStateDir({ env: { XDG_STATE_HOME: '' }, home: ctx.dir })).toBe(
-    join(ctx.dir, '.local', 'state', 'auto-mode'),
-  );
+  expect(
+    resolveStateDir(buildMockHostEnvironment({ env: { XDG_STATE_HOME: '' }, home: ctx.dir })),
+  ).toBe(join(ctx.dir, '.local', 'state', 'auto-mode'));
 });
 
 test('it keeps state under XDG_STATE_HOME when it is set', async () => {
   const ctx = await setupTest();
 
-  expect(resolveStateDir({ env: { XDG_STATE_HOME: join(ctx.dir, 'xdg') }, home: ctx.dir })).toBe(
-    join(ctx.dir, 'xdg', 'auto-mode'),
-  );
+  const host = buildMockHostEnvironment({
+    env: { XDG_STATE_HOME: join(ctx.dir, 'xdg') },
+    home: ctx.dir,
+  });
+
+  expect(resolveStateDir(host)).toBe(join(ctx.dir, 'xdg', 'auto-mode'));
 });

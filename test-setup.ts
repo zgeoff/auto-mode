@@ -20,8 +20,10 @@ for (const name of [
   delete process.env[name];
 }
 
-// A fixed seed makes a failing run's faker values reproduce.
+// A fixed seed and reference date make a failing run's faker values reproduce,
+// dates included, since faker otherwise dates from the wall clock.
 faker.seed(142);
+faker.setDefaultRefDate(new Date('2026-01-01T00:00:00Z'));
 
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'error' });

@@ -39,6 +39,12 @@ test('it places no directory in a checkout when none is given', async () => {
   expect(checkout).toBeNull();
 });
 
+test('it fails every checkout lookup with the checkout error given', () => {
+  const reader = buildStubEditFileReader({ checkout: '/w/app', checkoutError: 'git failed' });
+
+  expect(reader.findCheckout('/w/app', {})).rejects.toThrowWithMessage(Error, 'git failed');
+});
+
 test('it reads a listed file', async () => {
   const reader = buildStubEditFileReader({
     checkout: '/w/app',

@@ -2,11 +2,11 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { buildStubCheckoutFinder } from '../../test-utils/build-stub-checkout-finder.ts';
 import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
 import { buildMockScopeSourceContext } from '../../test-utils/factories/build-mock-scope-source-context.ts';
-import { makeStubCheckoutFinder } from '../../test-utils/make-stub-checkout-finder.ts';
+import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
 import { pickScopeSourceReader } from './pick-scope-source-reader.ts';
-import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 
 async function setupTest(): Promise<{ readonly dir: string }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-scope-source-'));
@@ -46,20 +46,24 @@ test('it owns what the session recorded, keeping only the branches of the action
   const ctx = await setupTest();
 
   const stateDir = join(ctx.dir, 'state');
-  const path = resolveSessionScopePath(stateDir, 'session-1');
+
+  // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
+  const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
 
   await mkdir(dirname(path), { recursive: true });
 
   await writeFile(
     path,
-    JSON.stringify({
-      worktrees: ['/repo/.worktrees/docs'],
-      branches: [
-        { name: 'docs', commonDir: '/repo/.git' },
-        { name: 'elsewhere', commonDir: '/other/.git' },
-      ],
-      pullRequests: [{ number: 7, head: 'docs', repository: 'github.com/dev/app' }],
-    }),
+    JSON.stringify(
+      buildMockSessionScope({
+        worktrees: ['/repo/.worktrees/docs'],
+        branches: [
+          { name: 'docs', commonDir: '/repo/.git' },
+          { name: 'elsewhere', commonDir: '/other/.git' },
+        ],
+        pullRequests: [{ number: 7, head: 'docs', repository: 'github.com/dev/app' }],
+      }),
+    ),
   );
 
   const facts = await pickScopeSourceReader({ kind: 'session' })(
@@ -78,14 +82,12 @@ test("it owns nothing from another session's recorded scope", async () => {
   const ctx = await setupTest();
 
   const stateDir = join(ctx.dir, 'state');
-  const path = resolveSessionScopePath(stateDir, 'session-1');
+
+  // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
+  const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
 
   await mkdir(dirname(path), { recursive: true });
-
-  await writeFile(
-    path,
-    JSON.stringify({ worktrees: ['/elsewhere'], branches: [], pullRequests: [] }),
-  );
+  await writeFile(path, JSON.stringify(buildMockSessionScope({ worktrees: ['/elsewhere'] })));
 
   const facts = await pickScopeSourceReader({ kind: 'session' })(
     buildMockScopeSourceContext({ sessionID: 'session-2', stateDir }),
@@ -265,7 +267,7 @@ test('it owns only the atc branches whose checkout shares the action repository 
 
   const facts = await pickScopeSourceReader(
     { kind: 'atc' },
-    makeStubCheckoutFinder({ '/w/app': '/w/app.git', '/w/other': '/w/other.git' }),
+    buildStubCheckoutFinder({ '/w/app': '/w/app.git', '/w/other': '/w/other.git' }).findCheckout,
   )(
     buildMockScopeSourceContext({
       commonDir: '/w/app.git',

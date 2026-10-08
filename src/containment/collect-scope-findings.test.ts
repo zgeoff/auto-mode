@@ -65,7 +65,7 @@ test('it finds a sibling worktree written through a file tool', () => {
   ]);
 });
 
-test('it treats a nested worktree as outside its parent checkout', () => {
+test('it finds a write to a nested worktree from its parent checkout', () => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app', input: { command: 'rm -rf .worktrees/other' } },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app'] }),
@@ -366,7 +366,7 @@ test('it finds nothing in a curl upload to localhost', () => {
   expect(findings).toStrictEqual([]);
 });
 
-test('it reads a gh api graphql query as a read', () => {
+test('it finds nothing in a gh api graphql query', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
@@ -408,7 +408,7 @@ test('it leaves a target held in a variable or a substitution to the classifier'
   expect(findings).toStrictEqual([]);
 });
 
-test('it reads gh api with an explicit GET method as a read, even with fields', () => {
+test('it finds nothing in gh api with an explicit GET method, even with fields', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
@@ -632,7 +632,7 @@ test.each([
   expect(findings).toStrictEqual([{ kind: 'credential', target: 'auto-mode record' }]);
 });
 
-test('it allows a write under a scratch path the caller supplies', () => {
+test('it finds nothing for a write under a scratch path the caller supplies', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
@@ -660,7 +660,7 @@ test('it finds a write under /tmp when the caller supplies no scratch paths', ()
   expect(findings).toStrictEqual([{ kind: 'path', target: '/tmp/build' }]);
 });
 
-test('it treats /tmp as scratch space by default', () => {
+test('it finds nothing for a write under /tmp by default', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',

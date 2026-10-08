@@ -29,6 +29,24 @@ test.each([
   ['null', null, { code: 'invalid_type', path: [] }],
   ['an array', [], { code: 'invalid_type', path: [] }],
   [
+    'a Claude Code hook payload',
+    { hook_event_name: 'PermissionRequest', prompt_id: 'p', tool_name: 'Read', tool_input: {} },
+    {
+      code: 'unrecognized_keys',
+      keys: ['hook_event_name', 'prompt_id', 'tool_name', 'tool_input'],
+      path: [],
+    },
+  ],
+])('it rejects %s, which is not a mod request', (_label, payload, issue) => {
+  const result = actionRequestSchema.safeParse(payload);
+
+  invariant(result.error, 'the schema rejects the payload');
+
+  expect(result.error.issues).toPartiallyContain(issue);
+});
+
+test.each([
+  [
     'a request with no session identity',
     {
       toolUseID: 'toolu_1',
@@ -110,15 +128,6 @@ test.each([
       },
     },
     { path: ['context', 'lastDirectUserMessage'] },
-  ],
-  [
-    'a Claude Code hook payload',
-    { hook_event_name: 'PermissionRequest', prompt_id: 'p', tool_name: 'Read', tool_input: {} },
-    {
-      code: 'unrecognized_keys',
-      keys: ['hook_event_name', 'prompt_id', 'tool_name', 'tool_input'],
-      path: [],
-    },
   ],
 ])('it rejects %s', (_label, payload, issue) => {
   const result = actionRequestSchema.safeParse(payload);

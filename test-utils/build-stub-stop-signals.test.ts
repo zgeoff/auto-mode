@@ -23,13 +23,28 @@ test('it never calls a callback after its unsubscribe', () => {
   expect(onStop).not.toHaveBeenCalled();
 });
 
-test('it records each subscription and its unsubscribe', () => {
+test('it records each unsubscribe it hands out', () => {
   const signals = buildStubStopSignals();
   const onStop = mock<() => void>();
   const unsubscribe = signals.subscribeToStopSignals(onStop);
 
   unsubscribe();
 
-  expect(signals.subscribeToStopSignals).toHaveBeenCalledExactlyOnceWith(onStop);
-  expect(signals.unsubscribe).toHaveBeenCalledOnce();
+  expect(signals.unsubscribe).toHaveBeenCalledExactlyOnceWith(onStop);
+});
+
+test('it keeps calling another subscriber after one unsubscribes', () => {
+  const signals = buildStubStopSignals();
+  const first = mock<() => void>();
+  const second = mock<() => void>();
+  const unsubscribeFirst = signals.subscribeToStopSignals(first);
+
+  signals.subscribeToStopSignals(second);
+
+  unsubscribeFirst();
+
+  signals.stop();
+
+  expect(first).not.toHaveBeenCalled();
+  expect(second).toHaveBeenCalledOnce();
 });

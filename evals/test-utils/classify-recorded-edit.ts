@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import type { EditClassification } from '../../src/bypass/classify-edit.ts';
 import { tryClassifyEdit } from '../../src/bypass/try-classify-edit.ts';
 import { buildStubEditFileReader } from '../../test-utils/build-stub-edit-file-reader.ts';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import type { RecordedRepository } from './build-cwd-task-scope.ts';
 import { buildCwdTaskScope } from './build-cwd-task-scope.ts';
 import type { RecordedCall } from './check-cwd-containment.ts';
@@ -24,7 +25,7 @@ export async function classifyRecordedEdit(
   return tryClassifyEdit(
     { sessionID: '', cwd: call.cwd, toolName: call.tool, toolInput: call.input },
     scope,
-    { env: {}, home: scope.home },
+    buildMockHostEnvironment({ env: {}, home: scope.home }),
     buildStubEditFileReader({ checkout: call.cwd, files }),
   );
 }

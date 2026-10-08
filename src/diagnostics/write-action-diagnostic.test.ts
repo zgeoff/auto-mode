@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
+import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { writeActionDiagnostic } from './write-action-diagnostic.ts';
 
 async function setupTest(): Promise<{ readonly dir: string }> {
@@ -27,7 +28,11 @@ test('it appends private correlated records without action, task, credential, or
   });
 
   const path = join(ctx.dir, 'private', 'actions.jsonl');
-  const host = { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir };
+
+  const host = buildMockHostEnvironment({
+    env: { AUTO_MODE_DIAGNOSTICS_PATH: path },
+    home: ctx.dir,
+  });
 
   await writeActionDiagnostic(payload, { invocationID: 'invocation', status: 'started' }, host, {
     write: mock(),
@@ -95,7 +100,7 @@ test('it stamps a record with the time it was written', async () => {
   await writeActionDiagnostic(
     buildMockActionRequest(),
     { invocationID: 'invocation', status: 'started' },
-    { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir }),
     { write: mock() },
   );
 
@@ -116,7 +121,7 @@ test('it creates the record file readable by its owner only', async () => {
   await writeActionDiagnostic(
     buildMockActionRequest(),
     { invocationID: 'invocation', status: 'started' },
-    { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir }),
     { write: mock() },
   );
 
@@ -133,7 +138,7 @@ test('it records no action hash for a request without a tool use id', async () =
   await writeActionDiagnostic(
     buildMockActionRequest({ sessionID: 's', toolUseID: undefined }),
     { invocationID: 'i', status: 'started' },
-    { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir }),
     { write: mock() },
   );
 
@@ -164,10 +169,10 @@ test('it preserves the verdict path when the diagnostic destination is unavailab
   const written = writeActionDiagnostic(
     buildMockActionRequest(),
     { invocationID: 'i', status: 'failure', verdict: 'defer' },
-    {
+    buildMockHostEnvironment({
       env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.dir, 'private', 'actions.jsonl') },
       home: ctx.dir,
-    },
+    }),
     warnings,
   );
 
@@ -187,10 +192,10 @@ test('it writes nothing when the diagnostics path is empty', async () => {
   await writeActionDiagnostic(
     buildMockActionRequest(),
     { invocationID: 'i', status: 'started' },
-    {
+    buildMockHostEnvironment({
       env: { AUTO_MODE_DIAGNOSTICS_PATH: '', XDG_STATE_HOME: join(ctx.dir, 'state') },
       home: ctx.dir,
-    },
+    }),
     warnings,
   );
 
@@ -207,7 +212,7 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
   await writeActionDiagnostic(
     buildMockActionRequest({ sessionID: 's' }),
     { invocationID: 'i', status: 'started' },
-    { env: { XDG_STATE_HOME: join(ctx.dir, 'state') }, home: ctx.dir },
+    buildMockHostEnvironment({ env: { XDG_STATE_HOME: join(ctx.dir, 'state') }, home: ctx.dir }),
     { write: mock() },
   );
 

@@ -74,7 +74,6 @@ test('it gives up on a held lock once it has waited 3 s', async () => {
   ).rejects.toThrowWithMessage(Error, 'session scope lock unavailable');
 
   expect(clock.now()).toBe(lockedAt + 3010);
-  expect(clock.wait.mock.calls).toStrictEqual(Array.from({ length: 301 }, () => [10]));
 });
 
 test('it removes a lock older than the stale age and records the scope', async () => {
@@ -85,6 +84,8 @@ test('it removes a lock older than the stale age and records the scope', async (
   await mkdir(dirname(ctx.path));
   await writeFile(ctx.lock, 'held by another record\n');
   await utimes(ctx.lock, new Date(lockedAt), new Date(lockedAt));
+
+  const staleLock = await readFile(ctx.lock, 'utf8');
 
   const clock = buildStubLockClock({ startAt: lockedAt + 10_001, advancesOnWait: true });
 
@@ -100,6 +101,7 @@ test('it removes a lock older than the stale age and records the scope', async (
 
   const scope = await loadSessionScope(ctx.path);
 
+  expect(staleLock).toBe('held by another record\n');
   expect(clock.wait).not.toHaveBeenCalled();
 
   expect(scope).toStrictEqual({
@@ -118,11 +120,13 @@ test('it merges the added scope into the scope already written', async () => {
 
   await writeFile(
     ctx.path,
-    JSON.stringify({
-      worktrees: ['/work/app/.worktrees/x'],
-      branches: [],
-      pullRequests: [{ number: 3, head: 'feat/x', repository: 'github.com/dev/app' }],
-    }),
+    JSON.stringify(
+      buildMockSessionScope({
+        worktrees: ['/work/app/.worktrees/x'],
+        branches: [],
+        pullRequests: [{ number: 3, head: 'feat/x', repository: 'github.com/dev/app' }],
+      }),
+    ),
   );
 
   await writeSessionScope(

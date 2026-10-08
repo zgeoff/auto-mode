@@ -9,5 +9,5 @@ exact = true
 minimumReleaseAge = 604800
 
 [test]
-# registers jest-extended matchers for `bun test`
+# registers the jest-extended matchers, then the shared setup and resets for `bun test`
 preload = ["@zgeoff/bun-test-extended", "./test-setup.ts"]

@@ -4,7 +4,7 @@ import { checkContainment } from '../../src/containment/check-containment.ts';
 import { buildTaskScope } from '../../src/scope/build-task-scope.ts';
 import { pickScopeSourceReader } from '../../src/scope/pick-scope-source-reader.ts';
 import { updateSessionScope } from '../../src/scope/update-session-scope.ts';
-import { makeStubCheckoutFinder } from '../../test-utils/make-stub-checkout-finder.ts';
+import { buildStubCheckoutFinder } from '../../test-utils/build-stub-checkout-finder.ts';
 import { buildStubSessionScope } from './build-stub-session-scope.ts';
 import type { TaskScopeSessions } from './corpora/task-scope-sessions-schema.ts';
 import type { DecisionRulesCase } from './load-decision-rules-cases.ts';
@@ -99,7 +99,10 @@ async function checkSessionContainment(
 
     // A recording holds no checkout on disk; every recorded checkout is in the
     // action's repository.
-    pickScopeSourceReader({ kind: 'atc' }, makeStubCheckoutFinder({}, COMMON_DIR))(context),
+    pickScopeSourceReader(
+      { kind: 'atc' },
+      buildStubCheckoutFinder({}, COMMON_DIR).findCheckout,
+    )(context),
   ]);
 
   const scope = buildTaskScope({

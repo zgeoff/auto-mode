@@ -18,7 +18,8 @@ harness that a test author needs to follow those rules here.
   files in sequence. The `--no-env-file` flag keeps a local `.env` out of the run.
 - `bunfig.toml` preloads `@zgeoff/bun-test-extended` (the jest-extended matchers) and
   `test-setup.ts`.
-- `test-setup.ts` seeds faker with a fixed value, starts the MSW server with
+- `test-setup.ts` seeds faker with a fixed value and sets its reference date to a fixed date, so a
+  faker date never reads the wall clock. It starts the MSW server with
   `onUnhandledRequest: 'error'`, and after each test resets the handlers and clears both reply
   stores.
 - `test-setup.ts` also deletes the `GIT_*` names a git hook exports and the `ATC_*` names an atc
@@ -30,8 +31,10 @@ harness that a test author needs to follow those rules here.
 Production never reads `process.env`, `homedir()` or the scratch locations below its entry points.
 They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratchPaths? }`.
 
-- `cli.ts` reads the real host once with `readHostEnvironment()` and passes it down. A test passes
-  its own `{ env: {}, home: <temp dir> }` instead.
+- `cli.ts` reads the real host once with `readHostEnvironment()` and passes it down. A test builds
+  one with `buildMockHostEnvironment` from `test-utils/factories/build-mock-host-environment.ts`:
+  its `env` is empty and its `home` does not exist, so a test that reads or writes under home passes
+  its temp dir as `home`, and names every variable its case needs in `env`.
 - `scratchPaths` lists the locations every task may write (`/tmp` and the `/dev` streams by
   default). The containment check never denies a write there, so a test whose temp tree sits under
   `/tmp` and expects a containment deny passes `scratchPaths: []`.
