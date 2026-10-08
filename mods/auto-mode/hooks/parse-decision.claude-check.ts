@@ -33,12 +33,8 @@ test('it reads no verdict from a verdict that is an array', () => {
   expect(parseDecision('["allow"]')).toBeNull();
 });
 
-test('it reads no verdict from a hook-shaped verdict', () => {
-  expect(
-    parseDecision(
-      '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}',
-    ),
-  ).toBeNull();
+test("it reads no verdict that names its decision with Claude Code's hook field", () => {
+  expect(parseDecision('{"permissionDecision":"allow"}')).toBeNull();
 });
 
 test('it reads no verdict from a decision other than allow or deny', () => {
