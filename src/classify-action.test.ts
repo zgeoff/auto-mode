@@ -327,7 +327,7 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
       toolName: 'Write',
       toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
     }),
-    buildMockConfig(),
+    buildMockConfig({ claudeSettingsPath: null }),
     { host: { env: {}, home: ctx.dir }, localOnly: true, scratchPaths: [] },
   );
 

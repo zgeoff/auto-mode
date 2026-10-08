@@ -447,6 +447,7 @@ test('it denies three actions in a row, then leaves the fourth to the user and s
       cwd: ctx.repo,
       toolName: 'Bash',
       toolInput: { command },
+      context: { agentID: null },
     });
 
     const result = await Bun.$`bun ${ctx.cli} run < ${Response.json(payload)}`
@@ -566,6 +567,7 @@ test('it denies a retry of the action just denied without asking the classifier'
     cwd: ctx.repo,
     toolName: 'Bash',
     toolInput: { command: 'git push origin main' },
+    context: { agentID: null },
   });
 
   await mkdir(join(ctx.dir, 'auto-mode'));
@@ -631,6 +633,7 @@ test('it keeps the denial count across processes for a resumed session', async (
     cwd: ctx.repo,
     toolName: 'Bash',
     toolInput: { command: 'git push a' },
+    context: { agentID: null },
   });
 
   const resumed = buildMockModRequest({
@@ -638,6 +641,7 @@ test('it keeps the denial count across processes for a resumed session', async (
     cwd: ctx.repo,
     toolName: 'Bash',
     toolInput: { command: 'git push b' },
+    context: { agentID: null },
   });
 
   await Bun.$`bun ${ctx.cli} run < ${Response.json(first)}`.env(ctx.env).quiet().nothrow();
@@ -667,6 +671,7 @@ test("it keeps a subagent's denial count apart from its session's", async () => 
     cwd: ctx.repo,
     toolName: 'Bash',
     toolInput: { command: 'git push a' },
+    context: { agentID: null },
   });
 
   const child = buildMockModRequest({
@@ -753,6 +758,7 @@ test('it keeps a branch the session created in its scope across processes', asyn
     cwd: ctx.repo,
     toolName: 'Bash',
     toolInput: { command: 'git push origin feat/x' },
+    context: { agentID: null },
   });
 
   await Bun.$`bun ${ctx.cli} record < ${Response.json(record)}`.env(ctx.env).quiet().nothrow();

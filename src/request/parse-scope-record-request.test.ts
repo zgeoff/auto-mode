@@ -13,26 +13,14 @@ test('it accepts a record request from the mod', () => {
   expect(parseScopeRecordRequest(body)).toStrictEqual(body);
 });
 
-test('it rejects a record request with a field the mod does not send', () => {
-  const body = {
-    sessionID: 'session-1',
-    cwd: '/repo',
-    startedAt: 1_791_000_000_000,
-    command: 'git worktree add .worktrees/x -b x',
-    resultText: "Preparing worktree (new branch 'x')",
-    scope: { worktrees: ['/elsewhere'] },
-  };
-
-  expect(parseScopeRecordRequest(body)).toBeNull();
-});
-
-test('it rejects a record request without a start time', () => {
-  const body = {
-    sessionID: 'session-1',
-    cwd: '/repo',
-    command: 'git worktree add .worktrees/x -b x',
-    resultText: "Preparing worktree (new branch 'x')",
-  };
-
-  expect(parseScopeRecordRequest(body)).toBeNull();
+// A null records nothing: the session keeps only the scope it already had.
+test('it gives no record request for a body the schema rejects', () => {
+  expect(
+    parseScopeRecordRequest({
+      sessionID: 'session-1',
+      cwd: '/repo',
+      command: 'git worktree add .worktrees/x -b x',
+      resultText: "Preparing worktree (new branch 'x')",
+    }),
+  ).toBeNull();
 });

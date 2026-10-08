@@ -1,10 +1,15 @@
 import { expect, test } from 'bun:test';
+import invariant from 'tiny-invariant';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 
 // Spark returns nothing at all below roughly this budget, so the number is a
 // minimum rather than a preference.
 test('#PRESETS budgets enough output tokens for Spark to finish reasoning', () => {
-  expect(PRESETS['spark']?.maxTokens).toBeGreaterThanOrEqual(3000);
+  const spark = PRESETS['spark'];
+
+  invariant(spark, 'the spark preset is defined');
+
+  expect(spark.maxTokens).toBeGreaterThanOrEqual(3000);
 });
 
 test('#PRESETS offers the jev, spark, claude, and glm kinds', () => {
