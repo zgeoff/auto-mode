@@ -170,7 +170,7 @@ test('it stops a key helper on the real default timer at the shared deadline', a
   });
 
   expect(key).toBeNull();
-  expect(performance.now() - startedAt).toBeWithin(40, 500);
+  expect(performance.now() - startedAt).toBeWithin(40, 200);
 });
 
 test('it reads the key of a helper that outlasts a 50 ms deadline when the deadline leaves it time', async () => {
