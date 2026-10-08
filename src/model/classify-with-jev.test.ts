@@ -41,6 +41,7 @@ test('it sends the configured rules and the direct user message without the sett
       env: { PRIVATE_TOKEN: 'do-not-send' },
       autoMode: {
         allow: ['$defaults', 'Feature branch work is routine'],
+        soft_deny: ['Never rewrite the parser grammar'],
         environment: ['Host: example.test'],
       },
     }),
@@ -114,7 +115,7 @@ test('it sends the configured rules and the direct user message without the sett
       configuredRules: {
         environment: ['Host: example.test'],
         allow: ['Feature branch work is routine'],
-        soft_deny: [],
+        soft_deny: ['Never rewrite the parser grammar'],
         hard_deny: [],
       },
       lastUserMessage: 'fix the parser',
@@ -126,7 +127,69 @@ test('it sends the configured rules and the direct user message without the sett
         input: { file_path: join(ctx.dir, 'parser.ts'), new_string: 'green' },
       },
     },
-    questions: expect.toBeObject(),
+    questions: {
+      ...Object.fromEntries(
+        ['rule_0', 'rule_1', 'rule_2', 'rule_3', 'rule_4'].map((id) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              'Under this hard block rule, must the pending action be refused?\n### ',
+            ),
+            criteria: {
+              allow: expect.toBeString(),
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+      ...Object.fromEntries(
+        [
+          'rule_5',
+          'rule_6',
+          'rule_7',
+          'rule_8',
+          'rule_9',
+          'rule_10',
+          'rule_11',
+          'rule_12',
+          'rule_13',
+          'rule_14',
+          'rule_15',
+          'rule_16',
+          'rule_17',
+          'rule_18',
+          'rule_19',
+          'rule_20',
+          'rule_21',
+        ].map((id) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              'Under this soft block rule, must the pending action be refused?\n### ',
+            ),
+            criteria: {
+              allow: expect.toBeString(),
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+      soft_deny_0: {
+        type: 'choice',
+        instructions:
+          'Under this soft block rule, must the pending action be refused?\nNever rewrite the parser grammar\n\nApply state.answerGuidance to this rule. This rule has no hard-block false-positive clarification exception.',
+        criteria: {
+          allow:
+            'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
+          block: 'This named rule blocks the action and no permitted exception clears it.',
+          ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+        },
+      },
+    },
   });
 
   expect(JSON.stringify(received.mock.calls)).not.toInclude('PRIVATE_TOKEN');
@@ -293,7 +356,58 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
           },
         },
       },
-      questions: expect.toBeObject(),
+      questions: {
+        ...Object.fromEntries(
+          ['rule_0', 'rule_1', 'rule_2', 'rule_3', 'rule_4'].map((id) => [
+            id,
+            {
+              type: 'choice',
+              instructions: expect.toStartWith(
+                'Under this hard block rule, must the pending action be refused?\n### ',
+              ),
+              criteria: {
+                allow: expect.toBeString(),
+                block: 'This named rule blocks the action and no permitted exception clears it.',
+                ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              },
+            },
+          ]),
+        ),
+        ...Object.fromEntries(
+          [
+            'rule_5',
+            'rule_6',
+            'rule_7',
+            'rule_8',
+            'rule_9',
+            'rule_10',
+            'rule_11',
+            'rule_12',
+            'rule_13',
+            'rule_14',
+            'rule_15',
+            'rule_16',
+            'rule_17',
+            'rule_18',
+            'rule_19',
+            'rule_20',
+            'rule_21',
+          ].map((id) => [
+            id,
+            {
+              type: 'choice',
+              instructions: expect.toStartWith(
+                'Under this soft block rule, must the pending action be refused?\n### ',
+              ),
+              criteria: {
+                allow: expect.toBeString(),
+                block: 'This named rule blocks the action and no permitted exception clears it.',
+                ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              },
+            },
+          ]),
+        ),
+      },
     });
 
     expect(question.criteria.allow).toBe(
@@ -931,7 +1045,58 @@ test('it sends checked branch evidence for a routine feature commit and allows i
         },
       },
     },
-    questions: expect.toBeObject(),
+    questions: {
+      ...Object.fromEntries(
+        ['rule_0', 'rule_1', 'rule_2', 'rule_3', 'rule_4'].map((id) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              'Under this hard block rule, must the pending action be refused?\n### ',
+            ),
+            criteria: {
+              allow: expect.toBeString(),
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+      ...Object.fromEntries(
+        [
+          'rule_5',
+          'rule_6',
+          'rule_7',
+          'rule_8',
+          'rule_9',
+          'rule_10',
+          'rule_11',
+          'rule_12',
+          'rule_13',
+          'rule_14',
+          'rule_15',
+          'rule_16',
+          'rule_17',
+          'rule_18',
+          'rule_19',
+          'rule_20',
+          'rule_21',
+        ].map((id) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              'Under this soft block rule, must the pending action be refused?\n### ',
+            ),
+            criteria: {
+              allow: expect.toBeString(),
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+    },
   });
 });
 
@@ -1885,7 +2050,58 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       taskContext: payload.decisionContext,
       action: { tool: 'Bash', cwd: ctx.dir, input: { command: 'gh pr view 7' } },
     },
-    questions: expect.toBeObject(),
+    questions: {
+      ...Object.fromEntries(
+        ['rule_0', 'rule_1', 'rule_2', 'rule_3', 'rule_4'].map((id) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              'Under this hard block rule, must the pending action be refused?\n### ',
+            ),
+            criteria: {
+              allow: expect.toBeString(),
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+      ...Object.fromEntries(
+        [
+          'rule_5',
+          'rule_6',
+          'rule_7',
+          'rule_8',
+          'rule_9',
+          'rule_10',
+          'rule_11',
+          'rule_12',
+          'rule_13',
+          'rule_14',
+          'rule_15',
+          'rule_16',
+          'rule_17',
+          'rule_18',
+          'rule_19',
+          'rule_20',
+          'rule_21',
+        ].map((id) => [
+          id,
+          {
+            type: 'choice',
+            instructions: expect.toStartWith(
+              'Under this soft block rule, must the pending action be refused?\n### ',
+            ),
+            criteria: {
+              allow: expect.toBeString(),
+              block: 'This named rule blocks the action and no permitted exception clears it.',
+              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            },
+          },
+        ]),
+      ),
+    },
   });
 });
 

@@ -3,6 +3,8 @@ import { HttpResponse, delay, http } from 'msw';
 import { decisionAnswers } from '../../mocks/decision-answers.ts';
 import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';
+import { buildStubStalledBody } from '../../test-utils/build-stub-stalled-body.ts';
+import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionContext } from '../../test-utils/factories/build-mock-decision-context.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
@@ -258,6 +260,38 @@ test('it aborts a request when its signal fires and reports the request size', (
   });
 });
 
+test('it aborts a request when its signal fires while the response body is read', () => {
+  const timer = new AbortController();
+
+  server.use(
+    http.post(
+      DECISION_URL,
+      (info) =>
+        new HttpResponse(
+          buildStubStalledBody('{"model":', info.request.signal, () => {
+            timer.abort();
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+    ),
+  );
+
+  const response = sendDecision(
+    buildMockProviderConfig(),
+    'test-key',
+    buildMockDecisionRequest(),
+    timer.signal,
+  );
+
+  expect(response).rejects.toThrowWithMessage(DecisionRequestError, /^Decision request aborted$/u);
+
+  expect(response).rejects.toMatchObject({
+    reason: 'aborted',
+    requestBytes: expect.toBePositive(),
+    cause: { name: 'AbortError' },
+  });
+});
+
 test('it reports a failed connection as a network failure', () => {
   server.use(http.post(DECISION_URL, () => HttpResponse.error()));
 
@@ -394,7 +428,7 @@ test('it removes optional tasks to keep a complete action near the request limit
       policy: 'complete policy',
       answerGuidance: 'Apply the policy.',
       rulesSource: 'shipped',
-      configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+      configuredRules: buildMockClaudeRules(),
       lastUserMessage: 'Do not push',
       repositoryContext,
       action: { tool: 'Write', cwd: '/repo', input: { content: 'x'.repeat(99_000) } },
