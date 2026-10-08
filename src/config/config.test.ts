@@ -1,9 +1,10 @@
 import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import { DEFAULT_CONFIG, PRESETS, loadConfig, resolveApiKey } from './config.ts';
+import { normalizeConfigFile } from './normalize-config-file.ts';
 
 const KEY_ENV = 'AUTO_MODE_TEST_KEY';
 
@@ -174,4 +175,219 @@ test('it uses Jev for an explicitly marked custom decision provider', async () =
 
   expect(config.provider.protocol).toBe('system-one');
   expect(config.provider.model).toBe('jev-1.13.0');
+});
+
+const LEGACY_CONFIGS: [string, Record<string, unknown>][] = [
+  ['a preset with one override', { preset: 'glm', provider: { timeoutMs: 45_000 } }],
+  [
+    'an unmarked custom provider',
+    { provider: { baseURL: 'https://custom.example', model: 'custom-model', apiKeyEnv: 'K' } },
+  ],
+  ['a key-only provider override', { provider: { apiKeyCommand: 'printf test-key' } }],
+  [
+    'a marked custom decision provider',
+    { provider: { protocol: 'system-one', baseURL: 'https://decision.example' } },
+  ],
+  [
+    'a protocol that contradicts its preset',
+    { preset: 'claude', provider: { protocol: 'system-one' } },
+  ],
+  ['Jev over the Messages protocol', { preset: 'jev', provider: { protocol: 'messages' } }],
+  [
+    'every top-level field',
+    {
+      preset: 'jev',
+      classifierPath: '/policy/decision.md',
+      rulesPath: '/policy/rules.md',
+      onFailure: 'deny',
+      claudeSettingsPath: null,
+      minConfidence: 0.9,
+      transcriptEntries: 4,
+    },
+  ],
+  ['only a settings path', { claudeSettingsPath: '/claude/settings.json' }],
+];
+
+test.each(LEGACY_CONFIGS)(
+  'it loads %s in the old shape with a warning and resolves it as its migration does',
+  async (_label, legacy) => {
+    const ctx = await setupTest();
+
+    await writeFile(ctx.configFile, JSON.stringify(legacy));
+
+    const { warnings: legacyWarnings, ...fromLegacy } = await loadConfig(ctx.configFile);
+
+    const migrated = normalizeConfigFile(legacy, ctx.configFile);
+
+    await writeFile(ctx.configFile, JSON.stringify(migrated.file));
+
+    const { warnings, ...fromMigrated } = await loadConfig(ctx.configFile);
+
+    expect(fromLegacy).toStrictEqual(fromMigrated);
+    expect(warnings).toStrictEqual([]);
+    expect(legacyWarnings?.[0]).toInclude('run `auto-mode config migrate`');
+  },
+);
+
+test('it resolves the decision classifier from the registry by id', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({
+      classifiers: {
+        jev: { apiKeyEnv: 'TYPESAFE_API_KEY' },
+        haiku: {
+          kind: 'messages',
+          model: 'claude-haiku-4-5-20251001',
+          apiKeyEnv: 'ANTHROPIC_API_KEY',
+        },
+      },
+      decision: { classifier: 'haiku', judge: 'jev' },
+    }),
+  );
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.provider).toStrictEqual({
+    protocol: 'messages',
+    baseURL: 'https://api.anthropic.com',
+    model: 'claude-haiku-4-5-20251001',
+    apiKeyEnv: 'ANTHROPIC_API_KEY',
+    apiKeyCommand: undefined,
+    reasoning: true,
+    maxTokens: 3000,
+    timeoutMs: 45_000,
+  });
+
+  expect(config.judge).toStrictEqual({ ...DEFAULT_CONFIG.provider, apiKeyCommand: undefined });
+  expect(config.warnings).toStrictEqual([]);
+});
+
+test('it falls back to a built-in kind when the registry has no entry for the role', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'glm' } }));
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.provider.model).toBe('glm-5.3-flash');
+  expect(config.judge).toBeNull();
+});
+
+test('it drops a bad registry entry with one diagnostic line and loads the others', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({
+      classifiers: {
+        jev: { timeoutMs: 4000 },
+        typo: { kind: 'gpt' },
+        stray: { model: 'm', maxToken: 10 },
+        literal: { kind: 'claude', apiKey: 'sk-private-test-value' },
+        bare: { kind: 'messages' },
+      },
+      scopeSources: {
+        cwd: {},
+        scratch: { kind: 'globs', paths: ['~/scratch/**'] },
+        empty: { kind: 'globs' },
+        nowhere: {},
+      },
+    }),
+  );
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.provider.timeoutMs).toBe(4000);
+
+  expect(config.scopeSources).toStrictEqual({
+    cwd: { kind: 'cwd' },
+    scratch: { kind: 'globs', paths: ['~/scratch/**'] },
+  });
+
+  expect(config.warnings).toStrictEqual([
+    `${ctx.configFile}: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, spark, claude, glm, messages`,
+    `${ctx.configFile}: classifiers.stray dropped: Unrecognized key: "maxToken"`,
+    `${ctx.configFile}: classifiers.literal dropped: holds a literal apiKey; name the key with apiKeyEnv or apiKeyCommand`,
+    `${ctx.configFile}: classifiers.bare dropped: kind 'messages' needs a model`,
+    `${ctx.configFile}: scopeSources.empty dropped: kind 'globs' needs paths`,
+    `${ctx.configFile}: scopeSources.nowhere dropped: unknown kind 'nowhere'; known kinds are cwd, session, globs, atc`,
+  ]);
+});
+
+test('it refuses a decision role that names a dropped entry', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({ classifiers: { mine: { kind: 'gpt' } }, decision: { classifier: 'mine' } }),
+  );
+
+  const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
+
+  invariant(failure instanceof Error, 'a dropped role entry rejects with an Error');
+
+  expect(failure.message).toInclude("decision.classifier names 'mine', whose entry was dropped");
+});
+
+test('it refuses a decision role that names no entry and no built-in kind', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { judge: 'nobody' } }));
+
+  const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
+
+  invariant(failure instanceof Error, 'an unknown role id rejects with an Error');
+
+  expect(failure.message).toInclude("decision.judge names 'nobody'");
+});
+
+test('it refuses a file that mixes the old keys with the new ones', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({ preset: 'jev', decision: { onFailure: 'deny' } }),
+  );
+
+  const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
+
+  invariant(failure instanceof Error, 'a mixed file rejects with an Error');
+
+  expect(failure.message).toInclude('mixes the old keys (preset)');
+});
+
+test('it reads the policy block, expanding a leading tilde', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({
+      decision: { minConfidence: 0.9, onFailure: 'deny' },
+      policy: {
+        rulesPath: '~/rules.md',
+        frameworkPath: null,
+        claudeSettingsPath: '/claude/settings.json',
+      },
+    }),
+  );
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.rulesPath).toBe(join(homedir(), 'rules.md'));
+  expect(config.classifierPath).toBeUndefined();
+  expect(config.claudeSettingsPath).toBe('/claude/settings.json');
+  expect(config.minConfidence).toBe(0.9);
+  expect(config.onFailure).toBe('deny');
+});
+
+test('it disables the Claude rule import when the policy sets the settings path to null', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ policy: { claudeSettingsPath: null } }));
+
+  const config = await loadConfig(ctx.configFile);
+
+  expect(config.claudeSettingsPath).toBeNull();
 });

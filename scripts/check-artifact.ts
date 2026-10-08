@@ -10,7 +10,7 @@ async function main() {
 
     await writeFile(
       join(dir, 'auto-mode', 'config.json'),
-      JSON.stringify({ preset: 'jev', claudeSettingsPath: null }),
+      JSON.stringify({ decision: { classifier: 'jev' }, policy: { claudeSettingsPath: null } }),
     );
 
     const env = {

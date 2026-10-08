@@ -2,8 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
+import { normalizeConfigFile } from './normalize-config-file.ts';
+import { MESSAGES_DEFAULTS, PRESETS } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 import type { EvaluationOptions } from './types.ts';
+
+export { PRESETS } from './presets.ts';
 
 export interface ProviderConfig {
   readonly protocol?: 'messages' | 'system-one';
@@ -16,63 +20,37 @@ export interface ProviderConfig {
   readonly timeoutMs: number;
 }
 
+export interface ScopeSource {
+  readonly kind: ScopeSourceKind;
+  readonly paths?: readonly string[];
+}
+
+type ScopeSourceKind = (typeof SCOPE_SOURCE_KINDS)[number];
+
+const SCOPE_SOURCE_KINDS = ['cwd', 'session', 'globs', 'atc'] as const;
+
 export interface Config {
   readonly provider: ProviderConfig;
+  readonly judge?: ProviderConfig | null;
+  readonly scopeSources?: Readonly<Record<string, ScopeSource>>;
   readonly classifierPath?: string | undefined;
   readonly rulesPath?: string | undefined;
   readonly onFailure: 'defer' | 'deny';
   readonly claudeSettingsPath?: string | null | undefined;
   readonly minConfidence?: number | undefined;
+  readonly warnings?: readonly string[];
+}
+
+const DEFAULT_PROVIDER = PRESETS['jev'];
+
+if (DEFAULT_PROVIDER === undefined) {
+  throw new Error('the jev preset is missing');
 }
 
 export const DEFAULT_CONFIG: Config = {
-  provider: {
-    protocol: 'system-one',
-    baseURL: 'https://api.typesafe.ai',
-    model: 'jev-1.13.0',
-    apiKeyEnv: 'TYPESAFE_API_KEY',
-    reasoning: false,
-    maxTokens: 3000,
-    timeoutMs: 5000,
-  },
+  provider: DEFAULT_PROVIDER,
   onFailure: 'defer',
   minConfidence: 0.8,
-};
-
-const SPARK_PROVIDER: ProviderConfig = {
-  baseURL: 'https://api.meta.ai',
-  model: 'muse-spark-1.3-contributor',
-  apiKeyEnv: 'META_API_KEY',
-  reasoning: true,
-
-  // Measured against the real 7k-token policy, not a one-line prompt: Spark
-  // spends 1,000-1,900 tokens thinking before it answers, and a 2,000 cap
-  // truncated the answer away. A hard case takes 13-24s on a cold cache.
-  maxTokens: 3000,
-  timeoutMs: 45_000,
-};
-
-export const PRESETS: Readonly<Record<string, ProviderConfig>> = {
-  jev: DEFAULT_CONFIG.provider,
-  spark: SPARK_PROVIDER,
-  claude: {
-    baseURL: 'https://api.anthropic.com',
-    model: 'claude-haiku-4-5-20251001',
-    apiKeyEnv: 'ANTHROPIC_API_KEY',
-    reasoning: true,
-    maxTokens: 3000,
-    timeoutMs: 45_000,
-  },
-  glm: {
-    baseURL: 'https://api.z.ai/api/anthropic',
-    model: 'glm-5.3-flash',
-    apiKeyEnv: 'ZAI_API_KEY',
-    reasoning: true,
-
-    // GLM has the worst tail of the three.
-    maxTokens: 3000,
-    timeoutMs: 60_000,
-  },
 };
 
 export function resolveConfigPath(): string {
@@ -81,35 +59,6 @@ export function resolveConfigPath(): string {
 
   return join(base, 'auto-mode', 'config.json');
 }
-
-const text = z.string().min(1);
-const positive = z.number().positive();
-
-// Strict, so a key in the wrong place — maxTokens at the top level rather than
-// under provider — is reported instead of silently ignored.
-const configFileSchema = z.strictObject({
-  preset: text.optional(),
-  provider: z
-    .strictObject({
-      protocol: z.enum(['messages', 'system-one']).optional(),
-      baseURL: text.optional(),
-      model: text.optional(),
-      apiKeyEnv: text.optional(),
-      apiKeyCommand: text.optional(),
-      reasoning: z.boolean().optional(),
-      maxTokens: positive.optional(),
-      timeoutMs: positive.optional(),
-    })
-    .optional(),
-  classifierPath: text.optional(),
-  rulesPath: text.optional(),
-
-  // Has no effect; accepted so that a config file that sets it still loads.
-  transcriptEntries: z.number().nonnegative().optional(),
-  onFailure: z.enum(['defer', 'deny']).optional(),
-  claudeSettingsPath: text.nullable().optional(),
-  minConfidence: z.number().min(0.5).max(1).optional(),
-});
 
 export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
   let raw: string;
@@ -132,50 +81,255 @@ export async function loadConfig(path = resolveConfigPath()): Promise<Config> {
     throw new Error(`${path} is not valid JSON`);
   }
 
+  const normalized = normalizeConfigFile(json, path);
+
+  return buildConfig(normalized.file, path, normalized.warnings);
+}
+
+const text = z.string().min(1);
+const positive = z.number().positive();
+
+// Registry values stay unknown here so one bad entry drops alone instead of
+// failing the file; each entry is parsed on its own below.
+const configFileSchema = z.strictObject({
+  classifiers: z.record(text, z.unknown()).optional(),
+  scopeSources: z.record(text, z.unknown()).optional(),
+  decision: z
+    .strictObject({
+      classifier: text.optional(),
+      judge: text.nullable().optional(),
+      minConfidence: z.number().min(0.5).max(1).optional(),
+      onFailure: z.enum(['defer', 'deny']).optional(),
+    })
+    .optional(),
+  policy: z
+    .strictObject({
+      rulesPath: text.nullable().optional(),
+      frameworkPath: text.nullable().optional(),
+      claudeSettingsPath: text.nullable().optional(),
+    })
+    .optional(),
+});
+
+function buildConfig(json: unknown, path: string, legacyWarnings: readonly string[]): Config {
   const parsed = configFileSchema.safeParse(json);
 
   if (!parsed.success) {
     throw new Error(`${path} is not a valid config: ${z.prettifyError(parsed.error)}`);
   }
 
-  return merge(parsed.data, path);
+  const file = parsed.data;
+  const warnings = [...legacyWarnings];
+
+  const classifiers = buildRegistry(file.classifiers ?? {}, (id, entry) =>
+    parseClassifierEntry(id, entry),
+  );
+
+  const scopeSources = buildRegistry(file.scopeSources ?? {}, (id, entry) =>
+    parseScopeSourceEntry(id, entry),
+  );
+
+  warnings.push(
+    ...classifiers.dropped.map((line) => `${path}: classifiers.${line}`),
+    ...scopeSources.dropped.map((line) => `${path}: scopeSources.${line}`),
+  );
+
+  const decision = file.decision ?? {};
+  const policy = file.policy ?? {};
+  const judgeID = decision.judge ?? null;
+
+  return {
+    provider: resolveRole(
+      'classifier',
+      decision.classifier ?? 'jev',
+      classifiers.entries,
+      classifiers.droppedIDs,
+      path,
+    ),
+    judge:
+      judgeID === null
+        ? null
+        : resolveRole('judge', judgeID, classifiers.entries, classifiers.droppedIDs, path),
+    scopeSources: scopeSources.entries,
+    classifierPath: expandHomePath(policy.frameworkPath ?? undefined),
+    rulesPath: expandHomePath(policy.rulesPath ?? undefined),
+    onFailure: decision.onFailure ?? DEFAULT_CONFIG.onFailure,
+    claudeSettingsPath:
+      policy.claudeSettingsPath === null ? null : expandHomePath(policy.claudeSettingsPath),
+    minConfidence: decision.minConfidence ?? DEFAULT_CONFIG.minConfidence,
+    warnings,
+  };
 }
 
-type ConfigFile = z.infer<typeof configFileSchema>;
+interface Registry<T> {
+  readonly entries: Readonly<Record<string, T>>;
+  readonly dropped: readonly string[];
+  readonly droppedIDs: readonly string[];
+}
 
-function merge(file: Readonly<ConfigFile>, path: string): Config {
-  const implicitProvider =
-    file.provider !== undefined && file.provider.protocol !== 'system-one'
-      ? SPARK_PROVIDER
-      : DEFAULT_CONFIG.provider;
+function buildRegistry<T>(
+  raw: Readonly<Record<string, unknown>>,
+  parseEntry: (id: string, entry: unknown) => T | string,
+): Registry<T> {
+  const entries: Record<string, T> = {};
+  const dropped: string[] = [];
+  const droppedIDs: string[] = [];
 
-  const preset = file.preset === undefined ? implicitProvider : PRESETS[file.preset];
+  for (const [id, entry] of Object.entries(raw)) {
+    const result = parseEntry(id, entry);
 
-  if (preset === undefined) {
+    if (typeof result === 'string') {
+      dropped.push(`${id} dropped: ${result}`);
+      droppedIDs.push(id);
+    } else {
+      entries[id] = result;
+    }
+  }
+
+  return { entries, dropped, droppedIDs };
+}
+
+const CLASSIFIER_KINDS = [...Object.keys(PRESETS), 'messages'];
+
+const classifierEntrySchema = z.strictObject({
+  kind: text.optional(),
+  baseURL: text.optional(),
+  model: text.optional(),
+  apiKeyEnv: text.optional(),
+  apiKeyCommand: text.optional(),
+  reasoning: z.boolean().optional(),
+  maxTokens: positive.optional(),
+  timeoutMs: positive.optional(),
+});
+
+// A credential in the file would sit in plain text beside the rest of the
+// config, so only references (an env var or a command) are accepted.
+const CREDENTIAL_KEYS = new Set(['apiKey', 'key', 'token', 'secret']);
+
+type KindDefaults = Omit<ProviderConfig, 'model'> & { readonly model?: string };
+
+function parseClassifierEntry(id: string, entry: unknown): ProviderConfig | string {
+  if (typeof entry === 'object' && entry !== null) {
+    const credential = Object.keys(entry).find((key) => CREDENTIAL_KEYS.has(key));
+
+    if (credential !== undefined) {
+      return `holds a literal ${credential}; name the key with apiKeyEnv or apiKeyCommand`;
+    }
+  }
+
+  const parsed = classifierEntrySchema.safeParse(entry);
+
+  if (!parsed.success) {
+    return formatFirstIssue(parsed.error.issues);
+  }
+
+  const kind = parsed.data.kind ?? id;
+
+  if (!CLASSIFIER_KINDS.includes(kind)) {
+    return `unknown kind '${kind}'; known kinds are ${CLASSIFIER_KINDS.join(', ')}`;
+  }
+
+  const base: KindDefaults | undefined = kind === 'messages' ? MESSAGES_DEFAULTS : PRESETS[kind];
+  const model = parsed.data.model ?? base?.model;
+
+  if (base === undefined || model === undefined) {
+    return `kind '${kind}' needs a model`;
+  }
+
+  return {
+    protocol: base.protocol ?? 'messages',
+    baseURL: parsed.data.baseURL ?? base.baseURL,
+    model,
+    apiKeyEnv: parsed.data.apiKeyEnv ?? base.apiKeyEnv,
+    apiKeyCommand: parsed.data.apiKeyCommand ?? base.apiKeyCommand,
+    reasoning: parsed.data.reasoning ?? base.reasoning,
+    maxTokens: parsed.data.maxTokens ?? base.maxTokens,
+    timeoutMs: parsed.data.timeoutMs ?? base.timeoutMs,
+  };
+}
+
+const scopeSourceEntrySchema = z.strictObject({
+  kind: text.optional(),
+  paths: z.array(text).min(1).optional(),
+});
+
+function parseScopeSourceEntry(id: string, entry: unknown): ScopeSource | string {
+  const parsed = scopeSourceEntrySchema.safeParse(entry);
+
+  if (!parsed.success) {
+    return formatFirstIssue(parsed.error.issues);
+  }
+
+  const kind = SCOPE_SOURCE_KINDS.find((known) => known === (parsed.data.kind ?? id));
+
+  if (kind === undefined) {
+    return `unknown kind '${parsed.data.kind ?? id}'; known kinds are ${SCOPE_SOURCE_KINDS.join(', ')}`;
+  }
+
+  if (kind === 'globs') {
+    return parsed.data.paths === undefined
+      ? "kind 'globs' needs paths"
+      : { kind, paths: parsed.data.paths };
+  }
+
+  return parsed.data.paths === undefined ? { kind } : `kind '${kind}' takes no paths`;
+}
+
+interface EntryIssue {
+  readonly path: readonly PropertyKey[];
+  readonly message: string;
+}
+
+function formatFirstIssue(issues: readonly EntryIssue[]): string {
+  const [issue] = issues;
+
+  if (issue === undefined) {
+    return 'invalid entry';
+  }
+
+  return issue.path.length === 0
+    ? issue.message
+    : `${issue.path.map(String).join('.')}: ${issue.message}`;
+}
+
+function resolveRole(
+  role: string,
+  id: string,
+  entries: Readonly<Record<string, ProviderConfig>>,
+  droppedIDs: readonly string[],
+  path: string,
+): ProviderConfig {
+  const entry = entries[id];
+
+  if (entry !== undefined) {
+    return entry;
+  }
+
+  if (droppedIDs.includes(id)) {
+    throw new Error(`${path}: decision.${role} names '${id}', whose entry was dropped`);
+  }
+
+  if (PRESETS[id] === undefined) {
     throw new Error(
-      `${path} names an unknown preset '${file.preset}'; known presets are ${Object.keys(PRESETS).join(', ')}`,
+      `${path}: decision.${role} names '${id}', which is neither a classifiers entry nor a built-in kind (${Object.keys(PRESETS).join(', ')})`,
     );
   }
 
-  const override = file.provider ?? {};
+  return parseBuiltIn(id);
+}
 
-  return {
-    provider: {
-      protocol: override.protocol ?? preset.protocol ?? 'messages',
-      baseURL: override.baseURL ?? preset.baseURL,
-      model: override.model ?? preset.model,
-      apiKeyEnv: override.apiKeyEnv ?? preset.apiKeyEnv,
-      apiKeyCommand: override.apiKeyCommand ?? preset.apiKeyCommand,
-      reasoning: override.reasoning ?? preset.reasoning,
-      maxTokens: override.maxTokens ?? preset.maxTokens,
-      timeoutMs: override.timeoutMs ?? preset.timeoutMs,
-    },
-    classifierPath: file.classifierPath,
-    rulesPath: file.rulesPath,
-    onFailure: file.onFailure ?? DEFAULT_CONFIG.onFailure,
-    claudeSettingsPath: file.claudeSettingsPath,
-    minConfidence: file.minConfidence ?? DEFAULT_CONFIG.minConfidence,
-  };
+function parseBuiltIn(id: string): ProviderConfig {
+  const resolved = parseClassifierEntry(id, {});
+
+  if (typeof resolved === 'string') {
+    throw new TypeError(`built-in kind ${id} does not resolve: ${resolved}`);
+  }
+
+  return resolved;
+}
+
+function expandHomePath(path: string | undefined): string | undefined {
+  return path?.startsWith('~/') === true ? join(homedir(), path.slice(2)) : path;
 }
 
 export function resolveApiKey(

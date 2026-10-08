@@ -4,39 +4,141 @@ auto-mode reads `~/.config/auto-mode/config.json`, or `$XDG_CONFIG_HOME/auto-mod
 that variable is set. A missing file uses the shipped defaults. An unreadable or malformed file
 leaves the action without a verdict and writes a diagnostic.
 
-## Configure Jev
+## The shape
 
 ```json
 {
-  "preset": "jev",
-  "provider": { "apiKeyEnv": "TYPESAFE_API_KEY" }
+  "classifiers": {
+    "jev": { "apiKeyEnv": "TYPESAFE_API_KEY" },
+    "haiku": {
+      "kind": "messages",
+      "model": "claude-haiku-4-5-20251001",
+      "apiKeyEnv": "ANTHROPIC_API_KEY"
+    }
+  },
+  "scopeSources": {
+    "cwd": {},
+    "scratch": { "kind": "globs", "paths": ["~/scratch/**"] }
+  },
+  "decision": {
+    "classifier": "jev",
+    "judge": null,
+    "minConfidence": 0.8,
+    "onFailure": "defer"
+  },
+  "policy": {
+    "rulesPath": null,
+    "frameworkPath": null
+  }
 }
 ```
 
-The default Jev provider calls TypeSafe's `/v1/systemone` endpoint with a Bearer key. It pins
-`jev-1.13.0` and waits up to 5 seconds. Set `provider.baseURL` to the API root of a compatible
-provider.
+The file has four blocks. `classifiers` and `scopeSources` are registries keyed by an id you choose.
+`decision` assigns roles by pointing at registry ids. `policy` selects the prompt files and the
+Claude settings to import. Every block is optional; an empty file `{}` runs Jev with the shipped
+policy.
 
-| Field                | Default                      | Effect                                                        |
-| -------------------- | ---------------------------- | ------------------------------------------------------------- |
-| `preset`             | `jev`                        | Select the provider                                           |
-| `provider.*`         | Preset values                | Override individual provider settings                         |
-| `classifierPath`     | Provider's shipped framework | Replace the decision framework                                |
-| `rulesPath`          | Shipped rules                | Replace the block rules and exceptions                        |
-| `claudeSettingsPath` | User Claude settings         | Import explicit `autoMode` entries                            |
-| `minConfidence`      | `0.8`                        | Require confidence and selected probability at this threshold |
-| `onFailure`          | `defer`                      | Keep the manual approval or deny on classifier failure        |
+## Classifiers
 
-`minConfidence` accepts values from `0.5` to `1`. A `transcriptEntries` field from an older
-configuration still loads and has no effect. The default is a starting threshold, not a measured
-accuracy guarantee. An uncertain Jev decision is a denial with a reason regardless of `onFailure`;
-uncertainty is a valid result, not a service failure.
+Each entry describes one model endpoint. `kind` selects the defaults the entry starts from, and an
+entry without `kind` uses its own id as the kind. So `"jev": {}` is the shipped Jev endpoint, and
+`"fast": { "kind": "jev", "timeoutMs": 3000 }` is a second Jev entry with a shorter deadline.
 
-## Import Claude rules
+| Kind       | Protocol      | Model                        | Key variable        |
+| ---------- | ------------- | ---------------------------- | ------------------- |
+| `jev`      | Jev decisions | `jev-1.13.0`                 | `TYPESAFE_API_KEY`  |
+| `spark`    | Messages API  | `muse-spark-1.3-contributor` | `META_API_KEY`      |
+| `claude`   | Messages API  | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
+| `glm`      | Messages API  | `glm-5.3-flash`              | `ZAI_API_KEY`       |
+| `messages` | Messages API  | none; the entry must name it | none                |
+
+The `messages` kind starts from `https://api.anthropic.com`, reasoning on, 3,000 output tokens and a
+45-second deadline. Every field below overrides the kind's default:
+
+| Field           | Effect                                          |
+| --------------- | ----------------------------------------------- |
+| `kind`          | The defaults to start from; the id when omitted |
+| `baseURL`       | API root, without the endpoint                  |
+| `model`         | Provider model identifier                       |
+| `apiKeyEnv`     | Environment variable that holds the key         |
+| `apiKeyCommand` | Shell command that prints the key               |
+| `timeoutMs`     | API deadline in milliseconds                    |
+| `reasoning`     | Prompt ending for Messages API providers        |
+| `maxTokens`     | Output budget for Messages API providers        |
+
+The Jev kind calls TypeSafe's `/v1/systemone` endpoint with a Bearer key and waits up to 5 seconds.
+Set `baseURL` to the API root of a compatible provider. The Messages API kinds use `/v1/messages`
+and the generative framework. Their history is the last direct user message that the mod captured,
+and they do not import Claude's `autoMode` entries. The mod passes `--jev-only`, so these kinds
+serve library callers and `auto-mode run` without that flag.
+
+### Credentials
+
+An entry names its key by reference only. The resolver tries `apiKeyEnv` first, then
+`apiKeyCommand`. A command that fails, prints no key, or exceeds 5 seconds produces a missing-key
+failure. Use a key command when the Claude Code process does not carry the key variable:
+
+```json
+{
+  "classifiers": {
+    "jev": { "apiKeyCommand": "op read 'op://<vault>/<item>/credential'" }
+  }
+}
+```
+
+An entry that holds a literal `apiKey`, `key`, `token` or `secret` field is dropped, and the
+diagnostic names the field but never its value.
+
+## Scope sources
+
+Each entry names one source of the task scope: the worktrees, branches and paths the task owns. As
+with classifiers, `kind` defaults to the id.
+
+| Kind      | Fields                    | Source                                         |
+| --------- | ------------------------- | ---------------------------------------------- |
+| `cwd`     | none                      | The worktree that holds the action's directory |
+| `session` | none                      | What the session itself created                |
+| `globs`   | `paths`, a non-empty list | Path globs that every task owns                |
+| `atc`     | none                      | The scope file that atc writes for the task    |
+
+A glob that covers every worktree, such as `.worktrees/**`, defeats the containment check that reads
+this registry. The registry holds entries today; the containment check and the scope work that
+follows it read them.
+
+## Decision
+
+| Field           | Default | Effect                                                        |
+| --------------- | ------- | ------------------------------------------------------------- |
+| `classifier`    | `jev`   | The classifiers id that judges each escalated action          |
+| `judge`         | `null`  | The classifiers id that reviews each deny; `null` for none    |
+| `minConfidence` | `0.8`   | Require confidence and selected probability at this threshold |
+| `onFailure`     | `defer` | Keep the manual approval, or deny, when the classifier fails  |
+
+A role names a registry id. When the registry has no entry by that id and the id is a built-in kind,
+the role uses that kind's defaults, so `"classifier": "glm"` works without a `glm` entry. A role
+that names a dropped entry, or an id that is neither an entry nor a kind, makes the file invalid.
+
+`minConfidence` accepts values from `0.5` to `1`. The default is a starting threshold, not a
+measured accuracy guarantee. An uncertain Jev decision is a denial with a reason regardless of
+`onFailure`; uncertainty is a valid result, not a service failure.
+
+## Policy
+
+| Field                | Default              | Effect                             |
+| -------------------- | -------------------- | ---------------------------------- |
+| `rulesPath`          | Shipped rules        | Replace the block rules            |
+| `frameworkPath`      | Shipped framework    | Replace the decision framework     |
+| `claudeSettingsPath` | User Claude settings | Import explicit `autoMode` entries |
+
+`null` on `rulesPath` or `frameworkPath` selects the shipped file. `null` on `claudeSettingsPath`
+disables the import. A leading `~/` in a path expands to the home directory.
+[Writing a policy](./policy.md) covers replacing the rule and framework files.
+
+### Import Claude rules
 
 The default source is `~/.claude/settings.json`. `CLAUDE_CONFIG_DIR` selects another Claude
-directory when present. An explicit `claudeSettingsPath` selects one file; `null` disables the
-import. auto-mode never reads a repository's Claude settings for standing classifier permissions.
+directory when present. An explicit `claudeSettingsPath` selects one file. auto-mode never reads a
+repository's Claude settings for standing classifier permissions.
 
 Only the `autoMode` arrays `environment`, `allow`, `soft_deny`, and `hard_deny` enter the request.
 Credential fields, hooks, `permissions.allow`, and other settings do not. A missing user settings
@@ -51,60 +153,46 @@ Environment entries describe targets, trust, and sensitivity. Configured allow e
 matching soft blocks. Configured hard denies and shipped hard blocks take priority. Put durable
 exceptions in the configuration rather than an earlier conversational message.
 
-## Provider settings
+## Parsing
 
-| Field           | Effect                                                                |
-| --------------- | --------------------------------------------------------------------- |
-| `protocol`      | `system-one` for typed decisions; `messages` for generative providers |
-| `baseURL`       | API root, without the endpoint                                        |
-| `model`         | Provider model identifier                                             |
-| `apiKeyEnv`     | Environment variable that holds the key                               |
-| `apiKeyCommand` | Shell command that prints the key                                     |
-| `timeoutMs`     | API deadline in milliseconds                                          |
-| `reasoning`     | Prompt ending for Messages API providers                              |
-| `maxTokens`     | Output budget for Messages API providers                              |
+Each block is strict: a key auto-mode does not know makes the file invalid, so a field in the wrong
+place is reported instead of ignored. Registry entries are parsed one at a time. A bad entry is left
+out with one diagnostic line naming it, and the other entries load:
 
-The key resolver tries the environment variable first, then the command. A command that fails,
-prints no key, or exceeds 5 seconds produces a missing-key failure. Use a key command when the
-Claude Code process does not carry the key variable.
-
-```json
-{
-  "preset": "jev",
-  "provider": {
-    "apiKeyCommand": "op read 'op://<vault>/<item>/credential'"
-  }
-}
+```text
+auto-mode: /home/you/.config/auto-mode/config.json: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, spark, claude, glm, messages
 ```
 
-A provider block without a preset or protocol retains the Messages API defaults. Select
-`preset: "jev"` or `protocol: "system-one"` explicitly for a custom Jev provider.
+`auto-mode run` and `auto-mode print-prompt` write these lines to stderr. The mod does not show
+stderr, so run `auto-mode print-prompt > /dev/null` after you edit the file to see them.
 
-Existing generative presets remain available:
+## Migrate an older file
 
-| Preset   | Model                        | Key variable        |
-| -------- | ---------------------------- | ------------------- |
-| `spark`  | `muse-spark-1.3-contributor` | `META_API_KEY`      |
-| `claude` | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
-| `glm`    | `glm-5.3-flash`              | `ZAI_API_KEY`       |
+Before this shape, the file used top-level `preset`, `provider`, `classifierPath`, `rulesPath`,
+`minConfidence`, `onFailure`, `claudeSettingsPath` and `transcriptEntries` keys. A file with those
+keys still loads and gives the same verdicts, with a warning on stderr. Rewrite it once:
 
-These providers use `/v1/messages` and the generative framework. Their history is the last direct
-user message that the mod captured. They do not import Claude's `autoMode` entries. The mod passes
-`--jev-only`, so these presets serve library callers and `auto-mode run` without that flag. Their
-reasoning and output budgets apply only to that protocol.
-
-## Replace the policy
-
-```json
-{
-  "rulesPath": "/home/you/my-rules.md",
-  "classifierPath": "/home/you/my-decision-framework.md"
-}
+```bash
+auto-mode config migrate
 ```
 
-Each file replaces its shipped counterpart. Keep the `HARD BLOCK rules`, `SOFT BLOCK rules`, and
-`ALLOW exceptions` headings in the rule file, with each rule under a `###` heading. Keep the
-`<rules>` marker in the framework. Duplicate or absent block rules prevent a Jev call.
+The command rewrites the file in place and keeps the original at `config.json.bak`. A file already
+in the current shape is left alone. A file that mixes the old keys with the new blocks is invalid
+and is not rewritten.
 
-Run `auto-mode print-prompt` to inspect the base policy for your configured provider. The printed
+| Old key                      | New place                                      |
+| ---------------------------- | ---------------------------------------------- |
+| `preset`                     | A `classifiers` entry with that id             |
+| `provider.*`                 | Fields on that entry                           |
+| `provider.protocol`          | The entry's `kind`                             |
+| `classifierPath`             | `policy.frameworkPath`                         |
+| `rulesPath`                  | `policy.rulesPath`                             |
+| `claudeSettingsPath`         | `policy.claudeSettingsPath`                    |
+| `minConfidence`, `onFailure` | `decision.minConfidence`, `decision.onFailure` |
+| `transcriptEntries`          | Dropped; it had no effect                      |
+
+A `provider` block with no `preset` and no `protocol: "system-one"` has always run on the Spark
+defaults, so it migrates to a `spark` entry.
+
+Run `auto-mode print-prompt` to inspect the base policy for your configured classifier. The printed
 policy excludes imported user settings and the proposed action.
