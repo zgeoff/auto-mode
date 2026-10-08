@@ -1,115 +1,127 @@
-import { expect, mock, test } from 'bun:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { expect, mock, onTestFinished, test } from 'bun:test';
+import { once } from 'node:events';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { text } from 'node:stream/consumers';
+import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { readProcessState } from '../../test-utils/read-process-state.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-key-command-'));
 
-  let acceptReady: (value: string) => void;
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
-  const ready = new Promise<string>((resolve) => {
-    acceptReady = resolve;
-  });
+  const socketPath = join(dir, 'ready.sock');
+  const report = Promise.withResolvers<string>();
 
   const server = createServer((socket) => {
-    let body = '';
-
-    socket.setEncoding('utf8');
-
-    socket.on('data', (chunk: string) => {
-      body += chunk;
-    });
-
-    socket.on('end', () => {
-      acceptReady(body);
-
-      socket.end();
-    });
+    report.resolve(text(socket));
   });
 
-  await new Promise<void>((resolve, reject) => {
-    server.on('error', reject);
-    server.listen(join(dir, 'ready.sock'), resolve);
+  server.listen(socketPath);
+
+  await once(server, 'listening');
+
+  onTestFinished(() => {
+    server.close();
+
+    return once(server, 'close');
   });
 
-  return {
-    dir,
-    ready,
-    async [Symbol.asyncDispose]() {
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      await rm(dir, { recursive: true, force: true });
-    },
-  };
+  return { socketPath, report: report.promise };
 }
 
 test('it stops a key helper and its child on cancellation', async () => {
-  await using ctx = await setupTest();
+  const ctx = await setupTest();
 
-  const helper = join(ctx.dir, 'helper.cjs');
-  const readyPath = join(ctx.dir, 'ready.sock');
-
-  await writeFile(
-    helper,
-    `const child = require('node:child_process').spawn('/bin/sh', ['-c', 'sleep 30'], {stdio:'ignore'});
-const socket = require('node:net').connect('${readyPath}');
-socket.on('connect', () => socket.end(JSON.stringify({helper:process.pid, child:child.pid})));
-setTimeout(() => console.log('offline-test-key'), 30000);
-`,
-  );
+  const helper = join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-key-helper.ts');
 
   const controller = new AbortController();
 
-  const result = readApiKeyFromCommand(`${process.execPath} ${helper}`, {
+  const result = readApiKeyFromCommand(`"${process.execPath}" "${helper}" "${ctx.socketPath}"`, {
     signal: controller.signal,
   });
 
-  const readyJSON = await ctx.ready;
-
-  const pidSchema = z.object({
-    helper: z.number().int().positive(),
-    child: z.number().int().positive(),
+  onTestFinished(() => {
+    controller.abort();
   });
 
-  const pids = pidSchema.parse(JSON.parse(readyJSON));
+  const body = await ctx.report;
+
+  const pids = z.object({ helper: z.number(), child: z.number() }).parse(JSON.parse(body));
+
+  const helperBefore = await readProcessState(pids.helper);
+  const childBefore = await readProcessState(pids.child);
+
+  invariant(helperBefore !== null && childBefore !== null, 'the helper and its child run');
 
   controller.abort();
 
   const key = await result;
-
-  const helperState = await readFile(`/proc/${pids.helper}/stat`, 'utf8').catch(
-    (error: unknown) => {
-      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
-        throw error;
-      }
-
-      return '';
-    },
-  );
-
-  const childState = await readFile(`/proc/${pids.child}/stat`, 'utf8').catch((error: unknown) => {
-    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
-      throw error;
-    }
-
-    return '';
-  });
+  const helperAfter = await readProcessState(pids.helper);
+  const childAfter = await readProcessState(pids.child);
 
   expect(key).toBeNull();
-  expect(helperState).toMatch(/^(?:$|.*\) [ZX] )/u);
-  expect(childState).toMatch(/^(?:$|.*\) [ZX] )/u);
+  expect(helperBefore.state).toBeOneOf(['R', 'S']);
+  expect(childBefore.state).toBeOneOf(['R', 'S']);
+
+  // A stopped process is gone or a zombie awaiting its reaper; the start time
+  // keeps a reused process ID from passing as the stopped one.
+  expect(helperAfter).toBeOneOf([
+    null,
+    { ...helperBefore, state: 'Z' },
+    { ...helperBefore, state: 'X' },
+  ]);
+
+  expect(childAfter).toBeOneOf([
+    null,
+    { ...childBefore, state: 'Z' },
+    { ...childBefore, state: 'X' },
+  ]);
+});
+
+test('it reads the trimmed key the helper prints', async () => {
+  const key = await readApiKeyFromCommand(String.raw`printf '  offline-test-key\n'`);
+
+  expect(key).toBe('offline-test-key');
+});
+
+test('it reads no key from a helper that exits with an error', async () => {
+  const key = await readApiKeyFromCommand('printf offline-test-key; exit 1');
+
+  expect(key).toBeNull();
+});
+
+test('it reads no key from a helper that prints only whitespace', async () => {
+  const key = await readApiKeyFromCommand(String.raw`printf '  \n'`);
+
+  expect(key).toBeNull();
+});
+
+test('it reads no key from a helper that prints more than 64 KiB', async () => {
+  const key = await readApiKeyFromCommand(String.raw`head -c 65537 /dev/zero | tr '\0' x`);
+
+  expect(key).toBeNull();
+});
+
+test('it runs the helper with the host environment it is given', async () => {
+  const key = await readApiKeyFromCommand('printf %s "$AUTO_MODE_HELPER_KEY"', {
+    host: { env: { AUTO_MODE_HELPER_KEY: 'from-host' }, home: '/home/test' },
+  });
+
+  expect(key).toBe('from-host');
+});
+
+test('it runs the helper with the given home', async () => {
+  const key = await readApiKeyFromCommand('printf %s "$HOME"', {
+    host: { env: {}, home: '/home/test' },
+  });
+
+  expect(key).toBe('/home/test');
 });
 
 test('it limits a key helper to the shared deadline', async () => {
@@ -154,6 +166,18 @@ test('it starts no key helper once the shared deadline has passed', async () => 
   const key = await readApiKeyFromCommand('printf offline-test-key', {
     deadlineAt: now,
     now: () => now,
+    timeout,
+  });
+
+  expect(key).toBeNull();
+  expect(timeout).not.toHaveBeenCalled();
+});
+
+test('it starts no key helper once the caller has cancelled', async () => {
+  const timeout = mock<(ms: number) => AbortSignal>(() => new AbortController().signal);
+
+  const key = await readApiKeyFromCommand('printf offline-test-key', {
+    signal: AbortSignal.abort(),
     timeout,
   });
 

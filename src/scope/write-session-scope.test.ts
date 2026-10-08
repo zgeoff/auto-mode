@@ -1,8 +1,9 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { buildStubLockClock } from '../../test-utils/build-stub-lock-clock.ts';
+import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { writeSessionScope } from './write-session-scope.ts';
 
@@ -34,11 +35,10 @@ test('it never removes a lock younger than the stale age', async () => {
   expect(
     writeSessionScope(
       ctx.path,
-      {
+      buildMockSessionScope({
         worktrees: ['/work/app/.worktrees/x'],
         branches: [{ name: 'feat/x', commonDir: '/work/app/.git' }],
-        pullRequests: [],
-      },
+      }),
       clock,
     ),
   ).rejects.toThrowWithMessage(Error, 'session scope lock unavailable');
@@ -64,11 +64,10 @@ test('it gives up on a held lock once it has waited 3 s', async () => {
   expect(
     writeSessionScope(
       ctx.path,
-      {
+      buildMockSessionScope({
         worktrees: ['/work/app/.worktrees/x'],
         branches: [{ name: 'feat/x', commonDir: '/work/app/.git' }],
-        pullRequests: [],
-      },
+      }),
       clock,
     ),
   ).rejects.toThrowWithMessage(Error, 'session scope lock unavailable');
@@ -89,11 +88,10 @@ test('it removes a lock older than the stale age and records the scope', async (
 
   await writeSessionScope(
     ctx.path,
-    {
+    buildMockSessionScope({
       worktrees: ['/work/app/.worktrees/x'],
       branches: [{ name: 'feat/x', commonDir: '/work/app/.git' }],
-      pullRequests: [],
-    },
+    }),
     clock,
   );
 
@@ -108,4 +106,59 @@ test('it removes a lock older than the stale age and records the scope', async (
   });
 
   expect(stat(ctx.lock)).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test('it merges the added scope into the scope already written', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.path,
+    JSON.stringify({
+      worktrees: ['/work/app/.worktrees/x'],
+      branches: [],
+      pullRequests: [{ number: 3, head: 'feat/x', repository: 'github.com/dev/app' }],
+    }),
+  );
+
+  await writeSessionScope(
+    ctx.path,
+    buildMockSessionScope({
+      worktrees: ['/work/app/.worktrees/y'],
+      branches: [{ name: 'feat/y', commonDir: '/work/app/.git' }],
+    }),
+  );
+
+  const scope = await loadSessionScope(ctx.path);
+
+  expect(scope).toStrictEqual({
+    worktrees: ['/work/app/.worktrees/x', '/work/app/.worktrees/y'],
+    branches: [{ name: 'feat/y', commonDir: '/work/app/.git' }],
+    pullRequests: [{ number: 3, head: 'feat/x', repository: 'github.com/dev/app' }],
+  });
+});
+
+test('it writes the scope file readable by its owner alone', async () => {
+  const ctx = await setupTest();
+
+  await writeSessionScope(
+    ctx.path,
+    buildMockSessionScope({ worktrees: ['/work/app/.worktrees/x'] }),
+  );
+
+  const file = await stat(ctx.path);
+
+  expect(file.mode & 0o777).toBe(0o600);
+});
+
+test('it leaves no lock or staged file behind after writing', async () => {
+  const ctx = await setupTest();
+
+  await writeSessionScope(
+    ctx.path,
+    buildMockSessionScope({ worktrees: ['/work/app/.worktrees/x'] }),
+  );
+
+  const entries = await readdir(dirname(ctx.path));
+
+  expect(entries).toStrictEqual(['session.json']);
 });
