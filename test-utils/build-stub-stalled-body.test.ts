@@ -1,5 +1,5 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
-import { http, passthrough } from 'msw';
+import { HttpResponse, http, passthrough } from 'msw';
 import { server } from '../mocks/node.ts';
 import { buildStubStalledBody } from './build-stub-stalled-body.ts';
 
@@ -45,6 +45,26 @@ test('it fails a stalled read with the abort reason of its signal', async () => 
   await reader.read();
 
   expect(reader.read()).rejects.toMatchObject({ name: 'AbortError' });
+});
+
+test('it lets fetch resolve through MSW and fails the body parse when the request aborts', async () => {
+  const controller = new AbortController();
+
+  server.use(
+    http.get(
+      'https://stub.test/body',
+      (info) =>
+        new HttpResponse(
+          buildStubStalledBody('{"model":', info.request.signal, () => {
+            controller.abort();
+          }),
+        ),
+    ),
+  );
+
+  const response = await fetch('https://stub.test/body', { signal: controller.signal });
+
+  expect(response.json()).rejects.toMatchObject({ name: 'AbortError' });
 });
 
 test('it fails the body parse with the same error name as a real aborted transport', async () => {

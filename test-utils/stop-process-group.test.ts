@@ -59,6 +59,8 @@ test.each([
   expect(() => {
     stopProcessGroup(group, kill);
   }).toThrowWithMessage(Error, `refusing to stop process group ${String(group)}`);
+
+  expect(kill).not.toHaveBeenCalled();
 });
 
 test('it signals the group, not its leader alone', () => {

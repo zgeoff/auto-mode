@@ -34,7 +34,18 @@ export async function sendMessagesReply(
 ): Promise<HttpResponse<MessagesResponse | MessagesErrorBody>> {
   const json: unknown = await info.request.json();
 
-  requestSchema.parse(json);
+  const parsed = requestSchema.safeParse(json);
+
+  if (!parsed.success) {
+    const message = parsed.error.issues
+      .map((issue) => `${issue.path.join('.') || 'body'}: ${issue.message}`)
+      .join('; ');
+
+    return HttpResponse.json<MessagesErrorBody>(
+      { type: 'error', error: { type: 'invalid_request_error', message } },
+      { status: 400 },
+    );
+  }
 
   const reply = messagesReplies.shift();
 

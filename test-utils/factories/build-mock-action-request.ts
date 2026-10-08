@@ -6,9 +6,8 @@ interface ActionRequestOverrides extends Partial<Omit<ActionRequest, 'decisionCo
   readonly decisionContext?: Parameters<typeof buildMockDecisionContext>[0] | undefined;
 }
 
-// An explicit undefined decision context leaves the field out, as a request
-// from a harness that sends no task context arrives. A tool input override
-// replaces the default whole: merged, the Bash command would leak into another tool's input.
+// Each tool has its own input shape, so merging a tool input override would leak
+// the default Bash command into another tool's input.
 export function buildMockActionRequest(overrides: ActionRequestOverrides = {}): ActionRequest {
   const { decisionContext, ...rest } = overrides;
 

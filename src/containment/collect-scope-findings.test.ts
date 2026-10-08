@@ -37,12 +37,15 @@ test('it finds a sibling worktree removed by path', () => {
   expect(findings).toStrictEqual([{ kind: 'path', target: '/home/dev/src/app/.worktrees/other' }]);
 });
 
-test('it finds a write in each command of a compound command, in command order', () => {
+test.each([
+  ['&&', 'rm -rf ../other && gh pr comment 40 -b x'],
+  [';', 'rm -rf ../other; gh pr comment 40 -b x'],
+])('it finds a write in each command joined by %s, in command order', (_separator, command) => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'rm -rf ../other && gh pr comment 40 -b x' },
+      input: { command },
     },
     buildMockOwnedScope({
       worktrees: ['/home/dev/src/app/.worktrees/feature'],
@@ -437,12 +440,16 @@ test('it finds a gh api graphql query that carries a mutation', () => {
   expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh api graphql mutation' }]);
 });
 
-test('it leaves a target held in a variable or a substitution to the classifier', () => {
+test.each([
+  ['a removal of a target in a variable', 'rm -rf "$TARGET"'],
+  ['a copy to a target in a substitution', 'cp a.ts "$(pwd)/../b"'],
+  ['a removal after a cd to a variable', 'cd "$DIR" && rm -rf x'],
+])('it leaves %s to the classifier', (_label, command) => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'rm -rf "$TARGET"; cp a.ts "$(pwd)/../b"; cd "$DIR" && rm -rf x' },
+      input: { command },
     },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
@@ -463,12 +470,15 @@ test('it finds nothing in gh api with an explicit GET method, even with fields',
   expect(findings).toStrictEqual([]);
 });
 
-test('it leaves a push to a branch or remote held in a variable to the classifier', () => {
+test.each([
+  ['a push to a branch held in a variable', 'git push origin "$BRANCH"'],
+  ['a push to a remote held in a variable', 'git push "$REMOTE" feature'],
+])('it leaves %s to the classifier', (_label, command) => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
       cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'git push origin "$BRANCH"; git push "$REMOTE" feature' },
+      input: { command },
     },
     buildMockOwnedScope({
       worktrees: ['/home/dev/src/app/.worktrees/feature'],

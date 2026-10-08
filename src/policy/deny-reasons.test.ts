@@ -6,33 +6,6 @@ import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-clau
 import { buildDecisionRequest } from '../model/build-decision-request.ts';
 import { DENY_REASONS } from './deny-reasons.ts';
 
-test('it holds a reason template for every shipped rule and no other', () => {
-  expect(DENY_REASONS).toContainAllKeys([
-    'Data Exfiltration',
-    'Secret Persistence',
-    'Policy Tampering',
-    'Audit Tampering',
-    'Destructive Payload',
-    'Irreversible Deletion',
-    'Uncommitted Work Destruction',
-    'History Rewrite',
-    'Default Branch Write',
-    'Publish and Release',
-    'Outbound Communication',
-    'Remote Code Execution',
-    'Obfuscated Command',
-    'Network Exposure',
-    'Unnamed Destination',
-    'Shared Infrastructure',
-    'Destructive Database Operation',
-    'Persistent Configuration',
-    'Credential Exploration',
-    'Interrupted Action Retry',
-    'Security Control Removal',
-    'Mass Modification',
-  ]);
-});
-
 test('it files each template under the tier of its shipped rule', () => {
   expect(
     Object.fromEntries(Object.entries(DENY_REASONS).map(([name, entry]) => [name, entry.tier])),

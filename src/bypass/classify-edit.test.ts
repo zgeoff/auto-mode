@@ -76,7 +76,7 @@ test.each([
   ['/repository/a.ts', 'target outside every in-scope worktree'],
   ['/repo/.worktrees/other/a.ts', 'target in a nested worktree outside the scope'],
 ])('it sends a write to %s to Jev as a %s', (target, reason) => {
-  const action = buildMockEditAction({ toolName: 'Write', target });
+  const action = buildMockEditAction({ toolName: 'Write', target, checkout: null });
 
   expect(
     classifyEdit(action, { worktrees: ['/repo', '/repo/.worktrees/feat'], protectedDirs: [] }),
@@ -267,6 +267,7 @@ test('it sends a tool that is not a file edit to Jev', () => {
   const action = buildMockEditAction({
     toolName: 'Bash',
     target: '/repo/a',
+    checkout: null,
   });
 
   expect(classifyEdit(action, { worktrees: ['/repo'], protectedDirs: [] })).toStrictEqual({

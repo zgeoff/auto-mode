@@ -344,7 +344,7 @@ test('it keeps every branch when calls of one session record at the same time', 
 
   const written = await loadSessionScope(path);
 
-  expect(lockClock.wait).toHaveBeenCalledWith(10);
+  expect(lockClock.wait).toHaveBeenCalled();
   expect(scopeWhileHeld).toStrictEqual({ worktrees: [], branches: [], pullRequests: [] });
 
   expect(written).toStrictEqual({

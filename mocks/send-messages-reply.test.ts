@@ -102,7 +102,7 @@ test('it answers HTTP 500 with the API error body when no reply is queued', asyn
   });
 });
 
-test('it answers a request in the wire form the client sends with the queued reply', async () => {
+test('it answers a valid hand-built request with the queued reply', async () => {
   messagesReplies.push(
     buildMockMessagesResponse({
       content: [{ type: 'text', text: '<block>no</block>' }],
@@ -139,7 +139,7 @@ test('it answers a request in the wire form the client sends with the queued rep
   });
 });
 
-test('it refuses a request that carries a field the API does not know', () => {
+test('it answers HTTP 400 for a request that carries a field the API does not know', async () => {
   const request = new Request(MESSAGES_URL, {
     method: 'POST',
     body: JSON.stringify({
@@ -151,16 +151,21 @@ test('it refuses a request that carries a field the API does not know', () => {
     }),
   });
 
-  expect(sendMessagesReply({ request })).rejects.toMatchObject({
-    issues: expect.toPartiallyContain({
-      code: 'unrecognized_keys',
-      keys: ['temperature'],
-      path: [],
-    }),
+  const response = await sendMessagesReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(400);
+
+  expect(body).toStrictEqual({
+    type: 'error',
+    error: {
+      type: 'invalid_request_error',
+      message: expect.toStartWith('body: Unrecognized key: "temperature"'),
+    },
   });
 });
 
-test('it refuses a request without max_tokens', () => {
+test('it answers HTTP 400 for a request without max_tokens', async () => {
   const request = new Request(MESSAGES_URL, {
     method: 'POST',
     body: JSON.stringify({
@@ -170,12 +175,18 @@ test('it refuses a request without max_tokens', () => {
     }),
   });
 
-  expect(sendMessagesReply({ request })).rejects.toMatchObject({
-    issues: expect.toPartiallyContain({ path: ['max_tokens'] }),
+  const response = await sendMessagesReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(400);
+
+  expect(body).toStrictEqual({
+    type: 'error',
+    error: { type: 'invalid_request_error', message: expect.toStartWith('max_tokens: ') },
   });
 });
 
-test('it refuses a request with no message', () => {
+test('it answers HTTP 400 for a request with no message', async () => {
   const request = new Request(MESSAGES_URL, {
     method: 'POST',
     body: JSON.stringify({
@@ -186,7 +197,13 @@ test('it refuses a request with no message', () => {
     }),
   });
 
-  expect(sendMessagesReply({ request })).rejects.toMatchObject({
-    issues: expect.toPartiallyContain({ path: ['messages'] }),
+  const response = await sendMessagesReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(400);
+
+  expect(body).toStrictEqual({
+    type: 'error',
+    error: { type: 'invalid_request_error', message: expect.toStartWith('messages: ') },
   });
 });

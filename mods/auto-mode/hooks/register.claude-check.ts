@@ -1023,7 +1023,7 @@ test('it records nothing for a Bash call that cannot create scope', async ($, on
 
   on('session.cwd', () => ({ value: '/repo' }));
   on('classic.SessionStart', () => ({}));
-  on('tool.call', () => buildMockCallResult());
+  on('tool.call', () => buildMockCallResult({ deny: undefined }));
   on('process.run', processRun.hook);
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
@@ -1358,7 +1358,7 @@ test('it records nothing for a scope-creating Bash call before any session start
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('session.cwd', () => ({ value: '/repo' }));
-  on('tool.call', () => buildMockCallResult());
+  on('tool.call', () => buildMockCallResult({ deny: undefined }));
   on('process.run', processRun.hook);
 
   await $.tool.call({ tool: 'Bash', tool_use_id: 'call-1', command: 'gh pr create --fill' });
@@ -1371,7 +1371,7 @@ test('it records nothing for a scope-creating command outside the Bash tool', as
 
   on('session.cwd', () => ({ value: '/repo' }));
   on('classic.SessionStart', () => ({}));
-  on('tool.call', () => buildMockCallResult());
+  on('tool.call', () => buildMockCallResult({ deny: undefined }));
   on('process.run', processRun.hook);
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
@@ -1386,7 +1386,7 @@ test('it records nothing for a Bash command that is not text', async ($, on) => 
 
   on('session.cwd', () => ({ value: '/repo' }));
   on('classic.SessionStart', () => ({}));
-  on('tool.call', () => buildMockCallResult());
+  on('tool.call', () => buildMockCallResult({ deny: undefined }));
   on('process.run', processRun.hook);
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
