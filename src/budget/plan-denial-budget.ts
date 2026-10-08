@@ -11,7 +11,7 @@ export interface DenialPlan {
 export function planDenialBudget(
   state: Readonly<DenialState>,
   verdict: Readonly<Verdict> | null,
-  actionHash: string,
+  retryKey: string,
   budget: Readonly<DenialBudget>,
 ): DenialPlan {
   if (verdict === null) {
@@ -31,7 +31,7 @@ export function planDenialBudget(
   const next: DenialState = {
     consecutive: state.consecutive + 1,
     session: state.session + 1,
-    lastDenied: { actionHash, rule: verdict.rule, reason: verdict.reason },
+    lastDenied: { retryKey, rule: verdict.rule, reason: verdict.reason },
   };
 
   const left = Math.min(budget.consecutive - next.consecutive, budget.perSession - next.session);

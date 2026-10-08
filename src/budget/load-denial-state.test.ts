@@ -22,7 +22,7 @@ test('it reads back the counts it wrote', async () => {
   const state = {
     consecutive: 2,
     session: 5,
-    lastDenied: { actionHash: 'action-a', rule: 'Rule', reason: 'Base reason.' },
+    lastDenied: { retryKey: 'action-a', rule: 'Rule', reason: 'Base reason.' },
   };
 
   await writeDenialState(ctx.path, state);

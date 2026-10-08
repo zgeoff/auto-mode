@@ -128,7 +128,9 @@ on another path. The budget is the only way the user is asked. Each deny states 
 remain, and the last one tells the agent to stop and report what consent it needs. The action that
 would exceed either limit gets no verdict, so Claude Code shows its normal permission prompt, and
 both counts start again from zero. An allow resets the consecutive count. A retry of the action just
-denied is denied again without a classifier call and counts as a denial.
+denied is denied again without a classifier call and counts as a denial. A retry is the same tool,
+directory and input; a new Bash `description` or `timeout` does not make it new, while a new direct
+user message does, so new consent reaches the classifier.
 
 The counts live in `$XDG_STATE_HOME/auto-mode/denials/`, one file per session and subagent, so they
 survive a reload of the mod and a `--resume` of the session. Two tool calls checked at the same

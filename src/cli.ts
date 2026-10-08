@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { text } from 'node:stream/consumers';
 import { parseArgs } from 'node:util';
-import { buildActionHash } from './budget/build-action-hash.ts';
+import { buildRetryKey } from './budget/build-retry-key.ts';
 import { findRetryDeny } from './budget/find-retry-deny.ts';
 import { loadDenialState } from './budget/load-denial-state.ts';
 import { planDenialBudget } from './budget/plan-denial-budget.ts';
@@ -110,11 +110,11 @@ async function run(
 
   try {
     const statePath = resolveDenialStatePath(request);
-    const actionHash = buildActionHash(request);
+    const retryKey = buildRetryKey(request);
 
     const before = await loadDenialState(statePath);
 
-    const retry = findRetryDeny(before, actionHash);
+    const retry = findRetryDeny(before, retryKey);
 
     const outcome: ActionOutcome =
       retry === null
@@ -137,7 +137,7 @@ async function run(
     const plan = planDenialBudget(
       latest,
       outcome.verdict,
-      actionHash,
+      retryKey,
       config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
     );
 

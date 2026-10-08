@@ -7,7 +7,7 @@ export interface DenialState {
   readonly consecutive: number;
   readonly session: number;
   readonly lastDenied: {
-    readonly actionHash: string;
+    readonly retryKey: string;
     readonly rule: string;
     readonly reason: string;
   } | null;

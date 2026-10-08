@@ -3,8 +3,8 @@ import type { DenialState } from './types.ts';
 
 // A retry of the action just denied is denied again without the classifier, so
 // a stochastic classifier cannot be asked until it allows.
-export function findRetryDeny(state: Readonly<DenialState>, actionHash: string): Verdict | null {
-  if (state.lastDenied === null || state.lastDenied.actionHash !== actionHash) {
+export function findRetryDeny(state: Readonly<DenialState>, retryKey: string): Verdict | null {
+  if (state.lastDenied === null || state.lastDenied.retryKey !== retryKey) {
     return null;
   }
 

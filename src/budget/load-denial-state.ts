@@ -9,7 +9,7 @@ const stateSchema = z.strictObject({
   consecutive: count,
   session: count,
   lastDenied: z
-    .strictObject({ actionHash: z.string().min(1), rule: z.string(), reason: z.string() })
+    .strictObject({ retryKey: z.string().min(1), rule: z.string(), reason: z.string() })
     .nullable(),
 });
 

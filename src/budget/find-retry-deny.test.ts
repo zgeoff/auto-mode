@@ -4,7 +4,7 @@ import { findRetryDeny } from './find-retry-deny.ts';
 const STATE = {
   consecutive: 1,
   session: 1,
-  lastDenied: { actionHash: 'action-a', rule: 'Rule', reason: 'Base reason.' },
+  lastDenied: { retryKey: 'action-a', rule: 'Rule', reason: 'Base reason.' },
 };
 
 test('it denies a retry of the action just denied with the same rule and reason', () => {

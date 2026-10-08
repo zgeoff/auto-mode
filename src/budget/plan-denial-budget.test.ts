@@ -17,7 +17,7 @@ test('it counts a deny and states the denials left', () => {
     state: {
       consecutive: 1,
       session: 1,
-      lastDenied: { actionHash: 'action-a', rule: 'Rule', reason: 'Base reason.' },
+      lastDenied: { retryKey: 'action-a', rule: 'Rule', reason: 'Base reason.' },
     },
     escalation: false,
   });
@@ -41,7 +41,7 @@ test('it resets the consecutive count on an allow and keeps the session count', 
   const state = {
     consecutive: 2,
     session: 7,
-    lastDenied: { actionHash: 'action-a', rule: 'Rule', reason: 'Base reason.' },
+    lastDenied: { retryKey: 'action-a', rule: 'Rule', reason: 'Base reason.' },
   };
 
   const plan = planDenialBudget(state, { kind: 'allow' }, 'action-b', BUDGET);
