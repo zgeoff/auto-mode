@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import * as allowlists from './local-allowlists.ts';
 import {
   READ_ONLY_COMMANDS,
   READ_ONLY_GIT_SUBCOMMANDS,
@@ -66,13 +67,13 @@ test('it names no source directory as regenerable', () => {
 // An entry with surrounding space or a path separator never matches, because
 // the caller compares against a single trimmed word.
 test.each([
-  ['read-only tools', READ_ONLY_TOOLS],
-  ['shell tools', SHELL_TOOLS],
-  ['read-only commands', READ_ONLY_COMMANDS],
-  ['read-only git subcommands', READ_ONLY_GIT_SUBCOMMANDS],
-  ['regenerable directories', REGENERABLE_DIRS],
-])('it holds only matchable entries in the %s', (_label, entries) => {
-  expect([...entries]).toSatisfyAll(
+  ['read-only tools', 'READ_ONLY_TOOLS'],
+  ['shell tools', 'SHELL_TOOLS'],
+  ['read-only commands', 'READ_ONLY_COMMANDS'],
+  ['read-only git subcommands', 'READ_ONLY_GIT_SUBCOMMANDS'],
+  ['regenerable directories', 'REGENERABLE_DIRS'],
+] as const)('it holds only matchable entries in the %s', (_label, name) => {
+  expect([...allowlists[name]]).toSatisfyAll(
     (entry: string) => entry !== '' && entry.trim() === entry && !entry.includes('/'),
   );
 });

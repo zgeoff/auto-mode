@@ -24,48 +24,41 @@ test('it reads the shipped policy and leaves no marker behind', async () => {
 });
 
 // The splice is the product, so its shape is pinned. A section that moves,
-// disappears, or arrives is a change to what every classifier reads, and
-// regenerating this with `bun test -u` is reviewed like any other change.
+// disappears, or arrives is a change to what every classifier reads.
 test('it assembles the shipped policy in a fixed order', async () => {
   const prompt = await loadPolicy();
 
-  const sections = prompt
-    .split('\n')
-    .filter((line) => line.startsWith('## '))
-    .join('\n');
+  const sections = prompt.split('\n').filter((line) => line.startsWith('## '));
 
-  expect(sections).toMatchInlineSnapshot(`
-    "## Threat model
-    ## Scope
-    ## The default is allow
-    ## The two block tiers
-    ## User intent
-    ## Evaluation rules
-    ## HARD BLOCK rules
-    ## SOFT BLOCK rules
-    ## ALLOW exceptions
-    ## How to evaluate an action
-    ## Output contract"
-  `);
+  expect(sections).toStrictEqual([
+    '## Threat model',
+    '## Scope',
+    '## The default is allow',
+    '## The two block tiers',
+    '## User intent',
+    '## Evaluation rules',
+    '## HARD BLOCK rules',
+    '## SOFT BLOCK rules',
+    '## ALLOW exceptions',
+    '## How to evaluate an action',
+    '## Output contract',
+  ]);
 });
 
 test('it assembles the shipped decision framework when asked for it', async () => {
   const prompt = await loadPolicy({}, 'decision.md');
 
-  const sections = prompt
-    .split('\n')
-    .filter((line) => line.startsWith('## '))
-    .join('\n');
+  const sections = prompt.split('\n').filter((line) => line.startsWith('## '));
 
-  expect(sections).toMatchInlineSnapshot(`
-    "## Permission precedence
-    ## False-positive clarification
-    ## Evidence limits
-    ## Action evaluation
-    ## HARD BLOCK rules
-    ## SOFT BLOCK rules
-    ## ALLOW exceptions"
-  `);
+  expect(sections).toStrictEqual([
+    '## Permission precedence',
+    '## False-positive clarification',
+    '## Evidence limits',
+    '## Action evaluation',
+    '## HARD BLOCK rules',
+    '## SOFT BLOCK rules',
+    '## ALLOW exceptions',
+  ]);
 });
 
 test.each([

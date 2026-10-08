@@ -632,7 +632,7 @@ test.each([
   expect(findings).toStrictEqual([{ kind: 'credential', target: 'auto-mode record' }]);
 });
 
-test('it allows a write under a scratch path the caller supplies', () => {
+test('it finds nothing for a write under a scratch path the caller supplies', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
@@ -660,7 +660,7 @@ test('it finds a write under /tmp when the caller supplies no scratch paths', ()
   expect(findings).toStrictEqual([{ kind: 'path', target: '/tmp/build' }]);
 });
 
-test('it treats /tmp as scratch space by default', () => {
+test('it finds nothing for a write under /tmp by default', () => {
   const findings = collectScopeFindings(
     {
       tool: 'Bash',
