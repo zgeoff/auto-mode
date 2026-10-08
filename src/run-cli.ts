@@ -11,7 +11,7 @@ import type { ActionOutcome } from './classify-action.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { DEFAULT_DENIAL_BUDGET, DEFAULT_SCOPE_SOURCES, loadConfig } from './config/config.ts';
-import type { HostEnvironment } from './config/types.ts';
+import type { HostEnvironment, OutputStream } from './config/types.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { parseActionRequest } from './request/parse-action-request.ts';
@@ -21,6 +21,14 @@ import type { Verdict } from './request/types.ts';
 import { readPullRequest } from './scope/read-pull-request.ts';
 import { updateSessionScope } from './scope/update-session-scope.ts';
 import { resolveStateDir } from './state/resolve-state-dir.ts';
+
+interface CLIIO {
+  readonly stdin: () => Promise<string>;
+  readonly stdout: Readonly<OutputStream>;
+  readonly stderr: Readonly<OutputStream>;
+  readonly host: Readonly<HostEnvironment>;
+  readonly signal: Readonly<AbortSignal>;
+}
 
 const USAGE = `auto-mode — a permission classifier for the auto-mode Claude Code mod
 
@@ -37,17 +45,6 @@ Options:
   --jev-only            With run: require Jev and cap its API timeout at 5 seconds
   --evaluation-deadline <unix-ms>  With --jev-only: share the helper and API deadline
 `;
-
-interface CLIStream {
-  readonly write: (text: string) => unknown;
-}
-
-interface CLIIO {
-  readonly stdin: () => Promise<string>;
-  readonly stdout: CLIStream;
-  readonly stderr: CLIStream;
-  readonly host: Readonly<HostEnvironment>;
-}
 
 export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Promise<number> {
   const args = parseArgs({
@@ -195,83 +192,98 @@ async function run(
     return printNote(io.stderr, true, 'invalid Jev evaluation deadline; no verdict');
   }
 
-  const controller = new AbortController();
+  const statePath = resolveDenialStatePath(request, resolveStateDir(host));
+  const retryKey = buildRetryKey(request);
 
-  const stopEvaluation = () => {
-    controller.abort();
-  };
+  const before = await loadDenialState(statePath);
 
-  if (jevOnly) {
-    process.on('SIGTERM', stopEvaluation);
-    process.on('SIGINT', stopEvaluation);
+  const retry = findRetryDeny(before, retryKey);
+
+  const outcome: ActionOutcome =
+    retry === null
+      ? await classifyAction(request, config, {
+          localOnly,
+          deadlineAt,
+          signal: io.signal,
+          host,
+          stderr: io.stderr,
+        })
+      : {
+          verdict: retry,
+          decidingStage: 'retry',
+          note: 'retry of the action just denied; denied again',
+          status: 'deny',
+        };
+
+  // Re-read after the classifier, which can take seconds, so a parallel call
+  // in the same session is less likely to lose its count.
+  const latest = retry === null ? await loadDenialState(statePath) : before;
+
+  const plan = planDenialBudget(
+    latest,
+    outcome.verdict,
+    retryKey,
+    config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
+  );
+
+  if (plan.state !== latest) {
+    await tryWriteDenialState(io.stderr, statePath, plan.state);
   }
 
+  if (plan.verdict !== null) {
+    printVerdict(io.stdout, plan.verdict);
+  }
+
+  await writeActionDiagnostic(
+    request,
+    {
+      invocationID,
+      status: outcome.status,
+      verdict: plan.verdict?.kind ?? 'defer',
+      decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
+      denials: { consecutive: plan.state.consecutive, session: plan.state.session },
+      escalation: plan.escalation,
+      ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
+    },
+    host,
+    io.stderr,
+  );
+
+  const note = plan.escalation
+    ? 'denial budget exhausted; the user decides this action'
+    : outcome.note;
+
+  return printNote(io.stderr, explain || outcome.unavailable === true, note);
+}
+
+function printNote(stderr: Readonly<OutputStream>, explain: boolean, message: string): number {
+  if (explain) {
+    stderr.write(`auto-mode: ${message}\n`);
+  }
+
+  return 0;
+}
+
+function printWarnings(stderr: Readonly<OutputStream>, warnings: readonly string[] = []): void {
+  for (const warning of warnings) {
+    stderr.write(`auto-mode: ${warning}\n`);
+  }
+}
+
+async function tryWriteDenialState(
+  stderr: Readonly<OutputStream>,
+  path: string,
+  state: Readonly<DenialState>,
+): Promise<void> {
   try {
-    const statePath = resolveDenialStatePath(request, resolveStateDir(host));
-    const retryKey = buildRetryKey(request);
-
-    const before = await loadDenialState(statePath);
-
-    const retry = findRetryDeny(before, retryKey);
-
-    const outcome: ActionOutcome =
-      retry === null
-        ? await classifyAction(request, config, {
-            localOnly,
-            deadlineAt,
-            signal: controller.signal,
-            host,
-          })
-        : {
-            verdict: retry,
-            decidingStage: 'retry',
-            note: 'retry of the action just denied; denied again',
-            status: 'deny',
-          };
-
-    // Re-read after the classifier, which can take seconds, so a parallel call
-    // in the same session is less likely to lose its count.
-    const latest = retry === null ? await loadDenialState(statePath) : before;
-
-    const plan = planDenialBudget(
-      latest,
-      outcome.verdict,
-      retryKey,
-      config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
-    );
-
-    if (plan.state !== latest) {
-      await tryWriteDenialState(io.stderr, statePath, plan.state);
-    }
-
-    if (plan.verdict !== null) {
-      writeVerdict(io.stdout, plan.verdict);
-    }
-
-    await writeActionDiagnostic(
-      request,
-      {
-        invocationID,
-        status: outcome.status,
-        verdict: plan.verdict?.kind ?? 'defer',
-        decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
-        denials: { consecutive: plan.state.consecutive, session: plan.state.session },
-        escalation: plan.escalation,
-        ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
-      },
-      host,
-      io.stderr,
-    );
-
-    const note = plan.escalation
-      ? 'denial budget exhausted; the user decides this action'
-      : outcome.note;
-
-    return printNote(io.stderr, explain || outcome.unavailable === true, note);
-  } finally {
-    process.off('SIGTERM', stopEvaluation);
-    process.off('SIGINT', stopEvaluation);
+    await writeDenialState(path, state);
+  } catch {
+    stderr.write('auto-mode: denial counts unavailable\n');
   }
+}
+
+function printVerdict(stdout: Readonly<OutputStream>, verdict: Verdict): void {
+  stdout.write(renderVerdict(verdict));
 }
 
 // Writes nothing on stdout: a record is not a verdict, and a failure costs the
@@ -309,36 +321,6 @@ async function runRecord(io: Readonly<CLIIO>): Promise<number> {
     }
   } catch {
     io.stderr.write('auto-mode: session scope unavailable\n');
-  }
-
-  return 0;
-}
-
-async function tryWriteDenialState(
-  stderr: CLIStream,
-  path: string,
-  state: Readonly<DenialState>,
-): Promise<void> {
-  try {
-    await writeDenialState(path, state);
-  } catch {
-    stderr.write('auto-mode: denial counts unavailable\n');
-  }
-}
-
-function writeVerdict(stdout: CLIStream, verdict: Verdict): void {
-  stdout.write(renderVerdict(verdict));
-}
-
-function printWarnings(stderr: CLIStream, warnings: readonly string[] = []): void {
-  for (const warning of warnings) {
-    stderr.write(`auto-mode: ${warning}\n`);
-  }
-}
-
-function printNote(stderr: CLIStream, explain: boolean, message: string): number {
-  if (explain) {
-    stderr.write(`auto-mode: ${message}\n`);
   }
 
   return 0;

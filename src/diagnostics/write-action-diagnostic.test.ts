@@ -29,7 +29,9 @@ test('it appends private correlated records without action, task, credential, or
   const path = join(ctx.dir, 'private', 'actions.jsonl');
   const host = { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir };
 
-  await writeActionDiagnostic(payload, { invocationID: 'invocation', status: 'started' }, host);
+  await writeActionDiagnostic(payload, { invocationID: 'invocation', status: 'started' }, host, {
+    write: mock(),
+  });
 
   await writeActionDiagnostic(
     payload,
@@ -42,6 +44,7 @@ test('it appends private correlated records without action, task, credential, or
       escalation: false,
     },
     host,
+    { write: mock() },
   );
 
   const text = await readFile(path, 'utf8');
@@ -93,6 +96,7 @@ test('it stamps a record with the time it was written', async () => {
     buildMockActionRequest(),
     { invocationID: 'invocation', status: 'started' },
     { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir },
+    { write: mock() },
   );
 
   const after = Date.now();
@@ -113,6 +117,7 @@ test('it creates the record file readable by its owner only', async () => {
     buildMockActionRequest(),
     { invocationID: 'invocation', status: 'started' },
     { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir },
+    { write: mock() },
   );
 
   const info = await stat(path);
@@ -129,6 +134,7 @@ test('it records no action hash for a request without a tool use id', async () =
     buildMockActionRequest({ sessionID: 's', toolUseID: undefined }),
     { invocationID: 'i', status: 'started' },
     { env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir },
+    { write: mock() },
   );
 
   const text = await readFile(path, 'utf8');
@@ -202,6 +208,7 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
     buildMockActionRequest({ sessionID: 's' }),
     { invocationID: 'i', status: 'started' },
     { env: { XDG_STATE_HOME: join(ctx.dir, 'state') }, home: ctx.dir },
+    { write: mock() },
   );
 
   const text = await readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8');

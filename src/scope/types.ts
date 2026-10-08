@@ -1,4 +1,4 @@
-import type { HostEnvironment } from '../config/types.ts';
+import type { HostEnvironment, OutputStream } from '../config/types.ts';
 
 export interface ScopePullRequest {
   readonly number: number;
@@ -30,7 +30,7 @@ interface ScopeSourceContext {
   readonly stateDir: string;
   readonly atcRecordPath?: string | undefined;
   readonly atcSessionID?: string | undefined;
-  readonly stderr: { readonly write: (text: string) => unknown };
+  readonly stderr: Readonly<OutputStream>;
 }
 
 export type ScopeSourceReader = (context: Readonly<ScopeSourceContext>) => Promise<ScopeFacts>;

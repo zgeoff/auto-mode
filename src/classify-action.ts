@@ -3,7 +3,7 @@ import type { Config } from './config/config.ts';
 import { DEFAULT_SCOPE_SOURCES } from './config/config.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
 import { readHostEnvironment } from './config/read-host-environment.ts';
-import type { EvaluationOptions, HostEnvironment } from './config/types.ts';
+import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { OwnedScope } from './containment/collect-scope-findings.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
@@ -28,6 +28,7 @@ export interface ActionOutcome {
 
 export interface ClassifyOptions extends EvaluationOptions {
   readonly localOnly?: boolean;
+  readonly stderr?: Readonly<OutputStream> | undefined;
 }
 
 export async function classifyAction(
@@ -68,7 +69,7 @@ export async function classifyAction(
     return buildLocalAllow(local.exception);
   }
 
-  const scope = await tryLoadTaskScope(request, config, host);
+  const scope = await tryLoadTaskScope(request, config, host, options.stderr ?? process.stderr);
 
   const containment = scope === null ? null : checkContainment(request, scope, host.scratchPaths);
 
@@ -135,12 +136,14 @@ async function tryLoadTaskScope(
   request: Readonly<ActionRequest>,
   config: Readonly<Config>,
   host: Readonly<HostEnvironment>,
+  stderr: Readonly<OutputStream>,
 ): Promise<OwnedScope | null> {
   try {
     return await loadTaskScope(
       { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveStateDir(host) },
       config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
       host,
+      stderr,
     );
   } catch {
     return null;
