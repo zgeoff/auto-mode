@@ -295,14 +295,14 @@ test('it still allows a local regenerable-output removal inside the task worktre
   });
 });
 
-test('it allows a file-tool edit inside the cwd worktree without the model tier', async () => {
+test('it allows a file-tool write inside the cwd worktree without the model tier', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
     createMockActionRequest({
       cwd: '/repo',
-      toolName: 'Edit',
-      toolInput: { file_path: 'src/a.ts', old_string: 'a', new_string: 'b' },
+      toolName: 'Write',
+      toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
     }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
     { localOnly: true },

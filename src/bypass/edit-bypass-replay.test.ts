@@ -18,7 +18,7 @@ const caseSchema = z.object({
 const corpusSchema = z.object({ cases: z.array(caseSchema) });
 
 // GEO-104's 232 approved real actions, each against the cwd scope its session
-// had; a target that qualifies skips Jev unless the secret scan matches.
+// had. The corpus holds no file content, so an Edit is scanned as its own text.
 test('it lets 83 of the 232 real actions skip Jev and sends 3 secret-shaped edits to it', async () => {
   const text = await readFile(resolve(root, 'fixtures/decision-rules/real-traffic.json'), 'utf8');
 
@@ -38,6 +38,9 @@ test('it lets 83 of the 232 real actions skip Jev and sends 3 secret-shaped edit
               toolInput: entry.input,
               requested: resolve(entry.cwd, path),
               target: resolve(entry.cwd, path),
+              checkout: entry.cwd,
+              current:
+                typeof entry.input['old_string'] === 'string' ? entry.input['old_string'] : null,
             },
             { worktrees: [entry.cwd], protectedDirs: [] },
           )

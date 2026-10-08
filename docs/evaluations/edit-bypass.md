@@ -81,7 +81,8 @@ The built CLI under node, 20 runs each against the same build of `main`:
 ## Real traffic
 
 [The replay test](../../src/bypass/edit-bypass-replay.test.ts) classifies GEO-104's 232 approved
-real actions against each action's cwd scope.
+real actions against each action's cwd scope. The corpus holds no file content, so each Edit is
+scanned as its own replacement text, without the 12 lines the product reads around it.
 
 | Outcome                                   | Actions |
 | ----------------------------------------- | ------- |

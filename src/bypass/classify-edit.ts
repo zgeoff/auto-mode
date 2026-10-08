@@ -8,6 +8,8 @@ export interface EditAction {
   readonly toolInput: Readonly<Record<string, unknown>>;
   readonly requested: string;
   readonly target: string;
+  readonly checkout: string | null;
+  readonly current: string | null;
 }
 
 export interface EditScope {
@@ -33,12 +35,6 @@ export function classifyEdit(
     return { kind: 'jev', reason: 'not a file-tool edit' };
   }
 
-  const content = action.toolInput[fields.content] ?? '';
-
-  if (typeof content !== 'string') {
-    return { kind: 'jev', reason: 'edit content is not text' };
-  }
-
   const worktree = findWorktree(action.target, scope.worktrees);
 
   if (worktree === null) {
@@ -49,6 +45,10 @@ export function classifyEdit(
 
   if (path.startsWith('.worktrees/')) {
     return { kind: 'jev', reason: 'target in a nested worktree outside the scope' };
+  }
+
+  if (action.checkout !== null && action.checkout !== worktree) {
+    return { kind: 'jev', reason: 'target in a checkout outside the scope' };
   }
 
   // A link can give an excluded name an ordinary target, or the reverse, so
@@ -63,15 +63,97 @@ export function classifyEdit(
     return { kind: 'jev', reason: `target is ${exclusion}` };
   }
 
-  if (Buffer.byteLength(content, 'utf8') > MAX_SCANNED_BYTES) {
+  const text = buildScanText(action, fields.content);
+
+  if (typeof text !== 'string') {
+    return { kind: 'jev', reason: text.reason };
+  }
+
+  if (Buffer.byteLength(text, 'utf8') > MAX_SCANNED_BYTES) {
     return { kind: 'jev', reason: 'content larger than the secret scan reads' };
   }
 
-  const secret = findSecret({ text: content, path });
+  const secret = findSecret({ text, path });
 
   return secret === null
     ? { kind: 'bypass', target: action.target }
     : { kind: 'jev', reason: `secret scan matched ${secret.rule}` };
+}
+
+// A rule can need the text around a value, such as the assignment a key sits
+// in, and the curl rules span up to 11 newlines; so an Edit is scanned as the
+// lines around each replacement in the file it produces.
+const CONTEXT_LINES = 12;
+
+function buildScanText(
+  action: Readonly<EditAction>,
+  field: string,
+): string | { readonly reason: string } {
+  const content = action.toolInput[field] ?? '';
+
+  if (typeof content !== 'string') {
+    return { reason: 'edit content is not text' };
+  }
+
+  if (action.toolName !== 'Edit') {
+    return content;
+  }
+
+  const old = action.toolInput['old_string'];
+
+  if (typeof old !== 'string' || old === '' || action.current === null) {
+    return { reason: 'the edit cannot be read in the context of its file' };
+  }
+
+  const parts = action.current.split(old);
+
+  if (parts.length === 1) {
+    return { reason: 'the edit text is not in the file' };
+  }
+
+  const replaced = action.toolInput['replace_all'] === true ? parts.length - 1 : 1;
+  const spans: { start: number; end: number }[] = [];
+  let produced = parts[0] ?? '';
+
+  for (let index = 1; index < parts.length; index += 1) {
+    const isReplaced = index <= replaced;
+
+    if (isReplaced) {
+      spans.push({ start: produced.length, end: produced.length + content.length });
+    }
+
+    produced += `${isReplaced ? content : old}${parts[index] ?? ''}`;
+  }
+
+  return collectContext(produced, spans);
+}
+
+function collectContext(
+  text: string,
+  spans: readonly Readonly<{ start: number; end: number }>[],
+): string {
+  const lines = text.split('\n');
+  const starts: number[] = [];
+  let offset = 0;
+
+  for (const line of lines) {
+    starts.push(offset);
+
+    offset += line.length + 1;
+  }
+
+  const keep = new Set<number>();
+
+  for (const span of spans) {
+    const first = starts.findLastIndex((start) => start <= span.start);
+    const last = starts.findLastIndex((start) => start <= span.end);
+
+    for (let line = first - CONTEXT_LINES; line <= last + CONTEXT_LINES; line += 1) {
+      keep.add(line);
+    }
+  }
+
+  return lines.filter((_, index) => keep.has(index)).join('\n');
 }
 
 // Worktrees nest (`.worktrees/<name>` sits inside the main checkout), so the

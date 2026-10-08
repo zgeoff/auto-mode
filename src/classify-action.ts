@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { EditClassification } from './bypass/classify-edit.ts';
 import { getEditFields } from './bypass/get-edit-fields.ts';
@@ -13,6 +14,7 @@ import type { DecisionDiagnostics } from './model/types.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
+import { findCheckout } from './scope/find-checkout.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
 import { resolveStateDir } from './state/resolve-state-dir.ts';
 
@@ -142,6 +144,10 @@ async function tryLoadTaskScope(
   }
 }
 
+// With these set, git reads another checkout than the one a path sits in, so
+// no target's checkout can be known.
+const GIT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
+
 async function tryClassifyEdit(
   request: Readonly<ActionRequest>,
   scope: Readonly<OwnedScope>,
@@ -163,16 +169,28 @@ async function tryClassifyEdit(
       Promise.all(ownDirs.map((dir) => resolveEditTarget(dir))),
     ]);
 
-    if (target === null) {
+    if (target === null || GIT_OVERRIDES.some((name) => process.env[name] !== undefined)) {
       return null;
     }
+
+    const [checkout, current] = await Promise.all([
+      findCheckout(dirname(target)),
+      request.toolName === 'Edit' ? readFile(target, 'utf8').catch(() => null) : null,
+    ]);
 
     // The rule set and its regex engine add about 10 ms to a CLI start, so
     // only an edit that reaches this point loads them.
     const bypass = await import('./bypass/classify-edit.ts');
 
     return bypass.classifyEdit(
-      { toolName: request.toolName, toolInput: request.toolInput, requested, target },
+      {
+        toolName: request.toolName,
+        toolInput: request.toolInput,
+        requested,
+        target,
+        checkout: checkout?.worktree ?? null,
+        current,
+      },
       {
         worktrees: worktrees.filter((worktree) => worktree !== null),
         protectedDirs: [...ownDirs, ...protectedDirs.filter((dir) => dir !== null)],
