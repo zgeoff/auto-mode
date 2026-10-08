@@ -1,5 +1,5 @@
+import type { OwnedScope, ScopeFinding } from '../containment/collect-scope-findings.ts';
 import type { DecisionRequest } from '../model/types.ts';
-import type { OwnedScope, ScopeFinding } from './collect-scope-findings.ts';
 
 export function buildScopeEvidenceRequest(
   request: DecisionRequest,

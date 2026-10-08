@@ -43,7 +43,11 @@ test('it gives no verdict for an escalated action when the model tier is skipped
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({ toolName: 'Write', toolInput: { file_path: '/repo/a.ts' } }),
+    createMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Write',
+      toolInput: { file_path: '/repo/a.ts' },
+    }),
     { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
     { localOnly: true },
   );
@@ -161,7 +165,11 @@ test('it ends a failure reason with a full stop before the safer-path instructio
   const ctx = await setupTest();
 
   const outcome = await classifyAction(
-    createMockActionRequest({ toolName: 'Write', toolInput: { file_path: '/repo/a.ts' } }),
+    createMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Write',
+      toolInput: { file_path: '/repo/a.ts' },
+    }),
     {
       ...DEFAULT_CONFIG,
       provider: { ...DEFAULT_CONFIG.provider, apiKeyEnv: 'AUTO_MODE_UNSET_TEST_KEY' },
@@ -175,5 +183,114 @@ test('it ends a failure reason with a full stop before the safer-path instructio
     rule: 'Classifier Unavailable',
     reason:
       'jev-1.13.0 unavailable: no API key: set the configured environment variable or key command. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+  });
+});
+
+test('it denies a write outside the task scope before a configured allow, Jev, or the judge can clear it', async () => {
+  const ctx = await setupTest();
+
+  let requests = 0;
+
+  await writeFile(
+    ctx.settings,
+    JSON.stringify({
+      autoMode: { allow: ['Removing any worktree under .worktrees/ is routine cleanup.'] },
+    }),
+  );
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', () => {
+      requests += 1;
+
+      return HttpResponse.json({ model: 'jev-1.13.0', answers: {}, usage: { input_tokens: 1 } });
+    }),
+  );
+
+  const judge = { ...DEFAULT_CONFIG.provider, baseURL: 'https://decision.test' };
+
+  const outcome = await classifyAction(
+    createMockActionRequest({
+      cwd: '/repo/.worktrees/feature',
+      toolName: 'Bash',
+      toolInput: { command: 'git worktree remove --force ../other' },
+    }),
+    {
+      ...DEFAULT_CONFIG,
+      provider: { ...judge, apiKeyEnv: 'AUTO_MODE_UNSET_TEST_KEY' },
+      judge,
+      claudeSettingsPath: ctx.settings,
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outside Task Scope',
+      reason:
+        "This action writes outside the task scope: path /repo/.worktrees/other. The task owns the worktree /repo/.worktrees/feature. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.",
+    },
+    decidingStage: 'containment',
+    note: 'denied by the containment check: /repo/.worktrees/other',
+    status: 'deny',
+  });
+
+  expect(requests).toBe(0);
+});
+
+test('it passes a target it cannot resolve to the classifier', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyAction(
+    createMockActionRequest({
+      cwd: '/repo/.worktrees/feature',
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf "$OTHER_WORKTREE"' },
+    }),
+    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
+    { localOnly: true },
+  );
+
+  expect(outcome.decidingStage).toBe('local');
+  expect(outcome.status).toBe('skipped');
+});
+
+test('it denies a local regenerable-output removal in another worktree', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyAction(
+    createMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf .worktrees/other/dist' },
+    }),
+    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
+    { localOnly: true },
+  );
+
+  expect([outcome.decidingStage, outcome.status, outcome.note]).toStrictEqual([
+    'containment',
+    'deny',
+    'denied by the containment check: /repo/.worktrees/other/dist',
+  ]);
+});
+
+test('it still allows a local regenerable-output removal inside the task worktree', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyAction(
+    createMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf dist' },
+    }),
+    { ...DEFAULT_CONFIG, claudeSettingsPath: ctx.settings },
+    { localOnly: true },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'local',
+    note: 'allowed by Regenerable output (local)',
+    status: 'allow',
   });
 });

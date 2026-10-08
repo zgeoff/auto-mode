@@ -1,11 +1,17 @@
 import { isAbsolute, join, normalize } from 'node:path';
 import { splitShellCommand } from '../rules/split-shell-command.ts';
 
+export interface ScopeRemote {
+  readonly name: string;
+  readonly url: string;
+}
+
 export interface OwnedScope {
   readonly home: string;
-  readonly repository: string;
   readonly worktrees: readonly string[];
   readonly branches: readonly string[];
+  readonly currentBranch: string | null;
+  readonly remotes: readonly ScopeRemote[];
   readonly pullRequests: readonly number[];
 }
 
@@ -20,8 +26,9 @@ interface ScopeAction {
   readonly input: Readonly<Record<string, unknown>>;
 }
 
-// Collects the parts of an action that reach outside the task's own worktree,
-// branch, or pull request. It reads the action only, never the filesystem.
+// Reads the action only, never the filesystem. A target it cannot resolve,
+// such as a path held in a variable, yields no finding, so the classifier
+// still judges it.
 export function collectScopeFindings(
   action: Readonly<ScopeAction>,
   scope: Readonly<OwnedScope>,
@@ -30,8 +37,8 @@ export function collectScopeFindings(
   const command = action.input['command'];
 
   const findings = [
-    ...(typeof filePath === 'string'
-      ? collectPathFindings(resolvePath(action.cwd, filePath, scope.home), scope)
+    ...(FILE_WRITE_TOOLS.has(action.tool) && typeof filePath === 'string'
+      ? collectTargetFindings(action.cwd, filePath, scope)
       : []),
     ...(action.tool.startsWith('mcp__') ? collectToolFindings(action, scope) : []),
     ...(action.tool === 'Bash' && typeof command === 'string'
@@ -45,6 +52,23 @@ export function collectScopeFindings(
         (other) => other.kind === finding.kind && other.target === finding.target,
       ) === index,
   );
+}
+
+const FILE_WRITE_TOOLS: ReadonlySet<string> = new Set([
+  'Edit',
+  'MultiEdit',
+  'Write',
+  'NotebookEdit',
+]);
+
+function collectTargetFindings(
+  directory: string,
+  target: string,
+  scope: Readonly<OwnedScope>,
+): ScopeFinding[] {
+  const path = resolvePath(directory, target, scope.home);
+
+  return path === null ? [] : collectPathFindings(path, scope);
 }
 
 const CREDENTIAL_PATHS = ['.ssh', '.aws', '.gnupg', '.gitconfig', '.netrc', '.npmrc', '.config/gh'];
@@ -85,25 +109,30 @@ function collectCommandFindings(
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
   const findings: ScopeFinding[] = [];
-  let directory = cwd;
+  let directory: string | null = cwd;
 
   for (const segment of splitShellCommand(command).segments) {
-    const unquoted = segment.text.replaceAll(/'[^']*'|"[^"]*"/gu, "''");
     const words = getCommandWords(splitWords(segment.text));
     const [name, ...args] = words;
 
-    for (const target of collectRedirectTargets(unquoted)) {
-      findings.push(...collectPathFindings(resolvePath(directory, target, scope.home), scope));
+    // A directory the detector cannot follow makes every relative target in
+    // the rest of the command unresolvable.
+    if (directory === null) {
+      continue;
+    }
+
+    for (const target of collectRedirectTargets(segment.text)) {
+      findings.push(...collectTargetFindings(directory, target, scope));
     }
 
     if (name === undefined) {
       continue;
     }
 
-    if (name === 'cd' && args[0] !== undefined) {
-      directory = resolvePath(directory, args[0], scope.home);
+    if (name === 'cd') {
+      directory = args[0] === undefined ? scope.home : resolvePath(directory, args[0], scope.home);
     } else {
-      findings.push(...collectProgramFindings(name, args, directory, scope));
+      findings.push(...collectProgramFindings(name, args, directory, cwd, scope));
     }
   }
 
@@ -114,15 +143,14 @@ function collectProgramFindings(
   name: string,
   args: readonly string[],
   directory: string,
+  cwd: string,
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
-  const resolve = (path: string): ScopeFinding[] =>
-    collectPathFindings(resolvePath(directory, path, scope.home), scope);
-
+  const resolve = (path: string): ScopeFinding[] => collectTargetFindings(directory, path, scope);
   const operands = args.filter((word) => !word.startsWith('-'));
 
   if (name === 'git') {
-    return collectGitFindings(args, directory, scope);
+    return collectGitFindings(args, directory, cwd, scope);
   }
 
   if (name === 'gh') {
@@ -133,10 +161,8 @@ function collectProgramFindings(
     return operands.flatMap((path) => resolve(path));
   }
 
-  if (DESTINATION_WRITERS.has(name) && operands.length > 1) {
-    const sources = name === 'mv' ? operands.slice(0, -1) : [];
-
-    return [...resolve(operands.at(-1) ?? ''), ...sources.flatMap((path) => resolve(path))];
+  if (DESTINATION_WRITERS.has(name)) {
+    return collectCopyFindings(name, args, operands).flatMap((path) => resolve(path));
   }
 
   if (name === 'find' && args.some((word) => word === '-delete' || word === '-exec')) {
@@ -147,11 +173,16 @@ function collectProgramFindings(
     return collectInPlaceFiles(args).flatMap((path) => resolve(path));
   }
 
-  if (name === 'ssh-keygen' && args.includes('-f')) {
-    return collectPathFindings(
-      resolvePath(scope.home, args[args.indexOf('-f') + 1] ?? '', scope.home),
-      scope,
-    );
+  if (name === 'ssh-keygen') {
+    return collectKeygenFiles(args).flatMap((path) => resolve(path));
+  }
+
+  if (name === 'ssh' || name === 'scp') {
+    return collectRemoteShellFindings(name, args);
+  }
+
+  if (name === 'curl') {
+    return collectCurlFindings(args);
   }
 
   const finding = findProgramFinding(name, args);
@@ -159,32 +190,131 @@ function collectProgramFindings(
   return finding === null ? [] : [finding];
 }
 
+// `-t DIR` and `--target-directory=DIR` name the destination before the
+// sources, so the last operand is then a source.
+function collectCopyFindings(
+  name: string,
+  args: readonly string[],
+  operands: readonly string[],
+): string[] {
+  const optionIndex = args.findIndex((word) => word === '-t' || word === '--target-directory');
+  const attached = args.find((word) => word.startsWith('--target-directory='));
+  let targetDirectory = attached?.slice('--target-directory='.length);
+
+  if (targetDirectory === undefined && optionIndex !== -1) {
+    targetDirectory = args[optionIndex + 1];
+  }
+
+  if (targetDirectory !== undefined) {
+    const sources = operands.filter((word) => word !== targetDirectory);
+
+    return [targetDirectory, ...(name === 'mv' ? sources : [])];
+  }
+
+  if (operands.length < 2) {
+    return [];
+  }
+
+  return [operands.at(-1) ?? '', ...(name === 'mv' ? operands.slice(0, -1) : [])];
+}
+
+const KEYGEN_READ_OPTIONS = new Set(['-l', '-y', '-F', '-B', '-R']);
+
+function collectKeygenFiles(args: readonly string[]): string[] {
+  if (args.some((word) => KEYGEN_READ_OPTIONS.has(word))) {
+    return [];
+  }
+
+  const index = args.indexOf('-f');
+  const file = index === -1 ? undefined : args[index + 1];
+
+  return file === undefined ? [] : [file];
+}
+
+const SSH_VALUE_OPTIONS = new Set(['-b', '-c', '-D', '-E', '-F', '-i', '-J', '-l', '-L', '-m']);
+const SSH_MORE_VALUE_OPTIONS = new Set(['-o', '-p', '-P', '-Q', '-R', '-S', '-W', '-w']);
+
+function collectRemoteShellFindings(name: string, args: readonly string[]): ScopeFinding[] {
+  const operands: string[] = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    const word = args[index] ?? '';
+
+    if (SSH_VALUE_OPTIONS.has(word) || SSH_MORE_VALUE_OPTIONS.has(word)) {
+      index += 1;
+    } else if (!word.startsWith('-')) {
+      operands.push(word);
+    }
+  }
+
+  const reachesHost =
+    name === 'ssh' ? operands.length > 0 : operands.some((word) => /^[^/]+:/u.test(word));
+
+  return reachesHost ? [{ kind: 'remote-write', target: name }] : [];
+}
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
+
+function collectCurlFindings(args: readonly string[]): ScopeFinding[] {
+  const joined = args.join(' ');
+
+  const isUpload = args.some((word) =>
+    /^-[a-zA-Z]*[dFT]$|^--(?:data\S*|form|upload-file|json)$/u.test(word),
+  );
+
+  const isWriteMethod = /(?:-X\s*|--request\s+)(?:POST|PUT|PATCH|DELETE)/u.test(joined);
+
+  if (!isUpload && !isWriteMethod) {
+    return [];
+  }
+
+  const hosts = args
+    .filter((word) => /^(?:https?:\/\/|localhost\b|127\.)/u.test(word))
+    .map(
+      (word) =>
+        /^(?:https?:\/\/)?(?<host>\[[^\]]+\]|[^/:?#\s]+)/u
+          .exec(word)
+          ?.groups?.['host']?.toLowerCase() ?? '',
+    );
+
+  const isLocal = hosts.length > 0 && hosts.every((host) => LOCAL_HOSTS.has(host));
+
+  return isLocal ? [] : [{ kind: 'remote-write', target: 'curl upload' }];
+}
+
 const GIT_DIRECTORY_WRITES = new Set([
   'clean',
   'reset',
   'checkout',
+  'switch',
   'merge',
   'commit',
   'rm',
   'stash',
+  'push',
 ]);
 
 function collectGitFindings(
   args: readonly string[],
+  directory: string,
   cwd: string,
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
-  let directory = cwd;
+  let gitDirectory: string | null = directory;
   let index = 0;
 
   while (index < args.length && args[index]?.startsWith('-') === true) {
     const option = args[index];
 
-    if (option === '-C') {
-      directory = resolvePath(directory, args[index + 1] ?? '', scope.home);
+    if (option === '-C' && gitDirectory !== null) {
+      gitDirectory = resolvePath(gitDirectory, args[index + 1] ?? '', scope.home);
     }
 
     index += option === '-C' || option === '-c' ? 2 : 1;
+  }
+
+  if (gitDirectory === null) {
+    return [];
   }
 
   const subcommand = args[index] ?? '';
@@ -192,12 +322,12 @@ function collectGitFindings(
   const operands = rest.filter((word) => !word.startsWith('-'));
   const findings: ScopeFinding[] = [];
 
-  if (GIT_DIRECTORY_WRITES.has(subcommand) && !isInScope(directory, scope)) {
-    findings.push({ kind: 'path', target: directory });
+  if (GIT_DIRECTORY_WRITES.has(subcommand) && !isInScope(gitDirectory, scope)) {
+    findings.push({ kind: 'path', target: gitDirectory });
   }
 
   if (subcommand === 'worktree' && operands[0] === 'remove' && operands[1] !== undefined) {
-    findings.push(...collectPathFindings(resolvePath(directory, operands[1], scope.home), scope));
+    findings.push(...collectTargetFindings(gitDirectory, operands[1], scope));
   }
 
   if (subcommand === 'branch' && rest.some((word) => /^-(?:d|D|-delete)$/u.test(word))) {
@@ -213,7 +343,10 @@ function collectGitFindings(
   }
 
   if (subcommand === 'push') {
-    findings.push(...collectPushFindings(rest, operands, scope));
+    // The checkout's current branch is known only for the action's own cwd.
+    const currentBranch = gitDirectory === cwd ? scope.currentBranch : null;
+
+    findings.push(...collectPushFindings(rest, operands, currentBranch, scope));
   }
 
   return findings;
@@ -222,29 +355,60 @@ function collectGitFindings(
 function collectPushFindings(
   rest: readonly string[],
   operands: readonly string[],
+  currentBranch: string | null,
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
-  const [remote] = operands;
+  const [remote, ...refspecs] = operands;
   const findings: ScopeFinding[] = [];
 
   if (rest.includes('--all') || rest.includes('--mirror')) {
     findings.push({ kind: 'branch', target: '--all' });
   }
 
-  if (remote !== undefined && remote !== 'origin' && !remote.includes(scope.repository)) {
+  if (remote !== undefined && !isOwnedRemote(remote, scope)) {
     findings.push({ kind: 'remote-write', target: remote });
   }
 
-  for (const refspec of operands.slice(1)) {
-    const destination = (refspec.split(':').at(-1) ?? refspec).replace(/^\+/u, '');
-    const branch = destination.replace(/^refs\/heads\//u, '');
+  const destinations = refspecs.length === 0 && !rest.includes('--tags') ? ['HEAD'] : refspecs;
 
-    if (branch !== 'HEAD' && !scope.branches.includes(branch)) {
+  for (const refspec of destinations) {
+    const destination = (refspec.split(':').at(-1) ?? refspec).replace(/^\+/u, '');
+    const named = destination.replace(/^refs\/heads\//u, '');
+    const branch = named === 'HEAD' ? currentBranch : named;
+
+    if (branch !== null && !branch.startsWith('refs/tags/') && !scope.branches.includes(branch)) {
       findings.push({ kind: 'branch', target: branch });
     }
   }
 
   return findings;
+}
+
+function isOwnedRemote(remote: string, scope: Readonly<OwnedScope>): boolean {
+  if (scope.remotes.some((entry) => entry.name === remote)) {
+    return true;
+  }
+
+  const slug = toRepositorySlug(remote);
+
+  return slug !== null && scope.remotes.some((entry) => toRepositorySlug(entry.url) === slug);
+}
+
+// Reduces an SSH, HTTPS, or `owner/name` repository reference to
+// `host/owner/name`, so two spellings of one repository compare equal.
+function toRepositorySlug(reference: string): string | null {
+  const match =
+    /^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?(?<host>[^/:]+)[:/](?<owner>[^/]+)\/(?<name>[^/]+?)(?:\.git)?\/?$/iu.exec(
+      reference,
+    );
+
+  if (match?.groups === undefined) {
+    return null;
+  }
+
+  const parts = match.groups;
+
+  return `${parts['host'] ?? ''}/${parts['owner'] ?? ''}/${parts['name'] ?? ''}`.toLowerCase();
 }
 
 const GH_PR_WRITES = new Set(['comment', 'merge', 'edit', 'close', 'review', 'ready', 'reopen']);
@@ -258,7 +422,13 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
 
   if (group === 'pr' && GH_PR_WRITES.has(verb)) {
     const number = Number(args.slice(2).find((word) => /^\d+$/u.test(word)));
-    const isOwned = verb !== 'merge' && scope.pullRequests.includes(number);
+    const repoIndex = args.findIndex((word) => word === '--repo' || word === '-R');
+    const repo = repoIndex === -1 ? undefined : args[repoIndex + 1];
+
+    const isOwned =
+      verb !== 'merge' &&
+      scope.pullRequests.includes(number) &&
+      (repo === undefined || isCheckoutRepository(repo, scope));
 
     return isOwned ? [] : [{ kind: 'remote-write', target: `gh pr ${verb}` }];
   }
@@ -286,10 +456,30 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
   return [];
 }
 
+// `gh --repo` takes `owner/name` or `host/owner/name`; a bare `owner/name`
+// matches a remote on any host.
+function isCheckoutRepository(repo: string, scope: Readonly<OwnedScope>): boolean {
+  const wanted = repo.toLowerCase().replace(/\.git$/u, '');
+
+  return scope.remotes.some((remote) => {
+    const slug = toRepositorySlug(remote.url);
+
+    return slug !== null && (slug === wanted || slug.endsWith(`/${wanted}`));
+  });
+}
+
 function collectGhAPIFindings(
   args: readonly string[],
   scope: Readonly<OwnedScope>,
 ): ScopeFinding[] {
+  const endpoint = args.find((word) => !word.startsWith('-')) ?? '';
+
+  if (endpoint === 'graphql') {
+    return args.some((word) => /\bmutation\b/u.test(word))
+      ? [{ kind: 'remote-write', target: 'gh api graphql mutation' }]
+      : [];
+  }
+
   const methodIndex = args.findIndex((word) => word === '-X' || word === '--method');
   const method = methodIndex === -1 ? 'GET' : (args[methodIndex + 1] ?? '').toUpperCase();
   const hasFields = args.some((word) => /^(?:-f|-F|--field|--raw-field|--input)$/u.test(word));
@@ -298,12 +488,14 @@ function collectGhAPIFindings(
     return [];
   }
 
-  const endpoint = args.find((word) => !word.startsWith('-') && word.includes('/')) ?? '';
-  const owned = /\/(?:pulls|issues)\/(?<number>\d+)(?:\/|$)/u.exec(endpoint)?.groups?.['number'];
+  const pull = /^\/?repos\/(?<repo>[^/]+\/[^/]+)\/(?:pulls|issues)\/(?<number>\d+)(?:\/|$)/u.exec(
+    endpoint,
+  )?.groups;
 
   if (
-    owned !== undefined &&
-    scope.pullRequests.includes(Number(owned)) &&
+    pull !== undefined &&
+    scope.pullRequests.includes(Number(pull['number'])) &&
+    isCheckoutRepository(pull['repo'] ?? '', scope) &&
     !endpoint.includes('/merge')
   ) {
     return [];
@@ -316,12 +508,6 @@ function collectGhAPIFindings(
 
 function findProgramFinding(name: string, args: readonly string[]): ScopeFinding | null {
   const joined = args.join(' ');
-
-  const isUpload = args.some((word) =>
-    /^-[a-zA-Z]*[dFT]$|^--(?:data\S*|form|upload-file)$/u.test(word),
-  );
-
-  const isWriteMethod = /-X\s*(?:POST|PUT|PATCH|DELETE)/u.test(joined);
 
   if (name === 'op' && /^(?:item|vault|document) (?:edit|create|delete)\b/u.test(joined)) {
     return { kind: 'credential', target: `op ${args[0] ?? ''} ${args[1] ?? ''}` };
@@ -344,14 +530,6 @@ function findProgramFinding(name: string, args: readonly string[]): ScopeFinding
     return { kind: 'remote-write', target: 'npm publish' };
   }
 
-  if (name === 'curl' && (isUpload || isWriteMethod) && !/localhost|127\.0\.0\.1/u.test(joined)) {
-    return { kind: 'remote-write', target: 'curl upload' };
-  }
-
-  if ((name === 'scp' || name === 'ssh') && args.some((word) => word.includes('@'))) {
-    return { kind: 'remote-write', target: name };
-  }
-
   if (name === 'kubectl' && /\b(?:apply|delete|replace|patch|scale)\b/u.test(joined)) {
     return { kind: 'remote-write', target: 'kubectl write' };
   }
@@ -371,10 +549,81 @@ function findProgramFinding(name: string, args: readonly string[]): ScopeFinding
   return null;
 }
 
+// Reads output redirections outside quotes, with or without a descriptor
+// number, and their target with its quotes removed. `>&2` and `2>&1`
+// duplicate a descriptor and write no file.
 function collectRedirectTargets(text: string): string[] {
-  return [...text.matchAll(/(?<![<&\d])>{1,2}\s*(?<target>[^\s;&|<>']+)/gu)]
-    .map((match) => match.groups?.['target'] ?? '')
-    .filter((target) => target !== '');
+  const targets: string[] = [];
+  let quote: string | null = null;
+  let index = 0;
+
+  while (index < text.length) {
+    const ch = text.charAt(index);
+
+    if (quote !== null) {
+      quote = ch === quote ? null : quote;
+      index += 1;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+      index += 1;
+    } else if (ch === '>' && text.charAt(index - 1) !== '<') {
+      let next = index + 1;
+
+      if (text.charAt(next) === '>' || text.charAt(next) === '|') {
+        next += 1;
+      }
+
+      if (text.charAt(next) === '&') {
+        index = next + 1;
+        continue;
+      }
+
+      const [target, end] = readWord(text, next);
+
+      if (target !== '') {
+        targets.push(target);
+      }
+
+      index = end;
+    } else {
+      index += 1;
+    }
+  }
+
+  return targets;
+}
+
+function readWord(text: string, start: number): [string, number] {
+  let index = start;
+
+  while (/\s/u.test(text.charAt(index))) {
+    index += 1;
+  }
+
+  let word = '';
+  let quote: string | null = null;
+
+  while (index < text.length) {
+    const ch = text.charAt(index);
+
+    if (quote !== null) {
+      if (ch === quote) {
+        quote = null;
+      } else {
+        word += ch;
+      }
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    } else if (/[\s;&|<>()]/u.test(ch)) {
+      break;
+    } else {
+      word += ch;
+    }
+
+    index += 1;
+  }
+
+  return [word, index];
 }
 
 function collectInPlaceFiles(args: readonly string[]): string[] {
@@ -427,7 +676,7 @@ function getCommandWords(words: readonly string[]): readonly string[] {
     .slice(index)
     .filter(
       (word, position, all) =>
-        !/^\d*[<>]/u.test(word) && !/^\d*>{1,2}$/u.test(all[position - 1] ?? ''),
+        !/^\d*[<>]/u.test(word) && !/^\d*>{1,2}\|?$/u.test(all[position - 1] ?? ''),
     );
 }
 
@@ -467,11 +716,18 @@ function splitWords(text: string): string[] {
   return words;
 }
 
-function resolvePath(cwd: string, path: string, home: string): string {
+// A target built from a variable, a substitution, or another user's home
+// cannot be resolved from the command text alone.
+function resolvePath(cwd: string, path: string, home: string): string | null {
   const expanded = path.replace(/^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u, home);
+
+  if (/[$`]|^~/u.test(expanded) || expanded === '') {
+    return null;
+  }
+
   const absolute = isAbsolute(expanded) ? expanded : join(cwd, expanded);
 
-  return normalize(absolute).replace(/\/$/u, '');
+  return normalize(absolute).replace(/(?<=.)\/$/u, '');
 }
 
 const SCRATCH_PATHS = ['/tmp', '/dev/null', '/dev/stdout', '/dev/stderr'];

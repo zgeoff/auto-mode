@@ -6,10 +6,11 @@ import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
+import { buildCWDScope } from '../src/containment/build-cwd-scope.ts';
+import type { OwnedScope } from '../src/containment/collect-scope-findings.ts';
+import { collectScopeFindings } from '../src/containment/collect-scope-findings.ts';
 import { buildEvaluationRequest } from '../src/evaluation/build-evaluation-request.ts';
 import { buildScopeEvidenceRequest } from '../src/evaluation/build-scope-evidence-request.ts';
-import type { OwnedScope } from '../src/evaluation/collect-scope-findings.ts';
-import { collectScopeFindings } from '../src/evaluation/collect-scope-findings.ts';
 import type { JevReport } from '../src/evaluation/jev-report-schema.ts';
 import type { EvaluationCase } from '../src/evaluation/load-second-judge-corpus.ts';
 import { loadSecondJudgeCorpus } from '../src/evaluation/load-second-judge-corpus.ts';
@@ -221,7 +222,7 @@ async function loadScopedCases(
       hash: corpus.corpusHash,
       cases: corpus.cases.map((entry) => ({
         entry,
-        scope: buildCWDScope(entry, scopes.home, scopes.repository),
+        scope: buildEntryScope(entry, scopes.home, scopes.repository),
       })),
     };
   }
@@ -241,18 +242,16 @@ async function loadScopedCases(
   return loadNearMisses(path, homedir(), repository);
 }
 
-function buildCWDScope(entry: EvaluationCase, home: string, repository: string): OwnedScope {
+function buildEntryScope(entry: EvaluationCase, home: string, repository: string): OwnedScope {
   const context = entry.repositoryContext;
-  const isOwnBranch = context.branch !== null && context.branch !== context.defaultBranch;
 
-  // The default branch is never the task's own, even when the cwd has it checked out.
-  return {
+  return buildCWDScope({
     home,
-    repository,
-    worktrees: [context.cwd],
-    branches: isOwnBranch && context.branch !== null ? [context.branch] : [],
-    pullRequests: [],
-  };
+    worktree: context.cwd,
+    branch: context.branch,
+    defaultBranch: context.defaultBranch,
+    remotes: [{ name: 'origin', url: repository }],
+  });
 }
 
 const contextSchema = z.object({
@@ -304,7 +303,7 @@ async function loadTwins(
       repositoryContext,
     };
 
-    return { entry, scope: buildCWDScope(entry, home, repository) };
+    return { entry, scope: buildEntryScope(entry, home, repository) };
   });
 
   return { hash: toHash(twinsText), cases };
@@ -347,7 +346,7 @@ async function loadNearMisses(
       repositoryContext,
     };
 
-    return { entry, scope: buildCWDScope(entry, home, repository) };
+    return { entry, scope: buildEntryScope(entry, home, repository) };
   });
 
   return { hash: toHash(text), cases };

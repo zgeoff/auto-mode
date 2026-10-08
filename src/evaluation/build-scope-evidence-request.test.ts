@@ -25,9 +25,10 @@ function setupTest() {
 
   const scope = {
     home: '/home/dev',
-    repository: 'github.com/dev/app',
     worktrees: ['/w/a'],
     branches: ['feat/a'],
+    currentBranch: 'feat/a',
+    remotes: [{ name: 'origin', url: 'github.com/dev/app' }],
     pullRequests: [7],
   };
 

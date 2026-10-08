@@ -28,10 +28,17 @@ mod request on stdin
  parse ──► not a mod request ──► write nothing
       │
       ▼
- tier 1: local rules ──► allow ──► write allow          (< 1 ms)
+ tier 1: local rules ──► read-only allow ──► write allow          (< 1 ms)
       │
-      │ escalate
+      │ escalate, or another local allow
       ▼
+ containment check ──► write outside the task scope ──► deny ──┐
+      │                                                        │
+      │ no finding, or a target it cannot resolve              │
+      ▼                                                        │
+ local allow? ──► write allow                                  │
+      │                                                        │
+      ▼                                                        ▼
  tier 2: Jev ──► allow / deny ──┐
       │                         │
       │ failure                 ▼
@@ -43,8 +50,8 @@ mod request on stdin
 **Tier one** matches deterministically and answers allow or escalate. It never denies on a prose
 rule, because the two errors cost differently: a wrong allow costs one unwatched action, while a
 wrong deny stops work the user asked for, and the rules that deny are prose that needs a reader. The
-only local deny the decision model permits is a concrete scope finding: a write target outside the
-task scope, named in the deny.
+only local deny is a concrete scope finding: a write target outside the task scope, named in the
+deny, from the containment check described below.
 
 It allows three things — read-only tools by name, read-only shell commands including reporting `git`
 subcommands, and deleting regenerable build output inside the working tree. A chain is allowed only
@@ -52,6 +59,20 @@ if every part of it is.
 
 It declines to judge anything it cannot account for. Command substitution, backticks, process
 substitution, output redirection, and an unbalanced quote all escalate.
+
+**The containment check** runs after a read-only allow and before every other allow: the local
+regenerable-output allow, configured allow entries, and Jev. It reads the action's write targets
+(paths written, moved or deleted, branches deleted or pushed, pull requests merged, closed or
+commented on, remotes pushed to, credentials and global settings changed) and denies any target
+outside the task scope as the rule `Outside Task Scope`, naming the target. No later stage or
+configured allow entry can clear that deny. It never allows: an action with no finding moves on, and
+so does a target it cannot resolve from the command text, such as a path held in a variable, which
+Jev judges. It reads `gh api graphql` as a read unless the query carries `mutation`.
+
+The task scope is the cwd scope: the worktree that holds the action's directory, its branch unless
+that is the default branch, and the checkout's remotes. Outside a checkout it is the directory
+itself. `/tmp` is scratch space that every task owns. The `scopeSources` registry does not extend it
+yet.
 
 **Tier two** uses Jev's typed decision API. The request includes the base policy, explicit user
 Claude rules, the complete proposed action, and the last direct user message. The

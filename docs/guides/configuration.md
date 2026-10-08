@@ -106,9 +106,9 @@ The `atc` source reads the record that atc publishes for each session it spawns,
 environment variable that atc sets. atc owns the record's format, and the agent cannot extend it. A
 session without a record gets nothing from this source.
 
-A glob that covers every worktree, such as `.worktrees/**`, defeats the containment check that reads
-this registry. The registry holds entries today; the containment check and the scope work that
-follows it read them.
+A glob that covers every worktree, such as `.worktrees/**`, defeats the containment check. The
+registry holds entries today; the containment check reads only the cwd scope, and the scope work
+that follows it reads the registry.
 
 ## Decision
 

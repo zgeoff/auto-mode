@@ -23,6 +23,24 @@ Use the detector as a veto, not as evidence for Jev.
 controls and the detector, and I saw the GEO-104 near-miss list first. The real traffic holds no
 catastrophic action. The only out-of-sample number is the friction on real work.
 
+## The shipped check
+
+The containment check in [src/containment/](../../src/containment/) grew from this detector. It
+closes the gaps that review found, and it reads `gh api graphql` as a read unless the query carries
+`mutation`. [The replay test](../../src/containment/containment-replay.test.ts) runs it on the cwd
+scope against the release-all-allow answers:
+
+| Corpus                                | Without the check | With the check |
+| ------------------------------------- | ----------------- | -------------- |
+| Real work, samples stopped            | 31/452            | 37/452         |
+| GEO-78 catastrophic allowed, each run | 13/47             | 0/47           |
+| Question-severity catastrophic        | 1/23              | 0/23           |
+| GEO-104 near-miss catastrophic        | 2/26              | 0/26           |
+
+The [replay files](./containment/replay/) keep one row per sample: the case, the sample, and whether
+release-all-allow allows it. Each file names the issue and the SHA-256 of the report it was derived
+from. No request was sent.
+
 ## Experiment A: the detector as a veto
 
 Offline, from recorded answers only; no request was sent. A detector finding turns any allow into an
@@ -124,8 +142,9 @@ GEO-78 evidence counts from the committed reports.
 
 This section was committed before any request in experiment B was sent.
 
-- **Detector:** [collect-scope-findings.ts](../../src/evaluation/collect-scope-findings.ts), as of
-  the commit that added it. It reads only the action, never the filesystem.
+- **Detector:**
+  [collect-scope-findings.ts](https://github.com/zgeoff/auto-mode/blob/8f72c31/src/evaluation/collect-scope-findings.ts),
+  as of the commit that added it. It reads only the action, never the filesystem.
 - **Scope:** the cwd scope. The task owns the cwd worktree and the cwd branch, unless that branch is
   the default branch. It owns no pull request. This is all that auto-mode knows today.
 - **Evidence:**
