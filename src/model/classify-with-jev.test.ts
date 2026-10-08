@@ -1,5 +1,5 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, delay, http } from 'msw';
@@ -12,12 +12,17 @@ import { buildMockActionRequest } from '../../test-utils/factories/build-mock-ac
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockTaskScopeSummary } from '../../test-utils/factories/build-mock-task-scope-summary.ts';
+import { runGit } from '../../test-utils/run-git.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
 
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'jev-classifier-'));
 
   onTestFinished(() => rm(dir, { recursive: true, force: true }));
+
+  // The repository readers walk up from the cwd to the nearest .git, so a
+  // repository here keeps that walk inside the temp tree.
+  runGit(dir, ['init', '--quiet', '--initial-branch=main']);
 
   return { dir };
 }
@@ -101,6 +106,7 @@ test('it sends the configured rules and the direct user message without the sett
         hard_deny: [],
       },
       lastUserMessage: 'fix the parser',
+      repositoryContext: { cwd: ctx.dir, branch: 'main', defaultBranch: null, remotes: [] },
       taskContext: payload.decisionContext,
       action: {
         tool: 'Edit',
@@ -244,6 +250,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         rulesSource: 'shipped',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: clarification,
+        repositoryContext: { cwd: ctx.dir, branch: 'main', defaultBranch: null, remotes: [] },
         taskContext: payload.decisionContext,
         action: {
           tool: 'Edit',
@@ -454,6 +461,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         rulesSource: 'replacement',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         lastUserMessage: `The ${name} finding is wrong: this is a disposable test log.`,
+        repositoryContext: { cwd: ctx.dir, branch: 'main', defaultBranch: null, remotes: [] },
         taskContext: payload.decisionContext,
         action: {
           tool: 'Bash',
@@ -670,6 +678,12 @@ test('it evaluates a subagent on its task context without the parent consent', a
       rulesSource: 'replacement',
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       lastUserMessage: null,
+      repositoryContext: {
+        cwd: join(ctx.dir, 'child'),
+        branch: 'main',
+        defaultBranch: null,
+        remotes: [],
+      },
       taskContext: {
         agentID: 'child',
         originalUserTask: { text: 'Build the parser', origin: 'composer' },
@@ -761,13 +775,8 @@ test('it separates missing credentials from a classifier ask without calling the
 test('it sends checked branch evidence for a routine feature commit and allows it', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.git', 'refs', 'remotes', 'origin'), { recursive: true });
-  await writeFile(join(ctx.dir, '.git', 'HEAD'), 'ref: refs/heads/feature\n');
-
-  await writeFile(
-    join(ctx.dir, '.git', 'refs', 'remotes', 'origin', 'HEAD'),
-    'ref: refs/remotes/origin/main\n',
-  );
+  runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/feature']);
+  runGit(ctx.dir, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
 
   const received = mock<(body: unknown) => void>();
 
@@ -878,13 +887,8 @@ test.each([
       '## HARD BLOCK rules\n### Secret Persistence\nNever persist secrets\n## SOFT BLOCK rules\n### Default Branch Write\nRequire a feature branch',
     );
 
-    await mkdir(join(ctx.dir, '.git', 'refs', 'remotes', 'origin'), { recursive: true });
-    await writeFile(join(ctx.dir, '.git', 'HEAD'), `ref: refs/heads/${branch}\n`);
-
-    await writeFile(
-      join(ctx.dir, '.git', 'refs', 'remotes', 'origin', 'HEAD'),
-      'ref: refs/remotes/origin/main\n',
-    );
+    runGit(ctx.dir, ['symbolic-ref', 'HEAD', `refs/heads/${branch}`]);
+    runGit(ctx.dir, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
 
     decisionAnswers.set(
       questionID,
@@ -1013,13 +1017,8 @@ test.each(['Write', 'Edit'])(
       '## HARD BLOCK rules\n### Data Exfiltration\nNever send secrets\n## SOFT BLOCK rules\n### History Rewrite\nRequire the branch',
     );
 
-    await mkdir(join(ctx.dir, '.git', 'refs', 'remotes', 'origin'), { recursive: true });
-    await writeFile(join(ctx.dir, '.git', 'HEAD'), 'ref: refs/heads/feature\n');
-
-    await writeFile(
-      join(ctx.dir, '.git', 'refs', 'remotes', 'origin', 'HEAD'),
-      'ref: refs/remotes/origin/main\n',
-    );
+    runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/feature']);
+    runGit(ctx.dir, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
 
     decisionAnswers.set(
       'rule_0',
@@ -1155,13 +1154,8 @@ test.each([
       '## HARD BLOCK rules\n### Data Exfiltration\nNever send secrets\n## SOFT BLOCK rules\n### History Rewrite\nRequire the branch',
     );
 
-    await mkdir(join(ctx.dir, '.git', 'refs', 'remotes', 'origin'), { recursive: true });
-    await writeFile(join(ctx.dir, '.git', 'HEAD'), 'ref: refs/heads/feature\n');
-
-    await writeFile(
-      join(ctx.dir, '.git', 'refs', 'remotes', 'origin', 'HEAD'),
-      'ref: refs/remotes/origin/main\n',
-    );
+    runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/feature']);
+    runGit(ctx.dir, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
 
     decisionAnswers.set(
       'rule_0',
@@ -1640,13 +1634,8 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
 test('it sends the checkout remotes and the task scope with a non-Git action', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.git'), { recursive: true });
-  await writeFile(join(ctx.dir, '.git', 'HEAD'), 'ref: refs/heads/feature\n');
-
-  await writeFile(
-    join(ctx.dir, '.git', 'config'),
-    '[remote "origin"]\n\turl = git@github.com:dev/app.git\n',
-  );
+  runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/feature']);
+  runGit(ctx.dir, ['remote', 'add', 'origin', 'git@github.com:dev/app.git']);
 
   const received = mock<(body: unknown) => void>();
 

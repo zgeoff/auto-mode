@@ -9,12 +9,17 @@ import { server } from '../../mocks/node.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
+import { runGit } from '../../test-utils/run-git.ts';
 import { classifyWithModel } from './classify-with-model.ts';
 
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-model-'));
 
   onTestFinished(() => rm(dir, { recursive: true, force: true }));
+
+  // The repository readers walk up from the cwd to the nearest .git, so a
+  // repository here keeps that walk inside the temp tree.
+  runGit(dir, ['init', '--quiet', '--initial-branch=main']);
 
   return { dir };
 }
@@ -457,10 +462,9 @@ test('it has no opinion when the policy file cannot be read', async () => {
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
 
-  expect(outcome).toStrictEqual({
-    verdict: null,
-    note: `policy unreadable: ENOENT: no such file or directory, open '${join(ctx.dir, 'missing', 'classifier.md')}'; no verdict`,
-  });
+  expect(outcome).toStrictEqual({ verdict: null, note: expect.toBeString() });
+  expect(outcome.note).toMatch(/^policy unreadable: ENOENT\b.*; no verdict$/u);
+  expect(outcome.note).toInclude(join(ctx.dir, 'missing', 'classifier.md'));
 });
 
 test('it runs no key command and sends no request once the evaluation is cancelled', async () => {
