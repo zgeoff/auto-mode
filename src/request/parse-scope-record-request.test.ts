@@ -19,7 +19,7 @@ test('it rejects a record request with a field the mod does not send', () => {
     cwd: '/repo',
     startedAt: 1_791_000_000_000,
     command: 'git worktree add .worktrees/x -b x',
-    resultText: '',
+    resultText: "Preparing worktree (new branch 'x')",
     scope: { worktrees: ['/elsewhere'] },
   };
 
@@ -31,7 +31,7 @@ test('it rejects a record request without a start time', () => {
     sessionID: 'session-1',
     cwd: '/repo',
     command: 'git worktree add .worktrees/x -b x',
-    resultText: '',
+    resultText: "Preparing worktree (new branch 'x')",
   };
 
   expect(parseScopeRecordRequest(body)).toBeNull();

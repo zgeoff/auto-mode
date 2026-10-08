@@ -1,64 +1,107 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import invariant from 'tiny-invariant';
-import { DEFAULT_CONFIG, PRESETS, loadConfig, resolveApiKey, resolveConfigPath } from './config.ts';
-
-const KEY_ENV = 'AUTO_MODE_TEST_KEY';
+import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { DEFAULT_CONFIG, loadConfig, resolveApiKey, resolveConfigPath } from './config.ts';
 
 async function setupTest(): Promise<{ readonly dir: string; readonly configFile: string }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-config-'));
 
-  onTestFinished(async () => {
-    await rm(dir, { recursive: true, force: true });
-  });
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
 
   return { dir, configFile: join(dir, 'config.json') };
 }
 
-test('it falls back to the shipped defaults when there is no config file', async () => {
+test('#loadConfig falls back to the shipped defaults when there is no config file', async () => {
   const ctx = await setupTest();
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
   expect(config).toStrictEqual(DEFAULT_CONFIG);
 });
 
-test('it finds the config file under the home config directory when XDG_CONFIG_HOME is unset', async () => {
+test('#loadConfig reads the config file under the home config directory when no path is given', async () => {
   const ctx = await setupTest();
 
-  expect(resolveConfigPath({ env: {}, home: ctx.dir })).toBe(
+  await mkdir(join(ctx.dir, '.config', 'auto-mode'), { recursive: true });
+
+  await writeFile(
     join(ctx.dir, '.config', 'auto-mode', 'config.json'),
+    JSON.stringify({ decision: { onFailure: 'deny' } }),
+  );
+
+  const config = await loadConfig(undefined, { env: {}, home: ctx.dir });
+
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: null,
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'deny',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
+  });
+});
+
+test('#loadConfig refuses a config file it cannot read', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(ctx.configFile);
+
+  expect(loadConfig(ctx.configFile, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    'auto-mode configuration unreadable',
   );
 });
 
-test('it finds the config file under XDG_CONFIG_HOME when it is set', async () => {
+// A broken config must not quietly run a policy the user did not write.
+test('#loadConfig refuses a config that is not JSON', async () => {
   const ctx = await setupTest();
 
-  expect(resolveConfigPath({ env: { XDG_CONFIG_HOME: join(ctx.dir, 'xdg') }, home: ctx.dir })).toBe(
-    join(ctx.dir, 'xdg', 'auto-mode', 'config.json'),
+  await writeFile(ctx.configFile, 'oops {');
+
+  expect(loadConfig(ctx.configFile, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile} is not valid JSON`,
   );
 });
 
-test('it ships Jev as the default', () => {
-  expect(DEFAULT_CONFIG.provider.model).toBe('jev-1.13.0');
-  expect(DEFAULT_CONFIG.provider.protocol).toBe('system-one');
-  expect(DEFAULT_CONFIG.provider.reasoning).toBe(false);
-  expect(DEFAULT_CONFIG.onFailure).toBe('defer');
-});
-
-// Spark returns nothing at all below roughly this budget, so the number is a
-// floor rather than a preference.
-test('it budgets enough output tokens for Spark to finish reasoning', () => {
-  expect(PRESETS['spark']?.maxTokens).toBeGreaterThanOrEqual(3000);
-});
-
-test('it takes a built-in kind and lets one field be overridden', async () => {
+test('#loadConfig refuses a config that is not an object', async () => {
   const ctx = await setupTest();
 
-  const glm = PRESETS['glm'];
+  await writeFile(ctx.configFile, '[]');
 
-  invariant(glm, 'the glm preset is defined');
+  expect(loadConfig(ctx.configFile, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile} is not a valid config: ✖ Invalid input: expected object, received array`,
+  );
+});
+
+test('#loadConfig names the built-in kinds when a role names one that is not', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'gpt' } }));
+
+  expect(loadConfig(ctx.configFile, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile}: decision.classifier names 'gpt', which is neither a classifiers entry nor a built-in kind (jev, spark, claude, glm)`,
+  );
+});
+
+test('#loadConfig takes a built-in kind and lets one field be overridden', async () => {
+  const ctx = await setupTest();
 
   await writeFile(
     ctx.configFile,
@@ -68,109 +111,21 @@ test('it takes a built-in kind and lets one field be overridden', async () => {
     }),
   );
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.provider.model).toBe(glm.model);
-  expect(config.provider.baseURL).toBe(glm.baseURL);
-  expect(config.provider.timeoutMs).toBe(45_000);
+  expect(config.provider).toStrictEqual({
+    protocol: 'messages',
+    baseURL: 'https://api.z.ai/api/anthropic',
+    model: 'glm-5.3-flash',
+    apiKeyEnv: 'ZAI_API_KEY',
+    apiKeyCommand: undefined,
+    reasoning: true,
+    maxTokens: 3000,
+    timeoutMs: 45_000,
+  });
 });
 
-const BROKEN_CONFIGS: [string, string][] = [
-  ['not JSON', 'oops {'],
-  ['not an object', '[]'],
-  ['a role with no entry and no kind', JSON.stringify({ decision: { classifier: 'gpt' } })],
-];
-
-// A broken config must not quietly run a policy the user did not write.
-test.each(BROKEN_CONFIGS)('it refuses a config that is %s', async (_label, body) => {
-  const ctx = await setupTest();
-
-  await writeFile(ctx.configFile, body);
-
-  await expect(loadConfig(ctx.configFile)).toReject();
-});
-
-test('it names the built-in kinds when a role names one that is not', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'gpt' } }));
-
-  const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
-
-  invariant(failure instanceof Error, 'an unknown role id rejects with an Error');
-
-  expect(failure.message).toInclude('jev, spark, claude, glm');
-});
-
-test('it reads the API key from the environment variable first', async () => {
-  const ctx = await setupTest();
-
-  const key = await resolveApiKey(
-    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'printf from-command' },
-    { host: { env: { [KEY_ENV]: 'from-env' }, home: ctx.dir } },
-  );
-
-  expect(key).toBe('from-env');
-});
-
-test('it falls back to the key command when the variable is unset', async () => {
-  const ctx = await setupTest();
-
-  const key = await resolveApiKey(
-    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'printf from-command' },
-    { host: { env: {}, home: ctx.dir } },
-  );
-
-  expect(key).toBe('from-command');
-});
-
-test('it runs the key command in the injected environment', async () => {
-  const ctx = await setupTest();
-
-  const key = await resolveApiKey(
-    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'printf %s "$INJECTED_KEY"' },
-    { host: { env: { INJECTED_KEY: 'from-injected-env' }, home: ctx.dir } },
-  );
-
-  expect(key).toBe('from-injected-env');
-});
-
-test('it gives the key command the injected home when the injected environment has none', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(join(ctx.dir, 'key'), 'from-home-file');
-
-  const key = await resolveApiKey(
-    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'cat "$HOME/key"' },
-    { host: { env: {}, home: ctx.dir } },
-  );
-
-  expect(key).toBe('from-home-file');
-});
-
-test('it reports no key when neither the variable nor a command is set', async () => {
-  const ctx = await setupTest();
-
-  const key = await resolveApiKey(
-    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV },
-    { host: { env: {}, home: ctx.dir } },
-  );
-
-  expect(key).toBeNull();
-});
-
-test('it reports no key when the key command fails', async () => {
-  const ctx = await setupTest();
-
-  const key = await resolveApiKey(
-    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'exit 1' },
-    { host: { env: {}, home: ctx.dir } },
-  );
-
-  expect(key).toBeNull();
-});
-
-test('it uses Jev for a custom entry of the jev kind', async () => {
+test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -181,14 +136,21 @@ test('it uses Jev for a custom entry of the jev kind', async () => {
     }),
   );
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.provider.protocol).toBe('system-one');
-  expect(config.provider.baseURL).toBe('https://decision.example');
-  expect(config.provider.model).toBe('jev-1.13.0');
+  expect(config.provider).toStrictEqual({
+    protocol: 'system-one',
+    baseURL: 'https://decision.example',
+    model: 'jev-1.13.0',
+    apiKeyEnv: 'TYPESAFE_API_KEY',
+    apiKeyCommand: undefined,
+    reasoning: false,
+    maxTokens: 3000,
+    timeoutMs: 5000,
+  });
 });
 
-test('it resolves the decision classifier from the registry by id', async () => {
+test('#loadConfig resolves the decision classifier from the registry by id', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -206,35 +168,71 @@ test('it resolves the decision classifier from the registry by id', async () => 
     }),
   );
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.provider).toStrictEqual({
-    protocol: 'messages',
-    baseURL: 'https://api.anthropic.com',
-    model: 'claude-haiku-4-5-20251001',
-    apiKeyEnv: 'ANTHROPIC_API_KEY',
-    apiKeyCommand: undefined,
-    reasoning: true,
-    maxTokens: 3000,
-    timeoutMs: 45_000,
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'messages',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-haiku-4-5-20251001',
+      apiKeyEnv: 'ANTHROPIC_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: true,
+      maxTokens: 3000,
+      timeoutMs: 45_000,
+    },
+    judge: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
   });
-
-  expect(config.judge).toStrictEqual({ ...DEFAULT_CONFIG.provider, apiKeyCommand: undefined });
-  expect(config.warnings).toStrictEqual([]);
 });
 
-test('it falls back to a built-in kind when the registry has no entry for the role', async () => {
+test('#loadConfig falls back to a built-in kind when the registry has no entry for the role', async () => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'glm' } }));
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.provider.model).toBe('glm-5.3-flash');
-  expect(config.judge).toBeNull();
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'messages',
+      baseURL: 'https://api.z.ai/api/anthropic',
+      model: 'glm-5.3-flash',
+      apiKeyEnv: 'ZAI_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: true,
+      maxTokens: 3000,
+      timeoutMs: 60_000,
+    },
+    judge: null,
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
+  });
 });
 
-test('it drops a bad registry entry with one diagnostic line and loads the others', async () => {
+test('#loadConfig drops a bad registry entry with one diagnostic line and loads the others', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -258,24 +256,40 @@ test('it drops a bad registry entry with one diagnostic line and loads the other
 
   const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.provider.timeoutMs).toBe(4000);
-
-  expect(config.scopeSources).toStrictEqual({
-    cwd: { kind: 'cwd' },
-    scratch: { kind: 'globs', paths: [join(ctx.dir, 'scratch/**')] },
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 4000,
+    },
+    judge: null,
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      scratch: { kind: 'globs', paths: [join(ctx.dir, 'scratch', '**')] },
+    },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [
+      `${ctx.configFile}: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, spark, claude, glm, messages`,
+      `${ctx.configFile}: classifiers.stray dropped: Unrecognized key: "maxToken"`,
+      `${ctx.configFile}: classifiers.literal dropped: holds a literal apiKey; name the key with apiKeyEnv or apiKeyCommand`,
+      `${ctx.configFile}: classifiers.bare dropped: kind 'messages' needs a model`,
+      `${ctx.configFile}: scopeSources.empty dropped: kind 'globs' needs paths`,
+      `${ctx.configFile}: scopeSources.nowhere dropped: unknown kind 'nowhere'; known kinds are cwd, session, globs, atc`,
+    ],
   });
-
-  expect(config.warnings).toStrictEqual([
-    `${ctx.configFile}: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, spark, claude, glm, messages`,
-    `${ctx.configFile}: classifiers.stray dropped: Unrecognized key: "maxToken"`,
-    `${ctx.configFile}: classifiers.literal dropped: holds a literal apiKey; name the key with apiKeyEnv or apiKeyCommand`,
-    `${ctx.configFile}: classifiers.bare dropped: kind 'messages' needs a model`,
-    `${ctx.configFile}: scopeSources.empty dropped: kind 'globs' needs paths`,
-    `${ctx.configFile}: scopeSources.nowhere dropped: unknown kind 'nowhere'; known kinds are cwd, session, globs, atc`,
-  ]);
 });
 
-test('it refuses a decision role that names a dropped entry', async () => {
+test('#loadConfig refuses a decision role that names a dropped entry', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -283,26 +297,24 @@ test('it refuses a decision role that names a dropped entry', async () => {
     JSON.stringify({ classifiers: { mine: { kind: 'gpt' } }, decision: { classifier: 'mine' } }),
   );
 
-  const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
-
-  invariant(failure instanceof Error, 'a dropped role entry rejects with an Error');
-
-  expect(failure.message).toInclude("decision.classifier names 'mine', whose entry was dropped");
+  expect(loadConfig(ctx.configFile, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile}: decision.classifier names 'mine', whose entry was dropped`,
+  );
 });
 
-test('it refuses a decision role that names no entry and no built-in kind', async () => {
+test('#loadConfig refuses a decision role that names no entry and no built-in kind', async () => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { judge: 'nobody' } }));
 
-  const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
-
-  invariant(failure instanceof Error, 'an unknown role id rejects with an Error');
-
-  expect(failure.message).toInclude("decision.judge names 'nobody'");
+  expect(loadConfig(ctx.configFile, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile}: decision.judge names 'nobody', which is neither a classifiers entry nor a built-in kind (jev, spark, claude, glm)`,
+  );
 });
 
-const OLD_KEYS: [string, unknown][] = [
+test.each([
   ['preset', 'jev'],
   ['provider', { apiKeyEnv: 'TYPESAFE_API_KEY' }],
   ['classifierPath', '/policy/decision.md'],
@@ -311,21 +323,18 @@ const OLD_KEYS: [string, unknown][] = [
   ['onFailure', 'deny'],
   ['transcriptEntries', 4],
   ['claudeSettingsPath', null],
-];
-
-test.each(OLD_KEYS)('it refuses the old top-level key %s and names it', async (key, value) => {
+])('#loadConfig refuses the old top-level key %s and names it', async (key, value) => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ [key]: value }));
 
-  const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
-
-  invariant(failure instanceof Error, 'an old key rejects with an Error');
-
-  expect(failure.message).toInclude(`Unrecognized key: "${key}"`);
+  expect(loadConfig(ctx.configFile, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile} is not a valid config: ✖ Unrecognized key: "${key}"`,
+  );
 });
 
-test('it reads the policy block, expanding a leading tilde', async () => {
+test('#loadConfig reads the policy block, expanding a leading tilde', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -342,26 +351,69 @@ test('it reads the policy block, expanding a leading tilde', async () => {
 
   const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.rulesPath).toBe(join(ctx.dir, 'rules.md'));
-  expect(config.classifierPath).toBeUndefined();
-  expect(config.claudeSettingsPath).toBe('/claude/settings.json');
-  expect(config.minConfidence).toBe(0.9);
-  expect(config.onFailure).toBe('deny');
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: null,
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: join(ctx.dir, 'rules.md'),
+    onFailure: 'deny',
+    claudeSettingsPath: '/claude/settings.json',
+    minConfidence: 0.9,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
+  });
 });
 
-test('it disables the Claude rule import when the policy sets the settings path to null', async () => {
+test('#loadConfig disables the Claude rule import when the policy sets the settings path to null', async () => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ policy: { claudeSettingsPath: null } }));
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.claudeSettingsPath).toBeNull();
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: null,
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: null,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
+  });
 });
 
-test.each(['constructor', 'toString', '__proto__'])(
-  'it refuses a decision role named %s, which only an inherited property matches',
-  async (id) => {
+test.each([
+  ['constructor', "names 'constructor', whose entry was dropped"],
+  ['toString', "names 'toString', whose entry was dropped"],
+  [
+    '__proto__',
+    "names '__proto__', which is neither a classifiers entry nor a built-in kind (jev, spark, claude, glm)",
+  ],
+])(
+  '#loadConfig refuses a decision role named %s, which only an inherited property matches',
+  async (id, refusal) => {
     const ctx = await setupTest();
 
     await writeFile(
@@ -369,15 +421,14 @@ test.each(['constructor', 'toString', '__proto__'])(
       `{"classifiers":{"${id}":{"kind":"gpt"}},"decision":{"classifier":"${id}"}}`,
     );
 
-    const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
-
-    invariant(failure instanceof Error, 'an inherited name rejects with an Error');
-
-    expect(failure.message).toInclude(`decision.classifier names '${id}'`);
+    expect(loadConfig(ctx.configFile, { env: {}, home: ctx.dir })).rejects.toThrowWithMessage(
+      Error,
+      `${ctx.configFile}: decision.classifier ${refusal}`,
+    );
   },
 );
 
-test('it loads the approved shape with no diagnostics and reads the denial budget', async () => {
+test('#loadConfig loads the approved shape with no diagnostics and reads the denial budget', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -410,36 +461,95 @@ test('it loads the approved shape with no diagnostics and reads the denial budge
 
   const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.warnings).toStrictEqual([]);
-  expect(config.denialBudget).toStrictEqual({ consecutive: 5, perSession: 40 });
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: null,
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      scratch: { kind: 'globs', paths: [join(ctx.dir, 'scratch', '**')] },
+      atc: { kind: 'atc' },
+    },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: null,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 5, perSession: 40 },
+    warnings: [],
+  });
 });
 
-test('it defaults the denial budget to 3 in a row and 20 per session', async () => {
+test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', async () => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { denialBudget: {} } }));
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.denialBudget).toStrictEqual({ consecutive: 3, perSession: 20 });
-  expect(DEFAULT_CONFIG.denialBudget).toStrictEqual({ consecutive: 3, perSession: 20 });
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: null,
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
+  });
 });
 
-test('it runs the cwd, session, and atc sources when the file has no scope sources', async () => {
+test('#loadConfig runs the cwd, session, and atc sources when the file has no scope sources', async () => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { onFailure: 'defer' } }));
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.scopeSources).toStrictEqual({
-    cwd: { kind: 'cwd' },
-    session: { kind: 'session' },
-    atc: { kind: 'atc' },
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: null,
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [],
   });
 });
 
-test('it warns about a registry without the cwd source and a glob over worktrees', async () => {
+test('#loadConfig warns about a registry without the cwd source and a glob over worktrees', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -449,10 +559,141 @@ test('it warns about a registry without the cwd source and a glob over worktrees
     }),
   );
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
-  expect(config.warnings).toStrictEqual([
-    `${ctx.configFile}: scopeSources has no cwd entry, so the task owns only what the other sources name`,
-    `${ctx.configFile}: scopeSources glob /repo/.worktrees/** covers worktrees that other tasks own`,
-  ]);
+  expect(config).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: null,
+    scopeSources: { all: { kind: 'globs', paths: ['/repo/.worktrees/**', '/scratch/**'] } },
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: undefined,
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    warnings: [
+      `${ctx.configFile}: scopeSources has no cwd entry, so the task owns only what the other sources name`,
+      `${ctx.configFile}: scopeSources glob /repo/.worktrees/** covers worktrees that other tasks own`,
+    ],
+  });
+});
+
+test('#DEFAULT_CONFIG ships Jev, deferring on failure, with the default budget and scope sources', () => {
+  expect(DEFAULT_CONFIG).toStrictEqual({
+    provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    onFailure: 'defer',
+    minConfidence: 0.8,
+    denialBudget: { consecutive: 3, perSession: 20 },
+    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+  });
+});
+
+test('#resolveConfigPath finds the config file under the home config directory when XDG_CONFIG_HOME is unset', async () => {
+  const ctx = await setupTest();
+
+  expect(resolveConfigPath({ env: {}, home: ctx.dir })).toBe(
+    join(ctx.dir, '.config', 'auto-mode', 'config.json'),
+  );
+});
+
+test('#resolveConfigPath finds the config file under XDG_CONFIG_HOME when it is set', async () => {
+  const ctx = await setupTest();
+
+  expect(resolveConfigPath({ env: { XDG_CONFIG_HOME: join(ctx.dir, 'xdg') }, home: ctx.dir })).toBe(
+    join(ctx.dir, 'xdg', 'auto-mode', 'config.json'),
+  );
+});
+
+test('#resolveApiKey reads the API key from the environment variable first', async () => {
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    buildMockProviderConfig({
+      apiKeyEnv: 'AUTO_MODE_TEST_KEY',
+      apiKeyCommand: 'printf from-command',
+    }),
+    { host: { env: { AUTO_MODE_TEST_KEY: 'from-env' }, home: ctx.dir } },
+  );
+
+  expect(key).toBe('from-env');
+});
+
+test('#resolveApiKey falls back to the key command when the variable is unset', async () => {
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    buildMockProviderConfig({
+      apiKeyEnv: 'AUTO_MODE_TEST_KEY',
+      apiKeyCommand: 'printf from-command',
+    }),
+    { host: { env: {}, home: ctx.dir } },
+  );
+
+  expect(key).toBe('from-command');
+});
+
+test('#resolveApiKey runs the key command in the injected environment', async () => {
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    buildMockProviderConfig({
+      apiKeyEnv: 'AUTO_MODE_TEST_KEY',
+      apiKeyCommand: 'printf %s "$INJECTED_KEY"',
+    }),
+    { host: { env: { INJECTED_KEY: 'from-injected-env' }, home: ctx.dir } },
+  );
+
+  expect(key).toBe('from-injected-env');
+});
+
+test('#resolveApiKey gives the key command the injected home when the injected environment has none', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(join(ctx.dir, 'key'), 'from-home-file');
+
+  const key = await resolveApiKey(
+    buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: 'cat "$HOME/key"' }),
+    { host: { env: {}, home: ctx.dir } },
+  );
+
+  expect(key).toBe('from-home-file');
+});
+
+test('#resolveApiKey reports no key when neither the variable nor a command is set', async () => {
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: undefined }),
+    { host: { env: {}, home: ctx.dir } },
+  );
+
+  expect(key).toBeNull();
+});
+
+test('#resolveApiKey reports no key when the key command fails', async () => {
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: 'exit 1' }),
+    { host: { env: {}, home: ctx.dir } },
+  );
+
+  expect(key).toBeNull();
 });

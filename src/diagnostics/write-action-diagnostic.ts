@@ -23,10 +23,15 @@ interface ActionDiagnostic {
   readonly diagnostics?: DecisionDiagnostics;
 }
 
+interface DiagnosticWarnings {
+  readonly write: (line: string) => unknown;
+}
+
 export async function writeActionDiagnostic(
   payload: ActionRequest,
   entry: Readonly<ActionDiagnostic>,
   host: Readonly<HostEnvironment>,
+  warnings: Readonly<DiagnosticWarnings> = process.stderr,
 ): Promise<void> {
   const path =
     host.env['AUTO_MODE_DIAGNOSTICS_PATH'] ?? join(resolveStateDir(host), 'actions.jsonl');
@@ -53,7 +58,7 @@ export async function writeActionDiagnostic(
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
     await appendFile(path, `${JSON.stringify(record)}\n`, { mode: 0o600 });
   } catch {
-    process.stderr.write('auto-mode: diagnostics unavailable\n');
+    warnings.write('auto-mode: diagnostics unavailable\n');
   }
 }
 
