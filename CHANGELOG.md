@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.11.0...auto-mode-v0.12.0) (2026-10-08)
+
+
+### Features
+
+* **geo-157:** let in-scope file edits skip the classifier ([#58](https://github.com/zgeoff/auto-mode/issues/58)) ([2957dd8](https://github.com/zgeoff/auto-mode/commit/2957dd8c1a7f42236fdc497b207e3f3b7c99bca7))
+
 ## [0.11.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.10.0...auto-mode-v0.11.0) (2026-10-08)
 
 
