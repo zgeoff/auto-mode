@@ -13,6 +13,8 @@ async function setupTest() {
 
   // The project lookup walks up to the nearest checkout, so the cwd sits in one.
   await mkdir(join(repo, '.git'), { recursive: true });
+
+  // Claude Code keeps the user settings in .claude under the home.
   await mkdir(join(dir, '.claude'));
 
   return { dir, repo };

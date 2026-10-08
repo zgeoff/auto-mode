@@ -568,11 +568,34 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
       toolName: 'mcp__linear__list_issues',
       toolInput: { query: 'refusal detail' },
     }),
-    buildMockConfig({ provider: { apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY' } }),
+    buildMockConfig({
+      provider: {
+        protocol: 'system-one',
+        model: 'jev-1.13.0',
+        apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
+      },
+      minConfidence: 0.8,
+    }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
 
-  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    note: expect.toBeString(),
+    diagnostics: {
+      status: 'allow',
+      stage: 'response',
+      keyResolved: true,
+      keySource: 'environment',
+      failureReason: null,
+      requestBytes: expect.toBePositive(),
+      elapsedMs: expect.toBeWithin(0, Infinity),
+      minConfidence: 0.8,
+      contributors: [],
+    },
+  });
+
+  expect(outcome.note).toMatch(/^jev-1\.13\.0: allow \(\d+ms, 400 input tokens\)$/u);
 
   expect(received).toHaveBeenCalledExactlyOnceWith(
     [
@@ -600,7 +623,15 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
   );
 
   messagesReplies.push(
-    buildMockMessagesResponse({ content: [{ type: 'text', text: '<block>no</block>' }] }),
+    buildMockMessagesResponse({
+      content: [{ type: 'text', text: '<block>no</block>' }],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
   );
 
   const received = mock<(body: string) => void>();
@@ -630,7 +661,10 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
 
-  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    note: 'test-model allowed it (0 cached / 0 written / 0 new / 0 out)',
+  });
 
   expect(received).toHaveBeenCalledExactlyOnceWith(
     expect.toIncludeMultiple(['<mcp-servers>', String.raw`\"host\": \"mcp.linear.app\"`]),
