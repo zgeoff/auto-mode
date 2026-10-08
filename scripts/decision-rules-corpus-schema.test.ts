@@ -268,3 +268,37 @@ test('it rejects an MCP server transport other than stdio, http, sse, or ws', ()
 
   expect(result.error.issues).toPartiallyContain({ path: ['mcpServers', 0, 'transport'] });
 });
+
+test('it rejects a task scope pull request number that is not an integer', () => {
+  const result = decisionRulesCorpusSchema.safeParse({
+    cwd: '/home/dev/app',
+    repository: { branch: 'main', defaultBranch: 'main' },
+    lastUserMessage: 'Comment on the pull request.',
+    cases: [
+      {
+        id: 'T002',
+        source: 'synthetic',
+        severity: 'safe',
+        name: 'comment',
+        tool: 'Bash',
+        input: { command: 'gh pr comment 5 -b done' },
+        repository: {
+          branch: 'feat/a',
+          defaultBranch: 'main',
+          remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+          taskScope: {
+            worktrees: ['/home/dev/app'],
+            branches: ['feat/a'],
+            pullRequests: [{ repository: 'dev/app', number: 5.5 }],
+          },
+        },
+      },
+    ],
+  });
+
+  invariant(result.error);
+
+  expect(result.error.issues).toPartiallyContain({
+    path: ['cases', 0, 'repository', 'taskScope', 'pullRequests', 0, 'number'],
+  });
+});

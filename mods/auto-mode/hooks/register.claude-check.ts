@@ -535,7 +535,7 @@ test(
 
 test('it takes the session identity from a user prompt when no session has started, without carrying its text', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
-  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult({ stdout: '' }) });
 
   on('classic.UserPromptSubmit', () => ({}));
   on('session.cwd', () => ({ value: '/new-repo' }));
@@ -654,7 +654,7 @@ test('it carries the session identity and the direct user message', async ($, on
 test('it preserves the complete action without truncation', async ($, on) => {
   const content = 'x'.repeat(120_000);
   const decided = buildMockPermissionDecision({ decision: 'ask' });
-  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult({ stdout: '' }) });
 
   on('classic.SessionStart', () => ({}));
   on('session.cwd', () => ({ value: '/repo' }));
@@ -710,7 +710,7 @@ test('it preserves the complete action without truncation', async ($, on) => {
 
 test('it does not replace the main context with a subagent prompt', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
-  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult({ stdout: '' }) });
 
   on('classic.SessionStart', () => ({}));
   on('classic.UserPromptSubmit', () => ({}));
@@ -1149,4 +1149,215 @@ test('it passes the spawn result through unchanged', async ($, on) => {
   const result = await $.agent.spawn({ prompt: 'Fix the parser.' });
 
   expect(result).toStrictEqual({ agentId: 'worker', model: 'sonnet' });
+});
+
+test('it keeps the main session and its prompts when a subagent session starts', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('classic.SessionStart', () => ({}));
+  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'main-session' }),
+    source: 'startup',
+  });
+
+  await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'worker-session', agent_id: 'worker' }),
+    source: 'startup',
+  });
+
+  await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf dist' } });
+
+  const [call] = processRun.calls;
+
+  assertDefined(call);
+
+  expect(call.request).toStrictEqual({
+    sessionID: 'main-session',
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+    context: {
+      agentID: null,
+      originalUserTask: { text: 'Clean the build output.', origin: 'composer' },
+      delegatedTask: null,
+      lastDirectUserMessage: { text: 'Clean the build output.', origin: 'composer' },
+      omittedTaskContext: [],
+    },
+  });
+});
+
+test('it drops the stored prompts when another session compacts', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('classic.SessionStart', () => ({}));
+  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-1' }),
+    source: 'startup',
+  });
+
+  await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-2' }),
+    source: 'compact',
+  });
+
+  await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf dist' } });
+
+  const [call] = processRun.calls;
+
+  assertDefined(call);
+
+  expect(call.request).toStrictEqual({
+    sessionID: 'session-2',
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+    context: {
+      agentID: null,
+      originalUserTask: null,
+      delegatedTask: null,
+      lastDirectUserMessage: null,
+      omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+    },
+  });
+});
+
+test('it drops the stored prompts when the session starts again', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('classic.SessionStart', () => ({}));
+  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-1' }),
+    source: 'startup',
+  });
+
+  await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-1' }),
+    source: 'startup',
+  });
+
+  await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf dist' } });
+
+  const [call] = processRun.calls;
+
+  assertDefined(call);
+
+  expect(call.request).toStrictEqual({
+    sessionID: 'session-1',
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+    context: {
+      agentID: null,
+      originalUserTask: null,
+      delegatedTask: null,
+      lastDirectUserMessage: null,
+      omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+    },
+  });
+});
+
+test('it records nothing for a scope-creating Bash call before any session starts', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.call', () => buildMockCallResult());
+  on('process.run', processRun.hook);
+
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'call-1', command: 'gh pr create --fill' });
+
+  expect(processRun.calls).toStrictEqual([]);
+});
+
+test('it records nothing for a scope-creating command outside the Bash tool', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('classic.SessionStart', () => ({}));
+  on('tool.call', () => buildMockCallResult());
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ ...buildMockSessionContext(), source: 'startup' });
+  await $.tool.call({ tool: 'Write', tool_use_id: 'call-1', command: 'gh pr create --fill' });
+
+  expect(processRun.calls).toStrictEqual([]);
+});
+
+test('it records nothing for a Bash command that is not text', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('classic.SessionStart', () => ({}));
+  on('tool.call', () => buildMockCallResult());
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ ...buildMockSessionContext(), source: 'startup' });
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'call-1', command: ['gh pr create --fill'] });
+
+  expect(processRun.calls).toStrictEqual([]);
+});
+
+test('it records an empty result text for a call result without text', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('classic.SessionStart', () => ({}));
+  on('tool.call', () => buildMockCallResult({ text: undefined }));
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-1' }),
+    source: 'startup',
+  });
+
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'call-1', command: 'git switch -c fix/a' });
+
+  const [call] = processRun.calls;
+
+  assertDefined(call);
+
+  expect(call.request).toStrictEqual({
+    sessionID: 'session-1',
+    cwd: '/repo',
+    startedAt: expect.any(Number),
+    command: 'git switch -c fix/a',
+    resultText: '',
+  });
+});
+
+test('it passes a denied spawn through unchanged', async ($, on) => {
+  on('agent.spawn', () => ({ deny: 'no' }));
+
+  const result = await $.agent.spawn({ prompt: 'Fix the parser.' });
+
+  expect(result).toStrictEqual({ deny: 'no' });
 });

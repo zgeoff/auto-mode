@@ -101,6 +101,17 @@ interface LogOptions {
   readonly to: 'debug';
 }
 
+// The call a mod makes differs from the event a hook receives: the host adds the
+// parent agent to the event, and the call takes the spawn options.
+interface AgentSpawnArgs {
+  readonly prompt: string;
+  readonly description?: string;
+  readonly subagentType?: string;
+  readonly model?: string;
+  readonly name?: string;
+  readonly cwd?: string;
+}
+
 export interface ModAPI {
   readonly ui: { readonly log: (text: string, options?: LogOptions) => void };
   readonly session: { readonly cwd: () => Promise<string> };
@@ -109,7 +120,7 @@ export interface ModAPI {
   };
   readonly prompt: { readonly submit: (input: PromptInput) => Promise<object> };
   readonly agent: {
-    readonly spawn: (input: SpawnInput) => Promise<ModEvents['agent.spawn']['result']>;
+    readonly spawn: (input: AgentSpawnArgs) => Promise<ModEvents['agent.spawn']['result']>;
   };
   readonly tool: {
     readonly check: (input: CheckInput) => Promise<PermissionDecision>;
