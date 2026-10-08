@@ -111,7 +111,7 @@ test('it answers a request in the wire form the client sends', async () => {
   });
 });
 
-test('it refuses a request that carries the rules beside the questions', () => {
+test('it answers HTTP 400 for a request that carries the rules beside the questions', async () => {
   const request = new Request(DECISION_URL, {
     method: 'POST',
     body: JSON.stringify({
@@ -135,12 +135,50 @@ test('it refuses a request that carries the rules beside the questions', () => {
     }),
   });
 
-  expect(sendDecisionReply({ request })).rejects.toMatchObject({
-    issues: expect.toPartiallyContain({ code: 'unrecognized_keys', keys: ['rules'], path: [] }),
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(400);
+
+  expect(body).toStrictEqual({
+    detail: { error_type: 'api_usage_error', message: 'Invalid request.' },
   });
 });
 
-test('it refuses a question whose criteria leave out ask', () => {
+test('it answers HTTP 400 for a question of a type other than choice', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'jev-1.13.0',
+      state: {
+        policy: 'policy',
+        answerGuidance: 'guidance',
+        rulesSource: 'shipped',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+      },
+      questions: {
+        rule_0: {
+          type: 'text',
+          instructions: 'Is the action destructive?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+        },
+      },
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(400);
+
+  expect(body).toStrictEqual({
+    detail: { error_type: 'api_usage_error', message: 'Invalid request.' },
+  });
+});
+
+test('it answers a question whose criteria leave out ask', async () => {
   const request = new Request(DECISION_URL, {
     method: 'POST',
     body: JSON.stringify({
@@ -163,12 +201,26 @@ test('it refuses a question whose criteria leave out ask', () => {
     }),
   });
 
-  expect(sendDecisionReply({ request })).rejects.toMatchObject({
-    issues: expect.toPartiallyContain({ path: ['questions', 'rule_0', 'criteria', 'ask'] }),
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(200);
+
+  expect(body).toStrictEqual({
+    model: 'jev-1.13.0',
+    answers: {
+      rule_0: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 1,
+        probabilities: { allow: 1, block: 0, ask: 0 },
+      },
+    },
+    usage: { input_tokens: 400 },
   });
 });
 
-test('it refuses a state without the action', () => {
+test('it answers a state without the action', async () => {
   const request = new Request(DECISION_URL, {
     method: 'POST',
     body: JSON.stringify({
@@ -190,7 +242,434 @@ test('it refuses a state without the action', () => {
     }),
   });
 
-  expect(sendDecisionReply({ request })).rejects.toMatchObject({
-    issues: expect.toPartiallyContain({ path: ['state', 'action'] }),
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(200);
+
+  expect(body).toStrictEqual({
+    model: 'jev-1.13.0',
+    answers: {
+      rule_0: {
+        type: 'choice',
+        choice: 'allow',
+        confidence: 1,
+        probabilities: { allow: 1, block: 0, ask: 0 },
+      },
+    },
+    usage: { input_tokens: 400 },
+  });
+});
+
+test('it answers HTTP 422 for a request without the model', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      state: {
+        policy: 'policy',
+        answerGuidance: 'guidance',
+        rulesSource: 'shipped',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+      },
+      questions: {
+        rule_0: {
+          type: 'choice',
+          instructions: 'Is the action destructive?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+        },
+      },
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'missing',
+        loc: ['body', 'model'],
+        msg: 'Field required',
+        input: {
+          state: {
+            policy: 'policy',
+            answerGuidance: 'guidance',
+            rulesSource: 'shipped',
+            configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+            lastUserMessage: null,
+            action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+          },
+          questions: {
+            rule_0: {
+              type: 'choice',
+              instructions: 'Is the action destructive?',
+              criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+            },
+          },
+        },
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a model that is not text', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 42,
+      state: {
+        policy: 'policy',
+        answerGuidance: 'guidance',
+        rulesSource: 'shipped',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+      },
+      questions: {
+        rule_0: {
+          type: 'choice',
+          instructions: 'Is the action destructive?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+        },
+      },
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'string_type',
+        loc: ['body', 'model'],
+        msg: 'Input should be a valid string',
+        input: 42,
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a request without the state', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'jev-1.13.0',
+      questions: {
+        rule_0: {
+          type: 'choice',
+          instructions: 'Is the action destructive?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+        },
+      },
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'missing',
+        loc: ['body', 'state'],
+        msg: 'Field required',
+        input: {
+          model: 'jev-1.13.0',
+          questions: {
+            rule_0: {
+              type: 'choice',
+              instructions: 'Is the action destructive?',
+              criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+            },
+          },
+        },
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a null state as a missing one', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'jev-1.13.0',
+      state: null,
+      questions: {
+        rule_0: {
+          type: 'choice',
+          instructions: 'Is the action destructive?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+        },
+      },
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'missing',
+        loc: ['body', 'state'],
+        msg: 'Field required',
+        input: {
+          model: 'jev-1.13.0',
+          state: null,
+          questions: {
+            rule_0: {
+              type: 'choice',
+              instructions: 'Is the action destructive?',
+              criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+            },
+          },
+        },
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a request without the questions', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'jev-1.13.0',
+      state: {
+        policy: 'policy',
+        answerGuidance: 'guidance',
+        rulesSource: 'shipped',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+      },
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'missing',
+        loc: ['body', 'questions'],
+        msg: 'Field required',
+        input: {
+          model: 'jev-1.13.0',
+          state: {
+            policy: 'policy',
+            answerGuidance: 'guidance',
+            rulesSource: 'shipped',
+            configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+            lastUserMessage: null,
+            action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+          },
+        },
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for questions sent as a list', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'jev-1.13.0',
+      state: {
+        policy: 'policy',
+        answerGuidance: 'guidance',
+        rulesSource: 'shipped',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+      },
+      questions: [
+        {
+          type: 'choice',
+          instructions: 'Is the action destructive?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+        },
+      ],
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'dict_type',
+        loc: ['body', 'questions'],
+        msg: 'Input should be a valid dictionary',
+        input: [
+          {
+            type: 'choice',
+            instructions: 'Is the action destructive?',
+            criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+          },
+        ],
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a request with no question', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'jev-1.13.0',
+      state: {
+        policy: 'policy',
+        answerGuidance: 'guidance',
+        rulesSource: 'shipped',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+      },
+      questions: {},
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'too_short',
+        loc: ['body', 'questions'],
+        msg: 'Dictionary should have at least 1 item after validation, not 0',
+        input: {},
+        ctx: { actual_length: 0, field_type: 'Dictionary', min_length: 1 },
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a question that is not an object', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'jev-1.13.0',
+      state: {
+        policy: 'policy',
+        answerGuidance: 'guidance',
+        rulesSource: 'shipped',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+      },
+      questions: { rule_0: 'Is the action destructive?' },
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'model_attributes_type',
+        loc: ['body', 'questions', 'rule_0'],
+        msg: 'Input should be a valid dictionary or object to extract fields from',
+        input: 'Is the action destructive?',
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a question without a type', async () => {
+  const request = new Request(DECISION_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: 'jev-1.13.0',
+      state: {
+        policy: 'policy',
+        answerGuidance: 'guidance',
+        rulesSource: 'shipped',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        lastUserMessage: null,
+        action: { tool: 'Bash', cwd: '/w/app', input: { command: 'ls' } },
+      },
+      questions: {
+        rule_0: {
+          instructions: 'Is the action destructive?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+        },
+      },
+    }),
+  });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'union_tag_not_found',
+        loc: ['body', 'questions', 'rule_0'],
+        msg: "Unable to extract tag using discriminator 'type'",
+        input: {
+          instructions: 'Is the action destructive?',
+          criteria: { allow: 'no', block: 'yes', ask: 'unsure' },
+        },
+        ctx: { discriminator: "'type'" },
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a request body that is a list', async () => {
+  const request = new Request(DECISION_URL, { method: 'POST', body: '[]' });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [
+      {
+        type: 'model_attributes_type',
+        loc: ['body'],
+        msg: 'Input should be a valid dictionary or object to extract fields from',
+        input: [],
+      },
+    ],
+  });
+});
+
+test('it answers HTTP 422 for a request body that is not JSON', async () => {
+  const request = new Request(DECISION_URL, { method: 'POST', body: '{"model":' });
+
+  const response = await sendDecisionReply({ request });
+  const body: unknown = await response.json();
+
+  expect(response.status).toBe(422);
+
+  expect(body).toStrictEqual({
+    detail: [{ type: 'json_invalid', loc: ['body'], msg: 'JSON decode error', input: {} }],
   });
 });
