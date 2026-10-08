@@ -145,7 +145,7 @@ test('it prints its row only once the delay a pull request names has passed', as
         number: 12,
         headRefName: 'feat/a',
         createdAt: '2026-01-01T00:00:00Z',
-        delayMs: 50,
+        delayMs: 300,
       },
     ]),
   );
@@ -178,7 +178,7 @@ test('it prints its row only once the delay a pull request names has passed', as
     stderr: '',
   });
 
-  expect(elapsedMs).toBeGreaterThanOrEqual(50);
+  expect(elapsedMs).toBeGreaterThanOrEqual(300);
 });
 
 test('it fails without the path of its pull request file', () => {
@@ -186,8 +186,11 @@ test('it fails without the path of its pull request file', () => {
     encoding: 'utf8',
   });
 
-  expect(result.status).toBe(1);
-  expect(result.stderr).toInclude('run-stub-gh needs the path of its pull request file');
+  expect({ status: result.status, stdout: result.stdout, stderr: result.stderr }).toStrictEqual({
+    status: 1,
+    stdout: '',
+    stderr: expect.toInclude('run-stub-gh needs the path of its pull request file'),
+  });
 });
 
 test('it exits with the code a pull request names after printing its row', async () => {
