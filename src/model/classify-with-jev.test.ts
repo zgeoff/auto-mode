@@ -732,7 +732,12 @@ test.each([
     const stateSchema = z.object({ repositoryContext: z.unknown(), action: actionSchema });
     const request = z.object({ state: stateSchema }).parse(received);
 
-    expect(request.state.repositoryContext).toStrictEqual({ cwd, branch, defaultBranch: 'main' });
+    expect(request.state.repositoryContext).toStrictEqual({
+      cwd,
+      branch,
+      defaultBranch: 'main',
+      remotes: [],
+    });
 
     expect(request.state.action.input).toStrictEqual({
       command,
@@ -823,7 +828,7 @@ test.each([
     const request = z.object({ state: z.record(z.string(), z.unknown()) }).parse(received);
 
     const expectedRepository =
-      override === null ? { cwd, branch: 'feature', defaultBranch: 'main' } : null;
+      override === null ? { cwd, branch: 'feature', defaultBranch: 'main', remotes: [] } : null;
 
     expect(request.state['repositoryContext'] ?? null).toStrictEqual(expectedRepository);
     expect(request.state['action']).toStrictEqual({ tool: toolName, cwd, input });
@@ -1108,4 +1113,60 @@ test('it reports a provider timeout as a timeout with the request size', async (
   invariant(result.diagnostics, 'the timeout has diagnostics');
 
   expect(result.diagnostics.requestBytes).toBeGreaterThan(0);
+});
+
+test('it sends the checkout remotes and the task scope with a non-Git action', async () => {
+  await using ctx = await setupTest();
+
+  const cwd = join(ctx.classifier, '..');
+  const gitDir = join(cwd, '.git');
+
+  await mkdir(gitDir, { recursive: true });
+  await writeFile(join(gitDir, 'HEAD'), 'ref: refs/heads/feature\n');
+
+  await writeFile(
+    join(gitDir, 'config'),
+    '[remote "origin"]\n\turl = git@github.com:dev/app.git\n',
+  );
+
+  let received: unknown;
+
+  server.use(
+    http.post('https://decision.test/v1/systemone', async (info) => {
+      received = await info.request.json();
+
+      return HttpResponse.json({ model: 'recorded', answers: {}, usage: { input_tokens: 1 } });
+    }),
+  );
+
+  const taskScope = {
+    worktrees: [cwd],
+    branches: ['feature'],
+    pullRequests: [{ repository: 'dev/app', number: 7 }],
+  };
+
+  await classifyWithModel(
+    { sessionID: 's', cwd, toolName: 'Bash', toolInput: { command: 'gh pr view 7' } },
+    {
+      ...DEFAULT_CONFIG,
+      provider: {
+        ...DEFAULT_CONFIG.provider,
+        baseURL: 'https://decision.test',
+        apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY',
+      },
+      claudeSettingsPath: null,
+    },
+    { taskScope },
+  );
+
+  const stateSchema = z.object({ repositoryContext: z.unknown() });
+  const request = z.object({ state: stateSchema }).parse(received);
+
+  expect(request.state.repositoryContext).toStrictEqual({
+    cwd,
+    branch: 'feature',
+    defaultBranch: null,
+    remotes: [{ name: 'origin', url: 'github.com:dev/app.git' }],
+    taskScope,
+  });
 });

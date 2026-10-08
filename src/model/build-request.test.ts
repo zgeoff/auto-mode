@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import invariant from 'tiny-invariant';
 import type { ActionRequest } from '../request/types.ts';
 import { buildUserMessage } from './build-request.ts';
 
@@ -67,4 +68,26 @@ test('it truncates a tool input that is very large', () => {
   );
 
   expect(message.length).toBeLessThan(10_000);
+});
+
+test('it puts the repository facts between the transcript and the action', () => {
+  const repository = {
+    cwd: '/repo',
+    branch: 'feature',
+    defaultBranch: 'main',
+    remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+  };
+
+  const message = buildUserMessage(PAYLOAD, [], true, repository);
+  const block = /<repository>\n(?<json>[\s\S]*?)\n<\/repository>/u.exec(message)?.groups?.['json'];
+
+  invariant(block !== undefined, 'the message holds a repository block');
+
+  expect(JSON.parse(block)).toStrictEqual(repository);
+  expect(message.indexOf('</transcript>')).toBeLessThan(message.indexOf('<repository>'));
+  expect(message.indexOf('</repository>')).toBeLessThan(message.indexOf('<action>'));
+});
+
+test('it leaves the repository block out when there are no repository facts', () => {
+  expect(buildUserMessage(PAYLOAD, [], true)).not.toInclude('<repository>');
 });

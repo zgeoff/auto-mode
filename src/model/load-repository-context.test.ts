@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import invariant from 'tiny-invariant';
 import { loadRepositoryContext } from './load-repository-context.ts';
 
 async function setupTest() {
@@ -58,6 +59,7 @@ test('it reads a feature branch from a linked worktree without running Git or it
     cwd: join(worktree, 'src'),
     branch: 'fix-detail',
     defaultBranch: 'main',
+    remotes: [],
   });
 });
 
@@ -75,6 +77,7 @@ test('it reports main even when the worktree directory has a feature name', asyn
     cwd: worktree,
     branch: 'main',
     defaultBranch: null,
+    remotes: [],
   });
 });
 
@@ -90,6 +93,7 @@ test('it keeps detached and unknown default branches unknown', async () => {
     cwd: ctx.repo,
     branch: null,
     defaultBranch: null,
+    remotes: [],
   });
 });
 
@@ -109,6 +113,7 @@ test('it reads a custom default branch without assuming main', async () => {
     cwd: ctx.repo,
     branch: 'stable',
     defaultBranch: 'stable',
+    remotes: [],
   });
 });
 
@@ -148,3 +153,40 @@ test.each(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'] as const)(
     expect(context).toBeNull();
   },
 );
+
+test('it reads the checkout remotes without the user info a URL can carry', async () => {
+  const ctx = await setupTest();
+
+  const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2Rl'].join('');
+
+  await writeFile(
+    join(ctx.gitDir, 'config'),
+    [
+      '[remote "origin"]',
+      '\turl = git@github.com:dev/app.git',
+      '[remote "mirror"]',
+      `\turl = https://dev:${token}@git.example.com/dev/app.git`,
+      '[remote "quoted"]',
+      `\turl = "https://dev:${token}@git.example.com/dev/app.git" # mirror`,
+      '[remote "odd"]',
+      `\turl = dev:${token}@git.example.com:dev/app.git`,
+      '[remote "token"]',
+      `\turl = ${token}@git.example.com:dev/app.git`,
+      '',
+    ].join('\n'),
+  );
+
+  await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/main\n');
+
+  const context = await loadRepositoryContext(ctx.repo);
+
+  invariant(context !== null, 'the checkout has Git metadata');
+
+  expect(context.remotes).toStrictEqual([
+    { name: 'origin', url: 'github.com:dev/app.git' },
+    { name: 'mirror', url: 'https://git.example.com/dev/app.git' },
+    { name: 'quoted', url: 'https://git.example.com/dev/app.git' },
+    { name: 'odd', url: 'git.example.com:dev/app.git' },
+    { name: 'token', url: 'git.example.com:dev/app.git' },
+  ]);
+});

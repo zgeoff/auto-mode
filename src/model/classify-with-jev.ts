@@ -9,7 +9,7 @@ import type { ModelOutcome } from './classify-with-model.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
-import { loadRepositoryContext } from './load-repository-context.ts';
+import { loadRepositoryEvidence } from './load-repository-evidence.ts';
 import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 import { sendDecision } from './send-decision.ts';
 import type { DecisionDiagnostics } from './types.ts';
@@ -48,18 +48,13 @@ export async function classifyWithJev(
         ? (payload.decisionContext.lastDirectUserMessage?.text ?? null)
         : null;
 
-    const command = payload.toolInput['command'] ?? payload.toolInput['cmd'];
-    const hasGitCommand = typeof command === 'string' && /\bgit\s/u.test(command);
-    const isFileEdit = payload.toolName === 'Write' || payload.toolName === 'Edit';
-    const needsRepositoryContext = hasGitCommand || isFileEdit;
-
     const [policy, rules, repositoryContext] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
       ),
       loadClaudeRules(config.claudeSettingsPath),
-      needsRepositoryContext ? loadRepositoryContext(payload.cwd) : Promise.resolve(null),
+      loadRepositoryEvidence(payload.cwd, options.taskScope).catch(() => null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';

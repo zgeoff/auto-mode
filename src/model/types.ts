@@ -40,6 +40,19 @@ export interface RepositoryContext {
   readonly cwd: string;
   readonly branch: string | null;
   readonly defaultBranch: string | null;
+  readonly remotes?: readonly RepositoryRemote[] | undefined;
+  readonly taskScope?: TaskScopeSummary | undefined;
+}
+
+interface RepositoryRemote {
+  readonly name: string;
+  readonly url: string;
+}
+
+export interface TaskScopeSummary {
+  readonly worktrees: readonly string[];
+  readonly branches: readonly string[];
+  readonly pullRequests: readonly { readonly repository: string; readonly number: number }[];
 }
 
 interface DecisionAnswer {
