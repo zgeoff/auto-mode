@@ -1,13 +1,14 @@
 import type { Config } from './config/config.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
 import type { EvaluationOptions } from './config/types.ts';
+import { checkContainment } from './containment/check-containment.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 
-export type DecidingStage = 'local' | 'jev' | 'messages' | 'retry';
+export type DecidingStage = 'local' | 'containment' | 'jev' | 'messages' | 'retry';
 
 export interface ActionOutcome {
   readonly verdict: Verdict | null;
@@ -53,13 +54,27 @@ export async function classifyAction(
       ? { kind: 'escalate' as const }
       : classifyLocally(request);
 
-  if (local.kind === 'allow') {
+  // A local allow for regenerable output deletes files, so only a read-only
+  // allow comes before the containment check.
+  if (local.kind === 'allow' && local.exception === READ_ONLY_EXCEPTION) {
+    return buildLocalAllow(local.exception);
+  }
+
+  const containment = await checkContainment(request);
+
+  if (containment !== null) {
+    const guidance = await tryReadDenialGuidance();
+
     return {
-      verdict: { kind: 'allow' },
-      decidingStage: 'local',
-      note: `allowed by ${local.exception} (local)`,
-      status: 'allow',
+      verdict: buildGuidedDeny(containment.rule, containment.reason, guidance),
+      decidingStage: 'containment',
+      note: `denied by the containment check: ${containment.findings.map((finding) => finding.target).join(', ')}`,
+      status: 'deny',
     };
+  }
+
+  if (local.kind === 'allow') {
+    return buildLocalAllow(local.exception);
   }
 
   if (options.localOnly === true) {
@@ -84,6 +99,17 @@ export async function classifyAction(
         ? buildGuidedDeny(outcome.verdict.rule, outcome.verdict.reason, guidance)
         : outcome.verdict,
     status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
+  };
+}
+
+const READ_ONLY_EXCEPTION = 'Read-only actions';
+
+function buildLocalAllow(exception: string): ActionOutcome {
+  return {
+    verdict: { kind: 'allow' },
+    decidingStage: 'local',
+    note: `allowed by ${exception} (local)`,
+    status: 'allow',
   };
 }
 
