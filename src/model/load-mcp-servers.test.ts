@@ -238,3 +238,64 @@ test('it lists nothing when the Claude Code state is not JSON', async () => {
 
   expect(servers).toStrictEqual([]);
 });
+
+test.each([
+  ['an empty name', '', { command: 'tool' }],
+  ['a name longer than 128 characters', 'n'.repeat(129), { command: 'tool' }],
+  ['an unknown transport type', 'grpc', { type: 'grpc', url: 'https://grpc.example.test/mcp' }],
+])('it drops a server with %s', async (_label, name, entry) => {
+  const ctx = await setupTest();
+
+  await writeFile(join(ctx.dir, '.claude.json'), JSON.stringify({ mcpServers: { [name]: entry } }));
+
+  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+
+  expect(servers).toStrictEqual([]);
+});
+
+test('it keeps a server whose name is exactly 128 characters', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, '.claude.json'),
+    JSON.stringify({ mcpServers: { ['n'.repeat(128)]: { command: 'tool' } } }),
+  );
+
+  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+
+  expect(servers).toStrictEqual([
+    { name: 'n'.repeat(128), scope: 'user', transport: 'stdio', host: null },
+  ]);
+});
+
+test('it reads a streamable-http server as http', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, '.claude.json'),
+    JSON.stringify({
+      mcpServers: { api: { type: 'streamable-http', url: 'https://api.example.test/mcp' } },
+    }),
+  );
+
+  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+
+  expect(servers).toStrictEqual([
+    { name: 'api', scope: 'user', transport: 'http', host: 'api.example.test' },
+  ]);
+});
+
+test('it leaves the host unknown when the server URL is not http or ws', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, '.claude.json'),
+    JSON.stringify({
+      mcpServers: { files: { type: 'http', url: 'ftp://files.example.test/mcp' } },
+    }),
+  );
+
+  const servers = await loadMCPServers(ctx.repo, { env: {}, home: ctx.dir });
+
+  expect(servers).toStrictEqual([{ name: 'files', scope: 'user', transport: 'http', host: null }]);
+});
