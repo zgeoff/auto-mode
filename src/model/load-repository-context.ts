@@ -126,9 +126,10 @@ function normalizeRemoteURL(url: string): string | null {
     return parsed.href;
   }
 
-  // The scp form `user@host:path` names an account, never a secret, unless the
-  // user part holds a colon.
-  const at = url.indexOf('@');
+  // In the scp form `user@host:path` the user part can itself be a token.
+  const slash = url.indexOf('/');
+  const end = slash === -1 ? url.length : slash;
+  const at = url.lastIndexOf('@', end);
 
-  return at !== -1 && url.slice(0, at).includes(':') ? null : url;
+  return at === -1 ? url : url.slice(at + 1);
 }

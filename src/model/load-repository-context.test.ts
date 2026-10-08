@@ -170,6 +170,8 @@ test('it reads the checkout remotes without the user info a URL can carry', asyn
       `\turl = "https://dev:${token}@git.example.com/dev/app.git" # mirror`,
       '[remote "odd"]',
       `\turl = dev:${token}@git.example.com:dev/app.git`,
+      '[remote "token"]',
+      `\turl = ${token}@git.example.com:dev/app.git`,
       '',
     ].join('\n'),
   );
@@ -181,8 +183,10 @@ test('it reads the checkout remotes without the user info a URL can carry', asyn
   invariant(context !== null, 'the checkout has Git metadata');
 
   expect(context.remotes).toStrictEqual([
-    { name: 'origin', url: 'git@github.com:dev/app.git' },
+    { name: 'origin', url: 'github.com:dev/app.git' },
     { name: 'mirror', url: 'https://git.example.com/dev/app.git' },
     { name: 'quoted', url: 'https://git.example.com/dev/app.git' },
+    { name: 'odd', url: 'git.example.com:dev/app.git' },
+    { name: 'token', url: 'git.example.com:dev/app.git' },
   ]);
 });

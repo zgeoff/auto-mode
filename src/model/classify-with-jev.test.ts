@@ -1166,7 +1166,7 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
     cwd,
     branch: 'feature',
     defaultBranch: null,
-    remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    remotes: [{ name: 'origin', url: 'github.com:dev/app.git' }],
     taskScope,
   });
 });
