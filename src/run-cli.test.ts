@@ -17,7 +17,11 @@ import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-requ
 import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import type { HostEnvironment } from './config/types.ts';
+import { loadPolicy } from './policy/load-policy.ts';
 import { runCLI } from './run-cli.ts';
+import { loadSessionScope } from './scope/load-session-scope.ts';
+import { resolveSessionScopePath } from './scope/resolve-session-scope-path.ts';
+import { resolveStateDir } from './state/resolve-state-dir.ts';
 
 async function setupTest(): Promise<{
   readonly dir: string;
@@ -59,10 +63,9 @@ async function setupTest(): Promise<{
         // the CLI reads Claude Code's settings.json under this directory
         CLAUDE_CONFIG_DIR: dir,
       },
-      home: dir,
 
-      // the temp root sits under /tmp, which the default treats as scratch space
-      scratchPaths: [],
+      // the CLI expands ~ in commands and config paths to this directory
+      home: dir,
     },
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
@@ -251,8 +254,9 @@ test('it refuses an evaluation deadline outside Jev-only mode', async () => {
   });
 });
 
-test('it prints the assembled prompt with no marker left behind', async () => {
+test('it prints the shipped Jev framework with the shipped rules in place of the marker', async () => {
   const ctx = await setupTest();
+  const policy = await loadPolicy({}, 'decision.md');
 
   const exitCode = await runCLI(['print-prompt'], {
     stdin: () => Promise.resolve(''),
@@ -264,11 +268,9 @@ test('it prints the assembled prompt with no marker left behind', async () => {
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
-    stdout: expect.toInclude('## HARD BLOCK rules'),
+    stdout: `${policy}\n`,
     stderr: '',
   });
-
-  expect(ctx.stdout.read()).not.toInclude('<rules>');
 });
 
 test('it reads an overridden policy instead of the shipped one', async () => {
@@ -456,6 +458,8 @@ test('it exits successfully on malformed classifier configuration without echoin
     toolInput: { file_path: join(ctx.repo, 'file.ts') },
   });
 
+  const runStartedAt = Date.now();
+
   const exitCode = await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
@@ -463,6 +467,8 @@ test('it exits successfully on malformed classifier configuration without echoin
     host: ctx.host,
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
+
+  const runFinishedAt = Date.now();
 
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
@@ -480,7 +486,9 @@ test('it exits successfully on malformed classifier configuration without echoin
   ).toStrictEqual([
     {
       schemaVersion: 3,
-      time: expect.toBeDateString(),
+      time: expect.toSatisfy(
+        (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+      ),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
       actionHash: expect.toBeString(),
@@ -493,7 +501,9 @@ test('it exits successfully on malformed classifier configuration without echoin
     },
     {
       schemaVersion: 3,
-      time: expect.toBeDateString(),
+      time: expect.toSatisfy(
+        (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+      ),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
       actionHash: expect.toBeString(),
@@ -545,6 +555,8 @@ test('it counts down to one denial left on the second denial in a row', async ()
     context: { agentID: null },
   });
 
+  const runStartedAt = Date.now();
+
   const exitCode = await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
@@ -552,6 +564,8 @@ test('it counts down to one denial left on the second denial in a row', async ()
     host: ctx.host,
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
+
+  const runFinishedAt = Date.now();
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
@@ -571,7 +585,9 @@ test('it counts down to one denial left on the second denial in a row', async ()
 
   expect(JSON.parse(last)).toStrictEqual({
     schemaVersion: 3,
-    time: expect.toBeDateString(),
+    time: expect.toSatisfy(
+      (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+    ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
     actionHash: expect.toBeString(),
@@ -624,6 +640,8 @@ test('it warns on the third denial in a row that it is the last before the user 
     context: { agentID: null },
   });
 
+  const runStartedAt = Date.now();
+
   const exitCode = await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
@@ -631,6 +649,8 @@ test('it warns on the third denial in a row that it is the last before the user 
     host: ctx.host,
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
+
+  const runFinishedAt = Date.now();
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
@@ -650,7 +670,9 @@ test('it warns on the third denial in a row that it is the last before the user 
 
   expect(JSON.parse(last)).toStrictEqual({
     schemaVersion: 3,
-    time: expect.toBeDateString(),
+    time: expect.toSatisfy(
+      (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+    ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
     actionHash: expect.toBeString(),
@@ -703,6 +725,8 @@ test('it leaves the fourth action in a row to the user after three denials', asy
     context: { agentID: null },
   });
 
+  const runStartedAt = Date.now();
+
   const exitCode = await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
@@ -710,6 +734,8 @@ test('it leaves the fourth action in a row to the user after three denials', asy
     host: ctx.host,
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
+
+  const runFinishedAt = Date.now();
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
@@ -725,7 +751,9 @@ test('it leaves the fourth action in a row to the user after three denials', asy
 
   expect(JSON.parse(last)).toStrictEqual({
     schemaVersion: 3,
-    time: expect.toBeDateString(),
+    time: expect.toSatisfy(
+      (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+    ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
     actionHash: expect.toBeString(),
@@ -752,7 +780,7 @@ test('it starts the denial count over after the user decides an action', async (
 
   await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
 
-  for (const command of ['git push a', 'git push b', 'git push c', 'git push d']) {
+  for (const command of ['git push a', 'git push b', 'git push c']) {
     const payload = buildMockModRequest({
       sessionID: 'cli-session',
       cwd: ctx.repo,
@@ -770,6 +798,25 @@ test('it starts the denial count over after the user decides an action', async (
     });
   }
 
+  const userDecided = buildMockModRequest({
+    sessionID: 'cli-session',
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'git push d' },
+    context: { agentID: null },
+  });
+
+  const userDecidedStdout = buildStubOutput();
+  const userDecidedStderr = buildStubOutput();
+
+  await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(userDecided)),
+    stdout: userDecidedStdout,
+    stderr: userDecidedStderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
   const payload = buildMockModRequest({
     sessionID: 'cli-session',
     cwd: ctx.repo,
@@ -778,6 +825,8 @@ test('it starts the denial count over after the user decides an action', async (
     context: { agentID: null },
   });
 
+  const runStartedAt = Date.now();
+
   const exitCode = await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
@@ -785,6 +834,8 @@ test('it starts the denial count over after the user decides an action', async (
     host: ctx.host,
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
+
+  const runFinishedAt = Date.now();
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
@@ -804,7 +855,9 @@ test('it starts the denial count over after the user decides an action', async (
 
   expect(JSON.parse(last)).toStrictEqual({
     schemaVersion: 3,
-    time: expect.toBeDateString(),
+    time: expect.toSatisfy(
+      (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+    ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
     actionHash: expect.toBeString(),
@@ -815,6 +868,12 @@ test('it starts the denial count over after the user decides an action', async (
     escalation: false,
     diagnostics: null,
   });
+
+  expect(userDecidedStdout.read()).toBe('');
+
+  expect(userDecidedStderr.read()).toBe(
+    'auto-mode: denial budget exhausted; the user decides this action\n',
+  );
 });
 
 test('it denies a retry of the action just denied without asking the classifier', async () => {
@@ -850,6 +909,8 @@ test('it denies a retry of the action just denied without asking the classifier'
   // Readable settings now would let the classifier tier run; the retry must not reach it.
   await writeFile(join(ctx.dir, 'settings.json'), '{}');
 
+  const runStartedAt = Date.now();
+
   const exitCode = await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
@@ -857,6 +918,8 @@ test('it denies a retry of the action just denied without asking the classifier'
     host: ctx.host,
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
+
+  const runFinishedAt = Date.now();
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
@@ -876,7 +939,9 @@ test('it denies a retry of the action just denied without asking the classifier'
 
   expect(JSON.parse(last)).toStrictEqual({
     schemaVersion: 3,
-    time: expect.toBeDateString(),
+    time: expect.toSatisfy(
+      (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+    ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
     actionHash: expect.toBeString(),
@@ -968,6 +1033,8 @@ test('it keeps the denial count across runs for a resumed session', async () => 
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
+  const runStartedAt = Date.now();
+
   const exitCode = await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(resumed)),
     stdout: ctx.stdout,
@@ -975,6 +1042,8 @@ test('it keeps the denial count across runs for a resumed session', async () => 
     host: ctx.host,
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
+
+  const runFinishedAt = Date.now();
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
@@ -990,7 +1059,9 @@ test('it keeps the denial count across runs for a resumed session', async () => 
 
   expect(JSON.parse(last)).toStrictEqual({
     schemaVersion: 3,
-    time: expect.toBeDateString(),
+    time: expect.toSatisfy(
+      (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+    ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
     actionHash: expect.toBeString(),
@@ -1163,6 +1234,16 @@ test('it records a finished Bash call without writing a verdict', async () => {
     stdout: '',
     stderr: '',
   });
+
+  const scopePath = resolveSessionScopePath(resolveStateDir(ctx.host), 'cli-session');
+
+  const scope = await loadSessionScope(scopePath);
+
+  expect(scope).toStrictEqual({
+    worktrees: [join(ctx.repo, '.worktrees', 'x')],
+    branches: [{ name: 'feat/x', commonDir: join(ctx.repo, '.git') }],
+    pullRequests: [],
+  });
 });
 
 test('it ignores a record body that is not JSON', async () => {
@@ -1302,6 +1383,9 @@ test('it allows an action that Jev clears', async () => {
     toolInput: { command: 'make deploy' },
   });
 
+  const runStartedAt = Date.now();
+  const startedAt = performance.now();
+
   const exitCode = await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
@@ -1309,6 +1393,9 @@ test('it allows an action that Jev clears', async () => {
     host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
+
+  const runFinishedAt = Date.now();
+  const elapsedMs = performance.now() - startedAt;
 
   const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
 
@@ -1324,7 +1411,9 @@ test('it allows an action that Jev clears', async () => {
 
   expect(JSON.parse(last)).toStrictEqual({
     schemaVersion: 3,
-    time: expect.toBeDateString(),
+    time: expect.toSatisfy(
+      (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+    ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
     actionHash: expect.toBeString(),
@@ -1340,7 +1429,7 @@ test('it allows an action that Jev clears', async () => {
       keySource: 'environment',
       failureReason: null,
       requestBytes: expect.toBeNumber(),
-      elapsedMs: expect.toBeNumber(),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       minConfidence: 0.8,
       contributors: [],
     },

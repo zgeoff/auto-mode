@@ -16,8 +16,6 @@ import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-hos
 import { runGit } from '../test-utils/run-git.ts';
 import { classifyAction } from './classify-action.ts';
 
-// Each test's host carries its own scratch paths, because the default treats every
-// path under /tmp, which usually holds this temp root, as scratch space.
 async function setupTest(): Promise<{ readonly dir: string }> {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-classify-action-'));
 
@@ -174,6 +172,8 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
     }),
   );
 
+  const startedAt = performance.now();
+
   const outcome = await classifyAction(
     buildMockActionRequest({
       cwd: join(ctx.dir, 'repo'),
@@ -194,6 +194,8 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
       }),
     },
   );
+
+  const elapsedMs = performance.now() - startedAt;
 
   expect(outcome).toStrictEqual({
     verdict: {
@@ -216,7 +218,7 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
           tier: 'hard',
         },
       ],
-      elapsedMs: expect.toBeNumber(),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       failureReason: null,
       keyResolved: true,
       keySource: 'environment',
@@ -248,6 +250,8 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
 test('it ends a failure reason with a full stop before the safer-path instruction', async () => {
   const ctx = await setupTest();
 
+  const startedAt = performance.now();
+
   const outcome = await classifyAction(
     buildMockActionRequest({
       cwd: join(ctx.dir, 'repo'),
@@ -264,6 +268,8 @@ test('it ends a failure reason with a full stop before the safer-path instructio
     { host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }) },
   );
 
+  const elapsedMs = performance.now() - startedAt;
+
   expect(outcome).toStrictEqual({
     verdict: {
       kind: 'deny',
@@ -277,7 +283,7 @@ test('it ends a failure reason with a full stop before the safer-path instructio
     unavailable: true,
     diagnostics: {
       contributors: [],
-      elapsedMs: expect.toBeNumber(),
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
       failureReason: null,
       keyResolved: false,
       keySource: 'none',
@@ -358,6 +364,19 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
 
 test('it passes a target it cannot resolve to the classifier', async () => {
   const ctx = await setupTest();
+
+  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  runGit(ctx.dir, [
+    '-C',
+    join(ctx.dir, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/feature',
+    '-b',
+    'feature',
+  ]);
 
   const outcome = await classifyAction(
     buildMockActionRequest({

@@ -106,10 +106,16 @@ const responseSchema = z
     },
   });
 
-// The schema accepts any content block, and the verdict arrives in a text
-// block.
+interface ThinkingBlock {
+  readonly type: 'thinking';
+  readonly thinking: string;
+  readonly signature: string;
+}
+
+// The schema accepts any content block: the verdict arrives in a text block,
+// and a reasoning model sends thinking blocks beside it.
 export type MessagesResponse = Omit<z.input<typeof responseSchema>, 'content'> & {
-  readonly content: readonly z.input<typeof textBlockSchema>[];
+  readonly content: readonly (z.input<typeof textBlockSchema> | ThinkingBlock)[];
 };
 
 function readResult(body: unknown): ModelResult {

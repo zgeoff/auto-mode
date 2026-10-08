@@ -172,7 +172,7 @@ test('it names the uncertain rule with the highest block probability', () => {
   });
 });
 
-test('it denies the observed routine commit when outbound confidence is below the threshold', () => {
+test("it denies a soft rule's allow answer whose confidence is below the threshold", () => {
   const request = buildMockDecisionRequest({
     rules: {
       rule_0: buildMockDecisionRule({
@@ -180,16 +180,6 @@ test('it denies the observed routine commit when outbound confidence is below th
         source: 'shipped',
         tier: 'soft',
       }),
-    },
-    state: {
-      action: {
-        tool: 'Bash',
-        cwd: '/repo/.worktrees/fix-detail',
-        input: {
-          command:
-            'git add src/parser.ts && git commit -m "fix: repair parser" && git log --oneline -2',
-        },
-      },
     },
   });
 
