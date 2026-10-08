@@ -964,6 +964,7 @@ test('it logs a subprocess failure when the child run fails', async ($, on) => {
 test('it records a finished scope-creating Bash call with its result', async ($, on) => {
   const called = buildMockCallResult({
     result: { stdout: 'https://github.com/dev/app/pull/3\n', stderr: '' },
+    deny: undefined,
     text: 'https://github.com/dev/app/pull/3\n',
   });
 
@@ -1156,7 +1157,11 @@ test('it keeps the user prompts of a session across its compaction', async ($, o
 });
 
 test('it logs a record subprocess failure and returns the call result', async ($, on) => {
-  const called = buildMockCallResult({ text: 'https://github.com/dev/app/pull/3\n' });
+  const called = buildMockCallResult({
+    deny: undefined,
+    text: 'https://github.com/dev/app/pull/3\n',
+  });
+
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
   on('ui.log', (_api, e) => {
@@ -1194,7 +1199,7 @@ test(
 
     on('session.cwd', () => ({ value: '/repo' }));
     on('classic.SessionStart', () => ({}));
-    on('tool.call', () => buildMockCallResult());
+    on('tool.call', () => buildMockCallResult({ deny: undefined }));
     on('process.run', processRun.hook);
 
     // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
@@ -1396,7 +1401,7 @@ test('it records an empty result text for a call result without text', async ($,
 
   on('session.cwd', () => ({ value: '/repo' }));
   on('classic.SessionStart', () => ({}));
-  on('tool.call', () => buildMockCallResult({ text: undefined }));
+  on('tool.call', () => buildMockCallResult({ deny: undefined, text: undefined }));
   on('process.run', processRun.hook);
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
@@ -1405,11 +1410,18 @@ test('it records an empty result text for a call result without text', async ($,
     source: 'startup',
   });
 
+  const before = Date.now();
+
   await $.tool.call({ tool: 'Bash', tool_use_id: 'call-1', command: 'git switch -c fix/a' });
 
+  const after = Date.now();
   const [call] = processRun.calls;
 
   assertDefined(call);
+  assertDefined(call.request);
+
+  // oxlint-disable-next-line typescript/dot-notation -- noPropertyAccessFromIndexSignature needs brackets.
+  const startedAt = call.request['startedAt'];
 
   expect(call.request).toStrictEqual({
     sessionID: 'session-1',
@@ -1418,6 +1430,9 @@ test('it records an empty result text for a call result without text', async ($,
     command: 'git switch -c fix/a',
     resultText: '',
   });
+
+  expect(startedAt).toBeGreaterThanOrEqual(before);
+  expect(startedAt).toBeLessThanOrEqual(after);
 });
 
 test('it passes a denied spawn through unchanged', async ($, on) => {

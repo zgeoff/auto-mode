@@ -103,6 +103,7 @@ test('it never resends a failed request', async () => {
   });
 
   expect(report.data.segments).not.toBeEmpty();
+  expect(gaps).not.toBeEmpty();
   expect(gaps).toSatisfyAll((gap: number) => gap > 0);
 });
 
