@@ -18,7 +18,7 @@ test('it keeps the task scope when the cwd is not a checkout', async () => {
 
   const taskScope = buildMockTaskScopeSummary({ worktrees: ['/repo'], branches: ['feature'] });
 
-  const evidence = await loadRepositoryEvidence(ctx.dir, taskScope, {});
+  const evidence = await loadRepositoryEvidence(ctx.dir, taskScope, {}, ctx.dir);
 
   expect(evidence).toStrictEqual({ cwd: ctx.dir, branch: null, defaultBranch: null, taskScope });
 });
@@ -44,7 +44,7 @@ test('it adds the task scope to the checkout evidence', async () => {
 
 test('it returns no evidence outside a checkout when there is no task scope', async () => {
   const ctx = await setupTest();
-  const evidence = await loadRepositoryEvidence(ctx.dir, undefined, {});
+  const evidence = await loadRepositoryEvidence(ctx.dir, undefined, {}, ctx.dir);
 
   expect(evidence).toBeNull();
 });

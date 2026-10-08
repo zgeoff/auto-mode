@@ -7,8 +7,9 @@ export async function loadRepositoryEvidence(
   cwd: string,
   taskScope: Readonly<TaskScopeSummary> | undefined,
   env: HostEnvironment['env'],
+  stopDir?: string,
 ): Promise<RepositoryContext | null> {
-  const context = await loadRepositoryContext(cwd, env);
+  const context = await loadRepositoryContext(cwd, env, stopDir);
 
   if (taskScope === undefined) {
     return context;

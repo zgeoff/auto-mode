@@ -99,9 +99,25 @@ test('it reads a custom default branch without assuming main', async () => {
   });
 });
 
-test('it returns no evidence when no directory up to the root holds Git metadata', async () => {
+test('it returns no evidence when no directory up to the stop holds Git metadata', async () => {
   const ctx = await setupTest();
-  const context = await loadRepositoryContext(ctx.dir, {});
+  const context = await loadRepositoryContext(ctx.dir, {}, ctx.dir);
+
+  expect(context).toBeNull();
+});
+
+test('it ignores Git metadata above the stop directory', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(ctx.gitDir, { recursive: true });
+  await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/feature\n');
+  await mkdir(join(ctx.repo, 'packages', 'app'), { recursive: true });
+
+  const context = await loadRepositoryContext(
+    join(ctx.repo, 'packages', 'app'),
+    {},
+    join(ctx.repo, 'packages'),
+  );
 
   expect(context).toBeNull();
 });
