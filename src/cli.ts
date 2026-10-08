@@ -13,7 +13,7 @@ import type { ActionOutcome } from './classify-action.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { DEFAULT_DENIAL_BUDGET, DEFAULT_SCOPE_SOURCES, loadConfig } from './config/config.ts';
-import { getHostEnvironment } from './config/get-host-environment.ts';
+import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { HostEnvironment } from './config/types.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { loadPolicy } from './policy/load-policy.ts';
@@ -275,7 +275,7 @@ async function main(argv: readonly string[]): Promise<number> {
   });
 
   const [command] = args.positionals;
-  const host = getHostEnvironment();
+  const host = readHostEnvironment();
 
   if (args.values.help === true || command === undefined) {
     process.stdout.write(USAGE);

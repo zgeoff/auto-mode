@@ -5,8 +5,8 @@ import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadConfig, resolveApiKey } from '../src/config/config.ts';
-import { getHostEnvironment } from '../src/config/get-host-environment.ts';
 import { loadClaudeRules } from '../src/config/load-claude-rules.ts';
+import { readHostEnvironment } from '../src/config/read-host-environment.ts';
 import { pickEvaluationVerdict } from '../src/evaluation/pick-evaluation-verdict.ts';
 import { buildDecisionRequest } from '../src/model/build-decision-request.ts';
 import { loadRepositoryContext } from '../src/model/load-repository-context.ts';
@@ -68,8 +68,9 @@ async function main(): Promise<void> {
   invariant(key !== null, 'The configured evaluation credential is unavailable.');
 
   const cwd = process.cwd();
+  const host = readHostEnvironment();
 
-  const repository = await loadRepositoryContext(cwd, process.env);
+  const repository = await loadRepositoryContext(cwd, host.env);
 
   invariant(
     repository !== null &&
@@ -84,7 +85,7 @@ async function main(): Promise<void> {
   let configuredRules;
 
   if (contextPath === undefined) {
-    configuredRules = await loadClaudeRules(config.claudeSettingsPath, getHostEnvironment());
+    configuredRules = await loadClaudeRules(config.claudeSettingsPath, host);
   } else {
     const contextText = await readFile(contextPath, 'utf8');
 

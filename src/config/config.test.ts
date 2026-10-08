@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
-import { DEFAULT_CONFIG, PRESETS, loadConfig, resolveApiKey } from './config.ts';
+import { DEFAULT_CONFIG, PRESETS, loadConfig, resolveApiKey, resolveConfigPath } from './config.ts';
 
 const KEY_ENV = 'AUTO_MODE_TEST_KEY';
 
@@ -22,6 +22,22 @@ test('it falls back to the shipped defaults when there is no config file', async
   const config = await loadConfig(ctx.configFile);
 
   expect(config).toStrictEqual(DEFAULT_CONFIG);
+});
+
+test('it finds the config file under the home config directory when XDG_CONFIG_HOME is unset', async () => {
+  const ctx = await setupTest();
+
+  expect(resolveConfigPath({ env: {}, home: ctx.dir })).toBe(
+    join(ctx.dir, '.config', 'auto-mode', 'config.json'),
+  );
+});
+
+test('it finds the config file under XDG_CONFIG_HOME when it is set', async () => {
+  const ctx = await setupTest();
+
+  expect(resolveConfigPath({ env: { XDG_CONFIG_HOME: join(ctx.dir, 'xdg') }, home: ctx.dir })).toBe(
+    join(ctx.dir, 'xdg', 'auto-mode', 'config.json'),
+  );
 });
 
 test('it ships Jev as the default', () => {
@@ -106,6 +122,17 @@ test('it falls back to the key command when the variable is unset', async () => 
   );
 
   expect(key).toBe('from-command');
+});
+
+test('it runs the key command in the injected environment', async () => {
+  const ctx = await setupTest();
+
+  const key = await resolveApiKey(
+    { ...DEFAULT_CONFIG.provider, apiKeyEnv: KEY_ENV, apiKeyCommand: 'printf %s "$INJECTED_KEY"' },
+    { host: { env: { INJECTED_KEY: 'from-injected-env' }, home: ctx.dir } },
+  );
+
+  expect(key).toBe('from-injected-env');
 });
 
 test('it reports no key when neither the variable nor a command is set', async () => {
@@ -368,7 +395,7 @@ test('it loads the approved shape with no diagnostics and reads the denial budge
     }),
   );
 
-  const config = await loadConfig(ctx.configFile);
+  const config = await loadConfig(ctx.configFile, { env: {}, home: ctx.dir });
 
   expect(config.warnings).toStrictEqual([]);
   expect(config.denialBudget).toStrictEqual({ consecutive: 5, perSession: 40 });

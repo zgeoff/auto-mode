@@ -2,9 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import * as z from 'zod';
 import type { DenialBudget } from '../budget/types.ts';
-import { getHostEnvironment } from './get-host-environment.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
+import { readHostEnvironment } from './read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment } from './types.ts';
 
 export { PRESETS } from './presets.ts';
@@ -64,7 +64,7 @@ export const DEFAULT_CONFIG: Config = {
   scopeSources: DEFAULT_SCOPE_SOURCES,
 };
 
-export function resolveConfigPath(host: Readonly<HostEnvironment> = getHostEnvironment()): string {
+export function resolveConfigPath(host: Readonly<HostEnvironment> = readHostEnvironment()): string {
   const xdg = host.env['XDG_CONFIG_HOME'];
   const base = xdg !== undefined && xdg !== '' ? xdg : join(host.home, '.config');
 
@@ -73,7 +73,7 @@ export function resolveConfigPath(host: Readonly<HostEnvironment> = getHostEnvir
 
 export async function loadConfig(
   configPath?: string,
-  host: Readonly<HostEnvironment> = getHostEnvironment(),
+  host: Readonly<HostEnvironment> = readHostEnvironment(),
 ): Promise<Config> {
   const path = configPath ?? resolveConfigPath(host);
   let raw: string;
@@ -384,8 +384,8 @@ export function resolveApiKey(
   provider: ProviderConfig,
   options: EvaluationOptions = {},
 ): Promise<string | null> {
-  const env = (options.host ?? getHostEnvironment()).env;
-  const fromEnv = provider.apiKeyEnv === undefined ? undefined : env[provider.apiKeyEnv];
+  const host = options.host ?? readHostEnvironment();
+  const fromEnv = provider.apiKeyEnv === undefined ? undefined : host.env[provider.apiKeyEnv];
 
   if (fromEnv !== undefined && fromEnv !== '') {
     return Promise.resolve(fromEnv);
@@ -395,5 +395,5 @@ export function resolveApiKey(
     return Promise.resolve(null);
   }
 
-  return readApiKeyFromCommand(provider.apiKeyCommand, options);
+  return readApiKeyFromCommand(provider.apiKeyCommand, { ...options, host });
 }

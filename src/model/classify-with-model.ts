@@ -1,6 +1,6 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
-import { getHostEnvironment } from '../config/get-host-environment.ts';
+import { readHostEnvironment } from '../config/read-host-environment.ts';
 import type { EvaluationOptions } from '../config/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
@@ -24,7 +24,7 @@ export async function classifyWithModel(
   config: Config,
   options: EvaluationOptions = {},
 ): Promise<ModelOutcome> {
-  const host = options.host ?? getHostEnvironment();
+  const host = options.host ?? readHostEnvironment();
 
   if (config.provider.protocol === 'system-one') {
     return classifyWithJev(payload, config, { ...options, host });

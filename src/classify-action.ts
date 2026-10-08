@@ -5,8 +5,8 @@ import { getEditFields } from './bypass/get-edit-fields.ts';
 import { resolveEditTarget } from './bypass/resolve-edit-target.ts';
 import type { Config } from './config/config.ts';
 import { DEFAULT_SCOPE_SOURCES, resolveConfigPath } from './config/config.ts';
-import { getHostEnvironment } from './config/get-host-environment.ts';
 import { loadClaudeRules } from './config/load-claude-rules.ts';
+import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { OwnedScope } from './containment/collect-scope-findings.ts';
@@ -40,7 +40,7 @@ export async function classifyAction(
   config: Config,
   options: ClassifyOptions = {},
 ): Promise<ActionOutcome> {
-  const host = options.host ?? getHostEnvironment();
+  const host = options.host ?? readHostEnvironment();
   let configured = null;
 
   if (config.provider.protocol === 'system-one') {
