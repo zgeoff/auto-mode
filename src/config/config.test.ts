@@ -4,7 +4,6 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import { DEFAULT_CONFIG, PRESETS, loadConfig, resolveApiKey } from './config.ts';
-import { normalizeConfigFile } from './normalize-config-file.ts';
 
 const KEY_ENV = 'AUTO_MODE_TEST_KEY';
 
@@ -37,7 +36,7 @@ test('it budgets enough output tokens for Spark to finish reasoning', () => {
   expect(PRESETS['spark']?.maxTokens).toBeGreaterThanOrEqual(3000);
 });
 
-test('it takes a preset and lets one field be overridden', async () => {
+test('it takes a built-in kind and lets one field be overridden', async () => {
   const ctx = await setupTest();
 
   const glm = PRESETS['glm'];
@@ -46,7 +45,10 @@ test('it takes a preset and lets one field be overridden', async () => {
 
   await writeFile(
     ctx.configFile,
-    JSON.stringify({ preset: 'glm', provider: { timeoutMs: 45_000 } }),
+    JSON.stringify({
+      classifiers: { glm: { timeoutMs: 45_000 } },
+      decision: { classifier: 'glm' },
+    }),
   );
 
   const config = await loadConfig(ctx.configFile);
@@ -59,7 +61,7 @@ test('it takes a preset and lets one field be overridden', async () => {
 const BROKEN_CONFIGS: [string, string][] = [
   ['not JSON', 'oops {'],
   ['not an object', '[]'],
-  ['an unknown preset', JSON.stringify({ preset: 'gpt' })],
+  ['a role with no entry and no kind', JSON.stringify({ decision: { classifier: 'gpt' } })],
 ];
 
 // A broken config must not quietly run a policy the user did not write.
@@ -71,14 +73,14 @@ test.each(BROKEN_CONFIGS)('it refuses a config that is %s', async (_label, body)
   await expect(loadConfig(ctx.configFile)).toReject();
 });
 
-test('it names the known presets when the config asks for one that is not', async () => {
+test('it names the built-in kinds when a role names one that is not', async () => {
   const ctx = await setupTest();
 
-  await writeFile(ctx.configFile, JSON.stringify({ preset: 'gpt' }));
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'gpt' } }));
 
   const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
 
-  invariant(failure instanceof Error, 'an unknown preset rejects with an Error');
+  invariant(failure instanceof Error, 'an unknown role id rejects with an Error');
 
   expect(failure.message).toInclude('jev, spark, claude, glm');
 });
@@ -121,113 +123,23 @@ test('it reports no key when the key command fails', async () => {
   expect(key).toBeNull();
 });
 
-test('it preserves the Messages route for an unmarked custom provider during upgrade', async () => {
+test('it uses Jev for a custom entry of the jev kind', async () => {
   const ctx = await setupTest();
 
   await writeFile(
     ctx.configFile,
     JSON.stringify({
-      provider: {
-        baseURL: 'https://custom.example',
-        model: 'custom-model',
-        apiKeyEnv: 'CUSTOM_MODEL_KEY',
-      },
+      classifiers: { mine: { kind: 'jev', baseURL: 'https://decision.example' } },
+      decision: { classifier: 'mine' },
     }),
   );
 
   const config = await loadConfig(ctx.configFile);
 
-  expect(config.provider).toStrictEqual({
-    protocol: 'messages',
-    baseURL: 'https://custom.example',
-    model: 'custom-model',
-    apiKeyEnv: 'CUSTOM_MODEL_KEY',
-    apiKeyCommand: undefined,
-    reasoning: true,
-    maxTokens: 3000,
-    timeoutMs: 45_000,
-  });
-});
-
-test('it preserves legacy key-only provider overrides', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(
-    ctx.configFile,
-    JSON.stringify({ provider: { apiKeyCommand: 'printf test-key' } }),
-  );
-
-  const config = await loadConfig(ctx.configFile);
-
-  expect(config.provider.protocol).toBe('messages');
-  expect(config.provider.model).toBe('muse-spark-1.3-contributor');
-});
-
-test('it uses Jev for an explicitly marked custom decision provider', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(
-    ctx.configFile,
-    JSON.stringify({ provider: { protocol: 'system-one', baseURL: 'https://decision.example' } }),
-  );
-
-  const config = await loadConfig(ctx.configFile);
-
   expect(config.provider.protocol).toBe('system-one');
+  expect(config.provider.baseURL).toBe('https://decision.example');
   expect(config.provider.model).toBe('jev-1.13.0');
 });
-
-const LEGACY_CONFIGS: [string, Record<string, unknown>][] = [
-  ['a preset with one override', { preset: 'glm', provider: { timeoutMs: 45_000 } }],
-  [
-    'an unmarked custom provider',
-    { provider: { baseURL: 'https://custom.example', model: 'custom-model', apiKeyEnv: 'K' } },
-  ],
-  ['a key-only provider override', { provider: { apiKeyCommand: 'printf test-key' } }],
-  [
-    'a marked custom decision provider',
-    { provider: { protocol: 'system-one', baseURL: 'https://decision.example' } },
-  ],
-  [
-    'a protocol that contradicts its preset',
-    { preset: 'claude', provider: { protocol: 'system-one' } },
-  ],
-  ['Jev over the Messages protocol', { preset: 'jev', provider: { protocol: 'messages' } }],
-  [
-    'every top-level field',
-    {
-      preset: 'jev',
-      classifierPath: '/policy/decision.md',
-      rulesPath: '/policy/rules.md',
-      onFailure: 'deny',
-      claudeSettingsPath: null,
-      minConfidence: 0.9,
-      transcriptEntries: 4,
-    },
-  ],
-  ['only a settings path', { claudeSettingsPath: '/claude/settings.json' }],
-];
-
-test.each(LEGACY_CONFIGS)(
-  'it loads %s in the old shape with a warning and resolves it as its migration does',
-  async (_label, legacy) => {
-    const ctx = await setupTest();
-
-    await writeFile(ctx.configFile, JSON.stringify(legacy));
-
-    const { warnings: legacyWarnings, ...fromLegacy } = await loadConfig(ctx.configFile);
-
-    const migrated = normalizeConfigFile(legacy, ctx.configFile);
-
-    await writeFile(ctx.configFile, JSON.stringify(migrated.file));
-
-    const { warnings, ...fromMigrated } = await loadConfig(ctx.configFile);
-
-    expect(fromLegacy).toStrictEqual(fromMigrated);
-    expect(warnings).toStrictEqual([]);
-    expect(legacyWarnings?.[0]).toInclude('run `auto-mode config migrate`');
-  },
-);
 
 test('it resolves the decision classifier from the registry by id', async () => {
   const ctx = await setupTest();
@@ -343,19 +255,27 @@ test('it refuses a decision role that names no entry and no built-in kind', asyn
   expect(failure.message).toInclude("decision.judge names 'nobody'");
 });
 
-test('it refuses a file that mixes the old keys with the new ones', async () => {
+const OLD_KEYS: [string, unknown][] = [
+  ['preset', 'jev'],
+  ['provider', { apiKeyEnv: 'TYPESAFE_API_KEY' }],
+  ['classifierPath', '/policy/decision.md'],
+  ['rulesPath', '/policy/rules.md'],
+  ['minConfidence', 0.8],
+  ['onFailure', 'deny'],
+  ['transcriptEntries', 4],
+  ['claudeSettingsPath', null],
+];
+
+test.each(OLD_KEYS)('it refuses the old top-level key %s and names it', async (key, value) => {
   const ctx = await setupTest();
 
-  await writeFile(
-    ctx.configFile,
-    JSON.stringify({ preset: 'jev', decision: { onFailure: 'deny' } }),
-  );
+  await writeFile(ctx.configFile, JSON.stringify({ [key]: value }));
 
   const failure = await loadConfig(ctx.configFile).catch((error: unknown) => error);
 
-  invariant(failure instanceof Error, 'a mixed file rejects with an Error');
+  invariant(failure instanceof Error, 'an old key rejects with an Error');
 
-  expect(failure.message).toInclude('mixes the old keys (preset)');
+  expect(failure.message).toInclude(`Unrecognized key: "${key}"`);
 });
 
 test('it reads the policy block, expanding a leading tilde', async () => {
