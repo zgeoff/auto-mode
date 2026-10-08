@@ -124,7 +124,7 @@ test.each([['judge-glm'], ['judge-spark'], ['judge-claude-code']])(
 );
 
 test.each([['judge-glm'], ['judge-spark'], ['judge-claude-code']])(
-  'it judges in %s three samples of exactly the cases that the second-judge rule left eligible in a Jev variant',
+  'it checks the %s report against the production second-judge rule: three samples of exactly the cases it left eligible in a Jev variant',
   async (name) => {
     const [judge, baseline, guidance, corpus] = await Promise.all([
       loadCorpus(`docs/evaluations/second-judge/${name}.json`, judgeReportSchema),
