@@ -6,6 +6,7 @@ export function runGit(home: string, args: readonly string[]): string {
   return execFileSync('git', args, {
     cwd: home,
     encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       PATH: process.env['PATH'],
       HOME: home,
