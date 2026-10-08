@@ -6,6 +6,7 @@ import { HttpResponse, delay, http } from 'msw';
 import { DECISION_URL, MESSAGES_URL } from '../../mocks/handlers.ts';
 import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { server } from '../../mocks/node.ts';
+import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
@@ -40,6 +41,7 @@ test('it hands a decision service provider to Jev', async () => {
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
       onFailure: 'defer',
+      minConfidence: 0.8,
     }),
     { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir } },
   );
@@ -244,13 +246,11 @@ test('it has no opinion when the model call fails', async () => {
 test('it names the timeout when the model call outlives it', async () => {
   const ctx = await setupTest();
 
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   server.use(
     http.post(MESSAGES_URL, async () => {
-      timer.abort();
+      timer.expire(1);
 
       await delay('infinite');
 
@@ -274,10 +274,13 @@ test('it names the timeout when the model call outlives it', async () => {
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir }, timeout },
+    {
+      host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir },
+      timeout: timer.timeout,
+    },
   );
 
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(20);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(20);
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -325,13 +328,11 @@ test('it times out on the model call deadline with the real timer', async () => 
 test('it starts the model call timer at the next whole millisecond for a fractional timeout', async () => {
   const ctx = await setupTest();
 
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   server.use(
     http.post(MESSAGES_URL, async () => {
-      timer.abort();
+      timer.expire(1);
 
       await delay('infinite');
 
@@ -355,10 +356,13 @@ test('it starts the model call timer at the next whole millisecond for a fractio
       },
       onFailure: 'defer',
     }),
-    { host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir }, timeout },
+    {
+      host: { env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' }, home: ctx.dir },
+      timeout: timer.timeout,
+    },
   );
 
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(1001);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(1001);
 
   expect(outcome).toStrictEqual({
     verdict: null,

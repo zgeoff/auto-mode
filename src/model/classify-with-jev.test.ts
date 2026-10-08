@@ -8,6 +8,7 @@ import * as z from 'zod';
 import { decisionAnswers } from '../../mocks/decision-answers.ts';
 import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';
+import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
@@ -490,14 +491,7 @@ test('it returns the configured denial when the deadline passes during the reque
 
   let now = Date.now();
   const deadlineAt = now + 7500;
-
-  const helperTimer = new AbortController();
-  const requestTimer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>()
-    .mockReturnValueOnce(helperTimer.signal)
-    .mockReturnValueOnce(requestTimer.signal);
-
+  const timer = buildStubTimeout();
   const requestSent = Promise.withResolvers<void>();
 
   server.use(
@@ -527,7 +521,7 @@ test('it returns the configured denial when the deadline passes during the reque
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: {}, home: ctx.dir }, deadlineAt, now: () => now, timeout },
+    { host: { env: {}, home: ctx.dir }, deadlineAt, now: () => now, timeout: timer.timeout },
   );
 
   now += 4000;
@@ -536,14 +530,19 @@ test('it returns the configured denial when the deadline passes during the reque
 
   now = deadlineAt;
 
-  requestTimer.abort();
+  timer.expire(2);
 
   const outcome = await pending;
 
-  expect(timeout).toHaveBeenCalledTimes(2);
-  expect(timeout).toHaveBeenNthCalledWith(1, 5000);
-  expect(timeout).toHaveBeenNthCalledWith(2, 3500);
-  expect(helperTimer.signal.aborted).toBe(false);
+  expect(timer.timeout).toHaveBeenCalledTimes(2);
+  expect(timer.timeout).toHaveBeenNthCalledWith(1, 5000);
+  expect(timer.timeout).toHaveBeenNthCalledWith(2, 3500);
+
+  const [helperTimer] = timer.timeout.mock.results;
+
+  invariant(helperTimer?.type === 'return', 'the key helper started its timer');
+
+  expect(helperTimer.value.aborted).toBeFalse();
 
   expect(outcome).toStrictEqual({
     verdict: {
@@ -1497,13 +1496,11 @@ test('it defers an oversized Edit before any request and records only the failur
 test('it reports a provider timeout as a timeout with the request size', async () => {
   const ctx = await setupTest();
 
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   server.use(
     http.post(DECISION_URL, async () => {
-      timer.abort();
+      timer.expire(1);
 
       await delay('infinite');
 
@@ -1519,10 +1516,13 @@ test('it reports a provider timeout as a timeout with the request size', async (
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, timeout },
+    {
+      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      timeout: timer.timeout,
+    },
   );
 
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(20);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(20);
 
   expect(outcome).toStrictEqual({
     verdict: null,
@@ -1586,13 +1586,11 @@ test('it times out on the provider deadline with the real timer', async () => {
 test('it starts the provider timer at the next whole millisecond for a fractional timeout', async () => {
   const ctx = await setupTest();
 
-  const timer = new AbortController();
-
-  const timeout = mock<(ms: number) => AbortSignal>(() => timer.signal);
+  const timer = buildStubTimeout();
 
   server.use(
     http.post(DECISION_URL, async () => {
-      timer.abort();
+      timer.expire(1);
 
       await delay('infinite');
 
@@ -1608,10 +1606,13 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
       claudeSettingsPath: null,
       minConfidence: 0.8,
     }),
-    { host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir }, timeout },
+    {
+      host: { env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' }, home: ctx.dir },
+      timeout: timer.timeout,
+    },
   );
 
-  expect(timeout).toHaveBeenCalledExactlyOnceWith(1001);
+  expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(1001);
 
   expect(outcome).toStrictEqual({
     verdict: null,
