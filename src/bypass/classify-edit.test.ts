@@ -205,3 +205,15 @@ test('it sends another tool, or content that is not text, to Jev', () => {
     'jev',
   ]);
 });
+
+test('it reads exclusions below the worktree, so an excluded name above it does not count', () => {
+  const ctx = setupTest();
+  const scope = { worktrees: ['/home/dev/.docker/app'], protectedDirs: [] };
+
+  expect(
+    [
+      ctx.buildWrite('/home/dev/.docker/app/src/a.ts'),
+      { ...ctx.buildWrite('/home/dev/.docker/app/src/a.ts'), requested: '/home/dev/.claude/a.md' },
+    ].map((action) => classifyEdit(action, scope).kind),
+  ).toStrictEqual(['bypass', 'jev']);
+});

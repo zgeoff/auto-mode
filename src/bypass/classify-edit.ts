@@ -57,7 +57,7 @@ export function classifyEdit(
 
   const exclusion = paths.some((each) => scope.protectedDirs.some((dir) => isWithin(each, dir)))
     ? 'auto-mode configuration or state'
-    : (findExclusion(path) ?? findExclusion(action.requested));
+    : (findExclusion(path) ?? findExclusion(toWorktreePath(action.requested, scope.worktrees)));
 
   if (exclusion !== null) {
     return { kind: 'jev', reason: `target is ${exclusion}` };
@@ -154,6 +154,14 @@ function collectContext(
   }
 
   return lines.filter((_, index) => keep.has(index)).join('\n');
+}
+
+// A path outside every worktree keeps its whole spelling, so that a link from
+// an excluded directory such as `~/.claude` stays excluded.
+function toWorktreePath(path: string, worktrees: readonly string[]): string {
+  const worktree = findWorktree(path, worktrees);
+
+  return worktree === null ? path : relative(worktree, path).split(sep).join('/');
 }
 
 // Worktrees nest (`.worktrees/<name>` sits inside the main checkout), so the
