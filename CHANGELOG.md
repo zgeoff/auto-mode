@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.16.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.15.0...auto-mode-v0.16.0) (2026-10-10)
+
+
+### Features
+
+* **geo-160:** narrow the block rules to catastrophic harm ([#100](https://github.com/zgeoff/auto-mode/issues/100)) ([dfa9024](https://github.com/zgeoff/auto-mode/commit/dfa902449661f9e9cef4bf46fb76d9c1c140fba8))
+* **geo-162:** allow unless a rule's block probability reaches the threshold ([#113](https://github.com/zgeoff/auto-mode/issues/113)) ([943dd1c](https://github.com/zgeoff/auto-mode/commit/943dd1c5ba0445db61a2501df8c01e9480055a89))
+* **geo-335:** label every evaluation case with severity, harm and consent ([#106](https://github.com/zgeoff/auto-mode/issues/106)) ([763ee39](https://github.com/zgeoff/auto-mode/commit/763ee39d5a2de3a517b4990fc3b2176b5c42123c))
+* **geo-337:** add the eval command core ([#112](https://github.com/zgeoff/auto-mode/issues/112)) ([6de7e3f](https://github.com/zgeoff/auto-mode/commit/6de7e3ffb8fa48b9435346df4abd1889326ccdcf))
+
 ## [0.15.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.14.0...auto-mode-v0.15.0) (2026-10-08)
 
 
