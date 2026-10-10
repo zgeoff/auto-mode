@@ -47,6 +47,7 @@
     "build:agents": "bash scripts/build-agents-md.sh agents/shared.md agents/project.md AGENTS.md",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run deadcode && bun run test && bun run build && bun run check:artifact && bun run publint",
     "deadcode": "knip",
+    "eval": "bun --no-env-file --conditions=auto-mode-eval evals/eval.ts",
     "eval:answer-guidance": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-answer-guidance-evaluation.ts",
     "eval:applicability": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-applicability-evaluation.ts",
     "eval:containment": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-containment-evaluation.ts",

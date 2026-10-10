@@ -14,7 +14,7 @@
       "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/oxlint-config"]
     },
     "evals": {
-      "entry": ["**/*.test.ts", "runners/*.ts"],
+      "entry": ["**/*.test.ts", "runners/*.ts", "eval.ts"],
       "project": ["**/*.ts"]
     }
   }

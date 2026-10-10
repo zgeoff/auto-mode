@@ -23,6 +23,11 @@ auto-mode is a permission classifier: a core library and a Claude Code mod. The
 - [Writing a policy](./guides/policy.md) — the rule tiers, the consent bar, and how to change or
   replace the shipped rules.
 
+## Runbooks
+
+- [Run an evaluation](./runbooks/run-an-evaluation.md) — the results clone, the plan, offline and
+  capped live runs, resume, compare, and committing a run.
+
 ## The policy itself
 
 - [`policy/rules.md`](../policy/rules.md) — what is blocked.
