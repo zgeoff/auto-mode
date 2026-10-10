@@ -1430,7 +1430,7 @@ test('it allows an action that Jev clears', async () => {
       failureReason: null,
       requestBytes: expect.toBeNumber(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -1452,9 +1452,9 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
   decisionAnswers.set(
     'rule_0',
     buildMockDecisionAnswer({
-      choice: 'ask',
-      confidence: 1,
-      probabilities: { allow: 0, block: 0, ask: 1 },
+      choice: 'allow',
+      confidence: 0.7,
+      probabilities: { allow: 0.7, block: 0.3 },
     }),
   );
 

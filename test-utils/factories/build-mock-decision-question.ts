@@ -7,7 +7,7 @@ interface DecisionQuestionOverrides extends Partial<Omit<DecisionQuestion, 'crit
   readonly criteria?: Partial<DecisionQuestion['criteria']>;
 }
 
-// Jev asks every question as a choice among allow, block, and ask.
+// Jev asks every question as a choice between allow and block.
 export function buildMockDecisionQuestion(
   overrides: DecisionQuestionOverrides = {},
 ): DecisionQuestion {
@@ -20,7 +20,6 @@ export function buildMockDecisionQuestion(
     criteria: {
       allow: faker.lorem.sentence(),
       block: faker.lorem.sentence(),
-      ask: faker.lorem.sentence(),
       ...criteria,
     },
   };

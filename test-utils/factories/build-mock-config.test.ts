@@ -19,7 +19,7 @@ test('it builds a default config', () => {
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: null,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -65,7 +65,7 @@ test('it applies overrides on top of the defaults', () => {
     rulesPath: undefined,
     onFailure: 'deny',
     claudeSettingsPath: null,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 1, perSession: 20 },
     warnings: [],
   });

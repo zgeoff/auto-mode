@@ -1,14 +1,14 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionResult } from './build-mock-decision-result.ts';
+import { buildMockRecordedDecisionResult } from './build-mock-recorded-decision-result.ts';
 
-test('it builds a default decision result', () => {
-  expect(buildMockDecisionResult()).toStrictEqual({
+test('it builds a default recorded decision result', () => {
+  expect(buildMockRecordedDecisionResult()).toStrictEqual({
     model: expect.toBeString(),
     answers: {
       rule_0: {
         type: 'choice',
         choice: 'allow',
-        probabilities: { allow: 1, block: 0 },
+        probabilities: { allow: 1, block: 0, ask: 0 },
         confidence: 1,
       },
     },
@@ -18,12 +18,12 @@ test('it builds a default decision result', () => {
 });
 
 test('it applies overrides on top of the defaults', () => {
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
       rule_1: {
         type: 'choice',
         choice: 'block',
-        probabilities: { allow: 0.1, block: 0.9 },
+        probabilities: { allow: 0.1, block: 0.9, ask: 0 },
         confidence: 0.9,
       },
     },
@@ -36,7 +36,7 @@ test('it applies overrides on top of the defaults', () => {
       rule_1: {
         type: 'choice',
         choice: 'block',
-        probabilities: { allow: 0.1, block: 0.9 },
+        probabilities: { allow: 0.1, block: 0.9, ask: 0 },
         confidence: 0.9,
       },
     },

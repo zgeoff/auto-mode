@@ -27,6 +27,7 @@ export type {
   DecisionRequest,
   DecisionResult,
   DecisionRule,
+  RecordedDecisionChoice,
   RepositoryContext,
 } from './model/types.ts';
 

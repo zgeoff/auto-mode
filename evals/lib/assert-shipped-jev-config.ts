@@ -8,6 +8,4 @@ export function assertShippedJevConfig(config: Readonly<Config>): void {
       config.classifierPath === undefined,
     'Evaluate the shipped Jev policy with no replacement policy.',
   );
-
-  invariant(config.minConfidence === 0.8, 'Keep the configured threshold at 0.8.');
 }

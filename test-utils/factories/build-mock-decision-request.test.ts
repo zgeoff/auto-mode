@@ -37,7 +37,6 @@ test('it builds a default decision request', () => {
         criteria: {
           allow: expect.toBeString(),
           block: expect.toBeString(),
-          ask: expect.toBeString(),
         },
       },
     },
@@ -98,7 +97,6 @@ test('it applies overrides on top of the defaults', () => {
         criteria: {
           allow: expect.toBeString(),
           block: expect.toBeString(),
-          ask: expect.toBeString(),
         },
       },
     },
@@ -128,7 +126,6 @@ test('it asks one question per rule when the rules are overridden', () => {
       criteria: {
         allow: expect.toBeString(),
         block: expect.toBeString(),
-        ask: expect.toBeString(),
       },
     },
     soft_deny_0: {
@@ -137,7 +134,6 @@ test('it asks one question per rule when the rules are overridden', () => {
       criteria: {
         allow: expect.toBeString(),
         block: expect.toBeString(),
-        ask: expect.toBeString(),
       },
     },
   });

@@ -20,7 +20,7 @@ export function buildMockConfig(overrides: ConfigOverrides = {}): Config {
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: null,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     warnings: [],
     ...rest,
     provider: buildMockProviderConfig(provider),

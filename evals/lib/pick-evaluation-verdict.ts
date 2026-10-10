@@ -1,6 +1,7 @@
-import type { DecisionRequest, DecisionResult } from 'auto-mode';
-import { classifyDecisionAnswers } from 'auto-mode/eval';
+import type { DecisionRequest } from 'auto-mode';
 import { match } from 'ts-pattern';
+import type { ScoredDecisionResult } from './classify-recorded-answers.ts';
+import { classifyRecordedAnswers } from './classify-recorded-answers.ts';
 
 export type EvaluationVerdict =
   | { readonly kind: 'allow' }
@@ -11,10 +12,10 @@ export type EvaluationVerdict =
 // replay keeps that vocabulary to compare against them.
 export function pickEvaluationVerdict(
   request: DecisionRequest,
-  result: DecisionResult,
+  result: ScoredDecisionResult,
   minConfidence: number,
 ): EvaluationVerdict {
-  return match(classifyDecisionAnswers(request, result, minConfidence))
+  return match(classifyRecordedAnswers(request, result, minConfidence))
     .with({ kind: 'allow' }, () => ({ kind: 'allow' }) as const)
     .with({ kind: 'uncertain' }, () => ({ kind: 'ask' }) as const)
     .with({ kind: 'block' }, (decision) => ({ kind: 'deny' as const, rule: decision.rule.name }))

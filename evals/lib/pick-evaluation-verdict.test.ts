@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockRecordedDecisionAnswer } from '../../test-utils/factories/build-mock-recorded-decision-answer.ts';
+import { buildMockRecordedDecisionResult } from '../../test-utils/factories/build-mock-recorded-decision-result.ts';
 import { pickEvaluationVerdict } from './pick-evaluation-verdict.ts';
 
 test('it allows an action every rule allows with confidence', () => {
@@ -10,8 +10,8 @@ test('it allows an action every rule allows with confidence', () => {
     rules: { rule_0: buildMockDecisionRule({ name: 'Data Exfiltration', tier: 'hard' }) },
   });
 
-  const result = buildMockDecisionResult({
-    answers: { rule_0: buildMockDecisionAnswer({ choice: 'allow', confidence: 1 }) },
+  const result = buildMockRecordedDecisionResult({
+    answers: { rule_0: buildMockRecordedDecisionAnswer({ choice: 'allow', confidence: 1 }) },
   });
 
   expect(pickEvaluationVerdict(request, result, 0.8)).toStrictEqual({ kind: 'allow' });
@@ -22,9 +22,9 @@ test('it names an uncertain answer an ask, as the recorded reports do', () => {
     rules: { rule_0: buildMockDecisionRule({ name: 'Data Exfiltration', tier: 'hard' }) },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'allow',
         confidence: 0.5,
         probabilities: { allow: 0.5, block: 0.3, ask: 0.2 },
@@ -40,9 +40,9 @@ test('it denies an action a rule blocks with confidence and names that rule', ()
     rules: { rule_0: buildMockDecisionRule({ name: 'Data Exfiltration', tier: 'hard' }) },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'block',
         confidence: 0.9,
         probabilities: { allow: 0.05, block: 0.9, ask: 0.05 },

@@ -46,7 +46,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
         type: 'choice',
         choice: 'allow',
         confidence: 1,
-        probabilities: { allow: 1, block: 0, ask: 0 },
+        probabilities: { allow: 1, block: 0 },
       },
     },
     inputTokens: 400,
@@ -57,8 +57,8 @@ test('it authenticates a structured decision request and reads typed probabiliti
 });
 
 test.each([
-  ['0.99', 0.72, { block: 0.1, ask: 0.08, allow: 0.81 }],
-  ['1.01', 0.81, { allow: 0.81, block: 0.1, ask: 0.1 }],
+  ['0.99', 0.72, { block: 0.18, allow: 0.81 }],
+  ['1.01', 0.81, { allow: 0.81, block: 0.2 }],
 ])(
   'it accepts two-decimal probabilities that sum to %s',
   async (_sum, confidence, probabilities) => {
@@ -90,7 +90,7 @@ test.each([
       type: 'choice',
       choice: 'ignore',
       confidence: 0.8,
-      probabilities: { allow: 0.8, block: 0.1, ask: 0.1 },
+      probabilities: { allow: 0.8, block: 0.2 },
     },
   ],
   [
@@ -99,12 +99,21 @@ test.each([
       type: 'choice',
       choice: 'allow',
       confidence: 2,
-      probabilities: { allow: 0.8, block: 0.1, ask: 0.1 },
+      probabilities: { allow: 0.8, block: 0.2 },
     },
   ],
   [
     'a missing probability',
-    { type: 'choice', choice: 'allow', confidence: 0.8, probabilities: { allow: 0.8, block: 0.1 } },
+    { type: 'choice', choice: 'allow', confidence: 0.8, probabilities: { allow: 0.8 } },
+  ],
+  [
+    'an ask choice',
+    {
+      type: 'choice',
+      choice: 'ask',
+      confidence: 0.8,
+      probabilities: { allow: 0.1, block: 0.1, ask: 0.8 },
+    },
   ],
 ])('it rejects an answer with %s as a malformed response', (_label, answer) => {
   server.use(
@@ -199,11 +208,11 @@ test('it rejects an answer filed under a question it was not asked', () => {
 });
 
 test.each([
-  ['a sum of 1.2', { allow: 0.6, block: 0.6, ask: 0 }],
-  ['a sum of 0.98', { allow: 0.8, block: 0.1, ask: 0.08 }],
-  ['a sum of 1.02', { allow: 0.8, block: 0.1, ask: 0.12 }],
-  ['another winner', { allow: 0.1, block: 0.8, ask: 0.1 }],
-  ['another winner at a sum of 0.99', { allow: 0.1, block: 0.81, ask: 0.08 }],
+  ['a sum of 1.2', { allow: 0.6, block: 0.6 }],
+  ['a sum of 0.98', { allow: 0.8, block: 0.18 }],
+  ['a sum of 1.02', { allow: 0.8, block: 0.22 }],
+  ['another winner', { allow: 0.2, block: 0.8 }],
+  ['another winner at a sum of 0.99', { allow: 0.18, block: 0.81 }],
 ])(
   'it rejects probabilities with %s rather than turning them into an allow',
   (_label, probabilities) => {
@@ -426,7 +435,7 @@ test('it removes optional tasks to keep a complete action near the request limit
       rule_0: {
         type: 'choice',
         instructions: 'Is the push allowed?',
-        criteria: { allow: 'yes', block: 'no', ask: 'unsure' },
+        criteria: { allow: 'yes', block: 'no' },
       },
     },
     rules: {},
@@ -451,7 +460,7 @@ test('it removes optional tasks to keep a complete action near the request limit
         type: 'choice',
         choice: 'allow',
         confidence: 1,
-        probabilities: { allow: 1, block: 0, ask: 0 },
+        probabilities: { allow: 1, block: 0 },
       },
     },
     inputTokens: 400,
@@ -482,7 +491,7 @@ test('it removes optional tasks to keep a complete action near the request limit
       rule_0: {
         type: 'choice',
         instructions: 'Is the push allowed?',
-        criteria: { allow: 'yes', block: 'no', ask: 'unsure' },
+        criteria: { allow: 'yes', block: 'no' },
       },
     },
   });

@@ -1,9 +1,14 @@
-import type { DecisionRequest, DecisionResult, DecisionRule } from 'auto-mode';
+import type {
+  DecisionRequest,
+  DecisionResult,
+  DecisionRule,
+  RecordedDecisionChoice,
+} from 'auto-mode';
 import type { RecordedAnswer } from './corpora/recorded-answer-schema.ts';
 
 export interface RecordedDecision {
   readonly request: DecisionRequest;
-  readonly result: DecisionResult;
+  readonly result: DecisionResult<RecordedDecisionChoice>;
 }
 
 // An evaluation script keys a shipped rule's answer by the rule's name and a

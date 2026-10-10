@@ -77,7 +77,7 @@ test('it sends the configured rules and the direct user message without the sett
       claudeSettingsPath: settings,
       rulesPath: undefined,
       onFailure: 'defer',
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -100,7 +100,7 @@ test('it sends the configured rules and the direct user message without the sett
       failureReason: null,
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -167,8 +167,8 @@ test('it sends the configured rules and the direct user message without the sett
             ),
             criteria: {
               allow,
-              block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+              block:
+                'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
             },
           },
         ]),
@@ -201,8 +201,8 @@ test('it sends the configured rules and the direct user message without the sett
             criteria: {
               allow:
                 'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-              block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+              block:
+                'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
             },
           },
         ]),
@@ -214,8 +214,8 @@ test('it sends the configured rules and the direct user message without the sett
         criteria: {
           allow:
             'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-          block: 'This named rule blocks the action and no permitted exception clears it.',
-          ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+          block:
+            'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
         },
       },
     },
@@ -247,7 +247,7 @@ test.each([
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       onFailure,
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -271,7 +271,7 @@ test.each([
       failureReason: 'http-status',
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -314,7 +314,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
       rulesPath: undefined,
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     });
 
     const startedAt = performance.now();
@@ -360,7 +360,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         failureReason: null,
         requestBytes: expect.toBePositive(),
         elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
         contributors: [],
       },
     });
@@ -426,8 +426,8 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
               ),
               criteria: {
                 allow,
-                block: 'This named rule blocks the action and no permitted exception clears it.',
-                ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+                block:
+                  'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
               },
             },
           ]),
@@ -460,8 +460,8 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
               criteria: {
                 allow:
                   'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-                block: 'This named rule blocks the action and no permitted exception clears it.',
-                ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+                block:
+                  'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
               },
             },
           ]),
@@ -483,7 +483,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
     buildMockDecisionAnswer({
       choice: 'block',
       confidence: 1,
-      probabilities: { allow: 0, block: 1, ask: 0 },
+      probabilities: { allow: 0, block: 1 },
     }),
   );
 
@@ -519,7 +519,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
       rulesPath: undefined,
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -561,7 +561,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
       failureReason: null,
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [
         {
           rule: 'Data Exfiltration',
@@ -569,7 +569,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
           tier: 'hard',
           choice: 'block',
           confidence: 1,
-          probability: 1,
+          blockProbability: 1,
         },
       ],
     },
@@ -597,7 +597,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
       buildMockDecisionAnswer({
         choice: 'block',
         confidence: 1,
-        probabilities: { allow: 0, block: 1, ask: 0 },
+        probabilities: { allow: 0, block: 1 },
       }),
     );
 
@@ -633,7 +633,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         rulesPath: rules,
         onFailure: 'defer',
         claudeSettingsPath: null,
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
       }),
       {
         host: buildMockHostEnvironment({
@@ -661,7 +661,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         failureReason: null,
         requestBytes: expect.toBePositive(),
         elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
         contributors: [
           {
             rule: 'rule_0',
@@ -669,7 +669,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
             tier: 'hard',
             choice: 'block',
             confidence: 1,
-            probability: 1,
+            blockProbability: 1,
           },
         ],
       },
@@ -702,8 +702,8 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
           criteria: {
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-            block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+            block:
+              'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
           },
         },
       },
@@ -746,7 +746,7 @@ test('it returns the configured denial when the deadline passes during the reque
         timeoutMs: 5000,
       },
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({ env: {}, home: ctx.dir }),
@@ -794,7 +794,7 @@ test('it returns the configured denial when the deadline passes during the reque
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -815,18 +815,18 @@ test('it evaluates a subagent on its task context without the parent consent', a
   decisionAnswers.set(
     'rule_0',
     buildMockDecisionAnswer({
-      choice: 'ask',
-      confidence: 1,
-      probabilities: { allow: 0, block: 0, ask: 1 },
+      choice: 'allow',
+      confidence: 0.6,
+      probabilities: { allow: 0.6, block: 0.4 },
     }),
   );
 
   decisionAnswers.set(
     'rule_1',
     buildMockDecisionAnswer({
-      choice: 'ask',
-      confidence: 1,
-      probabilities: { allow: 0, block: 0, ask: 1 },
+      choice: 'allow',
+      confidence: 0.7,
+      probabilities: { allow: 0.7, block: 0.3 },
     }),
   );
 
@@ -860,7 +860,7 @@ test('it evaluates a subagent on its task context without the parent consent', a
       rulesPath: rules,
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -888,23 +888,23 @@ test('it evaluates a subagent on its task context without the parent consent', a
       failureReason: null,
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [
         {
           rule: 'rule_0',
           source: 'replacement',
           tier: 'hard',
-          choice: 'ask',
-          confidence: 1,
-          probability: 1,
+          choice: 'allow',
+          confidence: 0.6,
+          blockProbability: 0.4,
         },
         {
           rule: 'rule_1',
           source: 'replacement',
           tier: 'soft',
-          choice: 'ask',
-          confidence: 1,
-          probability: 1,
+          choice: 'allow',
+          confidence: 0.7,
+          blockProbability: 0.3,
         },
       ],
     },
@@ -949,8 +949,8 @@ test('it evaluates a subagent on its task context without the parent consent', a
         criteria: {
           allow:
             'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-          block: 'This named rule blocks the action and no permitted exception clears it.',
-          ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+          block:
+            'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
         },
       },
       rule_1: {
@@ -960,8 +960,8 @@ test('it evaluates a subagent on its task context without the parent consent', a
         criteria: {
           allow:
             'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-          block: 'This named rule blocks the action and no permitted exception clears it.',
-          ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+          block:
+            'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
         },
       },
     },
@@ -993,7 +993,7 @@ test('it separates missing credentials from a classifier ask without calling the
       provider: { model: 'jev-1.13.0', apiKeyEnv: undefined, apiKeyCommand: undefined },
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -1019,7 +1019,7 @@ test('it separates missing credentials from a classifier ask without calling the
       failureReason: null,
       requestBytes: null,
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -1059,7 +1059,7 @@ test('it sends checked branch evidence for a routine feature commit and allows i
       rulesPath: undefined,
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -1082,7 +1082,7 @@ test('it sends checked branch evidence for a routine feature commit and allows i
       failureReason: null,
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -1147,8 +1147,8 @@ test('it sends checked branch evidence for a routine feature commit and allows i
             ),
             criteria: {
               allow,
-              block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+              block:
+                'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
             },
           },
         ]),
@@ -1181,8 +1181,8 @@ test('it sends checked branch evidence for a routine feature commit and allows i
             criteria: {
               allow:
                 'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-              block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+              block:
+                'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
             },
           },
         ]),
@@ -1236,7 +1236,7 @@ test.each([
       buildMockDecisionAnswer({
         choice: 'block',
         confidence: 0.95,
-        probabilities: { allow: 0.02, block: 0.96, ask: 0.02 },
+        probabilities: { allow: 0.04, block: 0.96 },
       }),
     );
 
@@ -1265,7 +1265,7 @@ test.each([
         rulesPath: rules,
         onFailure: 'defer',
         claudeSettingsPath: null,
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
       }),
       {
         host: buildMockHostEnvironment({
@@ -1293,7 +1293,7 @@ test.each([
         failureReason: null,
         requestBytes: expect.toBePositive(),
         elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
         contributors: [
           {
             rule: questionID,
@@ -1301,7 +1301,7 @@ test.each([
             tier,
             choice: 'block',
             confidence: 0.95,
-            probability: 0.96,
+            blockProbability: 0.96,
           },
         ],
       },
@@ -1335,8 +1335,8 @@ test.each([
           criteria: {
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-            block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+            block:
+              'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
           },
         },
         rule_1: {
@@ -1346,8 +1346,8 @@ test.each([
           criteria: {
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-            block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+            block:
+              'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
           },
         },
       },
@@ -1375,7 +1375,7 @@ test.each(['Write', 'Edit'])(
       buildMockDecisionAnswer({
         choice: 'block',
         confidence: 1,
-        probabilities: { allow: 0, block: 1, ask: 0 },
+        probabilities: { allow: 0, block: 1 },
       }),
     );
 
@@ -1404,7 +1404,7 @@ test.each(['Write', 'Edit'])(
         rulesPath: rules,
         onFailure: 'defer',
         claudeSettingsPath: null,
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
       }),
       {
         host: buildMockHostEnvironment({
@@ -1432,7 +1432,7 @@ test.each(['Write', 'Edit'])(
         failureReason: null,
         requestBytes: expect.toBePositive(),
         elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
         contributors: [
           {
             rule: 'rule_0',
@@ -1440,7 +1440,7 @@ test.each(['Write', 'Edit'])(
             tier: 'hard',
             choice: 'block',
             confidence: 1,
-            probability: 1,
+            blockProbability: 1,
           },
         ],
       },
@@ -1477,8 +1477,8 @@ test.each(['Write', 'Edit'])(
           criteria: {
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-            block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+            block:
+              'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
           },
         },
         rule_1: {
@@ -1488,8 +1488,8 @@ test.each(['Write', 'Edit'])(
           criteria: {
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-            block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+            block:
+              'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
           },
         },
       },
@@ -1521,7 +1521,7 @@ test.each([
       buildMockDecisionAnswer({
         choice: 'block',
         confidence: 1,
-        probabilities: { allow: 0, block: 1, ask: 0 },
+        probabilities: { allow: 0, block: 1 },
       }),
     );
 
@@ -1550,7 +1550,7 @@ test.each([
         rulesPath: rules,
         onFailure: 'defer',
         claudeSettingsPath: null,
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
       }),
       {
         host: buildMockHostEnvironment({
@@ -1578,7 +1578,7 @@ test.each([
         failureReason: null,
         requestBytes: expect.toBePositive(),
         elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
         contributors: [
           {
             rule: 'rule_0',
@@ -1586,7 +1586,7 @@ test.each([
             tier: 'hard',
             choice: 'block',
             confidence: 1,
-            probability: 1,
+            blockProbability: 1,
           },
         ],
       },
@@ -1622,8 +1622,8 @@ test.each([
           criteria: {
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-            block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+            block:
+              'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
           },
         },
         rule_1: {
@@ -1633,8 +1633,8 @@ test.each([
           criteria: {
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-            block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+            block:
+              'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
           },
         },
       },
@@ -1642,7 +1642,7 @@ test.each([
   },
 );
 
-test('it denies an uncertain answer and keeps every contributing confidence', async () => {
+test('it denies an unsure allow at the block threshold and records only the rules that reach it', async () => {
   const ctx = await setupTest();
 
   const rules = join(ctx.dir, 'rules.md');
@@ -1657,16 +1657,16 @@ test('it denies an uncertain answer and keeps every contributing confidence', as
     buildMockDecisionAnswer({
       choice: 'allow',
       confidence: 0.74,
-      probabilities: { allow: 0.83, block: 0.04, ask: 0.13 },
+      probabilities: { allow: 0.75, block: 0.25 },
     }),
   );
 
   decisionAnswers.set(
     'rule_1',
     buildMockDecisionAnswer({
-      choice: 'ask',
+      choice: 'allow',
       confidence: 0.9,
-      probabilities: { allow: 0.1, block: 0, ask: 0.9 },
+      probabilities: { allow: 0.9, block: 0.1 },
     }),
   );
 
@@ -1681,7 +1681,7 @@ test('it denies an uncertain answer and keeps every contributing confidence', as
     buildMockConfig({
       provider: { model: 'private-provider-canary', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       rulesPath: rules,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       onFailure: 'defer',
       claudeSettingsPath: null,
     }),
@@ -1711,7 +1711,7 @@ test('it denies an uncertain answer and keeps every contributing confidence', as
       failureReason: null,
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [
         {
           rule: 'rule_0',
@@ -1719,15 +1719,7 @@ test('it denies an uncertain answer and keeps every contributing confidence', as
           tier: 'hard',
           choice: 'allow',
           confidence: 0.74,
-          probability: 0.83,
-        },
-        {
-          rule: 'rule_1',
-          source: 'replacement',
-          tier: 'soft',
-          choice: 'ask',
-          confidence: 0.9,
-          probability: 0.9,
+          blockProbability: 0.25,
         },
       ],
     },
@@ -1791,7 +1783,7 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
       claudeSettingsPath: settings,
       rulesPath: undefined,
       onFailure: 'defer',
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -1816,7 +1808,7 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
       failureReason: null,
       requestBytes: expect.toBeWithin(80_001, 100_001),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -1852,7 +1844,7 @@ test('it defers an oversized Edit before any request and records only the failur
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -1878,7 +1870,7 @@ test('it defers an oversized Edit before any request and records only the failur
       failureReason: 'request-too-large',
       requestBytes: expect.toBeWithin(100_001, Infinity),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -1907,7 +1899,7 @@ test('it reports a provider timeout as a timeout with the request size', async (
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY', timeoutMs: 20 },
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -1934,7 +1926,7 @@ test('it reports a provider timeout as a timeout with the request size', async (
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -1965,7 +1957,7 @@ test('it times out on the provider deadline with the real timer', async () => {
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY', timeoutMs: 1 },
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -1991,7 +1983,7 @@ test('it times out on the provider deadline with the real timer', async () => {
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -2020,7 +2012,7 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY', timeoutMs: 1000.5 },
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -2047,7 +2039,7 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -2084,7 +2076,7 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       rulesPath: undefined,
       onFailure: 'defer',
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -2112,7 +2104,7 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       failureReason: null,
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -2180,8 +2172,8 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
             ),
             criteria: {
               allow,
-              block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+              block:
+                'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
             },
           },
         ]),
@@ -2214,8 +2206,8 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
             criteria: {
               allow:
                 'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-              block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+              block:
+                'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
             },
           },
         ]),
@@ -2263,7 +2255,7 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
     buildMockConfig({
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -2286,7 +2278,7 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
       failureReason: null,
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -2322,7 +2314,7 @@ test('it returns the configured denial without a request when the deadline passe
       onFailure: 'deny',
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY', timeoutMs: 5000 },
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -2356,7 +2348,7 @@ test('it returns the configured denial without a request when the deadline passe
       failureReason: null,
       requestBytes: null,
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -2385,7 +2377,7 @@ test('it returns the configured denial without a request when the caller cancell
       onFailure: 'deny',
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -2416,7 +2408,7 @@ test('it returns the configured denial without a request when the caller cancell
       failureReason: null,
       requestBytes: null,
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });
@@ -2445,7 +2437,7 @@ test('it returns the configured denial as cancelled when the caller aborts durin
       onFailure: 'deny',
       provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -2474,7 +2466,7 @@ test('it returns the configured denial as cancelled when the caller aborts durin
       failureReason: 'aborted',
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });

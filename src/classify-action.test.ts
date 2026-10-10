@@ -151,15 +151,15 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
   });
 });
 
-test('it denies an uncertain Jev decision with the rule, its fixed reason, and the safer-path instruction', async () => {
+test('it denies an unsure Jev allow that reaches the block threshold with the rule, its fixed reason, and the safer-path instruction', async () => {
   const ctx = await setupTest();
 
   decisionAnswers.set(
     'rule_0',
     buildMockDecisionAnswer({
-      choice: 'ask',
-      confidence: 1,
-      probabilities: { allow: 0, block: 0, ask: 1 },
+      choice: 'allow',
+      confidence: 0.7,
+      probabilities: { allow: 0.7, block: 0.3 },
     }),
   );
 
@@ -185,7 +185,7 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
       provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
       judge: null,
       claudeSettingsPath: null,
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -211,9 +211,9 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
     diagnostics: {
       contributors: [
         {
-          choice: 'ask',
-          confidence: 1,
-          probability: 1,
+          choice: 'allow',
+          confidence: 0.7,
+          blockProbability: 0.3,
           rule: 'Data Exfiltration',
           source: 'shipped',
           tier: 'hard',
@@ -223,7 +223,7 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
       failureReason: null,
       keyResolved: true,
       keySource: 'environment',
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       requestBytes: expect.toBeNumber(),
       stage: 'response',
       status: 'deny',
@@ -353,7 +353,7 @@ test('it ends a failure reason with a full stop before the safer-path instructio
       judge: null,
       claudeSettingsPath: null,
       onFailure: 'deny',
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     { host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }) },
   );
@@ -377,7 +377,7 @@ test('it ends a failure reason with a full stop before the safer-path instructio
       failureReason: null,
       keyResolved: false,
       keySource: 'none',
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       requestBytes: null,
       stage: 'credential',
       status: 'failure',

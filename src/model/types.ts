@@ -8,7 +8,11 @@ export interface DecisionRule {
   readonly text: string;
 }
 
-export type DecisionChoice = 'allow' | 'block' | 'ask';
+export type DecisionChoice = 'allow' | 'block';
+
+// The recorded evaluation reports hold ask answers, and a replay of them reads
+// this wider set.
+export type RecordedDecisionChoice = DecisionChoice | 'ask';
 
 interface DecisionQuestion<Choice extends string = DecisionChoice> {
   readonly type: 'choice';
@@ -65,7 +69,7 @@ export interface TaskScopeSummary {
   readonly pullRequests: readonly { readonly repository: string; readonly number: number }[];
 }
 
-interface DecisionAnswer<Choice extends string = DecisionChoice> {
+export interface DecisionAnswer<Choice extends string = DecisionChoice> {
   readonly type: 'choice';
   readonly choice: Choice;
   readonly probabilities: Readonly<Record<Choice, number>>;
@@ -94,13 +98,13 @@ export interface DecisionDiagnostics {
   readonly failureReason: DecisionFailureReason | null;
   readonly requestBytes: number | null;
   readonly elapsedMs: number;
-  readonly minConfidence: number;
+  readonly blockThreshold: number;
   readonly contributors: readonly {
     readonly rule: string;
     readonly source: DecisionRule['source'];
     readonly tier: DecisionRule['tier'];
     readonly choice: DecisionAnswer['choice'];
     readonly confidence: number;
-    readonly probability: number;
+    readonly blockProbability: number;
   }[];
 }

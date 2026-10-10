@@ -45,7 +45,7 @@ test('it hands a decision service provider to Jev', async () => {
         apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
       },
       onFailure: 'defer',
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
     }),
     {
       host: buildMockHostEnvironment({
@@ -68,7 +68,7 @@ test('it hands a decision service provider to Jev', async () => {
       failureReason: null,
       requestBytes: expect.toBePositive(),
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
-      minConfidence: 0.8,
+      blockThreshold: 0.2,
       contributors: [],
     },
   });

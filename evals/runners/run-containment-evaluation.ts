@@ -160,7 +160,9 @@ async function main(): Promise<void> {
                   confidence: answer.confidence,
                   allow: answer.probabilities.allow,
                   block: answer.probabilities.block,
-                  ask: answer.probabilities.ask,
+
+                  // The question offers no ask, so the report holds 0 there.
+                  ask: 0,
                 },
               ];
         });

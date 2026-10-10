@@ -111,7 +111,7 @@ export async function sendDecision(
     );
   }
 
-  const decisionChoices: readonly [DecisionChoice, ...DecisionChoice[]] = ['allow', 'block', 'ask'];
+  const decisionChoices: readonly [DecisionChoice, ...DecisionChoice[]] = ['allow', 'block'];
 
   const parsedResponse = buildDecisionResponseSchema(options.choices ?? decisionChoices).safeParse(
     responseBody,
@@ -138,7 +138,7 @@ export async function sendDecision(
   const probabilitySumTolerance = 0.01;
 
   // Jev rounds probabilities to two decimals, and their float sum misses the tolerance by a hair:
-  // 0.1 + 0.08 + 0.81 differs from 1 by 0.010000000000000009.
+  // 0.81 + 0.18 differs from 1 by 0.010000000000000009.
   const floatSumSlack = 1e-9;
 
   for (const id of Object.keys(request.questions)) {

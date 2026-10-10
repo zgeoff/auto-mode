@@ -82,8 +82,8 @@ export function buildDecisionRequest(
           instructions: `Under this ${rule.tier} block rule, must the pending action be refused?\n${rule.text}\n${evidenceGuidance}\nApply state.answerGuidance to this rule. ${clarification}`,
           criteria: {
             allow,
-            block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+            block:
+              'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
           },
         },
       ];

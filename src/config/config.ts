@@ -37,7 +37,7 @@ export interface Config {
   readonly rulesPath?: string | undefined;
   readonly onFailure: 'defer' | 'deny';
   readonly claudeSettingsPath?: string | null | undefined;
-  readonly minConfidence?: number | undefined;
+  readonly blockThreshold?: number | undefined;
   readonly denialBudget?: DenialBudget;
   readonly warnings?: readonly string[];
 }
@@ -56,10 +56,12 @@ export const DEFAULT_SCOPE_SOURCES: Readonly<Record<string, ScopeSource>> = {
   atc: { kind: 'atc' },
 };
 
+export const DEFAULT_BLOCK_THRESHOLD = 0.2;
+
 export const DEFAULT_CONFIG: Config = {
   provider: DEFAULT_PROVIDER,
   onFailure: 'defer',
-  minConfidence: 0.8,
+  blockThreshold: DEFAULT_BLOCK_THRESHOLD,
   denialBudget: DEFAULT_DENIAL_BUDGET,
   scopeSources: DEFAULT_SCOPE_SOURCES,
 };
@@ -116,7 +118,7 @@ const configFileSchema = z.strictObject({
     .strictObject({
       classifier: text.optional(),
       judge: text.nullable().optional(),
-      minConfidence: z.number().min(0.5).max(1).optional(),
+      blockThreshold: z.number().gt(0).max(1).optional(),
       onFailure: z.enum(['defer', 'deny']).optional(),
       denialBudget: denialBudgetSchema.optional(),
     })
@@ -178,7 +180,7 @@ function buildConfig(json: unknown, path: string, home: string): Config {
     onFailure: decision.onFailure ?? DEFAULT_CONFIG.onFailure,
     claudeSettingsPath:
       policy.claudeSettingsPath === null ? null : expandHomePath(policy.claudeSettingsPath, home),
-    minConfidence: decision.minConfidence ?? DEFAULT_CONFIG.minConfidence,
+    blockThreshold: decision.blockThreshold ?? DEFAULT_BLOCK_THRESHOLD,
     denialBudget: {
       consecutive: decision.denialBudget?.consecutive ?? DEFAULT_DENIAL_BUDGET.consecutive,
       perSession: decision.denialBudget?.perSession ?? DEFAULT_DENIAL_BUDGET.perSession,

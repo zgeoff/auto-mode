@@ -5,7 +5,7 @@ test('it builds a default decision question', () => {
   expect(buildMockDecisionQuestion()).toStrictEqual({
     type: 'choice',
     instructions: expect.toBeString(),
-    criteria: { allow: expect.toBeString(), block: expect.toBeString(), ask: expect.toBeString() },
+    criteria: { allow: expect.toBeString(), block: expect.toBeString() },
   });
 });
 
@@ -18,6 +18,6 @@ test('it applies overrides on top of the defaults', () => {
   ).toStrictEqual({
     type: 'choice',
     instructions: 'Must the pending action be refused?',
-    criteria: { allow: expect.toBeString(), block: 'yes', ask: expect.toBeString() },
+    criteria: { allow: expect.toBeString(), block: 'yes' },
   });
 });

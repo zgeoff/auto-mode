@@ -1,16 +1,16 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
-import { classifyDecisionAnswers } from './classify-decision-answers.ts';
+import { buildMockRecordedDecisionAnswer } from '../../test-utils/factories/build-mock-recorded-decision-answer.ts';
+import { buildMockRecordedDecisionResult } from '../../test-utils/factories/build-mock-recorded-decision-result.ts';
+import { classifyRecordedAnswers } from './classify-recorded-answers.ts';
 
 test('it classifies the answers as allow when every rule is a confident allow', () => {
   const request = buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'allow',
         confidence: 0.8,
         probabilities: { allow: 0.8, block: 0.1, ask: 0.1 },
@@ -18,7 +18,7 @@ test('it classifies the answers as allow when every rule is a confident allow', 
     },
   });
 
-  expect(classifyDecisionAnswers(request, result, 0.8)).toStrictEqual({ kind: 'allow' });
+  expect(classifyRecordedAnswers(request, result, 0.8)).toStrictEqual({ kind: 'allow' });
 });
 
 test('it classifies a confident block on a hard rule ahead of an earlier soft block', () => {
@@ -26,14 +26,14 @@ test('it classifies a confident block on a hard rule ahead of an earlier soft bl
   const hard = buildMockDecisionRule({ tier: 'hard' });
   const request = buildMockDecisionRequest({ rules: { soft, hard } });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      soft: buildMockDecisionAnswer({
+      soft: buildMockRecordedDecisionAnswer({
         choice: 'block',
         confidence: 1,
         probabilities: { allow: 0, block: 1, ask: 0 },
       }),
-      hard: buildMockDecisionAnswer({
+      hard: buildMockRecordedDecisionAnswer({
         choice: 'block',
         confidence: 1,
         probabilities: { allow: 0, block: 1, ask: 0 },
@@ -41,7 +41,7 @@ test('it classifies a confident block on a hard rule ahead of an earlier soft bl
     },
   });
 
-  expect(classifyDecisionAnswers(request, result, 0.8)).toStrictEqual({
+  expect(classifyRecordedAnswers(request, result, 0.8)).toStrictEqual({
     kind: 'block',
     rule: hard,
   });
@@ -54,13 +54,13 @@ test.each([
   const rule = buildMockDecisionRule();
   const request = buildMockDecisionRequest({ rules: { rule_0: rule } });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({ choice: 'block', confidence, probabilities }),
+      rule_0: buildMockRecordedDecisionAnswer({ choice: 'block', confidence, probabilities }),
     },
   });
 
-  expect(classifyDecisionAnswers(request, result, 0.8)).toStrictEqual({ kind: 'uncertain', rule });
+  expect(classifyRecordedAnswers(request, result, 0.8)).toStrictEqual({ kind: 'uncertain', rule });
 });
 
 test('it names the uncertain rule with the highest block probability', () => {
@@ -68,14 +68,14 @@ test('it names the uncertain rule with the highest block probability', () => {
   const doubtful = buildMockDecisionRule();
   const request = buildMockDecisionRequest({ rules: { ask, doubtful } });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      ask: buildMockDecisionAnswer({
+      ask: buildMockRecordedDecisionAnswer({
         choice: 'ask',
         confidence: 0.9,
         probabilities: { allow: 0.1, block: 0.05, ask: 0.85 },
       }),
-      doubtful: buildMockDecisionAnswer({
+      doubtful: buildMockRecordedDecisionAnswer({
         choice: 'allow',
         confidence: 0.5,
         probabilities: { allow: 0.5, block: 0.4, ask: 0.1 },
@@ -83,7 +83,7 @@ test('it names the uncertain rule with the highest block probability', () => {
     },
   });
 
-  expect(classifyDecisionAnswers(request, result, 0.8)).toStrictEqual({
+  expect(classifyRecordedAnswers(request, result, 0.8)).toStrictEqual({
     kind: 'uncertain',
     rule: doubtful,
   });
@@ -94,9 +94,9 @@ test('it throws when the result leaves a rule unanswered', () => {
     rules: { rule_0: buildMockDecisionRule(), rule_1: buildMockDecisionRule() },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'allow',
         confidence: 1,
         probabilities: { allow: 1, block: 0, ask: 0 },
@@ -104,7 +104,7 @@ test('it throws when the result leaves a rule unanswered', () => {
     },
   });
 
-  expect(() => classifyDecisionAnswers(request, result, 0.8)).toThrowWithMessage(
+  expect(() => classifyRecordedAnswers(request, result, 0.8)).toThrowWithMessage(
     Error,
     'Decision answer missing',
   );

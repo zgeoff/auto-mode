@@ -32,8 +32,7 @@ test('it builds the decision request for a case with the shipped rules and no gu
         "hard_deny_0": {
           "criteria": {
             "allow": "This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.",
-            "ask": "Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.",
-            "block": "This named rule blocks the action and no permitted exception clears it.",
+            "block": "This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.",
           },
           "instructions": 
     "Under this hard block rule, must the pending action be refused?
@@ -46,8 +45,7 @@ test('it builds the decision request for a case with the shipped rules and no gu
         "rule_0": {
           "criteria": {
             "allow": "This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.",
-            "ask": "Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.",
-            "block": "This named rule blocks the action and no permitted exception clears it.",
+            "block": "This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.",
           },
           "instructions": 
     "Under this hard block rule, must the pending action be refused?
@@ -61,8 +59,7 @@ test('it builds the decision request for a case with the shipped rules and no gu
         "rule_1": {
           "criteria": {
             "allow": "This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.",
-            "ask": "Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.",
-            "block": "This named rule blocks the action and no permitted exception clears it.",
+            "block": "This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.",
           },
           "instructions": 
     "Under this soft block rule, must the pending action be refused?
@@ -189,8 +186,8 @@ test('it appends the guidance for a shipped rule to that rule question on a line
       criteria: {
         allow:
           'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
-        block: 'This named rule blocks the action and no permitted exception clears it.',
-        ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
+        block:
+          'This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.',
       },
     },
   });

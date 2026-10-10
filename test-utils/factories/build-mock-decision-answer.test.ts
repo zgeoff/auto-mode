@@ -6,7 +6,7 @@ test('it builds a default decision answer', () => {
     type: 'choice',
     choice: 'allow',
     confidence: 1,
-    probabilities: { allow: 1, block: 0, ask: 0 },
+    probabilities: { allow: 1, block: 0 },
   });
 });
 
@@ -15,21 +15,21 @@ test('it applies overrides on top of the defaults', () => {
     buildMockDecisionAnswer({
       choice: 'block',
       confidence: 0.9,
-      probabilities: { allow: 0.1, block: 0.9, ask: 0 },
+      probabilities: { allow: 0.1, block: 0.9 },
     }),
   ).toStrictEqual({
     type: 'choice',
     choice: 'block',
     confidence: 0.9,
-    probabilities: { allow: 0.1, block: 0.9, ask: 0 },
+    probabilities: { allow: 0.1, block: 0.9 },
   });
 });
 
 test('it puts the whole probability mass on an overridden choice', () => {
-  expect(buildMockDecisionAnswer({ choice: 'ask' })).toStrictEqual({
+  expect(buildMockDecisionAnswer({ choice: 'block' })).toStrictEqual({
     type: 'choice',
-    choice: 'ask',
+    choice: 'block',
     confidence: 1,
-    probabilities: { allow: 0, block: 0, ask: 1 },
+    probabilities: { allow: 0, block: 1 },
   });
 });

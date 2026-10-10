@@ -3,7 +3,6 @@ export { toTimerDelay } from '../config/to-timer-delay.ts';
 export { collectScopeFindings, type ScopeFinding } from '../containment/collect-scope-findings.ts';
 export { sendMessage } from '../model/anthropic-client.ts';
 export { buildUserMessage } from '../model/build-request.ts';
-export { classifyDecisionAnswers } from '../model/classify-decision-answers.ts';
 export { formatClassifierNote } from '../model/format-classifier-note.ts';
 export { loadRepositoryContext } from '../model/load-repository-context.ts';
 export { probabilitySchema } from '../model/probability-schema.ts';
