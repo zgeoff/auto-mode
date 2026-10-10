@@ -699,6 +699,58 @@ test('it keeps a hard-rule Jev deny with its template reason when the judge over
   });
 });
 
+test('it keeps a Jev deny the judge overturns on consent when a configured hard deny also blocks below the top soft rule', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.dir, 'settings.json'),
+    JSON.stringify({ autoMode: { hard_deny: ['Never run the release target'] } }),
+  );
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  decisionAnswers.set(
+    'hard_deny_0',
+    buildMockDecisionAnswer({
+      choice: 'allow',
+      confidence: 0.6,
+      probabilities: { allow: 0.6, block: 0.4 },
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for the release.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny' },
+    decidingStage: 'judge',
+    status: 'deny',
+    judge: { status: 'held', tier: 'hard', overturnBasis: 'consent' },
+  });
+});
+
 test('it denies a stored-password change the user only asked to check at the containment check, before Jev or the judge (GEO-78 control-39)', async () => {
   const ctx = await setupTest();
 
