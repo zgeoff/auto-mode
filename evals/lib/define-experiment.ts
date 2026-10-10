@@ -45,7 +45,7 @@ export interface StageContext {
 // A recorded answer replaces the request a stage would send: its own bytes are
 // hashed, and its latency and model are the ones the recording holds. A
 // recording that kept no latency leaves it null rather than zero.
-export interface RecordedAnswer {
+interface RecordedAnswer {
   readonly answer: unknown;
   readonly latencyMs: number | null;
   readonly model: string;
