@@ -1,3 +1,4 @@
+export { DEFAULT_BLOCK_THRESHOLD } from '../config/config.ts';
 export { readHostEnvironment } from '../config/read-host-environment.ts';
 export { toTimerDelay } from '../config/to-timer-delay.ts';
 export { collectScopeFindings, type ScopeFinding } from '../containment/collect-scope-findings.ts';
@@ -5,6 +6,7 @@ export { sendMessage } from '../model/anthropic-client.ts';
 export { buildUserMessage } from '../model/build-request.ts';
 export { formatClassifierNote } from '../model/format-classifier-note.ts';
 export { loadRepositoryContext } from '../model/load-repository-context.ts';
+export { pickDecisionVerdict } from '../model/pick-decision-verdict.ts';
 export { probabilitySchema } from '../model/probability-schema.ts';
 export { repositoryContextSchema } from '../model/repository-context-schema.ts';
 export { collectPullRequestAddresses } from '../scope/collect-pull-request-addresses.ts';

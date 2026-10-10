@@ -1,4 +1,4 @@
-import type { JevClass } from './classify-jev-answers.ts';
+import type { JevClass } from './classify-live-jev-answers.ts';
 
 export type JevReading = 'release-all-allow' | 'shipped';
 

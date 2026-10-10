@@ -1,4 +1,4 @@
-import type { JevClass } from './classify-jev-answers.ts';
+import type { JevClass } from './classify-live-jev-answers.ts';
 import type { JevReport } from './jev-report-schema.ts';
 
 type JevRecord = JevReport['records'][number];

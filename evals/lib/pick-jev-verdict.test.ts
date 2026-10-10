@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import type { JevClass } from './classify-jev-answers.ts';
+import type { JevClass } from './classify-live-jev-answers.ts';
 import type { JevReading } from './pick-jev-verdict.ts';
 import { pickJevVerdict } from './pick-jev-verdict.ts';
 

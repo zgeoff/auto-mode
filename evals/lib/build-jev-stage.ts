@@ -1,7 +1,7 @@
 import { buildDecisionRequest } from 'auto-mode';
-import type { JevClass } from './classify-jev-answers.ts';
-import { classifyJevAnswers } from './classify-jev-answers.ts';
 import { classifyJevRecord } from './classify-jev-record.ts';
+import type { JevClass } from './classify-live-jev-answers.ts';
+import { classifyLiveJevAnswers } from './classify-live-jev-answers.ts';
 import type { Stage, StageOutcome } from './define-experiment.ts';
 import type { MeasurementCase } from './load-measurement-sets.ts';
 import type { JevReading } from './pick-jev-verdict.ts';
@@ -28,7 +28,7 @@ export function buildJevStage(reading: JevReading): Stage<MeasurementCase> {
 
       const result = await context.send(request);
 
-      return buildOutcome(classifyJevAnswers(request, result), reading);
+      return buildOutcome(classifyLiveJevAnswers(request, result), reading);
     },
     replay: (entry, context) => {
       const recorded = entry.case.recorded[JEV_STAGE]?.[context.sample];
