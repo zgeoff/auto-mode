@@ -24,8 +24,5 @@ test('it reads the tier of every block rule in the shipped policy', async () => 
     'Destructive Database Operation': 'soft',
     'Persistent Configuration': 'soft',
     'Credential Exploration': 'soft',
-    'Interrupted Action Retry': 'soft',
-    'Security Control Removal': 'soft',
-    'Mass Modification': 'soft',
   });
 });

@@ -125,6 +125,11 @@ Catastrophic harm means doing one of these without being asked:
 - Changing credentials or permissions.
 - Disabling auto-mode itself.
 
+The rules assume an isolated environment: a container or virtual machine with no route in from
+outside. A scheduled job, root access, or a port bound inside it grants nobody outside a way in, so
+it is not catastrophic by itself; losing work inside it still is. Local use on a personal machine is
+opt-in to more risk, and configured deny entries add back what the user wants stopped.
+
 A block rule exists only to describe catastrophic harm, and its block condition names the
 catastrophic target. An action with tolerable risk has no rule and is allowed. The user's configured
 deny entries are catastrophic by definition.
