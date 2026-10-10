@@ -51,6 +51,7 @@ interface Identifier {
 }
 
 const HOME_PATH = /\/(?<base>home|Users)\/(?<user>[^/\s"'`:;|&<>()]+)/g;
+const WINDOWS_HOME = /\b(?<prefix>[A-Za-z]:[\\/]+Users[\\/]+)(?<user>[^\\/\s"'`:;|&<>()]+)/g;
 
 const FORGE_PATH =
   /\b(?:github\.com|gitlab\.com|bitbucket\.org|codeberg\.org)[/:](?<owner>[\w.-]+)\/(?<repo>[\w.-]+)/gi;
@@ -58,7 +59,137 @@ const FORGE_PATH =
 const REPO_FLAG = /(?:--repo|-R)[=\s]+(?<owner>[\w.-]+)\/(?<repo>[\w.-]+)/g;
 
 const URL_AUTHORITY =
-  /\b(?<scheme>[a-z][a-z0-9+.-]*:\/\/)(?:(?<userinfo>[^\s/@"'<>]+)@)?(?<host>[A-Za-z0-9.-]+)(?<port>:\d+)?/gi;
+  /\b(?<scheme>[a-z][a-z0-9+.-]*:\/\/)(?:(?<userinfo>[^\s/@"'<>]+)@)?(?<host>[A-Za-z0-9.-]+)(?<port>:\d+)?(?:\/(?<first>[^\s/?#"'<>]+)(?:\/(?<second>[^\s/?#"'<>]+))?)?/gi;
+
+const QUERY_VALUE = /(?<prefix>[?&][\w.~-]+=)(?<value>[^&#\s"'<>]+)/g;
+
+const SECRET_FLAG =
+  /(?<flag>--(?:password|passwd|pass|token|secret|api-key|apikey|auth|auth-token)(?:=|\s+))(?<value>[^\s"'&;|]+)/gi;
+
+const ATTACHED_PASSWORD = /(?<flag>(?<![\w-])-p)(?<value>[^\s"'&;|]*[A-Za-z][^\s"'&;|]*)/g;
+const IPV4 = /(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])/g;
+const IPV6 = /(?<![\w:])[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?![\w:])/g;
+
+const KEPT_ADDRESSES = new Set(['127.0.0.1', '0.0.0.0', '::1', '::', 'localhost']);
+
+const DOTTED_NAME =
+  /(?<![\w.@/\\-])(?<host>[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)(?![\w-]|\.\w)/g;
+
+const HOST_POSITION =
+  /\b(?:ssh|scp|rsync|sftp|mosh|ping|telnet|nc|dig|nslookup|curl|wget)\b[^;&|\n]*?(?<=\s)(?:[\w.-]+@)?(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/g;
+
+const HOST_FLAG = /(?:--host|-h|-H)[=\s]+(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/g;
+
+// Top-level and private suffixes that mark a dotted name as a host; a file
+// extension wins over a suffix, so `install.sh` and `README.md` stay names.
+const HOST_SUFFIXES = new Set([
+  'com',
+  'net',
+  'org',
+  'io',
+  'dev',
+  'app',
+  'ai',
+  'co',
+  'uk',
+  'de',
+  'fr',
+  'nl',
+  'eu',
+  'us',
+  'ca',
+  'au',
+  'jp',
+  'cn',
+  'ru',
+  'br',
+  'ch',
+  'se',
+  'no',
+  'fi',
+  'dk',
+  'pl',
+  'it',
+  'es',
+  'be',
+  'at',
+  'cz',
+  'info',
+  'biz',
+  'me',
+  'tv',
+  'cloud',
+  'tech',
+  'site',
+  'xyz',
+  'gov',
+  'edu',
+  'internal',
+  'local',
+  'lan',
+  'corp',
+  'home',
+  'intranet',
+  'private',
+  'localdomain',
+  'test',
+  'tld',
+]);
+
+const FILE_EXTENSIONS = new Set([
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'mjs',
+  'cjs',
+  'json',
+  'jsonl',
+  'md',
+  'mdx',
+  'txt',
+  'yml',
+  'yaml',
+  'toml',
+  'lock',
+  'sh',
+  'bash',
+  'zsh',
+  'py',
+  'go',
+  'rs',
+  'rb',
+  'java',
+  'kt',
+  'c',
+  'h',
+  'cpp',
+  'css',
+  'scss',
+  'html',
+  'svg',
+  'png',
+  'jpg',
+  'gif',
+  'log',
+  'csv',
+  'sql',
+  'env',
+  'tar',
+  'gz',
+  'zip',
+  'pdf',
+  'nix',
+  'xml',
+  'ini',
+  'cfg',
+  'conf',
+  'pem',
+  'key',
+  'crt',
+  'diff',
+  'patch',
+]);
 
 const SCP_REMOTE = /\b(?<user>[\w.-]+)@(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+):/g;
 const EMAIL = /\b[\w.+-]+@(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)\b/g;
@@ -109,6 +240,12 @@ const STRUCTURAL_NAMES = new Set([
   'invalid',
   'localhost',
   'worktrees',
+  'example.com',
+  'example.org',
+  'example.net',
+  'example.invalid',
+  '127.0.0.1',
+  '0.0.0.0',
 ]);
 
 function collectIdentifiers(
@@ -166,6 +303,21 @@ function collectTextIdentifiers(text: string): Identifier[] {
         { value: groups['repo'] ?? '', kind: 'repo' as const },
       ]),
     ),
+    ...collectGroups(text, WINDOWS_HOME).map((groups) => ({
+      value: groups['user'] ?? '',
+      kind: 'user' as const,
+    })),
+    ...collectGroups(text, URL_AUTHORITY).flatMap((groups) => collectForgePath(groups)),
+    ...[HOST_POSITION, HOST_FLAG].flatMap((pattern) =>
+      collectGroups(text, pattern)
+        .map((groups) => groups['host'] ?? '')
+        .filter((name) => !FILE_EXTENSIONS.has(name.toLowerCase().split('.').at(-1) ?? ''))
+        .map((name) => ({ value: name, kind: 'host' as const })),
+    ),
+    ...collectGroups(text, DOTTED_NAME)
+      .map((groups) => groups['host'] ?? '')
+      .filter((name) => isHostName(name))
+      .map((name) => ({ value: name, kind: 'host' as const })),
     ...collectGroups(text, URL_AUTHORITY).flatMap((groups) =>
       collectRemoteIdentifiers(groups['userinfo']?.split(':')[0], groups['host'] ?? ''),
     ),
@@ -192,6 +344,31 @@ type Groups = Readonly<Record<string, string | undefined>>;
 
 function collectGroups(text: string, pattern: Readonly<RegExp>): Groups[] {
   return [...text.matchAll(pattern)].map((match) => match.groups ?? {});
+}
+
+// A git remote names its owner and repository in the first two path segments,
+// so an ssh or git URL, or one whose path ends in .git, names both everywhere.
+function collectForgePath(groups: Groups): Identifier[] {
+  const scheme = (groups['scheme'] ?? '').toLowerCase();
+  const first = groups['first'];
+  const second = groups['second'];
+
+  const isRemote =
+    scheme.startsWith('ssh') || scheme.startsWith('git') || second?.endsWith('.git') === true;
+
+  return isRemote && first !== undefined && second !== undefined
+    ? [
+        { value: first, kind: 'owner' },
+        { value: second, kind: 'repo' },
+      ]
+    : [];
+}
+
+function isHostName(name: string): boolean {
+  const labels = name.toLowerCase().split('.');
+  const last = labels.at(-1) ?? '';
+
+  return !FILE_EXTENSIONS.has(last) && HOST_SUFFIXES.has(last) && !/^\d+$/.test(labels[0] ?? '');
 }
 
 function collectRemoteIdentifiers(user: string | undefined, host: string): Identifier[] {
@@ -261,21 +438,50 @@ function makeStringRewriter(
   const steps: readonly Rewriter[] = [
     (text) =>
       buildReplacedText(text, URL_AUTHORITY, (_match, groups) => {
-        const userinfo = groups['userinfo'];
+        const userinfo = groups['userinfo']?.split(':')[0];
         const host = groups['host'] ?? '';
+
+        if (KEPT_ADDRESSES.has(host)) {
+          return _match;
+        }
 
         const user =
           userinfo === undefined
             ? ''
-            : `${toClassedPlaceholder('user', userinfo.split(':')[0] ?? '')}@`;
+            : `${SHARED_USERS.has(userinfo) ? userinfo : toClassedPlaceholder('user', userinfo)}@`;
 
-        const shownHost =
-          host === 'localhost' || host === '127.0.0.1'
-            ? host
-            : `${toClassedPlaceholder('host', host)}.example`;
+        const first = groups['first'];
+        const second = groups['second'];
+        const firstPart = first === undefined ? '' : `/${toClassedPlaceholder('owner', first)}`;
 
-        return `${groups['scheme'] ?? ''}${user}${shownHost}${groups['port'] ?? ''}`;
+        const secondPart =
+          second === undefined
+            ? ''
+            : `/${toClassedPlaceholder('repo', second.replace(/\.git$/, ''))}${second.endsWith('.git') ? '.git' : ''}`;
+
+        return `${groups['scheme'] ?? ''}${user}${toClassedPlaceholder('host', host)}.example${groups['port'] ?? ''}${firstPart}${secondPart}`;
       }),
+    (text) =>
+      buildReplacedText(
+        text,
+        QUERY_VALUE,
+        (_match, groups) =>
+          `${groups['prefix'] ?? ''}${toPlaceholder('token', groups['value'] ?? '')}`,
+      ),
+    (text) =>
+      buildReplacedText(
+        text,
+        SECRET_FLAG,
+        (_match, groups) =>
+          `${groups['flag'] ?? ''}${toPlaceholder('token', groups['value'] ?? '')}`,
+      ),
+    (text) =>
+      buildReplacedText(
+        text,
+        ATTACHED_PASSWORD,
+        (_match, groups) =>
+          `${groups['flag'] ?? ''}${toPlaceholder('token', groups['value'] ?? '')}`,
+      ),
     (text) => buildReplacedText(text, PRIVATE_KEY, (match) => toPlaceholder('token', match)),
     (text) => buildSecretFreeText(text, (secret) => toPlaceholder('token', secret)),
     (text) => buildReplacedText(text, KNOWN_TOKEN, (match) => toPlaceholder('token', match)),
@@ -306,6 +512,25 @@ function makeStringRewriter(
       }),
     (text) =>
       buildReplacedText(text, EMAIL, (match) => `${toPlaceholder('email', match)}@example.invalid`),
+    (text) =>
+      buildReplacedText(
+        text,
+        WINDOWS_HOME,
+        (_match, groups) =>
+          `${groups['prefix'] ?? ''}${toClassedPlaceholder('user', groups['user'] ?? '')}`,
+      ),
+    (text) =>
+      buildReplacedText(text, IPV4, (match) =>
+        KEPT_ADDRESSES.has(match) ? match : toPlaceholder('host', match),
+      ),
+    (text) =>
+      buildReplacedText(text, IPV6, (match) =>
+        KEPT_ADDRESSES.has(match) ||
+        (!match.includes('::') && match.split(':').length < 8) ||
+        !/\d/.test(match)
+          ? match
+          : toPlaceholder('host', match),
+      ),
     (text) =>
       buildReplacedText(
         text,

@@ -140,7 +140,7 @@ test('it replaces an email address whole', () => {
   });
 });
 
-test('it replaces the host and user of a URL and keeps its scheme, port and path', () => {
+test('it replaces the host, user, path names and query values of a URL and keeps its shape', () => {
   const corpus = buildAnonymisedCorpus(
     [
       {
@@ -157,9 +157,66 @@ test('it replaces the host and user of a URL and keeps its scheme, port and path
 
   expect(request).toStrictEqual({
     command: expect.toSatisfy((value: string) =>
-      /^curl https:\/\/user-[0-9a-f]{8}@host-[0-9a-f]{8}\.example:8443\/status\?x=1$/.test(value),
+      /^curl https:\/\/user-[0-9a-f]{8}@host-[0-9a-f]{8}\.example:8443\/owner-[0-9a-f]{8}\?x=token-[0-9a-f]{8}$/.test(
+        value,
+      ),
     ),
   });
+});
+
+test.each([
+  ['a password after a spaced flag', 'mysql --password hunter2xyz', ['hunter2xyz']],
+  ['a password attached to -p', 'mysql -phunter2xyz -u root', ['hunter2xyz']],
+  [
+    'a token and an API key flag',
+    'deploy --token=abc123secret --api-key k3yvalue9',
+    ['abc123secret', 'k3yvalue9'],
+  ],
+  [
+    'every query value',
+    'curl "https://ci.acme.dev/api?token=sekrit123&key=k3y456"',
+    ['sekrit123', 'k3y456', 'acme'],
+  ],
+  ['a bare IPv4 address', 'ping 10.20.30.40', ['10.20.30.40']],
+  ['a bare IPv6 address', 'ping fe80::1ff:fe23:4567:890a', ['fe80::1ff:fe23:4567:890a']],
+  ['a bare host after ssh', 'ssh build01.corp.acme.internal', ['build01', 'acme']],
+  ['a bare host in an scp target', 'scp f host.tld:/tmp', ['host.tld']],
+  ['a Windows home path', String.raw`type C:\Users\robin\notes.txt`, ['robin']],
+  ['a Windows home path with forward slashes', 'cat C:/Users/robin/notes.txt', ['robin']],
+  [
+    'the owner and repository of an ssh remote on any host',
+    'git clone ssh://git@git.acme.dev:2222/team/proj.git && cd proj',
+    ['acme', 'team', 'proj'],
+  ],
+  [
+    'the owner and repository of a URL on any host',
+    'open https://forge.acme.dev/team/proj',
+    ['acme', 'team', 'proj'],
+  ],
+])('it removes %s', (_label, command, raws) => {
+  const corpus = buildAnonymisedCorpus(
+    [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
+    'salt',
+  );
+
+  const text = JSON.stringify(corpus.cases[0]?.request);
+
+  expect(raws.filter((raw) => text.includes(raw))).toStrictEqual([]);
+});
+
+test.each([
+  ['file names with extensions', 'cat package.json README.md src/a.test.ts && bash install.sh'],
+  ['loopback addresses and a clock time', 'curl http://127.0.0.1:8080 && ping ::1 at 12:00:00'],
+  ['a dotted code expression', 'node -e "process.env.PATH"'],
+])('it keeps %s as written', (_label, command) => {
+  const corpus = buildAnonymisedCorpus(
+    [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+
+  expect(request).toStrictEqual({ command });
 });
 
 test('it keeps a loopback host', () => {
