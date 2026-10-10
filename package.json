@@ -5,11 +5,12 @@
   "keywords": [
     "agent",
     "claude-code",
-    "mod",
     "permissions"
   ],
   "homepage": "https://github.com/zgeoff/auto-mode#readme",
-  "bugs": "https://github.com/zgeoff/auto-mode/issues",
+  "bugs": {
+    "url": "https://github.com/zgeoff/auto-mode/issues"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -65,7 +66,7 @@
     "test": "bun run build && bun --no-env-file test --conditions=auto-mode-eval",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p evals/tsconfig.json --noEmit",
     "check:artifact": "bun --no-env-file scripts/check-artifact.ts",
-    "check:claude-mod": "bash scripts/check-claude-mod.sh",
+    "check:claude-mod": "bun --no-env-file scripts/check-claude-mod.ts",
     "files:branch": "bun scripts/collect-branch-files.ts",
     "lint:files": "oxlint --no-error-on-unmatched-pattern",
     "test:related": "bun scripts/run-related-tests.ts"
