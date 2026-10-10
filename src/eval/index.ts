@@ -13,3 +13,4 @@ export { collectPullRequestAddresses } from '../scope/collect-pull-request-addre
 export { pickScopeSourceReader } from '../scope/pick-scope-source-reader.ts';
 export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';
 export { updateSessionScope } from '../scope/update-session-scope.ts';
+export { resolveStateDir } from '../state/resolve-state-dir.ts';
