@@ -1,0 +1,266 @@
+import { expect, onTestFinished, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { checkImports } from './check-imports.ts';
+
+async function setupTest() {
+  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-check-imports-'));
+
+  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+
+  return { dir };
+}
+
+test('it finds no forbidden import in the repository', () => {
+  expect(checkImports(join(import.meta.dirname, '..')).findings).toStrictEqual([]);
+});
+
+test('it reports a core file that imports test code', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'test-utils/wait-for.ts'), 'export const waitFor = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/rules/classify-locally.ts'),
+    "import { waitFor } from '../../test-utils/wait-for.ts';\n\nexport const value = waitFor;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'core-no-tooling',
+      file: 'src/rules/classify-locally.ts',
+      line: 1,
+      message:
+        'src/ imports eval, script or test code: src/rules/classify-locally.ts → test-utils/wait-for.ts',
+    },
+  ]);
+});
+
+test('it passes a core file that imports a support module', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/config/config.ts'), 'export const config = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/rules/classify-locally.ts'),
+    "import { config } from '../config/config.ts';\n\nexport const value = config;\n",
+  );
+
+  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], pending: [] });
+});
+
+test('it reports a mod file that imports the core', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/request/render-verdict.ts'), 'export const render = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'mods/auto-mode/hooks/register.ts'),
+    "import { render } from '../../../src/request/render-verdict.ts';\n\nexport const value = render;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'src-mods-apart',
+      file: 'mods/auto-mode/hooks/register.ts',
+      line: 1,
+      message:
+        'the mod imports outside itself: mods/auto-mode/hooks/register.ts → src/request/render-verdict.ts',
+    },
+  ]);
+});
+
+test('it reports a core test file that imports the mod', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'mods/auto-mode/hooks/types.ts'), 'export const mod = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/run-cli.test.ts'),
+    "import { mod } from '../mods/auto-mode/hooks/types.ts';\n\nexport const value = mod;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'src-mods-apart',
+      file: 'src/run-cli.test.ts',
+      line: 1,
+      message: 'src/ imports the mod: src/run-cli.test.ts → mods/auto-mode/hooks/types.ts',
+    },
+  ]);
+});
+
+test('it passes a core test file that imports test code', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'test-utils/wait-for.ts'), 'export const waitFor = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/run-cli.test.ts'),
+    "import { waitFor } from '../test-utils/wait-for.ts';\n\nexport const value = waitFor;\n",
+  );
+
+  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], pending: [] });
+});
+
+test('it reports a fetch call outside the model module', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'src/scope/read-pull-request.ts'),
+    "export const value = await globalThis.fetch('https://example.com');\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'network',
+      file: 'src/scope/read-pull-request.ts',
+      line: 1,
+      message: 'fetch( outside src/model/',
+    },
+  ]);
+});
+
+test('it passes a fetch call inside the model module', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'src/model/anthropic-client.ts'),
+    "export const value = await fetch('https://example.com');\n",
+  );
+
+  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], pending: [] });
+});
+
+test('it reports a core file outside every zone', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/widgets/build-widget.ts'), 'export const widget = 1;\n');
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'zone-assignment',
+      file: 'src/widgets/build-widget.ts',
+      line: 1,
+      message: 'file belongs to no zone; add its folder to a zone',
+    },
+  ]);
+});
+
+test('it reports an import that resolves to no file', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'src/rules/classify-locally.ts'),
+    "export { missing } from './missing.ts';\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'unresolved',
+      file: 'src/rules/classify-locally.ts',
+      line: 1,
+      message: 'cannot resolve ./missing.ts',
+    },
+  ]);
+});
+
+test('it holds a stage-to-stage import as pending while the stages rule is off', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/rules/split-shell-command.ts'), 'export const split = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/containment/check-containment.ts'),
+    "import { split } from '../rules/split-shell-command.ts';\n\nexport const value = split;\n",
+  );
+
+  expect(checkImports(ctx.dir)).toStrictEqual({
+    findings: [],
+    pending: [
+      {
+        rule: 'stages',
+        file: 'src/containment/check-containment.ts',
+        line: 1,
+        message:
+          'stage imports stage: src/containment/check-containment.ts → src/rules/split-shell-command.ts',
+      },
+    ],
+  });
+});
+
+test('it reports a stage-to-stage import once the stages rule is on', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/rules/split-shell-command.ts'), 'export const split = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/containment/check-containment.ts'),
+    "import { split } from '../rules/split-shell-command.ts';\n\nexport const value = split;\n",
+  );
+
+  expect(checkImports(ctx.dir, { enable: ['stages'] }).findings).toStrictEqual([
+    {
+      rule: 'stages',
+      file: 'src/containment/check-containment.ts',
+      line: 1,
+      message:
+        'stage imports stage: src/containment/check-containment.ts → src/rules/split-shell-command.ts',
+    },
+  ]);
+});
+
+test('it passes a type-only import of a types file across stages', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/model/types.ts'), 'export type Verdict = string;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/containment/check-containment.ts'),
+    "import type { Verdict } from '../model/types.ts';\n\nexport const value: Verdict = 'allow';\n",
+  );
+
+  expect(checkImports(ctx.dir, { enable: ['stages'] })).toStrictEqual({
+    findings: [],
+    pending: [],
+  });
+});
+
+test('it reports a value import of a types file across stages', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/model/types.ts'), 'export const verdicts = [];\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/containment/check-containment.ts'),
+    "import { verdicts } from '../model/types.ts';\n\nexport const value = verdicts;\n",
+  );
+
+  expect(checkImports(ctx.dir, { enable: ['stages'] }).findings).toStrictEqual([
+    {
+      rule: 'stages',
+      file: 'src/containment/check-containment.ts',
+      line: 1,
+      message: 'stage imports stage: src/containment/check-containment.ts → src/model/types.ts',
+    },
+  ]);
+});
+
+test('it reports a child process import outside the process module once the rule is on', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'src/config/read-api-key-from-command.ts'),
+    "import { spawn } from 'node:child_process';\n\nexport const value = spawn;\n",
+  );
+
+  expect(checkImports(ctx.dir, { enable: ['child-process'] }).findings).toStrictEqual([
+    {
+      rule: 'child-process',
+      file: 'src/config/read-api-key-from-command.ts',
+      line: 1,
+      message: 'node:child_process outside src/process/',
+    },
+  ]);
+});

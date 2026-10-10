@@ -217,6 +217,11 @@ also reuse the root `test-utils/` helpers by path, and those import `src/` direc
 install a workspace's dependency on the root package, so `prepare` links
 `evals/node_modules/auto-mode` to the root instead.
 
+`bun run check:imports` (`scripts/check-imports.ts`) enforces the module boundaries in CI and on
+pre-push. Every file under `src/` belongs to a zone: an orchestrator file, `request/`, a support
+module or a stage. A new `src/` folder joins a zone in that script, in the same PR that adds it. The
+script prints each zone that is still off and the ticket that turns it on.
+
 ## Runtime rules
 
 - Bun for development, node for the artifact. `bun test`, never vitest. The published `dist/` runs
