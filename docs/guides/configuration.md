@@ -218,13 +218,18 @@ With capture on, `auto-mode run` appends one line per judged action to `requests
 file per UTC day: the mod request as the CLI received it, the verdict or `null` when it wrote none,
 the deciding stage, and whether the denial budget left the action to the user. The default directory
 falls back to `~/.local/state/auto-mode/captures/` when the variable is absent, and a leading `~/`
-in `dir` expands to the home directory. New directories use mode `0700` and new files `0600`.
+in `dir` expands to the home directory. The CLI narrows the directory to mode `0700` and each file
+to `0600`, and refuses to write through a link at the file's path.
 
 A capture holds whole prompts, commands and paths, so it never goes into git. The CLI resolves the
 directory through any link and refuses one inside a git work tree: it writes nothing and prints
-`auto-mode: capture skipped:` with the reason to stderr. A capture that cannot be written prints
-`auto-mode: capture unavailable`. Neither changes the verdict or the exit code. A request the CLI
-does not judge, such as a body that is not a mod request, is not captured.
+`auto-mode: capture skipped:` with the reason to stderr. A bare repository whose work tree is the
+home directory, such as a dotfiles repository, leaves no `.git` on that walk, so the CLI also keeps
+a `.gitignore` holding `*` in the directory; git honours it in any work tree, so `git add -A` skips
+the captures. `git add -f` still adds them, so never force-add under the capture directory. A
+capture that cannot be written prints `auto-mode: capture unavailable`. Neither changes the verdict
+or the exit code. A request the CLI does not judge, such as a body that is not a mod request, is not
+captured.
 
 To turn the capture off, set `enabled` to `false` or remove the block; the CLI then never touches
 the directory. Delete the files you no longer need: the CLI never prunes them.

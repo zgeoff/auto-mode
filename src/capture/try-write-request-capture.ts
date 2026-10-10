@@ -1,4 +1,5 @@
-import { appendFile, mkdir, realpath } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { chmod, mkdir, open, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import type { DecidingStage } from '../classify-action.ts';
 import type { Verdict } from '../request/types.ts';
@@ -45,12 +46,44 @@ export async function tryWriteRequestCapture(
       return { kind: 'refused', reason: `the capture dir is inside the git work tree ${after}` };
     }
 
+    const info = await stat(real);
+
+    if ((info.mode & 0o077) !== 0) {
+      await chmod(real, 0o700);
+    }
+
+    // A bare repository whose work tree is the home directory has no `.git`
+    // on the walk, but git honours this file in any work tree.
+    await writeOwnerFile(join(real, '.gitignore'), '*\n', constants.O_TRUNC);
+
     const path = join(real, `requests-${record.time.slice(0, 10)}.jsonl`);
 
-    await appendFile(path, `${JSON.stringify(record)}\n`, { mode: 0o600 });
+    await writeOwnerFile(path, `${JSON.stringify(record)}\n`, constants.O_APPEND);
 
     return { kind: 'written', path };
   } catch {
     return { kind: 'failed' };
+  }
+}
+
+// O_NOFOLLOW makes a link planted at the path fail the write instead of
+// redirecting it.
+async function writeOwnerFile(path: string, text: string, flag: number): Promise<void> {
+  const handle = await open(
+    path,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | flag,
+    0o600,
+  );
+
+  try {
+    const info = await handle.stat();
+
+    if ((info.mode & 0o077) !== 0) {
+      await handle.chmod(0o600);
+    }
+
+    await handle.writeFile(text);
+  } finally {
+    await handle.close();
   }
 }

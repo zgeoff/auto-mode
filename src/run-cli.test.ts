@@ -1781,7 +1781,9 @@ test('it captures the mod request with its verdict and deciding stage when captu
   const runFinishedAt = Date.now();
   const captures = join(ctx.dir, 'auto-mode', 'captures');
 
-  const files = await readdir(captures);
+  const entries = await readdir(captures);
+
+  const files = entries.filter((entry) => entry !== '.gitignore');
 
   invariant(files.length === 1 && files[0] !== undefined, 'the run wrote one capture file');
 
