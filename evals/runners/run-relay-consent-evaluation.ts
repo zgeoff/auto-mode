@@ -10,8 +10,8 @@ import {
   loadPolicy,
   resolveApiKey,
 } from 'auto-mode';
-import type { ActionRequest, DecisionRequest } from 'auto-mode';
-import { readHostEnvironment } from 'auto-mode/eval';
+import type { ActionRequest, ClaudeRules, DecisionRequest, RepositoryContext } from 'auto-mode';
+import { findCurrentDirectUserMessage, readHostEnvironment } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
@@ -32,6 +32,7 @@ import { writeReport } from '../lib/write-report.ts';
 
 const MAX_REQUESTS = 988;
 const PLANNED_REQUESTS = 760;
+const PLANNED_RUNTIME_MARK_REQUESTS = 480;
 
 async function main(): Promise<void> {
   const args = parseArgs({
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
       output: { type: 'string' },
       resume: { type: 'boolean' },
       summarize: { type: 'string' },
+      'runtime-mark': { type: 'boolean' },
     },
   });
 
@@ -58,6 +60,7 @@ async function main(): Promise<void> {
 
   const output = args.values.output;
   const isLive = args.values.live === true;
+  const isRuntimeMark = args.values['runtime-mark'] === true;
 
   invariant(
     !isLive || output !== undefined,
@@ -73,47 +76,55 @@ async function main(): Promise<void> {
   const policy = await loadPolicy({}, 'decision.md');
 
   const variants = corpus.actions.flatMap((action) =>
-    corpus.cells[action.label].map((cell) => {
-      const text = cell.message === null ? null : action.messages[cell.message];
+    corpus.cells[action.label]
+      .filter((cell) => !isRuntimeMark || cell.presentation !== 'keep')
+      .map((cell) => {
+        const text = cell.message === null ? null : action.messages[cell.message];
 
-      invariant(text !== undefined, 'Every cell names a message its action holds.');
+        invariant(text !== undefined, 'Every cell names a message its action holds.');
 
-      // Mirrors the Claude mod payload for a main-agent call; the original task is
-      // held unavailable in every cell so only the direct message varies.
-      const payload: ActionRequest = {
-        sessionID: 'relay-consent-evaluation',
-        cwd: corpus.cwd,
-        toolName: action.tool,
-        toolInput: action.input,
-        decisionContext: {
-          agentID: null,
-          originalUserTask: null,
-          delegatedTask: null,
-          lastDirectUserMessage: text === null ? null : { text, origin: corpus.messageOrigin },
-          omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
-        },
-      };
+        // Mirrors the Claude mod payload for a main-agent call; the original task is
+        // held unavailable in every cell so only the direct message varies.
+        const payload: ActionRequest = {
+          sessionID: 'relay-consent-evaluation',
+          cwd: corpus.cwd,
+          toolName: action.tool,
+          toolInput: action.input,
+          decisionContext: {
+            agentID: null,
+            originalUserTask: null,
+            delegatedTask: null,
+            lastDirectUserMessage: text === null ? null : { text, origin: corpus.messageOrigin },
+            omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+          },
+        };
 
-      const base = buildDecisionRequest(
-        payload,
-        policy,
-        configuredRules,
-        text,
-        'shipped',
-        action.repositoryContext,
-      );
+        const base = buildDecisionRequest(
+          payload,
+          policy,
+          configuredRules,
+          text,
+          'shipped',
+          action.repositoryContext,
+        );
 
-      const request =
-        cell.presentation === 'mark' ? buildMarkedRequest(base, corpus.markGuidance) : base;
+        const prototype =
+          cell.presentation === 'mark' ? buildMarkedRequest(base, corpus.markGuidance) : base;
 
-      return {
-        action,
-        cell,
-        request,
-        controlHash: toControlHash(request, corpus.markGuidance),
-        requestHash: toHash(JSON.stringify(request)),
-      };
-    }),
+        const request =
+          isRuntimeMark && cell.presentation === 'mark'
+            ? buildRuntimeMarkedRequest(payload, policy, configuredRules, action.repositoryContext)
+            : prototype;
+
+        return {
+          action,
+          cell,
+          request,
+          prototypeHash: toHash(JSON.stringify(prototype)),
+          controlHash: toControlHash(request, corpus.markGuidance),
+          requestHash: toHash(JSON.stringify(request)),
+        };
+      }),
   );
 
   for (const action of corpus.actions) {
@@ -134,7 +145,11 @@ async function main(): Promise<void> {
     Array.from({ length: corpus.repeats }, (_, index) => ({ ...variant, repeat: index + 1 })),
   );
 
-  invariant(plan.length === PLANNED_REQUESTS, 'The plan is the 760 requests the ticket fixes.');
+  invariant(
+    plan.length === (isRuntimeMark ? PLANNED_RUNTIME_MARK_REQUESTS : PLANNED_REQUESTS),
+    'The plan is the request count the ticket fixes: 760, or 480 without keep under --runtime-mark.',
+  );
+
   invariant(plan.length <= MAX_REQUESTS, 'The plan exceeds the request allocation.');
 
   const schedule = sortSeeded(plan, corpus.seed);
@@ -176,6 +191,9 @@ async function main(): Promise<void> {
     },
     corpusHash,
     markGuidanceHash: toHash(corpus.markGuidance),
+    mode: isRuntimeMark ? 'runtime-mark' : 'prototype',
+    runtimeMatchesPrototype: variants.filter((item) => item.requestHash === item.prototypeHash)
+      .length,
     scheduleHash,
     controlHashes: Object.fromEntries(
       corpus.actions.map((action) => [
@@ -197,6 +215,7 @@ async function main(): Promise<void> {
           cell: variant.cell.id,
           stateBytes: Buffer.byteLength(state),
           requestHash: variant.requestHash,
+          prototypeHash: variant.prototypeHash,
           controlHash: variant.controlHash,
         }),
       );
@@ -481,6 +500,34 @@ function buildMarkedRequest(base: DecisionRequest, guidance: string): DecisionRe
       },
     },
   };
+}
+
+// The runtime mark: the payload carries the stale message as the Claude mod
+// sends it, and the request is built as the Jev classifier builds it.
+function buildRuntimeMarkedRequest(
+  payload: ActionRequest,
+  policy: string,
+  configuredRules: ClaudeRules,
+  repositoryContext: RepositoryContext | null,
+): DecisionRequest {
+  const context = payload.decisionContext;
+  const message = context?.lastDirectUserMessage ?? null;
+
+  invariant(context !== undefined && message !== null, 'A marked cell carries a message.');
+
+  const stalePayload: ActionRequest = {
+    ...payload,
+    decisionContext: { ...context, lastDirectUserMessage: { ...message, freshness: 'stale' } },
+  };
+
+  return buildDecisionRequest(
+    stalePayload,
+    policy,
+    configuredRules,
+    findCurrentDirectUserMessage(stalePayload.decisionContext),
+    'shipped',
+    repositoryContext,
+  );
 }
 
 function sortSeeded<T>(items: readonly T[], seed: number): T[] {
