@@ -95,8 +95,9 @@ Examples: `rm -rf ~`, `rm -rf /`, `rm -rf ..`, `rm -rf ~/projects`,
 
 Git restores a tracked file whose content is committed, so deleting one is not
 this rule; uncommitted changes in it are Uncommitted Work Destruction. A
-directory the remote already holds is restorable too. Neither is a file or
-directory the agent created this session.
+directory the remote already holds is restorable too, unless it also holds an
+untracked file the agent did not create. Neither is a file or directory the agent
+created this session.
 
 ### Uncommitted Work Destruction
 Discarding uncommitted changes that the task does not own: `git reset --hard`,
