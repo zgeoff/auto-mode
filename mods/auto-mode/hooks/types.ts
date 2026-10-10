@@ -1,3 +1,5 @@
+import type { DirectUserMessage, UserTask } from '../contract/types.ts';
+
 export interface PermissionDecision {
   readonly decision: 'allow' | 'ask' | 'deny';
   readonly reason?: string;
@@ -43,15 +45,6 @@ export interface CallResult {
   readonly deny?: string;
   readonly text?: string;
   readonly isError?: true;
-}
-
-export interface UserTask {
-  readonly text: string;
-  readonly origin: 'composer' | 'bridge' | 'sdk';
-}
-
-export interface DirectUserMessage extends UserTask {
-  readonly freshness?: 'stale';
 }
 
 export interface PromptContext {

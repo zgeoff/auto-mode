@@ -1,4 +1,6 @@
-import type { DirectUserMessage, PromptContext, UserTask } from './types.ts';
+import { isMessageOrigin } from '../contract/is-message-origin.ts';
+import type { DirectUserMessage, UserTask } from '../contract/types.ts';
+import type { PromptContext } from './types.ts';
 
 export function buildPromptContext(
   previous: PromptContext | null,
@@ -20,7 +22,7 @@ export function buildPromptContext(
 
   const origin = input.origin.kind;
 
-  if (origin !== 'composer' && origin !== 'bridge' && origin !== 'sdk') {
+  if (!isMessageOrigin(origin)) {
     return {
       originalUserTask: previous?.originalUserTask ?? null,
       lastDirectUserMessage: buildStaleMessage(previous?.lastDirectUserMessage ?? null),

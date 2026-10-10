@@ -8,5 +8,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["hooks/**/*.ts"]
+  "include": ["hooks/**/*.ts", "contract/**/*.ts"],
+  "exclude": ["contract/**/*.test.ts"]
 }

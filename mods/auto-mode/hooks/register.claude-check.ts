@@ -30,6 +30,39 @@ test('it preserves an existing denial and its rule', async ($, on) => {
   expect(processRun.calls).toStrictEqual([]);
 });
 
+test('it retains manual approval for a tool input that is not an object', async ($, on) => {
+  const decided = buildMockPermissionDecision({ decision: 'ask' });
+
+  const processRun = buildStubProcessRun({
+    result: buildMockProcessResult({ stdout: '{"decision":"allow"}' }),
+  });
+
+  const logs: string[] = [];
+
+  on('ui.log', (_api, e) => {
+    logs.push(e.text);
+
+    return { value: undefined };
+  });
+
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => decided);
+  on('classic.SessionStart', () => ({}));
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({ ...buildMockSessionContext(), source: 'startup' });
+
+  const result = await $.tool.check({ tool: 'Bash', input: ['rm -rf dist'] });
+
+  expect(result).toStrictEqual(decided);
+  expect(processRun.calls).toStrictEqual([]);
+
+  expect(logs).toStrictEqual([
+    'auto-mode action unavailable: evaluation skipped; tool input is not an object',
+  ]);
+});
+
 test('it preserves an existing allowance without a second evaluator', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'allow' });
 

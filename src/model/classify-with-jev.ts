@@ -1,3 +1,4 @@
+import { findCurrentDirectUserMessage } from '../../mods/auto-mode/contract/find-current-direct-user-message.ts';
 import type { Config } from '../config/config.ts';
 import { DEFAULT_BLOCK_THRESHOLD, resolveApiKey } from '../config/config.ts';
 import { loadClaudeSettings } from '../config/load-claude-settings.ts';
@@ -5,7 +6,6 @@ import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
-import { findCurrentDirectUserMessage } from '../request/find-current-direct-user-message.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import type { ModelOutcome } from './classify-with-model.ts';
@@ -51,7 +51,9 @@ export async function classifyWithJev(
 
     stage = 'evidence';
 
-    const directUserText = findCurrentDirectUserMessage(payload.decisionContext);
+    const directUserText = findCurrentDirectUserMessage(
+      payload.decisionContext?.lastDirectUserMessage,
+    );
 
     const settings = await (options.claudeSettings ??
       loadClaudeSettings(config.claudeSettingsPath, options.host));

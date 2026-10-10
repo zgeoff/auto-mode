@@ -1,5 +1,5 @@
-import type { ScopeRecordRequest } from '../scope/update-session-scope.ts';
 import { scopeRecordRequestSchema } from './scope-record-request-schema.ts';
+import type { ScopeRecordRequest } from './types.ts';
 
 export function parseScopeRecordRequest(body: unknown): ScopeRecordRequest | null {
   const parsed = scopeRecordRequestSchema.safeParse(body);

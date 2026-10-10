@@ -1,11 +1,10 @@
+import type { ModScopeRecord } from '../contract/types.ts';
+import { buildActionRequest } from './build-action-request.ts';
 import { buildPromptContext } from './build-prompt-context.ts';
+import { isScopeCommand } from './is-scope-command.ts';
+import { isToolInput } from './is-tool-input.ts';
 import { parseDecision } from './parse-decision.ts';
 import type { ModOn, ModOptions, PromptContext } from './types.ts';
-
-// Commands that can create a worktree, a branch, or a PR. Any other call skips
-// the record subprocess, so ordinary calls pay nothing for the session scope.
-const SCOPE_COMMAND =
-  /\bgit\s[^\n]*?\b(?:worktree\s+add|checkout|switch|branch)\b|\bgh\s+pr\s+create\b/u;
 
 // The record may look up a created PR's head branch with gh, which the CLI
 // bounds at 5 seconds.
@@ -73,7 +72,7 @@ export function register(on: ModOn, options: ModOptions): void {
     activeCalls.set(e.tool_use_id, e.agentId ?? null);
 
     const command =
-      e.tool === 'Bash' && typeof e.command === 'string' && SCOPE_COMMAND.test(e.command)
+      e.tool === 'Bash' && typeof e.command === 'string' && isScopeCommand(e.command)
         ? e.command
         : null;
 
@@ -89,7 +88,14 @@ export function register(on: ModOn, options: ModOptions): void {
 
     if (command !== null && cwd !== null && sessionID !== null && result.deny === undefined) {
       const executable = typeof options.command === 'string' ? options.command : 'auto-mode';
-      const request = { sessionID, cwd, startedAt, command, resultText: result.text ?? '' };
+
+      const request: ModScopeRecord = {
+        sessionID,
+        cwd,
+        startedAt,
+        command,
+        resultText: result.text ?? '',
+      };
 
       try {
         await $.process.run([executable, 'record'], {
@@ -137,26 +143,17 @@ export function register(on: ModOn, options: ModOptions): void {
 
       const agentID = e.tool_use_id === undefined ? null : activeCalls.get(e.tool_use_id);
 
-      if (e.tool_use_id !== undefined && agentID === undefined) {
+      if (agentID === undefined) {
         $.ui.log(`${logPrefix} evaluation skipped; untracked tool call`, { to: 'debug' });
 
         return decided;
       }
 
-      const isChild = agentID !== null && agentID !== undefined;
-      const delegatedText = isChild ? delegatedTasks.get(agentID) : undefined;
+      if (!isToolInput(e.input)) {
+        $.ui.log(`${logPrefix} evaluation skipped; tool input is not an object`, { to: 'debug' });
 
-      const delegatedTask =
-        delegatedText === undefined ? null : { text: delegatedText, origin: 'agent.spawn' };
-
-      const omittedTaskContext = [
-        ...(prompts.originalUserTask === null
-          ? [{ field: 'originalUserTask', reason: 'unavailable' }]
-          : []),
-        ...(isChild && delegatedTask === null
-          ? [{ field: 'delegatedTask', reason: 'unavailable' }]
-          : []),
-      ];
+        return decided;
+      }
 
       const command = typeof options.command === 'string' ? options.command : 'auto-mode';
       const childTimeoutMs = EVALUATION_TIMEOUT_MS;
@@ -164,20 +161,16 @@ export function register(on: ModOn, options: ModOptions): void {
 
       $.ui.log(`${logPrefix} evaluator invoked`, { to: 'debug' });
 
-      const request = {
+      const request = buildActionRequest({
         sessionID,
-        ...(e.tool_use_id === undefined ? {} : { toolUseID: e.tool_use_id }),
+        toolUseID: e.tool_use_id,
         cwd,
         toolName: e.tool,
         toolInput: e.input,
-        context: {
-          agentID: agentID ?? null,
-          originalUserTask: prompts.originalUserTask,
-          delegatedTask,
-          lastDirectUserMessage: isChild ? null : prompts.lastDirectUserMessage,
-          omittedTaskContext,
-        },
-      };
+        agentID,
+        delegatedText: agentID === null ? undefined : delegatedTasks.get(agentID),
+        prompts,
+      });
 
       const result = await $.process.run(
         [command, 'run', '--jev-only', '--evaluation-deadline', String(deadlineAt)],

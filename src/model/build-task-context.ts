@@ -4,7 +4,6 @@ import { buildBudgetOmittedContext } from './build-budget-omitted-context.ts';
 export function buildTaskContext(context: DecisionContext): DecisionContext {
   let result: DecisionContext = {
     ...context,
-    lastDirectUserMessage: context.agentID === null ? context.lastDirectUserMessage : null,
     omittedTaskContext: [...context.omittedTaskContext],
   };
 

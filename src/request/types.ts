@@ -1,31 +1,22 @@
-interface UserTask {
-  readonly text: string;
-  readonly origin: 'composer' | 'bridge' | 'sdk';
-}
+import type * as z from 'zod';
+import type { ModContext, ModRequest } from '../../mods/auto-mode/contract/types.ts';
+import type { scopeRecordRequestSchema } from './scope-record-request-schema.ts';
 
-interface DirectUserMessage extends UserTask {
-  readonly freshness?: 'stale' | undefined;
-}
+type DeepReadonly<T> = T extends readonly (infer Item)[]
+  ? readonly DeepReadonly<Item>[]
+  : T extends object
+    ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+    : T;
 
-export interface DecisionContext {
-  readonly agentID: string | null;
-  readonly originalUserTask: UserTask | null;
-  readonly delegatedTask: { readonly text: string; readonly origin: 'agent.spawn' } | null;
-  readonly lastDirectUserMessage: DirectUserMessage | null;
-  readonly omittedTaskContext: readonly {
-    readonly field: 'originalUserTask' | 'delegatedTask';
-    readonly reason: 'unavailable' | 'budget';
-  }[];
-}
+// The contract types equal the schema input, which a type test asserts; a type
+// read from the schema itself would inline zod's declarations into dist/index.d.ts.
+export type DecisionContext = DeepReadonly<ModContext>;
 
-export interface ActionRequest {
-  readonly sessionID: string;
-  readonly toolUseID?: string | undefined;
-  readonly cwd: string;
-  readonly toolName: string;
-  readonly toolInput: Readonly<Record<string, unknown>>;
+export type ActionRequest = DeepReadonly<Omit<ModRequest, 'context'>> & {
   readonly decisionContext?: DecisionContext | undefined;
-}
+};
+
+export type ScopeRecordRequest = Readonly<z.infer<typeof scopeRecordRequestSchema>>;
 
 export type Verdict =
   | { readonly kind: 'allow' }

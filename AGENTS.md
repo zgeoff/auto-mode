@@ -196,7 +196,9 @@ content with the bundled Betterleaks rule set, which `scripts/build-secret-rules
 `classify-action.ts` runs both tiers with the containment check and the edit bypass between them and
 the judge after Jev, and is the library entry point; `index.ts` is the public API; `eval/index.ts`
 is the unpublished `auto-mode/eval` subpath; `cli.ts` is the entrypoint the mod runs.
-`mods/auto-mode/` is the Claude Code mod. `policy/` at the repo root holds the prompt itself.
+`mods/auto-mode/` is the Claude Code mod; its `contract/` holds the request and verdict shapes, the
+message origins and the scope commands that the mod and the CLI share, with no dependencies, because
+the mod ships as raw TypeScript. `policy/` at the repo root holds the prompt itself.
 `fixtures/` holds mod requests recorded in a live Claude Code session.
 
 `evals/` holds the evaluation tooling: `eval.ts` is the `bun run eval` command, which plans, runs,
@@ -271,7 +273,10 @@ prompt change and belongs in a commit that reviews it as one.
 - The mod's request carries the session identity, the action, and the task context, including the
   last direct user message. auto-mode reads no transcript.
 - The CLI and the mod ship together, so the request and the verdict are strict. A shape either side
-  does not know keeps the prompt.
+  does not know keeps the prompt. `mods/auto-mode/contract/types.ts` holds both shapes, and a type
+  test fails when it and the CLI's schema disagree.
+- A hooks module imports only its own plugin's files, by relative path, and `claude-code`; Claude
+  Code refuses a package import, its own package included.
 - `mods/auto-mode/hooks/parse-decision.ts` alone maps the CLI's verdict to Claude Code's permission
   decision.
 - auto-mode never writes Claude Code's settings files.

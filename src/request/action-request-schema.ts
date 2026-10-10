@@ -1,8 +1,9 @@
 import * as z from 'zod';
+import { MESSAGE_ORIGINS } from '../../mods/auto-mode/contract/message-origins.ts';
 
 const userTaskSchema = z.strictObject({
   text: z.string(),
-  origin: z.enum(['composer', 'bridge', 'sdk']),
+  origin: z.enum(MESSAGE_ORIGINS),
 });
 
 const directUserMessageSchema = z.strictObject({

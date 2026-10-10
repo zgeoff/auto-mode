@@ -1,3 +1,4 @@
+import { findCurrentDirectUserMessage } from '../../mods/auto-mode/contract/find-current-direct-user-message.ts';
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { loadClaudeSettings } from '../config/load-claude-settings.ts';
@@ -7,7 +8,6 @@ import type { EvaluationOptions } from '../config/types.ts';
 import type { JudgeEvidence } from '../judge/classify-with-judge.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
-import { findCurrentDirectUserMessage } from '../request/find-current-direct-user-message.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
 import { sendMessage } from './anthropic-client.ts';
 import { buildUserMessage } from './build-request.ts';
@@ -59,7 +59,10 @@ export async function classifyWithModel(
     return buildFailure(config, `policy unreadable: ${toMessage(error)}`);
   }
 
-  const directMessage = findCurrentDirectUserMessage(payload.decisionContext);
+  const directMessage = findCurrentDirectUserMessage(
+    payload.decisionContext?.lastDirectUserMessage,
+  );
+
   const transcript = directMessage === null ? [] : [{ role: 'user', text: directMessage }];
 
   // The Messages protocol reads no autoMode rules, so the settings serve only the

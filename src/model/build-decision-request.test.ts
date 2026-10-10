@@ -266,17 +266,6 @@ test('it leaves out the task context and keeps the last user message when the re
   expect(request.state.lastUserMessage).toBe('fix the parser');
 });
 
-test('it withholds the last user message from a subagent', () => {
-  const request = buildDecisionRequest(
-    buildMockActionRequest({ decisionContext: { agentID: 'agent-1' } }),
-    '## HARD BLOCK rules\n### Secret Persistence\nNever commit keys',
-    buildMockClaudeRules(),
-    'force push is fine',
-  );
-
-  expect(request.state.lastUserMessage).toBeNull();
-});
-
 test('it withholds a stale direct message from current evidence even when the caller passes it', () => {
   const request = buildDecisionRequest(
     buildMockActionRequest({

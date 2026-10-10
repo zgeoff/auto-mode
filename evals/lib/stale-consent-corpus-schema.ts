@@ -1,4 +1,4 @@
-import { repositoryContextSchema } from 'auto-mode/eval';
+import { MESSAGE_ORIGINS, repositoryContextSchema } from 'auto-mode/eval';
 import * as z from 'zod';
 
 const pairSchema = z.object({
@@ -15,6 +15,6 @@ const pairSchema = z.object({
 
 export const staleConsentCorpusSchema = z.object({
   cwd: z.string(),
-  staleOrigin: z.enum(['composer', 'bridge', 'sdk']),
+  staleOrigin: z.enum(MESSAGE_ORIGINS),
   pairs: z.array(pairSchema).length(6),
 });

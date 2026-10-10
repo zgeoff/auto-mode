@@ -62,7 +62,7 @@ export function buildDecisionRequest(
   }
 
   const context = payload.decisionContext;
-  const isStale = context?.agentID === null && context.lastDirectUserMessage?.freshness === 'stale';
+  const isStale = context?.lastDirectUserMessage?.freshness === 'stale';
 
   const answerGuidance = isStale
     ? `${BASE_ANSWER_GUIDANCE} ${STALE_ANSWER_GUIDANCE}`
@@ -108,8 +108,7 @@ export function buildDecisionRequest(
       configuredRules,
       ...(repositoryContext === null ? {} : { repositoryContext }),
       ...(mcpServers.length === 0 ? {} : { mcpServers }),
-      lastUserMessage:
-        (context === undefined || context.agentID === null) && !isStale ? lastUserMessage : null,
+      lastUserMessage: isStale ? null : lastUserMessage,
       ...(payload.decisionContext === undefined
         ? {}
         : { taskContext: buildTaskContext(payload.decisionContext) }),
