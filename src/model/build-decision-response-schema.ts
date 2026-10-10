@@ -1,16 +1,15 @@
 import * as z from 'zod';
+import { probabilitySchema } from './probability-schema.ts';
 import type { DecisionChoice } from './types.ts';
 
 export function buildDecisionResponseSchema<const Choice extends string>(
   choices: readonly [Choice, ...Choice[]],
 ) {
-  const probability = z.number().min(0).max(1);
-
   const answerSchema = z.object({
     type: z.literal('choice'),
     choice: z.enum(choices),
-    confidence: probability,
-    probabilities: z.record(z.enum(choices), probability),
+    confidence: probabilitySchema,
+    probabilities: z.record(z.enum(choices), probabilitySchema),
   });
 
   return z.object({

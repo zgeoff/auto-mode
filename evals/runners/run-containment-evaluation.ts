@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -9,18 +8,21 @@ import {
   loadConfig,
   loadPolicy,
   resolveApiKey,
-  sendDecision,
 } from 'auto-mode';
 import type { OwnedScope } from 'auto-mode';
-import { EMPTY_SCOPE_FACTS, collectScopeFindings, toTimerDelay } from 'auto-mode/eval';
+import { EMPTY_SCOPE_FACTS, collectScopeFindings, repositoryContextSchema } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { buildEvaluationRequest } from '../lib/build-evaluation-request.ts';
 import { buildScopeEvidenceRequest } from '../lib/build-scope-evidence-request.ts';
 import type { JevReport } from '../lib/jev-report-schema.ts';
 import type { EvaluationCase } from '../lib/load-second-judge-corpus.ts';
 import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
+import { toHash } from '../lib/to-hash.ts';
+import { writeReport } from '../lib/write-report.ts';
 
 const SAMPLES = 3;
 const THRESHOLD = 0.8;
@@ -88,14 +90,7 @@ async function main(): Promise<void> {
 
   const config = await loadConfig();
 
-  invariant(
-    config.provider.protocol === 'system-one' &&
-      config.rulesPath === undefined &&
-      config.classifierPath === undefined,
-    'Evaluate the shipped Jev policy with no replacement policy.',
-  );
-
-  invariant((config.minConfidence ?? THRESHOLD) === THRESHOLD, 'Keep the threshold at 0.8.');
+  assertShippedJevConfig(config);
 
   const key = await resolveApiKey(config.provider);
 
@@ -139,12 +134,7 @@ async function main(): Promise<void> {
       let record: JevReport['records'][number];
 
       try {
-        const result = await sendDecision(
-          config.provider,
-          key,
-          request,
-          AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
-        );
+        const result = await sendEvaluationDecision(config.provider, key, request);
 
         const verdict = pickEvaluationVerdict(request, result, THRESHOLD);
 
@@ -202,10 +192,7 @@ async function main(): Promise<void> {
 
       records.push(record);
 
-      await writeFile(
-        output,
-        `${JSON.stringify({ ...header, model, requestsSent: records.length, records }, null, 2)}\n`,
-      );
+      await writeReport(output, { ...header, model, requestsSent: records.length, records });
 
       console.log(JSON.stringify({ set, sample, case: entry.id, status: record.status }));
     }
@@ -268,13 +255,7 @@ function buildEntryScope(entry: EvaluationCase, home: string, repository: string
   });
 }
 
-const contextSchema = z.object({
-  cwd: z.string(),
-  branch: z.string().nullable(),
-  defaultBranch: z.string().nullable(),
-});
-
-const contextsSchema = z.object({ contexts: z.record(z.string(), contextSchema) });
+const contextsSchema = z.object({ contexts: z.record(z.string(), repositoryContextSchema) });
 
 const twinSchema = z.object({
   id: z.string(),
@@ -372,10 +353,6 @@ function toScopeAction(entry: EvaluationCase): {
   input: Readonly<Record<string, unknown>>;
 } {
   return { tool: entry.tool, cwd: entry.repositoryContext.cwd, input: entry.input };
-}
-
-function toHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 await main();

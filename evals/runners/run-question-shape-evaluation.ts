@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -15,9 +14,12 @@ import type { DecisionRequest, DecisionRule, ProviderConfig } from 'auto-mode';
 import { readHostEnvironment } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { SEVERITIES, decisionRulesCorpusSchema } from '../lib/decision-rules-corpus-schema.ts';
 import { makeRecordingFetch } from '../lib/make-recording-fetch.ts';
 import type { ResponseCopy } from '../lib/make-recording-fetch.ts';
+import { makeSeededRandom } from '../lib/make-seeded-random.ts';
+import { toHash } from '../lib/to-hash.ts';
 
 const THRESHOLD = 0.8;
 const SHAPES = ['baseline', 'categorical'] as const;
@@ -74,14 +76,7 @@ async function main(): Promise<void> {
 
   const config = await loadConfig();
 
-  invariant(
-    config.provider.protocol === 'system-one' &&
-      config.rulesPath === undefined &&
-      config.classifierPath === undefined,
-    'Evaluate the shipped Jev policy with no replacement policy.',
-  );
-
-  invariant((config.minConfidence ?? THRESHOLD) === THRESHOLD, 'Keep the threshold at 0.8.');
+  assertShippedJevConfig(config);
 
   const configuredRules = await loadClaudeRules(config.claudeSettingsPath, readHostEnvironment());
   const policy = await loadPolicy({}, 'decision.md');
@@ -181,7 +176,7 @@ async function main(): Promise<void> {
 
   invariant(!isLive || key !== null, 'The configured evaluation credential is unavailable.');
 
-  const writeReport = async (): Promise<void> => {
+  const writeShapeReport = async (): Promise<void> => {
     const report = {
       freeze: { ...freeze, resumedFrom: previous?.origin ?? null },
       requestsSent: sent,
@@ -281,11 +276,11 @@ async function main(): Promise<void> {
     );
 
     if (sent % 25 === 0) {
-      await writeReport();
+      await writeShapeReport();
     }
   }
 
-  await writeReport();
+  await writeShapeReport();
 }
 
 const TIMEOUT_MS = 30_000;
@@ -664,19 +659,7 @@ function sortRuns<T>(runs: readonly T[], seed: number | null): T[] {
     return sorted;
   }
 
-  // mulberry32: a small seeded generator, so the shuffled order is reproducible from the seed.
-  let state = seed >>> 0;
-
-  const getNextRandom = (): number => {
-    state = (state + 0x6d_2b_79_f5) >>> 0;
-
-    let t = state;
-
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-
-    return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32;
-  };
+  const getNextRandom = makeSeededRandom(seed);
 
   for (let index = sorted.length - 1; index > 0; index -= 1) {
     const swap = Math.floor(getNextRandom() * (index + 1));
@@ -690,10 +673,6 @@ function sortRuns<T>(runs: readonly T[], seed: number | null): T[] {
   }
 
   return sorted;
-}
-
-function toHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 await main();

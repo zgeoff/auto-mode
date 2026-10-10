@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -8,12 +7,15 @@ import {
   loadConfig,
   loadPolicy,
   resolveApiKey,
-  sendDecision,
 } from 'auto-mode';
-import { loadRepositoryContext, readHostEnvironment, toTimerDelay } from 'auto-mode/eval';
+import { loadRepositoryContext, readHostEnvironment } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
+import { toHash } from '../lib/to-hash.ts';
+import { writeReport } from '../lib/write-report.ts';
 
 async function main(): Promise<void> {
   const args = parseArgs({
@@ -56,14 +58,7 @@ async function main(): Promise<void> {
 
   const config = await loadConfig();
 
-  invariant(
-    config.provider.protocol === 'system-one' &&
-      config.rulesPath === undefined &&
-      config.classifierPath === undefined,
-    'Evaluate the shipped Jev policy with no replacement policy.',
-  );
-
-  invariant(config.minConfidence === 0.8, 'Keep the configured threshold at 0.8.');
+  assertShippedJevConfig(config);
 
   const key = await resolveApiKey(config.provider);
 
@@ -154,12 +149,7 @@ async function main(): Promise<void> {
       const started = performance.now();
 
       try {
-        const result = await sendDecision(
-          config.provider,
-          key,
-          request,
-          AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
-        );
+        const result = await sendEvaluationDecision(config.provider, key, request);
 
         const verdict = pickEvaluationVerdict(request, result, 0.8);
 
@@ -236,13 +226,9 @@ async function main(): Promise<void> {
         records,
       };
 
-      await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
+      await writeReport(output, report);
     }
   }
-}
-
-function toHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 await main();

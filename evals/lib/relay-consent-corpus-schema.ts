@@ -1,3 +1,4 @@
+import { repositoryContextSchema } from 'auto-mode/eval';
 import * as z from 'zod';
 
 const messageSchema = z.enum(['consent', 'otherConsent', 'refusal', 'unrelated']);
@@ -16,13 +17,7 @@ const actionSchema = z.object({
   gatingRule: z.string(),
   tool: z.string(),
   input: z.record(z.string(), z.unknown()),
-  repositoryContext: z
-    .object({
-      cwd: z.string(),
-      branch: z.string().nullable(),
-      defaultBranch: z.string().nullable(),
-    })
-    .nullable(),
+  repositoryContext: repositoryContextSchema.nullable(),
   messages: z.partialRecord(messageSchema, z.string().min(1)),
 });
 

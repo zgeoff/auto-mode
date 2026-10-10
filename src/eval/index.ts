@@ -6,6 +6,8 @@ export { buildUserMessage } from '../model/build-request.ts';
 export { classifyDecisionAnswers } from '../model/classify-decision-answers.ts';
 export { formatClassifierNote } from '../model/format-classifier-note.ts';
 export { loadRepositoryContext } from '../model/load-repository-context.ts';
+export { probabilitySchema } from '../model/probability-schema.ts';
+export { repositoryContextSchema } from '../model/repository-context-schema.ts';
 export { collectPullRequestAddresses } from '../scope/collect-pull-request-addresses.ts';
 export { pickScopeSourceReader } from '../scope/pick-scope-source-reader.ts';
 export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';

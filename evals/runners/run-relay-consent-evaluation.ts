@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
@@ -10,21 +9,26 @@ import {
   loadConfig,
   loadPolicy,
   resolveApiKey,
-  sendDecision,
 } from 'auto-mode';
 import type { ActionRequest, DecisionRequest } from 'auto-mode';
-import { readHostEnvironment, toTimerDelay } from 'auto-mode/eval';
+import { readHostEnvironment } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { buildRelayConsentSummary } from '../lib/build-relay-consent-summary.ts';
 import { makeRecordingFetch } from '../lib/make-recording-fetch.ts';
 import type { ResponseCopy } from '../lib/make-recording-fetch.ts';
+import { makeSeededRandom } from '../lib/make-seeded-random.ts';
 import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
 import {
   RELAY_CONSENT_THRESHOLD as THRESHOLD,
   relayConsentCorpusSchema,
 } from '../lib/relay-consent-corpus-schema.ts';
 import { relayConsentSegmentSchema } from '../lib/relay-consent-segment-schema.ts';
+import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
+import { toControlHash } from '../lib/to-control-hash.ts';
+import { toHash } from '../lib/to-hash.ts';
+import { writeReport } from '../lib/write-report.ts';
 
 const MAX_REQUESTS = 988;
 const PLANNED_REQUESTS = 760;
@@ -62,14 +66,7 @@ async function main(): Promise<void> {
 
   const config = await loadConfig();
 
-  invariant(
-    config.provider.protocol === 'system-one' &&
-      config.rulesPath === undefined &&
-      config.classifierPath === undefined,
-    'Evaluate the shipped Jev policy with no replacement policy.',
-  );
-
-  invariant((config.minConfidence ?? THRESHOLD) === THRESHOLD, 'Keep the threshold at 0.8.');
+  assertShippedJevConfig(config);
   invariant(config.provider.model === corpus.model, 'The configured model is the frozen model.');
 
   const configuredRules = await loadClaudeRules(config.claudeSettingsPath, readHostEnvironment());
@@ -324,13 +321,9 @@ async function main(): Promise<void> {
     const started = performance.now();
 
     try {
-      const result = await sendDecision(
-        config.provider,
-        key,
-        item.request,
-        AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
-        { fetch: sendCountedFetch },
-      );
+      const result = await sendEvaluationDecision(config.provider, key, item.request, {
+        fetch: sendCountedFetch,
+      });
 
       const verdict = pickEvaluationVerdict(item.request, result, THRESHOLD);
 
@@ -489,7 +482,8 @@ function buildMarkedRequest(base: DecisionRequest, guidance: string): DecisionRe
 }
 
 function sortSeeded<T>(items: readonly T[], seed: number): T[] {
-  const fractions = buildSeededFractions(seed, items.length);
+  const random = makeSeededRandom(seed);
+  const fractions = items.map(() => random());
   const order = items.map((_, index) => index);
 
   for (let index = order.length - 1; index > 0; index -= 1) {
@@ -509,25 +503,6 @@ function sortSeeded<T>(items: readonly T[], seed: number): T[] {
   });
 }
 
-// mulberry32: a small, fixed generator, so the order is reproducible from the seed alone.
-function buildSeededFractions(seed: number, count: number): number[] {
-  const fractions: number[] = [];
-  let state = seed >>> 0;
-
-  for (let index = 0; index < count; index += 1) {
-    state = (state + 0x6d_2b_79_f5) >>> 0;
-
-    let value = state;
-
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-
-    fractions.push(((value ^ (value >>> 14)) >>> 0) / 4_294_967_296);
-  }
-
-  return fractions;
-}
-
 async function writeSummary(path: string, corpusHash: string): Promise<void> {
   const text = await readFile(path, 'utf8');
 
@@ -536,34 +511,6 @@ async function writeSummary(path: string, corpusHash: string): Promise<void> {
     .parse(JSON.parse(text));
 
   await writeReport(path, { ...report, summary: buildRelayConsentSummary(report.records) });
-}
-
-async function writeReport(path: string, report: unknown): Promise<void> {
-  await writeFile(path, `${JSON.stringify(report, null, 2)}\n`);
-}
-
-function toControlHash(request: DecisionRequest, markGuidance: string): string {
-  const taskContext = request.state.taskContext;
-  const guidance = request.state.answerGuidance;
-  const suffix = ` ${markGuidance}`;
-
-  return toHash(
-    JSON.stringify({
-      ...request,
-      state: {
-        ...request.state,
-        answerGuidance: guidance.endsWith(suffix) ? guidance.slice(0, -suffix.length) : guidance,
-        lastUserMessage: null,
-        ...(taskContext === undefined
-          ? {}
-          : { taskContext: { ...taskContext, lastDirectUserMessage: null } }),
-      },
-    }),
-  );
-}
-
-function toHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 await main();

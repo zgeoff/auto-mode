@@ -1,16 +1,15 @@
+import { probabilitySchema } from 'auto-mode/eval';
 import * as z from 'zod';
-
-const probability = z.number().min(0).max(1);
 
 const contributorSchema = z
   .object({
     rule: z.string(),
     tier: z.enum(['hard', 'soft']),
     choice: z.enum(['allow', 'block', 'ask']),
-    confidence: probability,
-    allow: probability,
-    block: probability,
-    ask: probability,
+    confidence: probabilitySchema,
+    allow: probabilitySchema,
+    block: probabilitySchema,
+    ask: probabilitySchema,
   })
   .readonly();
 
