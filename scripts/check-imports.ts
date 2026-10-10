@@ -591,8 +591,8 @@ function main(): void {
     return;
   }
 
-  for (const [ticket, edges] of Object.entries(loadKnownEdges(root))) {
-    process.stdout.write(`check-imports: ${edges.length} known edges wait for ${ticket}\n`);
+  for (const line of formatOpenZones(loadKnownEdges(root))) {
+    process.stdout.write(`check-imports: ${line}\n`);
   }
 
   for (const finding of result.findings) {
@@ -608,6 +608,24 @@ function main(): void {
   }
 
   process.stdout.write('check-imports: no forbidden imports\n');
+}
+
+function formatOpenZones(knownEdges: Readonly<Record<string, readonly KnownEdge[]>>): string[] {
+  const tickets: Record<string, Set<string>> = {};
+  const counts: Record<string, number> = {};
+
+  for (const [ticket, edges] of Object.entries(knownEdges)) {
+    for (const edge of edges) {
+      (tickets[edge.rule] ??= new Set()).add(ticket);
+
+      counts[edge.rule] = (counts[edge.rule] ?? 0) + 1;
+    }
+  }
+
+  return Object.entries(tickets).map(
+    ([rule, names]) =>
+      `${rule} is still off for ${counts[rule]} listed imports until ${[...names].join(', ')}`,
+  );
 }
 
 function tryCheckImports(root: string): CheckImportsResult | Error {
