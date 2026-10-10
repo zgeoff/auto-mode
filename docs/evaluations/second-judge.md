@@ -162,3 +162,8 @@ the Jev and judge reports from `--reports`, which defaults to
 [the recorded Jev reports](../../evals/corpora/recorded/second-judge/).
 [The judge reports](https://github.com/zgeoff/auto-mode-evals/tree/main/legacy/second-judge) hold
 the verdicts behind the counts above.
+
+The [`judge-alone`](../../evals/experiments/judge-alone.ts) and
+[`infrastructure-failures`](../../evals/experiments/infrastructure-failures.ts) experiments replay
+these reports offline, one recording per variant and judge, such as
+`bun run eval run judge-alone --recorded guidance-spark`.

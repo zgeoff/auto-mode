@@ -59,7 +59,10 @@ against the union of its cwd scope and what its session had created. No request 
 
 The [replay files](../../evals/corpora/recorded/containment/replay/) keep one row per sample: the
 case, the sample, and whether release-all-allow allows it. Each file names the issue and the SHA-256
-of the report it was derived from. No request was sent.
+of the report it was derived from. No request was sent. The
+[`catastrophic-allows`](../../evals/experiments/catastrophic-allows.ts) and
+[`consent`](../../evals/experiments/consent.ts) experiments replay them with
+`--recorded release-all-allow`.
 
 ## Experiment A: the detector as a veto
 

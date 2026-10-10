@@ -42,7 +42,10 @@ the one-question shape beside the per-rule shape.
 - **Live mode** sends model requests only with `--live`, under a request cap, and can resume an
   interrupted run. Without `--live` a run builds its requests and stops.
 - **Replay** runs recorded answers through the deterministic stages in `bun test`, with no model
-  calls. CI runs only replay.
+  calls. CI runs only replay. `--recorded <recording>` runs an experiment on past answers instead of
+  live ones; a stage no recording covers is reported as not measured.
+- **The experiments** are `catastrophic-allows` (measurement 1), `consent` (3), `judge-alone` (4)
+  and `infrastructure-failures` (5); every experiment also reports 5 for the stages it sends.
 - **The results repo** (`zgeoff/auto-mode-evals`, private) holds every run: a run summary with the
   frozen run config, hashes and counts, and one record per sample.
 - **The action-log reader** turns the diagnostics log into measurement 6.
@@ -86,7 +89,8 @@ and shared, so the anonymised and scanned form is the only way into any repo.
    measurement 5 counts requests. Repeated samples of one case are not independent: errors are
    clustered by case, and two runs compare case by case on paired differences.
 3. Small counts get a Wilson or Clopper-Pearson interval. Zero failures in n cases bounds the rate
-   below about 3/n at 95%; it never shows zero risk.
+   below about 3/n at 95%; it never shows zero risk. A count over samples or requests takes its
+   interval at the effective sample size, n over the design effect of the clustered standard error.
 4. A sample that failed for infrastructure reasons leaves the denominators of measurements 1 to 4
    and counts under measurement 5.
 5. A report names what it did not measure: missing sets, stages not run, and overlap between the
