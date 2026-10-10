@@ -104,7 +104,132 @@ test('it passes a core test file that imports test code', async () => {
   expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], pending: [] });
 });
 
-test('it reports a fetch call outside the model module', async () => {
+test.each([
+  ['a re-export of every name', "export * from '../../test-utils/wait-for.ts';\n"],
+  ['a dynamic import', "export const value = await import('../../test-utils/wait-for.ts');\n"],
+  [
+    'a dynamic import of a template literal',
+    'export const value = await import(`../../test-utils/wait-for.ts`);\n',
+  ],
+  ['a require call', "export const value = require('../../test-utils/wait-for.ts');\n"],
+  [
+    'a type-position import',
+    "export type Value = typeof import('../../test-utils/wait-for.ts');\n",
+  ],
+])('it reports test code that a core file reaches through %s', async (_form, source) => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'test-utils/wait-for.ts'), 'export const waitFor = 1;\n');
+  await Bun.write(join(ctx.dir, 'src/rules/classify-locally.ts'), source);
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'core-no-tooling',
+      file: 'src/rules/classify-locally.ts',
+      line: 1,
+      message:
+        'src/ imports eval, script or test code: src/rules/classify-locally.ts → test-utils/wait-for.ts',
+    },
+  ]);
+});
+
+test('it reports a dynamic import whose specifier it cannot read', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'src/rules/classify-locally.ts'),
+    "const name = '../wait-for.ts';\n\nexport const value = await import(name);\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'unresolved',
+      file: 'src/rules/classify-locally.ts',
+      line: 3,
+      message: 'cannot check a computed import specifier',
+    },
+  ]);
+});
+
+test('it reports a mod file that imports test code', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'test-utils/wait-for.ts'), 'export const waitFor = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'mods/auto-mode/hooks/register.ts'),
+    "import { waitFor } from '../../../test-utils/wait-for.ts';\n\nexport const value = waitFor;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'mod',
+      file: 'mods/auto-mode/hooks/register.ts',
+      line: 1,
+      message:
+        'the mod imports outside itself: mods/auto-mode/hooks/register.ts → test-utils/wait-for.ts',
+    },
+  ]);
+});
+
+test('it reports a contract file that imports the core', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/model/types.ts'), 'export type Verdict = string;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'mods/auto-mode/contract/verdict.ts'),
+    "import type { Verdict } from '../../../src/model/types.ts';\n\nexport const value: Verdict = 'allow';\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'src-mods-apart',
+      file: 'mods/auto-mode/contract/verdict.ts',
+      line: 1,
+      message:
+        'the mod imports outside itself: mods/auto-mode/contract/verdict.ts → src/model/types.ts',
+    },
+  ]);
+});
+
+test('it reports a bare fetch call outside the model module', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'src/scope/read-pull-request.ts'),
+    "export const value = await fetch('https://example.com');\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'network',
+      file: 'src/scope/read-pull-request.ts',
+      line: 1,
+      message: 'fetch( outside src/model/',
+    },
+  ]);
+});
+
+test('it reports an http module import outside the model module', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'src/scope/read-pull-request.ts'),
+    "import { request } from 'node:https';\n\nexport const value = request;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'network',
+      file: 'src/scope/read-pull-request.ts',
+      line: 1,
+      message: 'node:https outside src/model/',
+    },
+  ]);
+});
+
+test('it reports a globalThis fetch call outside the model module', async () => {
   const ctx = await setupTest();
 
   await Bun.write(

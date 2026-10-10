@@ -123,6 +123,10 @@ function checkFile(root: string, file: string): ImportFinding[] {
     }
   }
 
+  for (const offset of facts.computedOffsets) {
+    findings.push(buildFinding(offset, ['unresolved', 'cannot check a computed import specifier']));
+  }
+
   if (isCore(file) && !isNetworkModule(file)) {
     for (const offset of facts.fetchOffsets) {
       findings.push(buildFinding(offset, ['network', 'fetch( outside src/model/']));
@@ -141,6 +145,7 @@ interface ImportEdge {
 interface FileFacts {
   readonly edges: readonly ImportEdge[];
   readonly fetchOffsets: readonly number[];
+  readonly computedOffsets: readonly number[];
 }
 
 const GLOBAL_OBJECTS = new Set(['globalThis', 'self', 'window']);
@@ -149,6 +154,7 @@ function collectFileFacts(file: string, source: string): FileFacts {
   const parsed = parseSync(file, source);
   const edges: ImportEdge[] = [];
   const fetchOffsets: number[] = [];
+  const computedOffsets: number[] = [];
 
   for (const statement of parsed.module.staticImports) {
     edges.push({
@@ -172,8 +178,18 @@ function collectFileFacts(file: string, source: string): FileFacts {
 
   const visitor = new Visitor({
     ImportExpression(node) {
-      if (node.source.type === 'Literal' && typeof node.source.value === 'string') {
-        edges.push({ specifier: node.source.value, offset: node.start, typeOnly: false });
+      const request = node.source;
+
+      if (request.type === 'Literal' && typeof request.value === 'string') {
+        edges.push({ specifier: request.value, offset: node.start, typeOnly: false });
+      } else if (request.type === 'TemplateLiteral' && request.expressions.length === 0) {
+        edges.push({
+          specifier: request.quasis.map((quasi) => quasi.value.cooked ?? '').join(''),
+          offset: node.start,
+          typeOnly: false,
+        });
+      } else {
+        computedOffsets.push(node.start);
       }
     },
     TSImportType(node) {
@@ -193,12 +209,30 @@ function collectFileFacts(file: string, source: string): FileFacts {
       if ((callee.type === 'Identifier' && callee.name === 'fetch') || isGlobalFetch) {
         fetchOffsets.push(node.start);
       }
+
+      if (callee.type !== 'Identifier' || callee.name !== 'require') {
+        return;
+      }
+
+      const [argument] = node.arguments;
+
+      if (argument?.type === 'Literal' && typeof argument.value === 'string') {
+        edges.push({ specifier: argument.value, offset: node.start, typeOnly: false });
+      } else if (argument?.type === 'TemplateLiteral' && argument.expressions.length === 0) {
+        edges.push({
+          specifier: argument.quasis.map((quasi) => quasi.value.cooked ?? '').join(''),
+          offset: node.start,
+          typeOnly: false,
+        });
+      } else {
+        computedOffsets.push(node.start);
+      }
     },
   });
 
   visitor.visit(parsed.program);
 
-  return { edges, fetchOffsets };
+  return { edges, fetchOffsets, computedOffsets };
 }
 
 const SUPPORT_MODULES = new Set([
@@ -360,7 +394,11 @@ function planEdgeFindings(
     findings.push(['src-mods-apart', `src/ imports the mod: ${edge}`]);
   }
 
-  if (fromZone === 'mod' && toZone !== 'mod' && toZone !== 'contract') {
+  if (
+    (fromZone === 'mod' || fromZone === 'contract') &&
+    toZone !== 'mod' &&
+    toZone !== 'contract'
+  ) {
     findings.push([
       isCore(target) ? 'src-mods-apart' : 'mod',
       `the mod imports outside itself: ${edge}`,
