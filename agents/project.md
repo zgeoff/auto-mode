@@ -26,13 +26,15 @@ repo root holds the prompt itself. `fixtures/` holds mod requests recorded in a 
 session.
 
 `evals/` holds the evaluation tooling: `runners/` are the `eval:*` scripts, `corpora/` the committed
-corpora, `lib/` the helpers they and the suites share, and `evidence/` and `replay/` the suites that
-check the committed reports. Evals import auto-mode code by package name: `auto-mode` for the public
-API and `auto-mode/eval` for internals. Both resolve to `src/` under the `auto-mode-eval` export
-condition, which `bun run test`, the `eval:*` scripts and `evals/tsconfig.json` set; without it the
-subpath does not resolve. Evals also reuse the root `test-utils/` helpers by path, and those import
-`src/` directly. Bun cannot install a workspace's dependency on the root package, so `prepare` links
-`evals/node_modules/auto-mode` to the root instead.
+corpora, with the recorded model answers the replays read under `corpora/recorded/`, `lib/` the
+helpers they and the suites share, and `replay/` the suites that replay the corpora offline.
+Evaluation reports live in the private zgeoff/auto-mode-evals repository, not here. Evals import
+auto-mode code by package name: `auto-mode` for the public API and `auto-mode/eval` for internals.
+Both resolve to `src/` under the `auto-mode-eval` export condition, which `bun run test`, the
+`eval:*` scripts and `evals/tsconfig.json` set; without it the subpath does not resolve. Evals also
+reuse the root `test-utils/` helpers by path, and those import `src/` directly. Bun cannot install a
+workspace's dependency on the root package, so `prepare` links `evals/node_modules/auto-mode` to the
+root instead.
 
 ## Runtime rules
 

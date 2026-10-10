@@ -55,7 +55,7 @@ async function main(): Promise<void> {
 
   invariant(
     set !== 'corpus' || evidence,
-    'The corpus without evidence is already recorded under docs/evaluations/second-judge.',
+    'The corpus without evidence is already recorded under evals/corpora/recorded/second-judge.',
   );
 
   const corpus = await loadSecondJudgeCorpus(root);

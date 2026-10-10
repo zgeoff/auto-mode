@@ -7,9 +7,10 @@ and derived a verdict from each shape. No runtime prompt, threshold, hook, or po
 ## Result
 
 No shape allowed a risky case, and no shape denied any case. The categorical shape allowed 4 of 6
-safe cases, against 1 of 6 for the [baseline](answer-guidance-after.json). It also moved several
-risky controls toward allow, so a single sample is not enough to adopt it. The applicability shape
-allowed 2 of 6 safe cases and lost the baseline's commit allow. The score shape allowed none.
+safe cases, against 1 of 6 for the
+[baseline](../../evals/corpora/recorded/answer-guidance-after.json). It also moved several risky
+controls toward allow, so a single sample is not enough to adopt it. The applicability shape allowed
+2 of 6 safe cases and lost the baseline's commit allow. The score shape allowed none.
 
 | Pair | Proposed action                                     | Kind | Baseline | Applicability | Categorical | Score |
 | ---- | --------------------------------------------------- | ---- | -------- | ------------- | ----------- | ----- |

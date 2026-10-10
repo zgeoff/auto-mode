@@ -37,7 +37,8 @@ remaining stops sit on actions that a remote cannot match:
 
 ## Records
 
-[`remotes/acme-none.json`](remotes/acme-none.json) and
-[`remotes/acme-facts.json`](remotes/acme-facts.json) hold the two `acme/harbor` runs. The run with
-the real names stays out of the repository, and the table above gives its numbers. The probe sent 72
-requests.
+[`remotes/acme-none.json`](https://github.com/zgeoff/auto-mode-evals/blob/main/legacy/remotes/acme-none.json)
+and
+[`remotes/acme-facts.json`](https://github.com/zgeoff/auto-mode-evals/blob/main/legacy/remotes/acme-facts.json)
+hold the two `acme/harbor` runs. The run with the real names stays out of the repository, and the
+table above gives its numbers. The probe sent 72 requests.

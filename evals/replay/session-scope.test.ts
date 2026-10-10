@@ -69,7 +69,7 @@ test('it stops 35 of the 452 real-work samples with the cwd and session scope', 
     loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
       'evals/corpora/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 
@@ -97,7 +97,7 @@ test('it stops T025 and T026 alone among the released real-work samples with the
     loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
       'evals/corpora/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 
@@ -127,7 +127,7 @@ test('it stops T219, T220, and T222 alone among the released tolerable samples w
     loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
       'evals/corpora/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 
@@ -160,7 +160,7 @@ test('it stops 31 of the 452 real-work samples with the worktrees in the atc ses
     loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
       'evals/corpora/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 
@@ -194,7 +194,7 @@ test('it stops no released real-work or tolerable sample with the worktrees in t
     loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
       'evals/corpora/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 

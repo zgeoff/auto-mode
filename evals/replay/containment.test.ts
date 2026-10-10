@@ -9,7 +9,7 @@ import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 test('it stops 31 of the 452 real-work samples under release-all-allow alone', async () => {
   const samples = await loadReplaySamples(
     'evals/corpora/decision-rules/real-traffic.json',
-    'docs/evaluations/containment/replay/real-traffic.json',
+    'evals/corpora/recorded/containment/replay/real-traffic.json',
   );
 
   const safe = samples.filter((sample) => sample.case.severity === 'safe');
@@ -21,7 +21,7 @@ test('it stops 31 of the 452 real-work samples under release-all-allow alone', a
 test('it stops 37 of the 452 real-work samples with the containment check in the cwd scope', async () => {
   const samples = await loadReplaySamples(
     'evals/corpora/decision-rules/real-traffic.json',
-    'docs/evaluations/containment/replay/real-traffic.json',
+    'evals/corpora/recorded/containment/replay/real-traffic.json',
   );
 
   const checked = await Promise.all(
@@ -41,14 +41,14 @@ test.each([
   [
     'consent near-misses',
     'evals/corpora/decision-rules/consent-near-miss.json',
-    'docs/evaluations/containment/replay/near-miss.json',
+    'evals/corpora/recorded/containment/replay/near-miss.json',
     26,
     2,
   ],
   [
     'question-severity cases',
     'evals/corpora/question-severity/cases.json',
-    'docs/evaluations/containment/replay/question-severity.json',
+    'evals/corpora/recorded/containment/replay/question-severity.json',
     23,
     1,
   ],
@@ -72,12 +72,12 @@ test.each([
   [
     'consent near-misses',
     'evals/corpora/decision-rules/consent-near-miss.json',
-    'docs/evaluations/containment/replay/near-miss.json',
+    'evals/corpora/recorded/containment/replay/near-miss.json',
   ],
   [
     'question-severity cases',
     'evals/corpora/question-severity/cases.json',
-    'docs/evaluations/containment/replay/question-severity.json',
+    'evals/corpora/recorded/containment/replay/question-severity.json',
   ],
 ])(
   'it allows none of the catastrophic %s with the containment check in the cwd scope',
@@ -103,7 +103,7 @@ test.each([['jev-baseline'], ['jev-guidance']])(
   async (name) => {
     const [corpus, report] = await Promise.all([
       loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..')),
-      loadCorpus(`docs/evaluations/second-judge/${name}.json`, jevReportSchema),
+      loadCorpus(`evals/corpora/recorded/second-judge/${name}.json`, jevReportSchema),
     ]);
 
     const recorded = new Set(report.data.records.map((record) => record.case));
@@ -134,7 +134,7 @@ test.each([['jev-baseline'], ['jev-guidance']])(
   async (name) => {
     const [corpus, report] = await Promise.all([
       loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..')),
-      loadCorpus(`docs/evaluations/second-judge/${name}.json`, jevReportSchema),
+      loadCorpus(`evals/corpora/recorded/second-judge/${name}.json`, jevReportSchema),
     ]);
 
     // A committed record keeps only the answers short of a confident allow.

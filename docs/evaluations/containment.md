@@ -57,9 +57,9 @@ against the union of its cwd scope and what its session had created. No request 
 - The catastrophic corpora carry no session history, so their scope stays the cwd scope, and the
   counts in the table above hold.
 
-The [replay files](./containment/replay/) keep one row per sample: the case, the sample, and whether
-release-all-allow allows it. Each file names the issue and the SHA-256 of the report it was derived
-from. No request was sent.
+The [replay files](../../evals/corpora/recorded/containment/replay/) keep one row per sample: the
+case, the sample, and whether release-all-allow allows it. Each file names the issue and the SHA-256
+of the report it was derived from. No request was sent.
 
 ## Experiment A: the detector as a veto
 
@@ -155,8 +155,9 @@ sample; the twin column counts a twin allowed on at least 2 of 3.
 | total                                | 669      | 3      |
 
 The near-miss reports are attached to GEO-97, because their corpus lives in GEO-104's unmerged
-branch. [The replay test](../../evals/evidence/containment.test.ts) rebuilds the twin and GEO-78
-evidence counts from the committed reports.
+branch.
+[The twin and GEO-78 evidence reports](https://github.com/zgeoff/auto-mode-evals/tree/main/legacy/containment)
+hold the answers behind these counts.
 
 ## Pre-registration
 

@@ -45,10 +45,15 @@ async function main(): Promise<void> {
       transport: { type: 'string' },
       live: { type: 'boolean' },
       output: { type: 'string' },
+      reports: { type: 'string' },
     },
   });
 
   const root = resolve(import.meta.dirname, '../..');
+
+  const reportsDir = resolve(
+    args.values.reports ?? join(root, 'evals/corpora/recorded/second-judge'),
+  );
 
   const corpus = await loadSecondJudgeCorpus(root);
 
@@ -76,7 +81,7 @@ async function main(): Promise<void> {
     );
 
     await runJudgeStage(
-      root,
+      reportsDir,
       corpus,
       args.values.preset,
       transport === 'claude-code',
@@ -88,7 +93,7 @@ async function main(): Promise<void> {
   }
 
   if (stage === 'summary') {
-    await printSummary(root, corpus);
+    await printSummary(reportsDir, corpus);
 
     return;
   }
@@ -239,7 +244,7 @@ async function runJevStage(
 }
 
 async function runJudgeStage(
-  root: string,
+  reportsDir: string,
   corpus: SecondJudgeCorpus,
   presetName: string | undefined,
   viaClaudeCode: boolean,
@@ -253,7 +258,7 @@ async function runJudgeStage(
     'Pass --preset with one Messages API preset: claude, glm, or spark.',
   );
 
-  const jevReports = await loadJevReports(root, corpus);
+  const jevReports = await loadJevReports(reportsDir, corpus);
 
   const eligible = new Set<string>();
 
@@ -376,14 +381,14 @@ async function runJudgeStage(
   }
 }
 
-async function printSummary(root: string, corpus: SecondJudgeCorpus): Promise<void> {
-  const jevReports = await loadJevReports(root, corpus);
+async function printSummary(reportsDir: string, corpus: SecondJudgeCorpus): Promise<void> {
+  const jevReports = await loadJevReports(reportsDir, corpus);
 
   for (const jev of jevReports) {
     const judges: (JudgeReport | null)[] = [null];
 
     for (const preset of [...Object.keys(PRESETS), 'claude-code']) {
-      const path = join(root, `docs/evaluations/second-judge/judge-${preset}.json`);
+      const path = join(reportsDir, `judge-${preset}.json`);
 
       if (existsSync(path)) {
         const text = await readFile(path, 'utf8');
@@ -486,11 +491,11 @@ async function runClaudeCode(
   return { text: body.result ?? '', outputTokens: body.usage?.output_tokens ?? null };
 }
 
-async function loadJevReports(root: string, corpus: SecondJudgeCorpus): Promise<JevReport[]> {
+async function loadJevReports(reportsDir: string, corpus: SecondJudgeCorpus): Promise<JevReport[]> {
   const reports: JevReport[] = [];
 
   for (const variant of VARIANTS) {
-    const path = join(root, `docs/evaluations/second-judge/jev-${variant}.json`);
+    const path = join(reportsDir, `jev-${variant}.json`);
 
     if (!existsSync(path)) {
       continue;
