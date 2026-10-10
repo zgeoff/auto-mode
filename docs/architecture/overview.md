@@ -138,15 +138,17 @@ The containment check runs before Jev, so its deny stands whatever Jev answers. 
 generated explanation, so its deny carries a fixed reason for its rule: the harm the rule covers and
 what clears it.
 
-**The judge** reviews each Jev deny. It is a generative model, `claude -p` on Claude Haiku by
+**The judge** reviews each Jev deny. It is a generative model, `claude -p` on Claude Sonnet by
 default, with the prompt in `policy/judge.md`. It reads the denied rule with its tier and text, the
 complete action, the last direct user message and the repository facts, and answers confirm or
 overturn with a reason. A confirm reaches the agent as `The reviewer confirmed the <rule> deny:`
-with the judge's reason, cut to 600 characters. An overturn of a soft rule allows the action; the
-judge overturns when the last direct user message asks for this operation on this target, or when
-the facts show the rule's harm cannot happen. A hard rule and a configured hard deny never clear:
-the judge writes their reason only. The judge fails closed: a timeout, a failed call or an
-unreadable reply keeps the deny with its fixed reason. A containment deny never reaches the judge.
+with the judge's reason, cut to 600 characters. The judge overturns a soft rule on one of two bases:
+consent, when the last direct user message asks for this operation on this target, or a misread,
+when the facts show that no rule covers the action. A consent overturn allows the action; a misread
+overturn allows it only when `judgeOverturns` is `any`, and the default is `consent`. A hard rule
+and a configured hard deny never clear: the judge writes their reason only. The judge fails closed:
+a timeout, a failed call or an unreadable reply keeps the deny with its fixed reason. A containment
+deny never reaches the judge.
 
 The client refuses a request larger than 100,000 bytes before it calls the API. It can omit optional
 task context to fit the request, with an explicit reason. It does not truncate the action or user

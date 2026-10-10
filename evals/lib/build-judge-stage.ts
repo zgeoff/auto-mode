@@ -86,7 +86,9 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
     },
   };
 
-  return options.replaysRecording ? { ...stage, replay: buildJudgeReplay(scope) } : stage;
+  return options.replaysRecording
+    ? { ...stage, replay: buildJudgeReplay(scope, options.reviewsEveryJevDeny === true) }
+    : stage;
 }
 
 const JEV_DENY = /^(?:deny|all-allow-ask): (?<rule>.+)$/u;
@@ -130,9 +132,11 @@ function findJevDeny(
 
 function buildJudgeReplay(
   scope: JudgeStageOptions['scope'],
+  reviewsEveryJevDeny: boolean,
 ): NonNullable<Stage<MeasurementCase>['replay']> {
   return (entry, context) => {
-    const skipped = scope === 'jev-denies' ? findRecordedSkip(entry.case, context) : null;
+    const skipped =
+      scope === 'jev-denies' ? findRecordedSkip(entry.case, context, reviewsEveryJevDeny) : null;
 
     if (skipped !== null) {
       return Promise.resolve(skipped);
@@ -202,8 +206,9 @@ function findSkip(
 function findRecordedSkip(
   entry: Readonly<MeasurementCase>,
   context: Readonly<StageContext>,
+  reviewsEveryJevDeny: boolean,
 ): StageOutcome | null {
-  const skipped = findSkip(context);
+  const skipped = findSkip(context, reviewsEveryJevDeny);
 
   if (skipped !== null || entry.recorded[JUDGE_STAGE]?.[context.sample]?.kind === 'sample') {
     return skipped;

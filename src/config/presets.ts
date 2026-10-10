@@ -37,7 +37,7 @@ const SPARK_PROVIDER: ProviderConfig = {
 const CLAUDE_CODE_JUDGE: ProviderConfig = {
   protocol: 'claude-code',
   baseURL: 'https://api.anthropic.com',
-  model: 'claude-haiku-5-5',
+  model: 'claude-sonnet-5-5',
   reasoning: false,
   maxTokens: 3000,
   timeoutMs: 120_000,

@@ -30,11 +30,12 @@ has no contributors. `blockThreshold` records the threshold in force. The final 
 distinguishes a failure that defers from one that fails closed.
 
 When the judge reviewed a Jev deny, `judge` holds its outcome; otherwise it is `null`. `status` is
-`confirmed`, `overturned`, `held` (an overturn of a hard rule, which keeps the deny), or `failed`.
-`failureReason` names the step that failed: `credential`, `policy`, `request`, `timeout`, or
-`unreadable`; it is `null` when the judge answered. `rule` is a shipped rule's name, or the rule's
-source for a configured or replacement rule; `tier`, `model` and `elapsedMs` complete the record.
-The judge's reason text is not recorded.
+`confirmed`, `overturned`, `held` (an overturn the deny keeps: of a hard rule, or a misread under
+`judgeOverturns: "consent"`), or `failed`. `overturnBasis` is `consent` or `misread` for an overturn
+or a held overturn, and `null` otherwise. `failureReason` names the step that failed: `credential`,
+`policy`, `request`, `timeout`, or `unreadable`; it is `null` when the judge answered. `rule` is a
+shipped rule's name, or the rule's source for a configured or replacement rule; `tier`, `model` and
+`elapsedMs` complete the record. The judge's reason text is not recorded.
 
 Each final record also measures the task, so escalations can be counted per session:
 

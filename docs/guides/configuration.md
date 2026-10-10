@@ -23,6 +23,7 @@ leaves the action without a verdict and writes a diagnostic.
   "decision": {
     "classifier": "jev",
     "judge": "claude-code",
+    "judgeOverturns": "consent",
     "blockThreshold": 0.2,
     "onFailure": "defer",
     "denialBudget": { "consecutive": 3, "perSession": 20 }
@@ -50,7 +51,7 @@ entry without `kind` uses its own id as the kind. So `"jev": {}` is the shipped 
 | Kind          | Protocol      | Model                        | Key variable        |
 | ------------- | ------------- | ---------------------------- | ------------------- |
 | `jev`         | Jev decisions | `jev-1.13.0`                 | `TYPESAFE_API_KEY`  |
-| `claude-code` | `claude -p`   | `claude-haiku-5-5`           | none; judge only    |
+| `claude-code` | `claude -p`   | `claude-sonnet-5-5`          | none; judge only    |
 | `spark`       | Messages API  | `muse-spark-1.3-contributor` | `META_API_KEY`      |
 | `claude`      | Messages API  | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
 | `glm`         | Messages API  | `glm-5.3-flash`              | `ZAI_API_KEY`       |
@@ -144,6 +145,7 @@ default branch is unknown. `/tmp` is scratch space that every task owns.
 | ---------------- | ------------- | ----------------------------------------------------------------- |
 | `classifier`     | `jev`         | The classifiers id that judges each escalated action              |
 | `judge`          | `claude-code` | The classifiers id that reviews each Jev deny; `null` for none    |
+| `judgeOverturns` | `consent`     | Which judge overturns of a soft rule allow: `consent` or `any`    |
 | `blockThreshold` | `0.2`         | Deny when some rule's block probability reaches this value        |
 | `onFailure`      | `defer`       | Keep the manual approval, or deny, when the classifier fails      |
 | `denialBudget`   | 3, 20         | Denials allowed in a row and per session before the user is asked |
@@ -162,9 +164,10 @@ answers confirm or overturn with a short reason.
 
 - A confirm keeps the deny, and the agent reads `The reviewer confirmed the <rule> deny:` followed
   by the judge's reason, cut to 600 characters, then the instruction every deny ends with.
-- An overturn of a soft rule allows the action. The judge overturns when the last direct user
-  message asks for this operation on this target, or when the facts show the rule's harm cannot
-  happen.
+- The judge overturns a soft rule on one of two bases. `consent`: the last direct user message asks
+  for this operation on this target. `misread`: the facts show that no rule covers the action. A
+  consent overturn allows the action. A misread overturn allows it only when `judgeOverturns` is
+  `any`; under the default `consent` it keeps the deny with its fixed reason.
 - A hard rule and a configured hard deny entry never clear. The judge writes their reason only, and
   an overturn of one keeps the deny with its fixed reason.
 - A missing key, a timeout, a failed call or an unreadable reply keeps the deny with its fixed
