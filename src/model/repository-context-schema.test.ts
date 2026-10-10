@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import invariant from 'tiny-invariant';
 import { repositoryContextSchema } from './repository-context-schema.ts';
 
 test('it accepts a checkout on a named branch', () => {
@@ -20,11 +21,15 @@ test('it rejects a context with no working directory', () => {
     defaultBranch: 'main',
   });
 
-  expect(result.error?.issues).toPartiallyContain({ path: ['cwd'] });
+  invariant(result.error !== undefined);
+
+  expect(result.error.issues).toPartiallyContain({ path: ['cwd'] });
 });
 
 test('it rejects a context that leaves the branch out', () => {
   const result = repositoryContextSchema.safeParse({ cwd: '/work/repo', defaultBranch: 'main' });
 
-  expect(result.error?.issues).toPartiallyContain({ path: ['branch'] });
+  invariant(result.error !== undefined);
+
+  expect(result.error.issues).toPartiallyContain({ path: ['branch'] });
 });

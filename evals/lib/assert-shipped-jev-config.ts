@@ -9,5 +9,5 @@ export function assertShippedJevConfig(config: Readonly<Config>): void {
     'Evaluate the shipped Jev policy with no replacement policy.',
   );
 
-  invariant((config.minConfidence ?? 0.8) === 0.8, 'Keep the threshold at 0.8.');
+  invariant(config.minConfidence === 0.8, 'Keep the configured threshold at 0.8.');
 }
