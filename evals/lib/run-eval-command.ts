@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import * as z from 'zod';
@@ -385,6 +386,7 @@ async function runAnonymiseCommand(
     repoRoot: io.repoRoot,
     env: io.env,
     salt: randomBytes(32).toString('hex'),
+    stagingRoot: tmpdir(),
   });
 
   io.stdout(

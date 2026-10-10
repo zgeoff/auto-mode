@@ -1,5 +1,4 @@
 import { cp, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative } from 'node:path';
 import { findEnclosingWorkTree } from 'auto-mode/eval';
 import { buildAnonymisedCorpus } from './build-anonymised-corpus.ts';
@@ -12,6 +11,7 @@ export interface AnonymiseRequest {
   readonly repoRoot: string;
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly salt: string;
+  readonly stagingRoot: string;
 }
 
 export interface AnonymiseResult {
@@ -37,7 +37,15 @@ export async function writeAnonymisedCorpus(
     request.salt,
   );
 
-  const staging = await mkdtemp(join(tmpdir(), 'auto-mode-anonymise-'));
+  const stagingWorkTree = await findEnclosingWorkTree(request.stagingRoot);
+
+  if (stagingWorkTree !== null) {
+    throw new Error(
+      `Refusing to stage the corpus in ${request.stagingRoot}: it is inside the git work tree ${stagingWorkTree}.`,
+    );
+  }
+
+  const staging = await mkdtemp(join(request.stagingRoot, 'auto-mode-anonymise-'));
 
   try {
     const labelsTodo = {

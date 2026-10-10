@@ -48,6 +48,7 @@ test('it writes the anonymised cases and a labels to-do list outside every check
     repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
+    stagingRoot: ctx.dir,
   });
 
   const casesText = await readFile(join(ctx.dir, 'recorded-traffic', 'cases.json'), 'utf8');
@@ -111,6 +112,7 @@ test('it writes a corpus under evals/corpora of the public repository', async ()
     repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
+    stagingRoot: ctx.dir,
   });
 
   expect(result).toStrictEqual({
@@ -132,6 +134,7 @@ test('it refuses an out dir elsewhere in the public repository', async () => {
     repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
+    stagingRoot: ctx.dir,
   });
 
   expect(written).rejects.toThrowWithMessage(
@@ -154,6 +157,7 @@ test('it refuses an out dir in another git work tree', async () => {
     repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
+    stagingRoot: ctx.dir,
   });
 
   expect(written).rejects.toThrowWithMessage(
@@ -175,6 +179,7 @@ test('it refuses an out dir that already exists and leaves it untouched', async 
     repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
+    stagingRoot: ctx.dir,
   });
 
   expect(written).rejects.toThrowWithMessage(
@@ -194,6 +199,7 @@ test('it writes nothing when the secret scan cannot run', async () => {
     repoRoot: join(ctx.dir, 'public'),
     env: { PATH: ctx.dir },
     salt: 'salt',
+    stagingRoot: ctx.dir,
   });
 
   expect(written).rejects.toThrow(/secret scan did not pass/);
@@ -203,4 +209,26 @@ test('it writes nothing when the secret scan cannot run', async () => {
 
   expect(out).toBeNull();
   expect(entries).toStrictEqual(['requests-2026-10-10.jsonl']);
+});
+
+test('it refuses to stage the corpus inside a git work tree', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'staging')]);
+
+  await writeFile(ctx.capture, '');
+
+  const written = writeAnonymisedCorpus({
+    captureFiles: [ctx.capture],
+    outDir: join(ctx.dir, 'recorded-traffic'),
+    repoRoot: join(ctx.dir, 'public'),
+    env: { PATH: process.env['PATH'] },
+    salt: 'salt',
+    stagingRoot: join(ctx.dir, 'staging'),
+  });
+
+  expect(written).rejects.toThrowWithMessage(
+    Error,
+    `Refusing to stage the corpus in ${join(ctx.dir, 'staging')}: it is inside the git work tree ${join(ctx.dir, 'staging')}.`,
+  );
 });
