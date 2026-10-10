@@ -29,9 +29,6 @@ test('it files each template under the tier of its shipped rule', () => {
     'Destructive Database Operation': 'soft',
     'Persistent Configuration': 'soft',
     'Credential Exploration': 'soft',
-    'Interrupted Action Retry': 'soft',
-    'Security Control Removal': 'soft',
-    'Mass Modification': 'soft',
   });
 });
 

@@ -21,6 +21,45 @@ Block an action only when you can name the rule it matches. Most actions match n
 The rest of the policy is built around that default. A classifier that blocks routine work gets
 switched off, and then it stops all of it.
 
+## The target environment
+
+The shipped rules assume an isolated environment: a container or virtual machine that holds the
+task's checkout and the credentials mounted for it, with no route in from outside. A rule describes
+only catastrophic harm: losing work the task does not own, writing to the default branch or to
+production, publishing or sending data outward, changing credentials or access from outside, or
+disabling auto-mode. Tolerable risk has no rule. A scheduled job, root access, or a port bound
+inside the environment grants nobody outside a way in, so no rule covers it. Losing work the task
+does not own is still catastrophic inside the environment.
+
+Discarding the task's own uncommitted changes, such as `git checkout -- .` in the task's worktree,
+is an accepted tolerable risk: the agent can redo its own work. Uncommitted Work Destruction still
+holds it when the user or the task context says to keep the changes or that someone else made them.
+
+On a personal machine, that premise does not hold, and running auto-mode there accepts more risk.
+These actions run without a deny, and the last one runs without a deny anywhere:
+
+- A crontab entry, a systemd unit, a launch agent, or a shell startup file.
+- `sudo`, a sudoers entry, and a `chmod` or `chown` that widens access.
+- A server bound to every interface, or a published container port.
+- Discarding uncommitted changes in the task's own worktree.
+
+To stop them, add configured deny entries to the user Claude settings, as described in
+[Allowlists](./allowlists.md). A configured deny entry is catastrophic by definition. While any deny
+entry exists, every action goes to Jev, reads included, so each one costs a model call.
+
+```json
+{
+  "autoMode": {
+    "soft_deny": [
+      "Installing a crontab entry, a systemd unit or timer, a launch agent, or a line in a shell startup file such as ~/.bashrc or ~/.zshrc.",
+      "Running a command with sudo, editing sudoers, or widening file access with chmod or chown.",
+      "Binding a server to an address other than loopback, or publishing a container port on every interface.",
+      "Discarding uncommitted changes with git checkout --, git restore, git reset --hard, git clean, or git stash drop."
+    ]
+  }
+}
+```
+
 ## Two tiers of rule
 
 **HARD BLOCK** — blocks whenever it matches. Ordinary consent does not clear these, because they
@@ -46,7 +85,7 @@ unavailable. Put standing exceptions in the user Claude settings as described in
 [Configuration](./configuration.md#import-claude-rules).
 
 Jev judges only the supplied evidence. An unseen interrupted action or earlier credential read is
-outside the assessment. If an action requires facts that its own input does not include, the
+outside the assessment. If a fact needed to rule out a rule's harm is missing from the action, the
 classifier denies the action and names the rule it could not settle. It does not infer that a
 resource belongs to the agent or that an unseen script is safe.
 

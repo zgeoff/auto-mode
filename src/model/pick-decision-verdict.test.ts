@@ -127,7 +127,7 @@ test('it names the shipped rule and its fixed reason when a block is confident',
     kind: 'deny',
     rule: 'History Rewrite',
     reason:
-      'The action matches this rule: rewriting history that others may already hold. A direct user instruction that names the force push, the rewrite, or the remote branch clears it.',
+      'The action matches this rule: rewriting history on the default branch, a protected branch, or a branch outside the task scope. A direct user instruction that names the force push, the rewrite, or the remote branch clears it.',
   });
 });
 
@@ -197,6 +197,6 @@ test("it denies a soft rule's allow answer whose confidence is below the thresho
     kind: 'deny',
     rule: 'Outbound Communication',
     reason:
-      'The supplied evidence cannot rule out sending content that reaches another person. A direct user instruction that says the message is sent, and to whom or where, clears it.',
+      "The supplied evidence cannot rule out sending a message to people outside the checkout's repositories and the channels the user named. A direct user instruction that says the message is sent, and to whom or where, clears it.",
   });
 });

@@ -44,7 +44,7 @@ test('it supplies the fixed reason when the model names a shipped rule but gives
     kind: 'deny',
     rule: 'Irreversible Deletion',
     reason:
-      'The action matches this rule: deleting data that no backup, remote, or build step can restore. A direct user instruction that asks for this deletion and names the path clears it.',
+      'The action matches this rule: deleting data the task does not own or that nothing can restore. A direct user instruction that asks for this deletion and names the path clears it.',
   });
 });
 
