@@ -102,7 +102,7 @@ cause is suspected there but not shown. The other 9 samples of each failed reque
 
 The [report](https://github.com/zgeoff/auto-mode-evals/blob/main/legacy/relay-consent.json) keeps
 every rule answer as `[choice, confidence, P(allow), P(block), P(ask)]`, the segments, and a summary
-that the replay test derives again from the answers.
+derived from the answers.
 
 ## Results
 

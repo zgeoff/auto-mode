@@ -384,26 +384,36 @@ async function runJudgeStage(
 async function printSummary(reportsDir: string, corpus: SecondJudgeCorpus): Promise<void> {
   const jevReports = await loadJevReports(reportsDir, corpus);
 
-  for (const jev of jevReports) {
-    const judges: (JudgeReport | null)[] = [null];
+  const judges: (JudgeReport | null)[] = [null];
 
-    for (const preset of [...Object.keys(PRESETS), 'claude-code']) {
-      const path = join(reportsDir, `judge-${preset}.json`);
+  const judgePresets = Object.entries(PRESETS)
+    .filter(([, provider]) => provider.protocol !== 'system-one')
+    .map(([name]) => name);
 
-      if (existsSync(path)) {
-        const text = await readFile(path, 'utf8');
+  for (const preset of [...judgePresets, 'claude-code']) {
+    const path = join(reportsDir, `judge-${preset}.json`);
 
-        const judge = judgeReportSchema.parse(JSON.parse(text));
+    if (!existsSync(path)) {
+      console.error(
+        `judge-${preset}.json not found in ${reportsDir}; pass --reports <dir> with the private legacy/second-judge reports.`,
+      );
 
-        invariant(
-          judge.corpusHash === corpus.corpusHash,
-          `judge-${preset}.json is for another corpus.`,
-        );
-
-        judges.push(judge);
-      }
+      continue;
     }
 
+    const text = await readFile(path, 'utf8');
+
+    const judge = judgeReportSchema.parse(JSON.parse(text));
+
+    invariant(
+      judge.corpusHash === corpus.corpusHash,
+      `judge-${preset}.json is for another corpus.`,
+    );
+
+    judges.push(judge);
+  }
+
+  for (const jev of jevReports) {
     for (const judge of judges) {
       const summary = buildSecondJudgeSummary(corpus.cases, jev, judge);
 
@@ -497,9 +507,10 @@ async function loadJevReports(reportsDir: string, corpus: SecondJudgeCorpus): Pr
   for (const variant of VARIANTS) {
     const path = join(reportsDir, `jev-${variant}.json`);
 
-    if (!existsSync(path)) {
-      continue;
-    }
+    invariant(
+      existsSync(path),
+      `jev-${variant}.json not found in ${reportsDir}; pass --reports <dir> with both Jev reports.`,
+    );
 
     const text = await readFile(path, 'utf8');
 
@@ -512,8 +523,6 @@ async function loadJevReports(reportsDir: string, corpus: SecondJudgeCorpus): Pr
 
     reports.push(report);
   }
-
-  invariant(reports.length > 0, 'Run the Jev stage first.');
 
   return reports;
 }

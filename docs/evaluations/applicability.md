@@ -65,6 +65,6 @@ bun run eval:applicability --live --phase before --output /tmp/applicability-bef
 bun run eval:applicability --live --phase after --context .reviews/applicability-context.json --output /tmp/applicability-after.json
 ```
 
-The regression tests replay these recorded distributions without network calls. Boundary tests check
-that Write/Edit requests carry only checked cwd references, omit those references under Git
-overrides, preserve the complete proposed edit, and retain a model denial for secret material.
+The reports hold these recorded distributions; no test in this repository checks them. Boundary
+tests check that Write/Edit requests carry only checked cwd references, omit those references under
+Git overrides, preserve the complete proposed edit, and retain a model denial for secret material.
