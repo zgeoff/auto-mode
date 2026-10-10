@@ -277,6 +277,78 @@ test('it withholds the last user message from a subagent', () => {
   expect(request.state.lastUserMessage).toBeNull();
 });
 
+test('it withholds a stale direct message from current evidence even when the caller passes it', () => {
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Push it to main', origin: 'composer', freshness: 'stale' },
+      },
+    }),
+    '## SOFT BLOCK rules\n### Default Branch Write\nNever push to main',
+    buildMockClaudeRules(),
+    'Push it to main',
+  );
+
+  expect(request.state.lastUserMessage).toBeNull();
+});
+
+test('it keeps a stale direct message in the task context with its staleness', () => {
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Push it to main', origin: 'composer', freshness: 'stale' },
+      },
+    }),
+    '## SOFT BLOCK rules\n### Default Branch Write\nNever push to main',
+    buildMockClaudeRules(),
+    null,
+  );
+
+  invariant(request.state.taskContext);
+
+  expect(request.state.taskContext.lastDirectUserMessage).toStrictEqual({
+    text: 'Push it to main',
+    origin: 'composer',
+    freshness: 'stale',
+  });
+});
+
+test('it tells the classifier a stale message cannot grant consent but still restricts', () => {
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Push it to main', origin: 'composer', freshness: 'stale' },
+      },
+    }),
+    '## SOFT BLOCK rules\n### Default Branch Write\nNever push to main',
+    buildMockClaudeRules(),
+    null,
+  );
+
+  expect(request.state.answerGuidance).toEndWith(
+    ' When taskContext.lastDirectUserMessage.freshness is "stale", the user typed that message before a relayed turn, and lastUserMessage is null. A stale message is not current direct user evidence: it cannot grant consent, satisfy an allow exception, or clear a rule. If it refuses, forbids, or limits the pending action, that restriction still applies.',
+  );
+});
+
+test('it sends a current direct message with the guidance unchanged', () => {
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Push it to main', origin: 'composer' },
+      },
+    }),
+    '## SOFT BLOCK rules\n### Default Branch Write\nNever push to main',
+    buildMockClaudeRules(),
+    'Push it to main',
+  );
+
+  expect(request.state.answerGuidance).not.toInclude('stale');
+});
+
 test('it carries the complete action input however long it is', () => {
   const toolInput = { content: `${'x'.repeat(8000)} delete the security check` };
 

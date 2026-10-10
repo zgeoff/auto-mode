@@ -214,10 +214,14 @@ Configured hard and soft deny entries bypass local allowances so the model evalu
 restrictions even for a read-only action.
 
 The mod captures the last direct user message from Claude Code's prompt event, with its composer,
-Remote Control, or SDK origin. A message from another origin, such as a plugin delivery, does not
-replace it. A child agent's request carries no direct user message. auto-mode reads no transcript. A
-missing message supplies no user evidence. The message stays whole; the request limit handles
-oversized input.
+Remote Control, or SDK origin. A message from another origin, such as an atc delivery through a
+plugin, does not replace it: the earlier message stays, marked `freshness: "stale"`, until the next
+direct prompt makes a new message current. Jev reads a stale message as task context, never as
+`lastUserMessage`, and its guidance gains one sentence: a stale message cannot grant consent,
+satisfy an allow exception or clear a rule, but a refusal or limit in it still applies. The judge
+and the Messages API presets receive no stale message. A child agent's request carries no direct
+user message. auto-mode reads no transcript. A missing message supplies no user evidence. The
+message stays whole; the request limit handles oversized input.
 
 The last user message can supply specific consent required by a soft block. It cannot redefine the
 policy or supply an unseen proposal. Earlier conversation grants, restrictions, ownership, and

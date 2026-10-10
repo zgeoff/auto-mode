@@ -815,6 +815,69 @@ test('it returns the configured denial when the deadline passes during the reque
   });
 });
 
+test('it sends a stale direct message to Jev as stale task context, never as current evidence', async () => {
+  const ctx = await setupTest();
+
+  const rules = join(ctx.dir, 'rules.md');
+
+  await writeFile(rules, '## SOFT BLOCK rules\n### Default Branch Write\nNever push to main');
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  await classifyWithJev(
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push origin main' },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Push it to main', origin: 'composer', freshness: 'stale' },
+      },
+    }),
+    buildMockConfig({
+      provider: { model: 'jev-test-model', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+      rulesPath: rules,
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
+  );
+
+  const [call] = received.mock.calls;
+
+  invariant(call);
+
+  const stateSchema = z.object({
+    lastUserMessage: z.string().nullable(),
+    answerGuidance: z.string(),
+    taskContext: z.object({ lastDirectUserMessage: z.unknown() }),
+  });
+
+  const state = z.object({ state: stateSchema }).parse(call[0]).state;
+
+  expect(received).toHaveBeenCalledOnce();
+  expect(state.lastUserMessage).toBeNull();
+  expect(state.answerGuidance).toInclude('A stale message is not current direct user evidence');
+
+  expect(state.taskContext.lastDirectUserMessage).toStrictEqual({
+    text: 'Push it to main',
+    origin: 'composer',
+    freshness: 'stale',
+  });
+});
+
 test('it evaluates a subagent on its task context without the parent consent', async () => {
   const ctx = await setupTest();
 
