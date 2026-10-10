@@ -32,8 +32,20 @@ const SPARK_PROVIDER: ProviderConfig = {
   timeoutMs: 45_000,
 };
 
+// The judge runs Claude through the local `claude` login, so it needs no API
+// key. A cold `claude -p` start takes 2-4 s before the model answers.
+const CLAUDE_CODE_JUDGE: ProviderConfig = {
+  protocol: 'claude-code',
+  baseURL: 'https://api.anthropic.com',
+  model: 'claude-haiku-5-5',
+  reasoning: false,
+  maxTokens: 3000,
+  timeoutMs: 120_000,
+};
+
 export const PRESETS: Readonly<Record<string, ProviderConfig>> = {
   jev: JEV_PROVIDER,
+  'claude-code': CLAUDE_CODE_JUDGE,
   spark: SPARK_PROVIDER,
   claude: {
     ...MESSAGES_DEFAULTS,

@@ -11,6 +11,10 @@ const SCOPE_COMMAND =
 // bounds at 5 seconds.
 const RECORD_TIMEOUT_MS = 8000;
 
+// Claude Code's own limit for one subprocess. The hook's budget stands still
+// while the subprocess runs, and the CLI bounds Jev and the judge by its config.
+const EVALUATION_TIMEOUT_MS = 600_000;
+
 export function register(on: ModOn, options: ModOptions): void {
   let sessionID: string | null = null;
 
@@ -122,9 +126,7 @@ export function register(on: ModOn, options: ModOptions): void {
       return decided;
     }
 
-    const timeoutMs = Math.min(8000, next.budget.remainingMs - 250);
-
-    if (timeoutMs < 500) {
+    if (next.budget.remainingMs < 750) {
       $.ui.log(`${logPrefix} evaluation skipped; insufficient budget`, { to: 'debug' });
 
       return decided;
@@ -157,16 +159,7 @@ export function register(on: ModOn, options: ModOptions): void {
       ];
 
       const command = typeof options.command === 'string' ? options.command : 'auto-mode';
-      const childTimeoutMs = Math.min(timeoutMs, next.budget.remainingMs - 250);
-
-      if (childTimeoutMs < 500) {
-        $.ui.log(`${logPrefix} evaluation skipped; insufficient subprocess budget`, {
-          to: 'debug',
-        });
-
-        return decided;
-      }
-
+      const childTimeoutMs = EVALUATION_TIMEOUT_MS;
       const deadlineAt = Date.now() + childTimeoutMs - 500;
 
       $.ui.log(`${logPrefix} evaluator invoked`, { to: 'debug' });

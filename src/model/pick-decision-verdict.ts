@@ -1,6 +1,6 @@
 import { buildDenyReason } from '../policy/build-deny-reason.ts';
 import type { Verdict } from '../request/types.ts';
-import { collectBlockingRules } from './collect-blocking-rules.ts';
+import { findDeniedRule } from './find-denied-rule.ts';
 import type { DecisionRequest, DecisionResult } from './types.ts';
 
 export function pickDecisionVerdict(
@@ -8,13 +8,15 @@ export function pickDecisionVerdict(
   result: DecisionResult,
   blockThreshold: number,
 ): Verdict {
-  const [top] = collectBlockingRules(request, result, blockThreshold);
+  const denied = findDeniedRule(request, result, blockThreshold);
 
-  if (top === undefined) {
+  if (denied === null) {
     return { kind: 'allow' };
   }
 
-  const basis = top.answer.choice === 'block' ? 'matched' : 'unresolved';
-
-  return { kind: 'deny', rule: top.rule.name, reason: buildDenyReason(top.rule, basis) };
+  return {
+    kind: 'deny',
+    rule: denied.rule.name,
+    reason: buildDenyReason(denied.rule, denied.basis),
+  };
 }

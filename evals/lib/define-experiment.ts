@@ -1,10 +1,4 @@
-import type {
-  ActionRequest,
-  ClaudeRules,
-  DecisionRequest,
-  DecisionResult,
-  RepositoryContext,
-} from 'auto-mode';
+import type { ClaudeRules, DecisionRequest, DecisionResult } from 'auto-mode';
 import type { CaseLabel } from './case-labels-schema.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
@@ -14,10 +8,9 @@ export interface LabelledCase<Case> {
   readonly case: Case;
 }
 
+// The judge's user message; the run's judge policy is its system prompt.
 export interface JudgeRequest {
-  readonly action: ActionRequest;
-  readonly lastUserMessage: string | null;
-  readonly repository: RepositoryContext;
+  readonly user: string;
 }
 
 export interface JudgeReply {

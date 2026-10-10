@@ -2,7 +2,7 @@ import { match } from 'ts-pattern';
 import type { DecisionRule } from '../model/types.ts';
 import { DENY_REASONS } from './deny-reasons.ts';
 
-type DenyBasis = 'matched' | 'unresolved';
+export type DenyBasis = 'matched' | 'unresolved';
 
 export function buildDenyReason(
   rule: Pick<DecisionRule, 'name' | 'tier' | 'source'>,

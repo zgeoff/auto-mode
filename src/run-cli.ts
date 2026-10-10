@@ -256,6 +256,7 @@ async function run(
         denials: { consecutive: plan.state.consecutive, session: plan.state.session },
         escalation: plan.escalation,
         ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
+        ...(outcome.judge === undefined ? {} : { judge: outcome.judge }),
       },
       host,
       io.stderr,

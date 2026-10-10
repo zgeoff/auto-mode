@@ -22,7 +22,7 @@ export interface EvalCommandIO {
   readonly home: string;
   readonly repoRoot: string;
   readonly experiments: readonly Experiment<unknown>[];
-  readonly prepareRun: (live: boolean) => Promise<RunEnvironment>;
+  readonly prepareRun: (live: boolean, judgeModel: string | null) => Promise<RunEnvironment>;
   readonly now: () => Date;
 }
 
@@ -30,6 +30,7 @@ const USAGE = `Usage:
   bun run eval list
   bun run eval run <experiment> [--live --max-requests <n> | --recorded <recording>]
                    [--resume <run-dir>] [--seed <n>] [--samples <n>] [--results <dir>]
+                   [--judge-model <model>]
   bun run eval compare <run-dir-a> <run-dir-b>
   bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
   bun run eval anonymise <capture.jsonl...> --out <dir>
@@ -123,6 +124,7 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
     seed: { type: 'string' },
     samples: { type: 'string' },
     results: { type: 'string' },
+    'judge-model': { type: 'string' },
   });
 
   const [name, ...extra] = parsed.positionals;
@@ -178,7 +180,7 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
     live,
     maxRequests,
     resumeDir,
-    environment: await io.prepareRun(live),
+    environment: await io.prepareRun(live, parsed.values['judge-model'] ?? null),
     now: io.now,
     print: (line) => {
       io.stdout(`${line}\n`);

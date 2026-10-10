@@ -3,6 +3,7 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { DecidingStage } from '../classify-action.ts';
 import type { HostEnvironment, OutputStream } from '../config/types.ts';
+import type { JudgeDiagnostics } from '../judge/types.ts';
 import type { DecisionDiagnostics } from '../model/types.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
 import { resolveStateDir } from '../state/resolve-state-dir.ts';
@@ -21,6 +22,7 @@ interface ActionDiagnostic {
   readonly denials?: { readonly consecutive: number; readonly session: number };
   readonly escalation?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
+  readonly judge?: JudgeDiagnostics;
 }
 
 export async function writeActionDiagnostic(
@@ -37,7 +39,7 @@ export async function writeActionDiagnostic(
   }
 
   const record = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
     sessionHash: toHash(payload.sessionID),
@@ -48,6 +50,7 @@ export async function writeActionDiagnostic(
     denials: entry.denials ?? null,
     escalation: entry.escalation ?? false,
     diagnostics: entry.diagnostics ?? null,
+    judge: entry.judge ?? null,
   };
 
   try {

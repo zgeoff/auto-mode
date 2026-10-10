@@ -6,6 +6,8 @@ import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { OwnedScope } from './containment/collect-scope-findings.ts';
+import { classifyWithJudge } from './judge/classify-with-judge.ts';
+import type { JudgeDiagnostics } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
@@ -16,7 +18,14 @@ import { classifyLocally } from './rules/classify-locally.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
 import { resolveStateDir } from './state/resolve-state-dir.ts';
 
-export type DecidingStage = 'local' | 'containment' | 'bypass' | 'jev' | 'messages' | 'retry';
+export type DecidingStage =
+  | 'local'
+  | 'containment'
+  | 'bypass'
+  | 'jev'
+  | 'judge'
+  | 'messages'
+  | 'retry';
 
 export interface ActionOutcome {
   readonly verdict: Verdict | null;
@@ -25,6 +34,7 @@ export interface ActionOutcome {
   readonly status: 'allow' | 'skipped' | 'failure' | DecisionDiagnostics['status'];
   readonly unavailable?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
+  readonly judge?: JudgeDiagnostics;
 }
 
 export interface ClassifyOptions extends EvaluationOptions {
@@ -122,8 +132,34 @@ export async function classifyAction(
     tryReadDenialGuidance(),
   ]);
 
+  const judge = config.judge ?? null;
+
+  if (outcome.verdict?.kind === 'deny' && outcome.review !== undefined && judge !== null) {
+    const judged = await classifyWithJudge(request, outcome.review, judge, {
+      ...options,
+      host,
+      rulesPath: config.rulesPath,
+    });
+
+    const { review: _review, ...rest } = outcome;
+
+    return {
+      ...rest,
+      decidingStage: 'judge',
+      note: `${outcome.note}; judge ${judged.status} (${judged.diagnostics.elapsedMs}ms)`,
+      verdict:
+        judged.verdict.kind === 'deny'
+          ? buildGuidedDeny(judged.verdict.rule, judged.verdict.reason, guidance)
+          : judged.verdict,
+      status: judged.verdict.kind,
+      judge: judged.diagnostics,
+    };
+  }
+
+  const { review: _review, ...rest } = outcome;
+
   return {
-    ...outcome,
+    ...rest,
     decidingStage: config.provider.protocol === 'system-one' ? 'jev' : 'messages',
     verdict:
       outcome.verdict?.kind === 'deny'

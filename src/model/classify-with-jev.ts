@@ -10,6 +10,7 @@ import { buildDecisionRequest } from './build-decision-request.ts';
 import type { ModelOutcome } from './classify-with-model.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
+import { findDeniedRule } from './find-denied-rule.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
 import { loadMCPServers } from './load-mcp-servers.ts';
 import { loadRepositoryEvidence } from './load-repository-evidence.ts';
@@ -96,9 +97,11 @@ export async function classifyWithJev(
     stage = 'response';
 
     const verdict = pickDecisionVerdict(request, result, blockThreshold);
+    const denied = findDeniedRule(request, result, blockThreshold);
 
     return {
       verdict,
+      ...(denied === null ? {} : { review: { ...denied, repositoryContext } }),
       diagnostics: {
         status: verdict.kind,
         stage,
