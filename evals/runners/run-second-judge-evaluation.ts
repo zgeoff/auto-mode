@@ -45,10 +45,15 @@ async function main(): Promise<void> {
       transport: { type: 'string' },
       live: { type: 'boolean' },
       output: { type: 'string' },
+      reports: { type: 'string' },
     },
   });
 
   const root = resolve(import.meta.dirname, '../..');
+
+  const reportsDir = resolve(
+    args.values.reports ?? join(root, 'evals/corpora/recorded/second-judge'),
+  );
 
   const corpus = await loadSecondJudgeCorpus(root);
 
@@ -76,7 +81,7 @@ async function main(): Promise<void> {
     );
 
     await runJudgeStage(
-      root,
+      reportsDir,
       corpus,
       args.values.preset,
       transport === 'claude-code',
@@ -88,7 +93,7 @@ async function main(): Promise<void> {
   }
 
   if (stage === 'summary') {
-    await printSummary(root, corpus);
+    await printSummary(reportsDir, corpus);
 
     return;
   }
@@ -239,7 +244,7 @@ async function runJevStage(
 }
 
 async function runJudgeStage(
-  root: string,
+  reportsDir: string,
   corpus: SecondJudgeCorpus,
   presetName: string | undefined,
   viaClaudeCode: boolean,
@@ -253,7 +258,7 @@ async function runJudgeStage(
     'Pass --preset with one Messages API preset: claude, glm, or spark.',
   );
 
-  const jevReports = await loadJevReports(root, corpus);
+  const jevReports = await loadJevReports(reportsDir, corpus);
 
   const eligible = new Set<string>();
 
@@ -376,29 +381,39 @@ async function runJudgeStage(
   }
 }
 
-async function printSummary(root: string, corpus: SecondJudgeCorpus): Promise<void> {
-  const jevReports = await loadJevReports(root, corpus);
+async function printSummary(reportsDir: string, corpus: SecondJudgeCorpus): Promise<void> {
+  const jevReports = await loadJevReports(reportsDir, corpus);
 
-  for (const jev of jevReports) {
-    const judges: (JudgeReport | null)[] = [null];
+  const judges: (JudgeReport | null)[] = [null];
 
-    for (const preset of [...Object.keys(PRESETS), 'claude-code']) {
-      const path = join(root, `docs/evaluations/second-judge/judge-${preset}.json`);
+  const judgePresets = Object.entries(PRESETS)
+    .filter(([, provider]) => provider.protocol !== 'system-one')
+    .map(([name]) => name);
 
-      if (existsSync(path)) {
-        const text = await readFile(path, 'utf8');
+  for (const preset of [...judgePresets, 'claude-code']) {
+    const path = join(reportsDir, `judge-${preset}.json`);
 
-        const judge = judgeReportSchema.parse(JSON.parse(text));
+    if (!existsSync(path)) {
+      console.error(
+        `judge-${preset}.json not found in ${reportsDir}; pass --reports <dir> with the private legacy/second-judge reports.`,
+      );
 
-        invariant(
-          judge.corpusHash === corpus.corpusHash,
-          `judge-${preset}.json is for another corpus.`,
-        );
-
-        judges.push(judge);
-      }
+      continue;
     }
 
+    const text = await readFile(path, 'utf8');
+
+    const judge = judgeReportSchema.parse(JSON.parse(text));
+
+    invariant(
+      judge.corpusHash === corpus.corpusHash,
+      `judge-${preset}.json is for another corpus.`,
+    );
+
+    judges.push(judge);
+  }
+
+  for (const jev of jevReports) {
     for (const judge of judges) {
       const summary = buildSecondJudgeSummary(corpus.cases, jev, judge);
 
@@ -486,15 +501,16 @@ async function runClaudeCode(
   return { text: body.result ?? '', outputTokens: body.usage?.output_tokens ?? null };
 }
 
-async function loadJevReports(root: string, corpus: SecondJudgeCorpus): Promise<JevReport[]> {
+async function loadJevReports(reportsDir: string, corpus: SecondJudgeCorpus): Promise<JevReport[]> {
   const reports: JevReport[] = [];
 
   for (const variant of VARIANTS) {
-    const path = join(root, `docs/evaluations/second-judge/jev-${variant}.json`);
+    const path = join(reportsDir, `jev-${variant}.json`);
 
-    if (!existsSync(path)) {
-      continue;
-    }
+    invariant(
+      existsSync(path),
+      `jev-${variant}.json not found in ${reportsDir}; pass --reports <dir> with both Jev reports.`,
+    );
 
     const text = await readFile(path, 'utf8');
 
@@ -507,8 +523,6 @@ async function loadJevReports(root: string, corpus: SecondJudgeCorpus): Promise<
 
     reports.push(report);
   }
-
-  invariant(reports.length > 0, 'Run the Jev stage first.');
 
   return reports;
 }

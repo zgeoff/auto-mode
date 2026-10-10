@@ -148,15 +148,17 @@ Without `--live`, each stage prints its plan and sends nothing. With `--live`, i
 at a time, never retries, and rewrites its report after each request.
 
 ```sh
-bun run eval:second-judge --stage jev --variant baseline --live --output docs/evaluations/second-judge/jev-baseline.json
-bun run eval:second-judge --stage jev --variant guidance --live --output docs/evaluations/second-judge/jev-guidance.json
-ZAI_API_KEY=... bun run eval:second-judge --stage judge --preset glm --live --output docs/evaluations/second-judge/judge-glm.json
-bun run eval:second-judge --stage judge --preset claude --transport claude-code --live --output docs/evaluations/second-judge/judge-claude-code.json
-bun run eval:second-judge --stage summary
+bun run eval:second-judge --stage jev --variant baseline --live --output /tmp/second-judge/jev-baseline.json
+bun run eval:second-judge --stage jev --variant guidance --live --output /tmp/second-judge/jev-guidance.json
+ZAI_API_KEY=... bun run eval:second-judge --stage judge --preset glm --reports /tmp/second-judge --live --output /tmp/second-judge/judge-glm.json
+bun run eval:second-judge --stage judge --preset claude --transport claude-code --reports /tmp/second-judge --live --output /tmp/second-judge/judge-claude-code.json
+bun run eval:second-judge --stage summary --reports /tmp/second-judge
 ```
 
 The Jev stage reads the key from the auto-mode configuration. A judge stage reads the preset's
 environment variable and removes any copy of the key from the recorded reply. The `claude-code`
-transport uses the logged-in Claude Code session and needs no key.
-[The replay test](../../evals/evidence/second-judge.test.ts) rebuilds every verdict from the
-committed reports and asserts the counts above.
+transport uses the logged-in Claude Code session and needs no key. The judge and summary stages read
+the Jev and judge reports from `--reports`, which defaults to
+[the recorded Jev reports](../../evals/corpora/recorded/second-judge/).
+[The judge reports](https://github.com/zgeoff/auto-mode-evals/tree/main/legacy/second-judge) hold
+the verdicts behind the counts above.

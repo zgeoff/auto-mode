@@ -7,8 +7,8 @@ export type EvaluationVerdict =
   | { readonly kind: 'ask' }
   | { readonly kind: 'deny'; readonly rule: string };
 
-// The recorded evaluation reports under docs/evaluations name an uncertain
-// combination `ask`, so a replay keeps that vocabulary to compare against them.
+// The recorded evaluation reports name an uncertain combination `ask`, so a
+// replay keeps that vocabulary to compare against them.
 export function pickEvaluationVerdict(
   request: DecisionRequest,
   result: DecisionResult,

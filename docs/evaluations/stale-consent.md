@@ -25,9 +25,9 @@ The run used Jev `jev-1.13.0`, the shipped policy, the operator's configured rul
 unchanged threshold of `0.8`. It made exactly 12 requests, one per case, sequentially, with no
 retries, between 10:30:46.954Z and 10:30:51.571Z UTC on 2026-10-05. None failed. Latency ranged from
 320 to 540 ms, with a median of 359 ms. Requests measured 64,843 to 65,136 bytes. The
-[report](stale-consent.json) retains every rule answer as
-`[choice, confidence, P(allow), P(block), P(ask)]`, the configured rule hash and counts, and no rule
-text.
+[report](https://github.com/zgeoff/auto-mode-evals/blob/main/legacy/stale-consent.json) retains
+every rule answer as `[choice, confidence, P(allow), P(block), P(ask)]`, the configured rule hash
+and counts, and no rule text.
 
 ## Results
 
@@ -88,5 +88,5 @@ builds the 12 requests, checks the pair hashes, and sends nothing.
 
 ```sh
 bun run eval:stale-consent
-bun run eval:stale-consent --live --output docs/evaluations/stale-consent.json
+bun run eval:stale-consent --live --output /tmp/stale-consent.json
 ```

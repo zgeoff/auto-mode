@@ -100,9 +100,9 @@ Their sum is 0.99, but in floating point `Math.abs(0.99 - 1)` is `0.010000000000
 client's `> 0.01` tolerance check rejects it. The first two failures have no full body, so the same
 cause is suspected there but not shown. The other 9 samples of each failed request succeeded.
 
-The [report](relay-consent.json) keeps every rule answer as
-`[choice, confidence, P(allow), P(block), P(ask)]`, the segments, and a summary that the replay test
-derives again from the answers.
+The [report](https://github.com/zgeoff/auto-mode-evals/blob/main/legacy/relay-consent.json) keeps
+every rule answer as `[choice, confidence, P(allow), P(block), P(ask)]`, the segments, and a summary
+derived from the answers.
 
 ## Results
 
@@ -209,7 +209,7 @@ same schedule, and `--summarize` rebuilds the summary from recorded answers with
 
 ```sh
 bun run eval:relay-consent
-bun run eval:relay-consent --live --output docs/evaluations/relay-consent.json
-bun run eval:relay-consent --live --resume --output docs/evaluations/relay-consent.json
-bun run eval:relay-consent --summarize docs/evaluations/relay-consent.json
+bun run eval:relay-consent --live --output /tmp/relay-consent.json
+bun run eval:relay-consent --live --resume --output /tmp/relay-consent.json
+bun run eval:relay-consent --summarize /tmp/relay-consent.json
 ```

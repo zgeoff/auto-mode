@@ -112,8 +112,9 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
 
 - `fixtures/mod-request-*.json` are mod requests recorded in a live Claude Code session; read one
   with `readFixture` from `test-utils/read-fixture.ts`.
-- `evals/corpora/` holds the evaluation corpora and `docs/evaluations/` their reports. The
-  `evals/runners/run-*-evaluation.ts` runners send real model requests, so no test runs one. The
+- `evals/corpora/` holds the evaluation corpora, and `evals/corpora/recorded/` the recorded model
+  answers the replay suites read; the reports live in the private zgeoff/auto-mode-evals repository.
+  The `evals/runners/run-*-evaluation.ts` runners send real model requests, so no test runs one. The
   evaluation suites' helpers and factories live in `evals/lib/`, each with its own tests.
 
 ## The Claude Code mod checks
