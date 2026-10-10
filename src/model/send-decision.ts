@@ -1,14 +1,41 @@
 import type { ProviderConfig } from '../config/config.ts';
+import { buildBudgetOmittedContext } from './build-budget-omitted-context.ts';
+import { buildDecisionResponseSchema } from './build-decision-response-schema.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
-import { decisionResponseSchema } from './decision-response-schema.ts';
-import type { DecisionRequest, DecisionResult } from './types.ts';
+import type { DecisionChoice, DecisionInput, DecisionResult } from './types.ts';
+
+interface SendOptions {
+  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable RequestInit
+  readonly fetch?: (url: string, init: Readonly<RequestInit>) => Promise<Response>;
+}
+
+export interface SendDecisionOptions<Choice extends string> extends SendOptions {
+  readonly choices: readonly [Choice, ...Choice[]];
+}
 
 export async function sendDecision(
   provider: ProviderConfig,
   apiKey: string,
-  request: DecisionRequest,
+  request: DecisionInput,
   signal: Readonly<AbortSignal>,
-): Promise<DecisionResult> {
+  options?: SendOptions,
+): Promise<DecisionResult>;
+
+export async function sendDecision<Choice extends string>(
+  provider: ProviderConfig,
+  apiKey: string,
+  request: DecisionInput<Choice>,
+  signal: Readonly<AbortSignal>,
+  options: SendDecisionOptions<Choice>,
+): Promise<DecisionResult<Choice>>;
+
+export async function sendDecision(
+  provider: ProviderConfig,
+  apiKey: string,
+  request: DecisionInput<string>,
+  signal: Readonly<AbortSignal>,
+  options: Partial<SendDecisionOptions<string>> = {},
+): Promise<DecisionResult<string>> {
   const input = {
     model: provider.model,
     state: { ...request.state },
@@ -24,15 +51,7 @@ export async function sendDecision(
       continue;
     }
 
-    input.state.taskContext = {
-      ...context,
-      [field]: null,
-      omittedTaskContext: [
-        ...context.omittedTaskContext.filter((item) => item.field !== field),
-        { field, reason: 'budget' },
-      ],
-    };
-
+    input.state.taskContext = buildBudgetOmittedContext(context, field);
     body = JSON.stringify(input);
   }
 
@@ -46,123 +65,112 @@ export async function sendDecision(
     );
   }
 
-  const controller = new AbortController();
-
-  const stopRequest = () => {
-    controller.abort();
-  };
-
-  signal.addEventListener('abort', stopRequest, { once: true });
-
-  if (signal.aborted) {
-    controller.abort();
-  }
+  const sendFetch = options.fetch ?? fetch;
+  let response: Response;
 
   try {
-    let response: Response;
-
-    try {
-      response = await fetch(`${provider.baseURL.replace(/\/$/, '')}/v1/systemone`, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-        body,
+    response = await sendFetch(`${provider.baseURL.replace(/\/$/, '')}/v1/systemone`, {
+      method: 'POST',
+      signal,
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+      body,
+    });
+  } catch (error) {
+    if (signal.aborted) {
+      throw new DecisionRequestError('aborted', requestBytes, 'Decision request aborted', {
+        cause: error,
       });
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new DecisionRequestError('aborted', requestBytes, 'Decision request aborted', {
-          cause: error,
-        });
-      }
-
-      throw new DecisionRequestError('network', requestBytes, 'Decision API request failed');
     }
 
-    if (!response.ok) {
-      throw new DecisionRequestError(
-        'http-status',
-        requestBytes,
-        `Decision API returned HTTP ${response.status}`,
-      );
-    }
-
-    let responseBody: unknown;
-
-    try {
-      responseBody = await response.json();
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new DecisionRequestError('aborted', requestBytes, 'Decision request aborted', {
-          cause: error,
-        });
-      }
-
-      throw new DecisionRequestError(
-        'invalid-response',
-        requestBytes,
-        'Decision API returned invalid JSON',
-      );
-    }
-
-    const parsedResponse = decisionResponseSchema.safeParse(responseBody);
-
-    if (!parsedResponse.success) {
-      throw new DecisionRequestError(
-        'invalid-response',
-        requestBytes,
-        'Decision API returned a malformed response',
-      );
-    }
-
-    const parsed = parsedResponse.data;
-
-    if (Object.keys(parsed.answers).length !== Object.keys(request.questions).length) {
-      throw new DecisionRequestError(
-        'invalid-response',
-        requestBytes,
-        'Decision API returned an incomplete answer set',
-      );
-    }
-
-    const probabilitySumTolerance = 0.01;
-
-    // Jev rounds probabilities to two decimals, and their float sum misses the tolerance by a hair:
-    // 0.1 + 0.08 + 0.81 differs from 1 by 0.010000000000000009.
-    const floatSumSlack = 1e-9;
-
-    for (const id of Object.keys(request.questions)) {
-      const value = parsed.answers[id];
-
-      if (value === undefined) {
-        throw new DecisionRequestError(
-          'invalid-response',
-          requestBytes,
-          'Decision API omitted a requested answer',
-        );
-      }
-
-      const distribution = Object.values(value.probabilities);
-
-      if (
-        Math.abs(distribution.reduce((sum, p) => sum + p, 0) - 1) >
-          probabilitySumTolerance + floatSumSlack ||
-        value.probabilities[value.choice] < Math.max(...distribution)
-      ) {
-        throw new DecisionRequestError(
-          'invalid-response',
-          requestBytes,
-          'Decision API returned invalid probabilities',
-        );
-      }
-    }
-
-    return {
-      model: parsed.model,
-      answers: parsed.answers,
-      inputTokens: parsed.usage.input_tokens,
-      requestBytes,
-    };
-  } finally {
-    signal.removeEventListener('abort', stopRequest);
+    throw new DecisionRequestError('network', requestBytes, 'Decision API request failed');
   }
+
+  if (!response.ok) {
+    throw new DecisionRequestError(
+      'http-status',
+      requestBytes,
+      `Decision API returned HTTP ${response.status}`,
+    );
+  }
+
+  let responseBody: unknown;
+
+  try {
+    responseBody = await response.json();
+  } catch (error) {
+    if (signal.aborted) {
+      throw new DecisionRequestError('aborted', requestBytes, 'Decision request aborted', {
+        cause: error,
+      });
+    }
+
+    throw new DecisionRequestError(
+      'invalid-response',
+      requestBytes,
+      'Decision API returned invalid JSON',
+    );
+  }
+
+  const decisionChoices: readonly [DecisionChoice, ...DecisionChoice[]] = ['allow', 'block', 'ask'];
+
+  const parsedResponse = buildDecisionResponseSchema(options.choices ?? decisionChoices).safeParse(
+    responseBody,
+  );
+
+  if (!parsedResponse.success) {
+    throw new DecisionRequestError(
+      'invalid-response',
+      requestBytes,
+      'Decision API returned a malformed response',
+    );
+  }
+
+  const parsed = parsedResponse.data;
+
+  if (Object.keys(parsed.answers).length !== Object.keys(request.questions).length) {
+    throw new DecisionRequestError(
+      'invalid-response',
+      requestBytes,
+      'Decision API returned an incomplete answer set',
+    );
+  }
+
+  const probabilitySumTolerance = 0.01;
+
+  // Jev rounds probabilities to two decimals, and their float sum misses the tolerance by a hair:
+  // 0.1 + 0.08 + 0.81 differs from 1 by 0.010000000000000009.
+  const floatSumSlack = 1e-9;
+
+  for (const id of Object.keys(request.questions)) {
+    const value = parsed.answers[id];
+
+    if (value === undefined) {
+      throw new DecisionRequestError(
+        'invalid-response',
+        requestBytes,
+        'Decision API omitted a requested answer',
+      );
+    }
+
+    const distribution: number[] = Object.values(value.probabilities);
+
+    if (
+      Math.abs(distribution.reduce((sum, p) => sum + p, 0) - 1) >
+        probabilitySumTolerance + floatSumSlack ||
+      (value.probabilities[value.choice] ?? 0) < Math.max(...distribution)
+    ) {
+      throw new DecisionRequestError(
+        'invalid-response',
+        requestBytes,
+        'Decision API returned invalid probabilities',
+      );
+    }
+  }
+
+  return {
+    model: parsed.model,
+    answers: parsed.answers,
+    inputTokens: parsed.usage.input_tokens,
+    requestBytes,
+  };
 }

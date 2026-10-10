@@ -34,52 +34,36 @@ export async function sendMessage(
   request: ModelRequest,
   signal: Readonly<AbortSignal>,
 ): Promise<ModelResult> {
-  const controller = new AbortController();
+  const response = await fetch(`${provider.baseURL.replace(/\/$/, '')}/v1/messages`, {
+    method: 'POST',
+    signal,
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: provider.model,
+      max_tokens: provider.maxTokens,
 
-  const stopRequest = () => {
-    controller.abort();
-  };
+      system: [{ type: 'text', text: request.system, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: request.user }],
+    } satisfies MessagesRequest),
+  });
 
-  signal.addEventListener('abort', stopRequest, { once: true });
-
-  if (signal.aborted) {
-    controller.abort();
+  if (!response.ok) {
+    throw new Error(`Messages API returned HTTP ${response.status}`);
   }
+
+  let body: unknown;
 
   try {
-    const response = await fetch(`${provider.baseURL.replace(/\/$/, '')}/v1/messages`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: provider.model,
-        max_tokens: provider.maxTokens,
-
-        system: [{ type: 'text', text: request.system, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: request.user }],
-      } satisfies MessagesRequest),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Messages API returned HTTP ${response.status}`);
-    }
-
-    let body: unknown;
-
-    try {
-      body = await response.json();
-    } catch {
-      throw new Error('Messages API returned invalid JSON');
-    }
-
-    return readResult(body);
-  } finally {
-    signal.removeEventListener('abort', stopRequest);
+    body = await response.json();
+  } catch {
+    throw new Error('Messages API returned invalid JSON');
   }
+
+  return readResult(body);
 }
 
 // Thinking blocks are dropped here: the verdict is in the text block, and a

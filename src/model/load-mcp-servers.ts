@@ -28,6 +28,7 @@ const projectFileSchema = z.looseObject({ mcpServers: serversSchema });
 export async function loadMCPServers(
   cwd: string,
   host: Readonly<HostEnvironment>,
+  userSettings: unknown,
 ): Promise<MCPServerFact[]> {
   const configDir = host.env['CLAUDE_CONFIG_DIR'];
   const hasConfigDir = configDir !== undefined && configDir !== '';
@@ -36,13 +37,9 @@ export async function loadMCPServers(
     ? join(configDir, '.claude.json')
     : join(host.home, '.claude.json');
 
-  const settingsDir = hasConfigDir ? configDir : join(host.home, '.claude');
-  const settingsPath = join(settingsDir, 'settings.json');
+  const state = await readJSON(statePath, stateSchema);
 
-  const [state, settings] = await Promise.all([
-    readJSON(statePath, stateSchema),
-    readJSON(settingsPath, approvalSchema),
-  ]);
+  const settings = approvalSchema.safeParse(userSettings).data;
 
   // Claude Code keys a project by the top level of the checkout it runs in, so a
   // nested checkout never takes its parent's entry.

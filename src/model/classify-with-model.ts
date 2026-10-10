@@ -1,8 +1,10 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
+import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { readHostEnvironment } from '../config/read-host-environment.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions } from '../config/types.ts';
+import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
 import { sendMessage } from './anthropic-client.ts';
@@ -59,9 +61,13 @@ export async function classifyWithModel(
 
   const transcript = directMessage === null ? [] : [{ role: 'user', text: directMessage.text }];
 
+  // The Messages protocol reads no autoMode rules, so the settings serve only the
+  // MCP approvals, and a broken rules file must not fail the call.
+  const settings = await (options.claudeSettings ?? loadClaudeSettings(null, host));
+
   const [repositoryContext, mcpServers] = await Promise.all([
     loadRepositoryEvidence(payload.cwd, options.taskScope, host.env).catch(() => null),
-    loadMCPServers(payload.cwd, host).catch(() => []),
+    loadMCPServers(payload.cwd, host, settings.userSettings).catch(() => []),
   ]);
 
   const user = buildUserMessage(
@@ -100,7 +106,7 @@ export async function classifyWithModel(
     };
   } catch (error) {
     const message =
-      error instanceof Error && error.name === 'AbortError'
+      error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
         ? `timed out after ${config.provider.timeoutMs}ms`
         : toMessage(error);
 
@@ -112,18 +118,12 @@ export async function classifyWithModel(
 }
 
 function buildFailure(config: Config, note: string): ModelOutcome {
-  if (config.onFailure === 'deny') {
-    return {
-      verdict: {
-        kind: 'deny',
-        rule: 'Classifier Unavailable',
-        reason: `${note}; this policy is configured to fail closed.`,
-      },
-      note,
-    };
-  }
+  const verdict = buildUnavailableVerdict(
+    config.onFailure,
+    `${note}; this policy is configured to fail closed.`,
+  );
 
-  return { verdict: null, note: `${note}; no verdict` };
+  return { verdict, note: verdict === null ? `${note}; no verdict` : note };
 }
 
 function toMessage(error: unknown): string {

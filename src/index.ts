@@ -13,7 +13,8 @@ export {
   type ScopeSource,
 } from './config/config.ts';
 
-export { loadClaudeRules, type ClaudeRules } from './config/load-claude-rules.ts';
+export { loadClaudeRules } from './config/load-claude-rules.ts';
+export type { ClaudeRules } from './config/types.ts';
 export { checkContainment, type ContainmentDeny } from './containment/check-containment.ts';
 export type { OwnedScope } from './containment/collect-scope-findings.ts';
 export { buildDecisionRequest } from './model/build-decision-request.ts';

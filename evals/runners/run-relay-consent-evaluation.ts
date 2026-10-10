@@ -17,6 +17,8 @@ import { readHostEnvironment, toTimerDelay } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { buildRelayConsentSummary } from '../lib/build-relay-consent-summary.ts';
+import { makeRecordingFetch } from '../lib/make-recording-fetch.ts';
+import type { ResponseCopy } from '../lib/make-recording-fetch.ts';
 import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
 import {
   RELAY_CONSENT_THRESHOLD as THRESHOLD,
@@ -284,26 +286,17 @@ async function main(): Promise<void> {
   // Every network attempt is counted here, and a redirect fails instead of
   // sending a second, uncounted request. A copy of each response is held so a
   // rejected answer can be recorded.
-  const sendFetch = globalThis.fetch;
-  const responses: ReturnType<Awaited<ReturnType<typeof fetch>>['clone']>[] = [];
+  const responses: ResponseCopy[] = [];
 
-  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable Request or URL
-  const sendCountedFetch: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = async (
-    input,
-    init,
-  ) => {
-    invariant(report.attemptedRequests < MAX_REQUESTS, 'The request allocation is spent.');
+  const sendCountedFetch = makeRecordingFetch(fetch, {
+    redirect: 'error',
+    responses,
+    onSend: () => {
+      invariant(report.attemptedRequests < MAX_REQUESTS, 'The request allocation is spent.');
 
-    report.attemptedRequests += 1;
-
-    const response = await sendFetch(input, { ...init, redirect: 'error' });
-
-    responses.push(response.clone());
-
-    return response;
-  };
-
-  globalThis.fetch = Object.assign(sendCountedFetch, sendFetch);
+      report.attemptedRequests += 1;
+    },
+  });
 
   for (const [index, item] of schedule.entries()) {
     if (sentIndices.has(index)) {
@@ -336,6 +329,7 @@ async function main(): Promise<void> {
         key,
         item.request,
         AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
+        { fetch: sendCountedFetch },
       );
 
       const verdict = pickEvaluationVerdict(item.request, result, THRESHOLD);

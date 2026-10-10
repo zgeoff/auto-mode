@@ -1,4 +1,4 @@
-import type { ClaudeRules } from '../config/load-claude-rules.ts';
+import type { ClaudeRules } from '../config/types.ts';
 import type { DecisionContext } from '../request/types.ts';
 
 export interface DecisionRule {
@@ -8,7 +8,15 @@ export interface DecisionRule {
   readonly text: string;
 }
 
-export interface DecisionRequest {
+export type DecisionChoice = 'allow' | 'block' | 'ask';
+
+export interface DecisionQuestion<Choice extends string = DecisionChoice> {
+  readonly type: 'choice';
+  readonly instructions: string;
+  readonly criteria: Readonly<Record<Choice, string>>;
+}
+
+export interface DecisionInput<Choice extends string = DecisionChoice> {
   readonly state: {
     readonly policy: string;
     readonly answerGuidance: string;
@@ -24,16 +32,10 @@ export interface DecisionRequest {
       readonly input: Readonly<Record<string, unknown>>;
     };
   };
-  readonly questions: Readonly<
-    Record<
-      string,
-      {
-        readonly type: 'choice';
-        readonly instructions: string;
-        readonly criteria: Readonly<Record<'allow' | 'block' | 'ask', string>>;
-      }
-    >
-  >;
+  readonly questions: Readonly<Record<string, DecisionQuestion<Choice>>>;
+}
+
+export interface DecisionRequest extends DecisionInput {
   readonly rules: Readonly<Record<string, DecisionRule>>;
 }
 
@@ -63,16 +65,16 @@ export interface TaskScopeSummary {
   readonly pullRequests: readonly { readonly repository: string; readonly number: number }[];
 }
 
-interface DecisionAnswer {
+interface DecisionAnswer<Choice extends string = DecisionChoice> {
   readonly type: 'choice';
-  readonly choice: 'allow' | 'block' | 'ask';
-  readonly probabilities: Readonly<Record<'allow' | 'block' | 'ask', number>>;
+  readonly choice: Choice;
+  readonly probabilities: Readonly<Record<Choice, number>>;
   readonly confidence: number;
 }
 
-export interface DecisionResult {
+export interface DecisionResult<Choice extends string = DecisionChoice> {
   readonly model: string;
-  readonly answers: Readonly<Record<string, DecisionAnswer>>;
+  readonly answers: Readonly<Record<string, DecisionAnswer<Choice>>>;
   readonly inputTokens: number;
   readonly requestBytes: number;
 }
