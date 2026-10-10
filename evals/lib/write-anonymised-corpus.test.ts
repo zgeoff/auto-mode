@@ -45,7 +45,6 @@ test('it writes the anonymised cases and a labels to-do list outside every check
   const result = await writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
     outDir: join(ctx.dir, 'recorded-traffic'),
-    repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
     stagingRoot: ctx.dir,
@@ -98,7 +97,7 @@ test('it writes the anonymised cases and a labels to-do list outside every check
   });
 });
 
-test('it writes a corpus under evals/corpora of the public repository', async () => {
+test('it refuses an out dir under evals/corpora of a repository, so unread cases stay out of git', async () => {
   const ctx = await setupTest();
 
   runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'public')]);
@@ -106,32 +105,9 @@ test('it writes a corpus under evals/corpora of the public repository', async ()
   await mkdir(join(ctx.dir, 'public', 'evals', 'corpora'), { recursive: true });
   await writeFile(ctx.capture, '');
 
-  const result = await writeAnonymisedCorpus({
-    captureFiles: [ctx.capture],
-    outDir: join(ctx.dir, 'public', 'evals', 'corpora', 'recorded-traffic'),
-    repoRoot: join(ctx.dir, 'public'),
-    env: { PATH: process.env['PATH'] },
-    salt: 'salt',
-    stagingRoot: ctx.dir,
-  });
-
-  expect(result).toStrictEqual({
-    outDir: join(ctx.dir, 'public', 'evals', 'corpora', 'recorded-traffic'),
-    cases: 0,
-  });
-});
-
-test('it refuses an out dir elsewhere in the public repository', async () => {
-  const ctx = await setupTest();
-
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'public')]);
-
-  await writeFile(ctx.capture, '');
-
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
-    outDir: join(ctx.dir, 'public', 'captures'),
-    repoRoot: join(ctx.dir, 'public'),
+    outDir: join(ctx.dir, 'public', 'evals', 'corpora', 'recorded-traffic'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
     stagingRoot: ctx.dir,
@@ -139,14 +115,13 @@ test('it refuses an out dir elsewhere in the public repository', async () => {
 
   expect(written).rejects.toThrowWithMessage(
     Error,
-    `Refusing to write into ${join(ctx.dir, 'public', 'captures')}: it is inside the git work tree ${join(ctx.dir, 'public')}, and only evals/corpora/ of this repository may take a corpus.`,
+    `Refusing to write into ${join(ctx.dir, 'public', 'evals', 'corpora', 'recorded-traffic')}: it is inside the git work tree ${join(ctx.dir, 'public')}. Write the corpus outside every repository, read every case, then copy the reviewed files into evals/corpora/.`,
   );
 });
 
-test('it refuses an out dir in another git work tree', async () => {
+test('it refuses an out dir in any other git work tree', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'public')]);
   runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'other')]);
 
   await writeFile(ctx.capture, '');
@@ -154,7 +129,6 @@ test('it refuses an out dir in another git work tree', async () => {
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
     outDir: join(ctx.dir, 'other', 'corpus'),
-    repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
     stagingRoot: ctx.dir,
@@ -162,7 +136,7 @@ test('it refuses an out dir in another git work tree', async () => {
 
   expect(written).rejects.toThrowWithMessage(
     Error,
-    `Refusing to write into ${join(ctx.dir, 'other', 'corpus')}: it is inside the git work tree ${join(ctx.dir, 'other')}, and only evals/corpora/ of this repository may take a corpus.`,
+    `Refusing to write into ${join(ctx.dir, 'other', 'corpus')}: it is inside the git work tree ${join(ctx.dir, 'other')}. Write the corpus outside every repository, read every case, then copy the reviewed files into evals/corpora/.`,
   );
 });
 
@@ -176,7 +150,6 @@ test('it refuses an out dir that already exists and leaves it untouched', async 
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
     outDir: join(ctx.dir, 'existing'),
-    repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
     stagingRoot: ctx.dir,
@@ -196,7 +169,6 @@ test('it writes nothing when the secret scan cannot run', async () => {
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
     outDir: join(ctx.dir, 'recorded-traffic'),
-    repoRoot: join(ctx.dir, 'public'),
     env: { PATH: ctx.dir },
     salt: 'salt',
     stagingRoot: ctx.dir,
@@ -221,7 +193,6 @@ test('it refuses to stage the corpus inside a git work tree', async () => {
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
     outDir: join(ctx.dir, 'recorded-traffic'),
-    repoRoot: join(ctx.dir, 'public'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
     stagingRoot: join(ctx.dir, 'staging'),

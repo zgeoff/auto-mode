@@ -1,5 +1,5 @@
 import { cp, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { findEnclosingWorkTree } from 'auto-mode/eval';
 import { buildAnonymisedCorpus } from './build-anonymised-corpus.ts';
 import { checkCorpusSecrets } from './check-corpus-secrets.ts';
@@ -8,7 +8,6 @@ import { loadCaptureRecords } from './load-capture-records.ts';
 export interface AnonymiseRequest {
   readonly captureFiles: readonly string[];
   readonly outDir: string;
-  readonly repoRoot: string;
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly salt: string;
   readonly stagingRoot: string;
@@ -24,7 +23,7 @@ export interface AnonymiseResult {
 export async function writeAnonymisedCorpus(
   request: Readonly<AnonymiseRequest>,
 ): Promise<AnonymiseResult> {
-  const outDir = await resolveOutDir(request.outDir, request.repoRoot);
+  const outDir = await resolveOutDir(request.outDir);
   const records = await loadCaptureRecords(request.captureFiles);
 
   const corpus = buildAnonymisedCorpus(
@@ -74,7 +73,7 @@ export async function writeAnonymisedCorpus(
   return { outDir, cases: corpus.cases.length };
 }
 
-async function resolveOutDir(outDir: string, repoRoot: string): Promise<string> {
+async function resolveOutDir(outDir: string): Promise<string> {
   const exists = await stat(outDir).catch(() => null);
 
   if (exists !== null) {
@@ -91,18 +90,9 @@ async function resolveOutDir(outDir: string, repoRoot: string): Promise<string> 
 
   const workTree = await findEnclosingWorkTree(real);
 
-  if (workTree === null) {
-    return real;
-  }
-
-  const realRoot = await realpath(repoRoot);
-
-  const corpora = join(realRoot, 'evals', 'corpora');
-  const path = relative(corpora, real);
-
-  if (path === '' || path.startsWith('..') || path.startsWith('/')) {
+  if (workTree !== null) {
     throw new Error(
-      `Refusing to write into ${outDir}: it is inside the git work tree ${workTree}, and only evals/corpora/ of this repository may take a corpus.`,
+      `Refusing to write into ${outDir}: it is inside the git work tree ${workTree}. Write the corpus outside every repository, read every case, then copy the reviewed files into evals/corpora/.`,
     );
   }
 

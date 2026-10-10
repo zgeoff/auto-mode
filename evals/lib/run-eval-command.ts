@@ -383,7 +383,6 @@ async function runAnonymiseCommand(
   const result = await writeAnonymisedCorpus({
     captureFiles: parsed.positionals.map((path) => resolve(path)),
     outDir: resolve(out),
-    repoRoot: io.repoRoot,
     env: io.env,
     salt: randomBytes(32).toString('hex'),
     stagingRoot: tmpdir(),
