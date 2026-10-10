@@ -20,7 +20,9 @@ async function setupTest() {
 test.each([
   ['an HTTPS', 'https://github.com/zgeoff/auto-mode-evals.git'],
   ['an HTTPS remote without .git', 'https://github.com/zgeoff/auto-mode-evals'],
+  ['an HTTPS remote with a user', 'https://zgeoff@github.com/zgeoff/auto-mode-evals.git'],
   ['an SSH', 'git@github.com:zgeoff/auto-mode-evals.git'],
+  ['an SSH URL', 'ssh://git@github.com/zgeoff/auto-mode-evals.git'],
 ])(
   'it accepts a clone whose origin is %s remote of the results repository',
   async (_label, url) => {
@@ -119,16 +121,22 @@ test('it refuses a directory inside the public repository whose name starts with
   );
 });
 
-test('it refuses a clone whose origin nests the results path under another host', async () => {
-  const ctx = await setupTest();
+test.each([
+  ['SSH', 'git@gitlab.com:x/zgeoff/auto-mode-evals.git'],
+  ['HTTPS', 'https://gitlab.com/github.com/zgeoff/auto-mode-evals.git'],
+])(
+  'it refuses a clone whose %s origin nests the results path under another host',
+  async (_label, url) => {
+    const ctx = await setupTest();
 
-  runGit(ctx.dir, ['remote', 'add', 'origin', 'git@gitlab.com:x/zgeoff/auto-mode-evals.git']);
+    runGit(ctx.dir, ['remote', 'add', 'origin', url]);
 
-  expect(requireResultsClone(ctx.dir, ctx.publicRoot)).rejects.toThrowWithMessage(
-    Error,
-    `The results directory is not a clone of zgeoff/auto-mode-evals: ${ctx.dir}`,
-  );
-});
+    expect(requireResultsClone(ctx.dir, ctx.publicRoot)).rejects.toThrowWithMessage(
+      Error,
+      `The results directory is not a clone of zgeoff/auto-mode-evals: ${ctx.dir}`,
+    );
+  },
+);
 
 test('it refuses a link into the public repository by its real path', async () => {
   const ctx = await setupTest();

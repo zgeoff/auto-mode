@@ -104,7 +104,25 @@ function formatCount(count: Readonly<MeasurementCount> | undefined): string {
 }
 
 function formatField(value: unknown): string {
-  return typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
+  return typeof value === 'object' && value !== null
+    ? JSON.stringify(sortKeys(value))
+    : String(value);
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sortKeys(entry));
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .toSorted(([keyA], [keyB]) => Number(keyA > keyB) - Number(keyA < keyB))
+      .map(([key, entry]) => [key, sortKeys(entry)]),
+  );
 }
 
 function formatRate(value: number | null): string {
