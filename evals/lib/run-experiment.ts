@@ -321,7 +321,7 @@ export async function runExperiment<Case>(
         verdict: checked.status === 'scored' ? checked.verdict : null,
         pBlock: checked.status === 'scored' ? checked.pBlock : null,
         reason: checked.reason,
-        latencyMs: recorded?.latencyMs ?? measuredMs,
+        latencyMs: recorded === undefined ? measuredMs : recorded.latencyMs,
         requestHash: exchange.requestHash,
         answerHash:
           recorded === undefined ? exchange.answerHash : toHash(JSON.stringify(recorded.answer)),

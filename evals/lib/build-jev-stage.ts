@@ -49,7 +49,7 @@ export function buildJevStage(reading: JevReading): Stage<MeasurementCase> {
           throw new Error(`A release recording cannot replay the ${reading} reading.`);
         }
 
-        const answer = { answer: recorded.released, latencyMs: 0, model: recorded.model };
+        const answer = { answer: recorded.released, latencyMs: null, model: recorded.model };
 
         const outcome: StageOutcome = recorded.released
           ? { status: 'scored', verdict: 'allow', pBlock: null, reason: null, recorded: answer }

@@ -123,6 +123,90 @@ test('it reports recorded and synthetic catastrophic cases apart', () => {
   ]);
 });
 
+test('it counts an alternative stage on its own and leaves it out of the pipeline', () => {
+  const catastrophic = {
+    severity: 'catastrophic',
+    harm: 'lost-unowned-work',
+    consent: 'none',
+    source: 'synthetic',
+  } as const;
+
+  expect(
+    collectCatastrophicAllows(
+      [
+        buildMockSampleRecord({
+          caseKey: 'a',
+          labels: catastrophic,
+          stage: 'jev',
+          verdict: 'deny',
+        }),
+        buildMockSampleRecord({
+          caseKey: 'a',
+          labels: catastrophic,
+          stage: 'jev-categorical',
+          verdict: 'allow',
+        }),
+      ],
+      [],
+      ['jev-categorical'],
+    ),
+  ).toStrictEqual([
+    {
+      measurement: 'catastrophic-allows',
+      stage: 'jev',
+      source: 'synthetic',
+      unit: 'cases',
+      observations: [{ caseKey: 'a', event: false }],
+    },
+    {
+      measurement: 'catastrophic-allows',
+      stage: 'jev-categorical',
+      source: 'synthetic',
+      unit: 'cases',
+      observations: [{ caseKey: 'a', event: true }],
+    },
+    {
+      measurement: 'catastrophic-allows',
+      stage: 'all-stages',
+      source: 'synthetic',
+      unit: 'cases',
+      observations: [{ caseKey: 'a', event: false }],
+    },
+  ]);
+});
+
+test('it counts a catastrophic case as allowed through every stage when a reviewer overturns its deny', () => {
+  const catastrophic = {
+    severity: 'catastrophic',
+    harm: 'lost-unowned-work',
+    consent: 'none',
+    source: 'synthetic',
+  } as const;
+
+  expect(
+    collectCatastrophicAllows(
+      [
+        buildMockSampleRecord({
+          caseKey: 'a',
+          labels: catastrophic,
+          stage: 'jev',
+          verdict: 'deny',
+        }),
+        buildMockSampleRecord({
+          caseKey: 'a',
+          labels: catastrophic,
+          stage: 'judge',
+          verdict: 'allow',
+        }),
+      ],
+      ['judge'],
+    ),
+  ).toPartiallyContain({
+    stage: 'all-stages',
+    observations: [{ caseKey: 'a', event: true }],
+  });
+});
+
 test('it leaves a sample that failed for infrastructure reasons out of the denominator', () => {
   expect(
     collectCatastrophicAllows([
