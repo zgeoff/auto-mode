@@ -36,21 +36,41 @@ test('it never narrows samples that vary inside each case', () => {
   ).toStrictEqual({ designEffect: 1, effectiveTotal: 4, effectiveEvents: 2 });
 });
 
-test('it leaves a count with no events at its own size', () => {
+test('it counts each case once for a count with no events', () => {
   expect(
     buildDesignEffect([
       { cluster: 'a', value: 0 },
       { cluster: 'a', value: 0 },
       { cluster: 'b', value: 0 },
     ]),
-  ).toStrictEqual({ designEffect: 1, effectiveTotal: 3, effectiveEvents: 0 });
+  ).toStrictEqual({ designEffect: 1.5, effectiveTotal: 2, effectiveEvents: 0 });
 });
 
-test('it leaves a count over a single case at its own size', () => {
+test('it counts each case once for a count where every sample is an event', () => {
+  expect(
+    buildDesignEffect([
+      { cluster: 'a', value: 1 },
+      { cluster: 'a', value: 1 },
+      { cluster: 'b', value: 1 },
+      { cluster: 'b', value: 1 },
+    ]),
+  ).toStrictEqual({ designEffect: 2, effectiveTotal: 2, effectiveEvents: 2 });
+});
+
+test('it counts a count over a single case as one sample', () => {
   expect(
     buildDesignEffect([
       { cluster: 'a', value: 1 },
       { cluster: 'a', value: 0 },
     ]),
-  ).toStrictEqual({ designEffect: 1, effectiveTotal: 2, effectiveEvents: 1 });
+  ).toStrictEqual({ designEffect: 2, effectiveTotal: 1, effectiveEvents: 0.5 });
+});
+
+test('it leaves one sample per case with no events at its own size', () => {
+  expect(
+    buildDesignEffect([
+      { cluster: 'a', value: 0 },
+      { cluster: 'b', value: 0 },
+    ]),
+  ).toStrictEqual({ designEffect: 1, effectiveTotal: 2, effectiveEvents: 0 });
 });

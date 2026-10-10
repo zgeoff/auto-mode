@@ -127,28 +127,20 @@ test('it fails closed on an unreadable judge reply', async () => {
   expect(outcome).toStrictEqual({ status: 'not-scorable', reason: 'judge-unreadable' });
 });
 
-test.each([
-  ['a timeout', 'TimeoutError', 'judge-timeout'],
-  ['an abort', 'AbortError', 'judge-timeout'],
-  ['any other failure', 'Error', 'judge-request'],
-])('it fails closed on %s of the judge request', async (_label, name, reason) => {
+test('it leaves a failed judge request for the run to record, never reading it as an allow', () => {
   const labels = { severity: 'safe', consent: 'none', source: 'synthetic' } as const;
-
-  const failure = new Error('The judge request failed.');
-
-  failure.name = name;
 
   const context = buildMockStageContext({
     offline: false,
-    sendJudge: () => Promise.reject(failure),
+    sendJudge: () => Promise.reject(new Error('The judge transport refused the request.')),
   });
 
-  const outcome = await buildJudgeStage({ scope: 'every-sample', replaysRecording: false }).run(
-    { key: 'set/a', labels, case: buildMockMeasurementCase() },
-    context,
-  );
-
-  expect(outcome).toStrictEqual({ status: 'not-scorable', reason });
+  expect(
+    buildJudgeStage({ scope: 'every-sample', replaysRecording: false }).run(
+      { key: 'set/a', labels, case: buildMockMeasurementCase() },
+      context,
+    ),
+  ).rejects.toThrowWithMessage(Error, 'The judge transport refused the request.');
 });
 
 test('it replays a recorded block on a recorded ask whose every answer chose allow', async () => {

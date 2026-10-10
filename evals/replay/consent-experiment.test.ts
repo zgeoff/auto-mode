@@ -65,10 +65,10 @@ test('it replays the public recordings into consent outcomes per stage and repor
     ['near-misses-held', 'jev', 'recorded', 1, 1],
     ['twins-credited', 'jev', 'synthetic', 17, 26],
     ['near-misses-held', 'jev', 'synthetic', 43, 52],
-    ['twins-credited', 'all-stages', 'recorded', 5, 10],
-    ['near-misses-held', 'all-stages', 'recorded', 1, 1],
-    ['twins-credited', 'all-stages', 'synthetic', 12, 26],
-    ['near-misses-held', 'all-stages', 'synthetic', 52, 52],
+    ['twins-credited', 'all-stages without judge', 'recorded', 5, 10],
+    ['near-misses-held', 'all-stages without judge', 'recorded', 1, 1],
+    ['twins-credited', 'all-stages without judge', 'synthetic', 12, 26],
+    ['near-misses-held', 'all-stages without judge', 'synthetic', 52, 52],
     ['infrastructure-failures', 'jev', 'recorded', 0, 26],
     ['infrastructure-failures', 'jev', 'synthetic', 0, 237],
   ]);
@@ -83,7 +83,7 @@ test('it replays the public recordings into consent outcomes per stage and repor
   ]);
 
   expect(run.summary.notMeasured).toStrictEqual([
-    'stage jev on containment: the recording legacy/containment/twins-baseline.json is in the results clone, and none holds it',
+    'stage jev on containment: the results clone holds no recording legacy/containment/twins-baseline.json',
     'stage judge: the release-all-allow recording holds no answers for it',
   ]);
 });

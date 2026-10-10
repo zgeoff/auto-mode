@@ -7,15 +7,18 @@ import { buildRequiredCaseOutcomes } from './build-required-case-outcomes.ts';
 import { buildStageFailureCounts } from './build-stage-failure-counts.ts';
 import { buildStageLatency } from './build-stage-latency.ts';
 import type { CaseLabel } from './case-labels-schema.ts';
+import { PIPELINE_STAGE } from './collect-pipeline-verdicts.ts';
 import type {
   CaseSet,
   Experiment,
   JudgeReply,
   JudgeRequest,
   LabelledCase,
+  MeasurementObservations,
   StageContext,
   StageOutcome,
 } from './define-experiment.ts';
+import { JudgeRequestError } from './judge-request-error.ts';
 import { loadCaseLabels } from './load-case-labels.ts';
 import { loadCorpusHashes } from './load-corpus-hashes.ts';
 import { loadRun } from './load-run.ts';
@@ -121,6 +124,7 @@ export async function runExperiment<Case>(
   const previous = options.resumeDir === null ? null : await loadRun(options.resumeDir);
 
   if (previous !== null) {
+    requireCleanResume(previous.summary.config);
     requireSameConfig(previous.summary.config, frozen);
   }
 
@@ -189,6 +193,7 @@ export async function runExperiment<Case>(
       experiment,
       records,
       notMeasured,
+      stages.dropped,
     );
 
   // Written before the first stage runs, so an unwritable results directory fails
@@ -286,7 +291,9 @@ export async function runExperiment<Case>(
 
           exchange.requestHash = toHash(JSON.stringify(request));
 
-          const reply = await sendJudge(request);
+          const reply = await sendJudge(request).catch((error: unknown) => {
+            throw new JudgeRequestError(pickJudgeFailure(error), { cause: error });
+          });
 
           exchange.model = reply.model;
           exchange.answerHash = toHash(JSON.stringify(reply));
@@ -430,28 +437,36 @@ type ActiveStage<Case> = Experiment<Case>['stages'][number];
 
 // A recorded run replays each stage that can, runs each stage that sends
 // nothing, and names each stage that would have to send as not measured.
+interface PickedStages<Case> {
+  readonly active: readonly ActiveStage<Case>[];
+  readonly dropped: readonly string[];
+  readonly notMeasured: readonly string[];
+}
+
 function pickStages<Case>(
   experiment: Readonly<Experiment<Case>>,
   recording: string | null,
-): { readonly active: readonly ActiveStage<Case>[]; readonly notMeasured: readonly string[] } {
+): PickedStages<Case> {
   if (recording === null) {
-    return { active: experiment.stages, notMeasured: [] };
+    return { active: experiment.stages, dropped: [], notMeasured: [] };
   }
 
   const active: ActiveStage<Case>[] = [];
+  const dropped: string[] = [];
   const notMeasured: string[] = [];
 
   for (const stage of experiment.stages) {
     if (stage.replay !== undefined) {
       active.push({ ...stage, sends: false, run: stage.replay });
     } else if (stage.sends) {
+      dropped.push(stage.name);
       notMeasured.push(`stage ${stage.name}: the ${recording} recording holds no answers for it`);
     } else {
       active.push(stage);
     }
   }
 
-  return { active, notMeasured };
+  return { active, dropped, notMeasured };
 }
 
 function printPlan<Case>(
@@ -499,6 +514,16 @@ const RESUMED_FIELDS = [
   'live',
 ] as const;
 
+// A dirty tree has no commit that names its code, so a resume could not tell
+// whether the records it adds come from the same code.
+function requireCleanResume(previous: Readonly<RunConfig>): void {
+  if (previous.dirtyTree) {
+    throw new Error(
+      'Refusing to resume a run started from a dirty tree: no commit names its code.',
+    );
+  }
+}
+
 function requireSameConfig(
   previous: Readonly<RunConfig>,
   current: Readonly<Pick<RunConfig, (typeof RESUMED_FIELDS)[number]>>,
@@ -544,14 +569,24 @@ function buildSummary<Case>(
   experiment: Readonly<Experiment<Case>>,
   records: readonly SampleRecord[],
   notMeasured: readonly string[],
+  dropped: readonly string[],
 ): RunSummary {
+  const pipeline =
+    dropped.length === 0 ? PIPELINE_STAGE : `${PIPELINE_STAGE} without ${dropped.join(', ')}`;
+
+  const observations: MeasurementObservations[] = [];
+
+  for (const group of experiment.measurements.flatMap((measurement) => measurement(records))) {
+    const named = group.stage === PIPELINE_STAGE ? { ...group, stage: pipeline } : group;
+
+    observations.push(named);
+  }
+
   return {
     runID,
     config,
     notMeasured,
-    counts: buildMeasurementCounts(
-      experiment.measurements.flatMap((measurement) => measurement(records)),
-    ),
+    counts: buildMeasurementCounts(observations),
     notScorable: buildStageFailureCounts(records),
     latency: buildStageLatency(records),
     requiredCases: buildRequiredCaseOutcomes(experiment.requiredCases, records),
@@ -568,8 +603,19 @@ async function tryRunStage(run: () => Promise<StageOutcome>): Promise<StageOutco
       return { status: 'not-scorable', reason: `decision-${error.reason}` };
     }
 
+    if (error instanceof JudgeRequestError) {
+      return { status: 'not-scorable', reason: `judge-${error.reason}` };
+    }
+
     throw error;
   }
+}
+
+function pickJudgeFailure(error: unknown): JudgeRequestError['reason'] {
+  const isTimeout =
+    error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
+
+  return isTimeout ? 'timeout' : 'request';
 }
 
 interface CheckedOutcome {

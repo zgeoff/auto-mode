@@ -88,6 +88,6 @@ test('it reports a stage as not measured when the results clone lacks its record
   expect(loaded.inputs).toStrictEqual([]);
 
   expect(loaded.notMeasured).toStrictEqual([
-    'stage judge on second-judge: the recording legacy/second-judge/judge-glm.json is in the results clone, and none holds it',
+    'stage judge on second-judge: the results clone holds no recording legacy/second-judge/judge-glm.json',
   ]);
 });

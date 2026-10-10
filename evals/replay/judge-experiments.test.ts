@@ -71,8 +71,8 @@ test.each([
     ]);
 
     expect(run.summary.notMeasured).toStrictEqual([
-      'stage judge on second-judge: the recording legacy/second-judge/judge-glm.json is in the results clone, and none holds it',
-      'stage judge on answer-guidance: the recording legacy/second-judge/judge-glm.json is in the results clone, and none holds it',
+      'stage judge on second-judge: the results clone holds no recording legacy/second-judge/judge-glm.json',
+      'stage judge on answer-guidance: the results clone holds no recording legacy/second-judge/judge-glm.json',
     ]);
   },
 );

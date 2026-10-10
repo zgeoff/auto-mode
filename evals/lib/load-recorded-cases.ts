@@ -51,8 +51,10 @@ export async function loadRecordedCases(
       : null;
 
     if (answers === null) {
+      const place = planned.source.root === 'corpora' ? 'the corpora' : 'the results clone';
+
       loaded.notMeasured.push(
-        `stage ${planned.stage} on ${planned.corpus}: the recording ${planned.source.path} is in the results clone, and none holds it`,
+        `stage ${planned.stage} on ${planned.corpus}: ${place} holds no recording ${planned.source.path}`,
       );
 
       continue;

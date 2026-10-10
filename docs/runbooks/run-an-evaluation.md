@@ -85,9 +85,11 @@ Each count carries its denominator, a Wilson and a Clopper-Pearson interval, and
 bound when it is zero. A count over samples or requests, where one case contributes several, also
 carries the clustered standard error and its design effect: the intervals use the effective sample
 size, n divided by the design effect, so they are wider than a naive interval over the same samples.
-The output lists what the run did not measure: a missing held-out set, a stage without recorded
-answers. A required case, such as the consent controls, is listed by key with each stage's verdict
-on every sample.
+Where the rate is 0 or 1 the design effect is the mean samples per case, so each case counts once.
+An all-stages count from a recording that left a stage out names that stage, as in
+`all-stages without judge`. The output lists what the run did not measure: a missing held-out set, a
+stage without recorded answers. A required case, such as the consent controls, is listed by key with
+each stage's verdict on every sample.
 
 ## Resume an interrupted run
 
@@ -98,7 +100,8 @@ bun run eval run <experiment> --live --max-requests <n> --resume <run-dir>
 The resumed run skips every stage run its `samples.jsonl` already holds, and refuses a run whose
 commit, hashes, seed or sample count differ. The cap applies to the requests still to send. A run
 interrupted mid-write can leave a torn last line; the resume drops it, prints how many characters it
-dropped, and runs that stage again.
+dropped, and runs that stage again. A run started from a dirty tree cannot be resumed, because no
+commit names its code.
 
 ## Compare two runs
 

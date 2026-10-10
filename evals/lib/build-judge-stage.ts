@@ -16,8 +16,8 @@ export interface JudgeStageOptions {
 }
 
 // The judge overturns or confirms a Jev deny no other stage made, so a
-// containment deny stays final. It fails closed: an unreadable reply or a failed
-// request is not scorable, never an allow.
+// containment deny stays final. It fails closed: an unreadable reply is not
+// scorable, and the run records a failed request the same way, never as an allow.
 export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<MeasurementCase> {
   const scope = options.scope;
 
@@ -32,20 +32,13 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
         return skipped;
       }
 
-      try {
-        const reply = await context.sendJudge({
-          action: entry.case.action,
-          lastUserMessage: entry.case.lastUserMessage,
-          repository: entry.case.repository,
-        });
+      const reply = await context.sendJudge({
+        action: entry.case.action,
+        lastUserMessage: entry.case.lastUserMessage,
+        repository: entry.case.repository,
+      });
 
-        return buildOutcome(parseJudgeVerdict(reply.text));
-      } catch (error) {
-        const isTimeout =
-          error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
-
-        return { status: 'not-scorable', reason: isTimeout ? 'judge-timeout' : 'judge-request' };
-      }
+      return buildOutcome(parseJudgeVerdict(reply.text));
     },
   };
 

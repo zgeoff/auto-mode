@@ -7,9 +7,9 @@ export interface DesignEffect {
   readonly effectiveEvents: number;
 }
 
-// The design effect is the case-clustered variance of the rate over the variance
-// independent samples would give. It is held at 1 or more, so clustering never
-// narrows an interval, and at 1 where either variance is zero or undefined.
+// The case-clustered variance of the rate over the independent-sample variance,
+// held at 1 or more. Where either is zero or undefined, as at a rate of 0 or 1,
+// it is the mean samples per case, so every case counts once.
 export function buildDesignEffect(observations: readonly ClusteredObservation[]): DesignEffect {
   const total = observations.length;
   const clustered = buildClusteredStandardError(observations);
@@ -18,7 +18,7 @@ export function buildDesignEffect(observations: readonly ClusteredObservation[])
 
   const designEffect =
     clustered.standardError === null || binomialVariance === 0
-      ? 1
+      ? Math.max(1, total / Math.max(1, clustered.clusters))
       : Math.max(1, clustered.standardError ** 2 / binomialVariance);
 
   const effectiveTotal = total / designEffect;

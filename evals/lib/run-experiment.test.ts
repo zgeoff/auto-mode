@@ -1315,3 +1315,372 @@ test('it writes a run whose summary and samples the result schemas read back', a
 
   expect(run.records).toHaveLength(13);
 });
+
+test.each([
+  ['a timeout', 'TimeoutError', 'judge-timeout'],
+  ['an abort', 'AbortError', 'judge-timeout'],
+  ['any other failure', 'Error', 'judge-request'],
+])(
+  'it records %s of the judge transport as not scorable with its reason',
+  async (_label, name, reason) => {
+    const ctx = await setupTest();
+
+    const failure = new Error('The judge transport failed.');
+
+    failure.name = name;
+
+    const result = await runExperiment(
+      defineExperiment({
+        name: 'judge-check',
+        description: 'A stage that asks the judge.',
+        corpora: ['containment'],
+        samples: 1,
+        loadCases: async (source) => {
+          const dir = join(source.corporaDir, 'containment');
+
+          const loaded = await loadCaseKeys(dir);
+
+          return {
+            sets: [
+              {
+                corpus: 'containment',
+                dir,
+                cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+              },
+            ],
+            inputs: [],
+            notMeasured: [],
+          };
+        },
+        stages: [
+          {
+            name: 'judge',
+            sends: true,
+            run: async (_entry, context) => {
+              const reply = await context.sendJudge({
+                action: {
+                  sessionID: 'session',
+                  cwd: '/home/dev/app',
+                  toolName: 'Bash',
+                  toolInput: { command: 'ls' },
+                },
+                lastUserMessage: null,
+                repository: { cwd: '/home/dev/app', branch: 'main', defaultBranch: 'main' },
+              });
+
+              return { status: 'scored', verdict: 'allow', pBlock: null, reason: reply.text };
+            },
+          },
+        ],
+        measurements: [],
+      }),
+      {
+        corporaDir: ctx.corporaDir,
+        resultsDir: ctx.resultsDir,
+        recording: null,
+        seed: 1,
+        samples: 1,
+        live: true,
+        maxRequests: 13,
+        resumeDir: null,
+        environment: {
+          publicCommit: 'test',
+          dirtyTree: false,
+          policy: 'policy',
+          judgePolicy: 'judge policy',
+          configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+          send: null,
+          sendWithChoices: null,
+          sendJudge: () => Promise.reject(failure),
+        },
+        now: () => new Date('2026-10-10T12:00:00.000Z'),
+        print: () => {},
+      },
+    );
+
+    invariant(result.kind === 'completed');
+
+    expect(result.summary.notScorable).toStrictEqual([
+      { stage: 'judge', notScorable: 13, attempted: 13, skipped: 0, reasons: { [reason]: 13 } },
+    ]);
+  },
+);
+
+test('it stops a live run whose judge stage has no judge transport instead of recording failures', async () => {
+  const ctx = await setupTest();
+
+  const result = runExperiment(
+    defineExperiment({
+      name: 'judge-check',
+      description: 'A stage that asks the judge.',
+      corpora: ['containment'],
+      samples: 1,
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'judge',
+          sends: true,
+          run: async (_entry, context) => {
+            const reply = await context.sendJudge({
+              action: {
+                sessionID: 'session',
+                cwd: '/home/dev/app',
+                toolName: 'Bash',
+                toolInput: { command: 'ls' },
+              },
+              lastUserMessage: null,
+              repository: { cwd: '/home/dev/app', branch: 'main', defaultBranch: 'main' },
+            });
+
+            return { status: 'scored', verdict: 'allow', pBlock: null, reason: reply.text };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 1,
+      live: true,
+      maxRequests: 13,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(result).rejects.toThrowWithMessage(Error, 'The judge stage has no judge transport.');
+});
+
+test('it names the stages a recording left out in the all-stages count', async () => {
+  const ctx = await setupTest();
+
+  const result = await runExperiment(
+    defineExperiment({
+      name: 'recorded-check',
+      description: 'A Jev stage with a recording and a judge without one.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'baseline', description: 'the baseline answers' }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: () =>
+            Promise.resolve({
+              status: 'scored',
+              verdict: 'deny',
+              pBlock: null,
+              reason: null,
+              recorded: { answer: 'deny', latencyMs: 300, model: 'jev-1.13.0' },
+            }),
+        },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: () => Promise.reject(new Error('unreachable')),
+        },
+      ],
+      measurements: [
+        (records) => [
+          {
+            measurement: 'denied',
+            stage: 'all-stages',
+            source: 'synthetic',
+            unit: 'cases',
+            observations: records.map((record) => ({ caseKey: record.caseKey, event: true })),
+          },
+        ],
+      ],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'baseline',
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  invariant(result.kind === 'completed');
+
+  expect(result.summary.counts.map((count) => count.stage)).toStrictEqual([
+    'all-stages without judge',
+  ]);
+});
+
+test('it refuses to resume a run started from a dirty tree', async () => {
+  const ctx = await setupTest();
+
+  const scored: StageOutcome = { status: 'scored', verdict: 'deny', pBlock: null, reason: null };
+
+  const first = await runExperiment(
+    defineExperiment({
+      name: 'local-check',
+      description: 'A deterministic stage.',
+      corpora: ['containment'],
+      samples: 1,
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [{ name: 'containment', sends: false, run: () => Promise.resolve(scored) }],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: true,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  invariant(first.kind === 'completed');
+
+  const resumed = runExperiment(
+    defineExperiment({
+      name: 'local-check',
+      description: 'A deterministic stage.',
+      corpora: ['containment'],
+      samples: 1,
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [{ name: 'containment', sends: false, run: () => Promise.resolve(scored) }],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: first.runDir,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: true,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(resumed).rejects.toThrowWithMessage(
+    Error,
+    'Refusing to resume a run started from a dirty tree: no commit names its code.',
+  );
+});

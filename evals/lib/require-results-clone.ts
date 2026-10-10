@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
-const RESULTS_REMOTE = /(?:^|[/:])zgeoff\/auto-mode-evals(?:\.git)?$/;
+const RESULTS_REMOTE = /(?:^|[/@])github\.com[/:]zgeoff\/auto-mode-evals(?:\.git)?$/;
 const RESULTS_README_TITLE = '# auto-mode-evals';
 
 export interface ResultsClone {
@@ -41,7 +41,7 @@ export async function requireResultsClone(dir: string, publicRoot: string): Prom
 function isInside(root: string, dir: string): boolean {
   const path = relative(root, dir);
 
-  return path === '' || (!path.startsWith('..') && !path.startsWith('/'));
+  return path === '' || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path));
 }
 
 function readGitRoot(dir: string): string | null {

@@ -106,6 +106,30 @@ test('it refuses a directory that does not exist', async () => {
   );
 });
 
+test('it refuses a directory inside the public repository whose name starts with two dots', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.dir, ['remote', 'add', 'origin', 'https://github.com/zgeoff/auto-mode-evals.git']);
+
+  await mkdir(join(ctx.dir, '..results'));
+
+  expect(requireResultsClone(join(ctx.dir, '..results'), ctx.dir)).rejects.toThrowWithMessage(
+    Error,
+    `Refusing to write results inside the public repository: ${join(ctx.dir, '..results')}`,
+  );
+});
+
+test('it refuses a clone whose origin nests the results path under another host', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.dir, ['remote', 'add', 'origin', 'git@gitlab.com:x/zgeoff/auto-mode-evals.git']);
+
+  expect(requireResultsClone(ctx.dir, ctx.publicRoot)).rejects.toThrowWithMessage(
+    Error,
+    `The results directory is not a clone of zgeoff/auto-mode-evals: ${ctx.dir}`,
+  );
+});
+
 test('it refuses a link into the public repository by its real path', async () => {
   const ctx = await setupTest();
 
