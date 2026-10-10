@@ -2,9 +2,10 @@ import type { JudgeReply } from './types.ts';
 
 const VERDICT = /<verdict>\s*(?<verdict>[^<]*?)\s*<\/verdict>/giu;
 const REASON = /<reason>(?<reason>[\s\S]*?)<\/reason>/giu;
+const BASIS = /<basis>\s*(?<basis>[^<]*?)\s*<\/basis>/giu;
 
-// One verdict tag and one non-empty reason tag, or the reply is unreadable:
-// a second verdict could disagree with the first, and the parser picks neither.
+// One verdict tag and one non-empty reason tag, and an overturn names its one
+// basis, or the reply is unreadable: a second tag could disagree with the first.
 export function parseJudgeReply(text: string): JudgeReply {
   const verdicts = [...text.matchAll(VERDICT)].map((match) =>
     match.groups?.['verdict']?.toLowerCase(),
@@ -24,5 +25,16 @@ export function parseJudgeReply(text: string): JudgeReply {
     return { kind: 'unreadable' };
   }
 
-  return { kind: verdict, reason };
+  if (verdict === 'confirm') {
+    return { kind: 'confirm', reason };
+  }
+
+  const bases = [...text.matchAll(BASIS)].map((match) => match.groups?.['basis']?.toLowerCase());
+  const [basis] = bases;
+
+  if (bases.length !== 1 || (basis !== 'consent' && basis !== 'misread')) {
+    return { kind: 'unreadable' };
+  }
+
+  return { kind: 'overturn', basis, reason };
 }

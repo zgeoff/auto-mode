@@ -1,6 +1,11 @@
 import { buildDecisionRequest } from 'auto-mode';
 import type { DecisionRule } from 'auto-mode';
-import { buildJudgeMessage, buildJudgedVerdict, parseJudgeReply } from 'auto-mode/eval';
+import {
+  DEFAULT_JUDGE_OVERTURNS,
+  buildJudgeMessage,
+  buildJudgedVerdict,
+  parseJudgeReply,
+} from 'auto-mode/eval';
 import { JEV_STAGE } from './build-jev-stage.ts';
 import { buildRecordedSampleOutcome } from './build-recorded-sample-outcome.ts';
 import { classifyJevRecord } from './classify-jev-record.ts';
@@ -16,7 +21,13 @@ export interface JudgeStageOptions {
   // The recorded judges reviewed the asks of the shipped reading, so a stage
   // reviewing another reading's denies has no recording to replay.
   readonly replaysRecording: boolean;
+
+  // Measurement 4 reviews every Jev deny, even one an earlier stage already
+  // denied, so the judge alone is measured on all of them.
+  readonly reviewsEveryJevDeny?: boolean;
 }
+
+const REASON_TEXT_MAX_CHARS = 400;
 
 // The judge overturns or confirms a Jev deny no other stage made, so a
 // containment deny stays final. It reads the shipped judge's request, reply
@@ -29,7 +40,8 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
     sends: true,
     ...(scope === 'jev-denies' ? { reviews: JEV_STAGE } : {}),
     run: async (entry, context) => {
-      const skipped = scope === 'jev-denies' ? findSkip(context) : null;
+      const skipped =
+        scope === 'jev-denies' ? findSkip(context, options.reviewsEveryJevDeny === true) : null;
 
       if (skipped !== null) {
         return skipped;
@@ -55,17 +67,21 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
         }),
       });
 
-      const judged = buildJudgedVerdict(denied.rule, denied.basis, parseJudgeReply(reply.text));
+      const parsed = parseJudgeReply(reply.text);
+      const judged = buildJudgedVerdict(denied.rule, denied.basis, parsed, DEFAULT_JUDGE_OVERTURNS);
 
       if (judged.status === 'failed') {
         return { status: 'not-scorable', reason: 'judge-unreadable' };
       }
 
+      const basis = judged.overturnBasis === null ? '' : ` (${judged.overturnBasis})`;
+      const text = parsed.kind === 'unreadable' ? '' : parsed.reason.replaceAll(/\s+/gu, ' ');
+
       return {
         status: 'scored',
         verdict: judged.verdict.kind,
         pBlock: null,
-        reason: `${judged.status}: ${denied.rule.name}`,
+        reason: `${judged.status}${basis}: ${denied.rule.name} — ${text.slice(0, REASON_TEXT_MAX_CHARS)}`,
       };
     },
   };
@@ -157,11 +173,18 @@ function buildJudgeReplay(
   };
 }
 
-function findSkip(context: Readonly<StageContext>): StageOutcome | null {
+function findSkip(
+  context: Readonly<StageContext>,
+  reviewsEveryJevDeny = false,
+): StageOutcome | null {
   const jev = context.previous.find((record) => record.stage === JEV_STAGE);
 
   if (jev?.status !== 'scored' || jev.verdict !== 'deny') {
     return { status: 'skipped', reason: 'Jev did not deny this sample.' };
+  }
+
+  if (reviewsEveryJevDeny) {
+    return null;
   }
 
   const other = context.previous.find(

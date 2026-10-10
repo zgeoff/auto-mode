@@ -11,7 +11,16 @@ export const captureRecordSchema = z.strictObject({
   time: z.string().min(1),
   request: actionRequestSchema,
   verdict: verdictSchema.nullable(),
-  decidingStage: z.enum(['local', 'containment', 'bypass', 'jev', 'messages', 'retry', 'budget']),
+  decidingStage: z.enum([
+    'local',
+    'containment',
+    'bypass',
+    'jev',
+    'judge',
+    'messages',
+    'retry',
+    'budget',
+  ]),
   escalation: z.boolean(),
 });
 

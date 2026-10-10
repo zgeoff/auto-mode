@@ -19,7 +19,7 @@ Code only, and a Muse model reaches it through the mod inside Claude Code. The
 [decision model](./decision-model.md) is the approved design for what each stage decides; this
 overview describes the code as it runs.
 
-## The two tiers
+## The two tiers and the judge
 
 ```text
 mod request on stdin
@@ -42,12 +42,13 @@ mod request on stdin
  edit bypass ──► in-scope file edit, no secret ──► write allow │
       │                                                        │
       ▼                                                        ▼
- tier 2: Jev ──► allow / deny ──┐
-      │                         │
-      │ failure                 ▼
-      ▼                   denial budget ──► write verdict
- defer (write nothing)          │
- or deny, per config            └──► budget spent: write nothing (the user is asked)
+ tier 2: Jev ──► allow ───────────────────────┐
+      │      └──► deny ──► judge ──► confirm   │
+      │                      │      or overturn│
+      │ failure              │                 ▼
+      ▼                      └────────► denial budget ──► write verdict
+ defer (write nothing)                         │
+ or deny, per config                           └──► budget spent: write nothing (the user is asked)
 ```
 
 **Tier one** matches deterministically and answers allow or escalate. It never denies on a prose
@@ -134,8 +135,18 @@ The caller allows unless some rule's block probability reaches `blockThreshold` 
 The deny names the rule with the highest block probability; a hard rule wins a tie, then the earlier
 rule. An unsure answer whose block probability stays below the threshold does not stop the action.
 The containment check runs before Jev, so its deny stands whatever Jev answers. Jev supplies no
-generated explanation, so every deny carries a fixed reason for its rule: the harm the rule covers
-and what clears it.
+generated explanation, so its deny carries a fixed reason for its rule: the harm the rule covers and
+what clears it.
+
+**The judge** reviews each Jev deny. It is a generative model, `claude -p` on Claude Haiku by
+default, with the prompt in `policy/judge.md`. It reads the denied rule with its tier and text, the
+complete action, the last direct user message and the repository facts, and answers confirm or
+overturn with a reason. A confirm reaches the agent as `The reviewer confirmed the <rule> deny:`
+with the judge's reason, cut to 600 characters. An overturn of a soft rule allows the action; the
+judge overturns when the last direct user message asks for this operation on this target, or when
+the facts show the rule's harm cannot happen. A hard rule and a configured hard deny never clear:
+the judge writes their reason only. The judge fails closed: a timeout, a failed call or an
+unreadable reply keeps the deny with its fixed reason. A containment deny never reaches the judge.
 
 The client refuses a request larger than 100,000 bytes before it calls the API. It can omit optional
 task context to fit the request, with an explicit reason. It does not truncate the action or user
@@ -222,5 +233,7 @@ are needed and absent; it does not deny over every possible unseen event.
   is never consulted for it.
 - **A model call can time out.** The default is to write nothing, report the failure on stderr, and
   keep the prompt. `onFailure: "deny"` fails closed instead.
-- **The mod's time limit bounds the model call.** The child process has 8 seconds and Jev 5; a
-  slower call keeps the prompt. [Time limits](../guides/claude-mod.md#time-limits) has the detail.
+- **The mod's time limit bounds the model calls.** The child process has 10 minutes, Jev 5 seconds
+  and the judge its configured timeout, 120 seconds by default; a slower Jev call keeps the prompt,
+  and a slower judge keeps the deny. [Time limits](../guides/claude-mod.md#time-limits) has the
+  detail.

@@ -11,7 +11,7 @@ import type { JudgedVerdict } from './build-judged-verdict.ts';
 import { buildJudgedVerdict } from './build-judged-verdict.ts';
 import { parseJudgeReply } from './parse-judge-reply.ts';
 import { sendJudgeMessage } from './send-judge-message.ts';
-import type { JudgeDiagnostics, JudgeFailure } from './types.ts';
+import type { JudgeDiagnostics, JudgeFailure, JudgeOverturns } from './types.ts';
 
 export interface JudgeOutcome extends JudgedVerdict {
   readonly diagnostics: JudgeDiagnostics;
@@ -24,6 +24,7 @@ export interface JudgeEvidence extends DeniedRule {
 export interface JudgeOptions extends EvaluationOptions {
   readonly host: Readonly<HostEnvironment>;
   readonly rulesPath?: string | undefined;
+  readonly overturns: JudgeOverturns;
 }
 
 // The judge fails closed: no key, no policy, a timeout, a failed call or an
@@ -96,9 +97,9 @@ export async function classifyWithJudge(
     const reply = parseJudgeReply(text);
 
     failure = reply.kind === 'unreadable' ? 'unreadable' : null;
-    verdict = buildJudgedVerdict(evidence.rule, evidence.basis, reply);
+    verdict = buildJudgedVerdict(evidence.rule, evidence.basis, reply, options.overturns);
   } catch {
-    verdict = buildJudgedVerdict(evidence.rule, evidence.basis, null);
+    verdict = buildJudgedVerdict(evidence.rule, evidence.basis, null, options.overturns);
   }
 
   return {
@@ -106,8 +107,9 @@ export async function classifyWithJudge(
     diagnostics: {
       status: verdict.status,
       failureReason: failure,
+      overturnBasis: verdict.overturnBasis,
       model: judge.model,
-      rule: evidence.rule.name,
+      rule: evidence.rule.source === 'shipped' ? evidence.rule.name : evidence.rule.source,
       tier: evidence.rule.tier,
       elapsedMs: Math.round(performance.now() - start),
     },

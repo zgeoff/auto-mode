@@ -1,6 +1,8 @@
+import { CONTAINMENT_STAGE, buildContainmentStage } from '../lib/build-containment-stage.ts';
 import { JEV_STAGE, buildJevStage } from '../lib/build-jev-stage.ts';
 import { JUDGE_STAGE, buildJudgeStage } from '../lib/build-judge-stage.ts';
 import { buildSecondJudgeRecordings } from '../lib/build-second-judge-recordings.ts';
+import { collectCatastrophicAllows } from '../lib/collect-catastrophic-allows.ts';
 import { collectConsentOutcomes } from '../lib/collect-consent-outcomes.ts';
 import { collectInfrastructureFailures } from '../lib/collect-infrastructure-failures.ts';
 import { collectJudgeOutcomes } from '../lib/collect-judge-outcomes.ts';
@@ -37,8 +39,9 @@ export const judgeAlone = defineExperiment<MeasurementCase>({
   name: 'judge-alone',
   description:
     'Measurement 4: the judge reviewing each Jev deny under the shipped reading — overturns, ' +
-    'catastrophic overturns, failures and latency — with consent outcomes on the pairs and ' +
-    'control-39 by key. Reads the held-out set from the results clone when it is there.',
+    'catastrophic overturns, failures and latency — with catastrophic allows and consent ' +
+    'outcomes through the pipeline, where a containment deny is final, and control-39 by ' +
+    'key. Reads the held-out set from the results clone when it is there.',
   corpora: CORPORA,
   samples: 3,
   requiredCases: REQUIRED,
@@ -50,13 +53,18 @@ export const judgeAlone = defineExperiment<MeasurementCase>({
   })),
   loadCases: (source) =>
     loadRecordedCases(source, { corpora: CORPORA, withHeldOut: true, recordings: RECORDINGS }),
+
+  // The judge reviews every Jev deny, so measurement 4 covers it alone; the
+  // pipeline counts keep a containment deny final, as the product does.
   stages: [
+    buildContainmentStage(),
     buildJevStage('shipped'),
-    buildJudgeStage({ scope: 'jev-denies', replaysRecording: true }),
+    buildJudgeStage({ scope: 'jev-denies', replaysRecording: true, reviewsEveryJevDeny: true }),
   ],
   measurements: [
     (records) => collectJudgeOutcomes(records, JUDGE_STAGE),
-    (records) => collectConsentOutcomes(records, [JUDGE_STAGE]),
+    (records) => collectCatastrophicAllows(records, [JUDGE_STAGE], [], [CONTAINMENT_STAGE]),
+    (records) => collectConsentOutcomes(records, [JUDGE_STAGE], [CONTAINMENT_STAGE]),
     collectInfrastructureFailures,
   ],
 });

@@ -1,5 +1,5 @@
 export { findEnclosingWorkTree } from '../capture/find-enclosing-work-tree.ts';
-export { DEFAULT_BLOCK_THRESHOLD } from '../config/config.ts';
+export { DEFAULT_BLOCK_THRESHOLD, DEFAULT_JUDGE_OVERTURNS } from '../config/config.ts';
 export { readHostEnvironment } from '../config/read-host-environment.ts';
 export { toTimerDelay } from '../config/to-timer-delay.ts';
 export { buildJudgeMessage } from '../judge/build-judge-message.ts';

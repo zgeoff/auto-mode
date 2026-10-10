@@ -2,32 +2,37 @@ import type { DecisionRule } from '../model/types.ts';
 import type { DenyBasis } from '../policy/build-deny-reason.ts';
 import { buildDenyReason } from '../policy/build-deny-reason.ts';
 import type { Verdict } from '../request/types.ts';
-import type { JudgeReply, JudgeStatus } from './types.ts';
+import type { JudgeOverturns, JudgeReply, JudgeStatus, OverturnBasis } from './types.ts';
 
 export interface JudgedVerdict {
   readonly verdict: Verdict;
   readonly status: JudgeStatus;
+  readonly overturnBasis: OverturnBasis | null;
 }
 
 export const JUDGE_REASON_MAX_CHARS = 600;
 
-// A hard rule never clears, so an overturn of one keeps the deny, and its reason
-// argues for the allow, so the agent reads the template reason instead.
+// A hard rule never clears, and a misread overturn clears only when the config
+// allows it, so either keeps the deny; the judge's reason argues for the allow,
+// so the agent reads the template reason instead.
 export function buildJudgedVerdict(
   rule: Pick<DecisionRule, 'name' | 'tier' | 'source'>,
   basis: DenyBasis,
   reply: Readonly<JudgeReply> | null,
+  overturns: JudgeOverturns,
 ): JudgedVerdict {
   const template: Verdict = { kind: 'deny', rule: rule.name, reason: buildDenyReason(rule, basis) };
 
   if (reply === null || reply.kind === 'unreadable') {
-    return { verdict: template, status: 'failed' };
+    return { verdict: template, status: 'failed', overturnBasis: null };
   }
 
   if (reply.kind === 'overturn') {
-    return rule.tier === 'hard'
-      ? { verdict: template, status: 'held' }
-      : { verdict: { kind: 'allow' }, status: 'overturned' };
+    const isHeld = rule.tier === 'hard' || (reply.basis === 'misread' && overturns === 'consent');
+
+    return isHeld
+      ? { verdict: template, status: 'held', overturnBasis: reply.basis }
+      : { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: reply.basis };
   }
 
   return {
@@ -37,6 +42,7 @@ export function buildJudgedVerdict(
       reason: `The reviewer confirmed the ${rule.name} deny: ${formatJudgeText(reply.reason)}`,
     },
     status: 'confirmed',
+    overturnBasis: null,
   };
 }
 

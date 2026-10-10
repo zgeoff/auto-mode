@@ -4,8 +4,9 @@ Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/act
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
 an empty string to disable the file. A failed diagnostic write does not change the verdict. Records
-carry `schemaVersion` 3. A version 2 record lacks the three budget fields below, and a version 1
-record in an older file also carries `harness` and `event`.
+carry `schemaVersion` 4. A version 3 record lacks the `judge` field and the `judge` stage, a version
+2 record also lacks the three budget fields below, and a version 1 record in an older file also
+carries `harness` and `event`.
 
 The records exclude commands, paths, prompts, configuration contents, credentials, provider
 responses, and exception text. Configured and replacement rules use question identifiers; only
@@ -28,17 +29,25 @@ its choice, confidence, and `blockProbability`; the first one is the rule the de
 has no contributors. `blockThreshold` records the threshold in force. The final `verdict`
 distinguishes a failure that defers from one that fails closed.
 
+When the judge reviewed a Jev deny, `judge` holds its outcome; otherwise it is `null`. `status` is
+`confirmed`, `overturned`, `held` (an overturn of a hard rule, which keeps the deny), or `failed`.
+`failureReason` names the step that failed: `credential`, `policy`, `request`, `timeout`, or
+`unreadable`; it is `null` when the judge answered. `rule` is a shipped rule's name, or the rule's
+source for a configured or replacement rule; `tier`, `model` and `elapsedMs` complete the record.
+The judge's reason text is not recorded.
+
 Each final record also measures the task, so escalations can be counted per session:
 
-| Field           | Values                                                                               |
-| --------------- | ------------------------------------------------------------------------------------ |
-| `decidingStage` | `local`, `containment`, `jev`, `messages`, `retry`, or `budget`; `null` on `started` |
-| `denials`       | `{ consecutive, session }` after this action; `null` on `started`                    |
-| `escalation`    | `true` when the denial budget left this action to the user                           |
+| Field           | Values                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| `decidingStage` | `local`, `containment`, `jev`, `judge`, `messages`, `retry`, or `budget`; `null` on `started` |
+| `denials`       | `{ consecutive, session }` after this action; `null` on `started`                             |
+| `escalation`    | `true` when the denial budget left this action to the user                                    |
 
 `local` is the deterministic tier, `containment` a deny for a write outside the task scope, and
-`jev` or `messages` the classifier. `retry` is a repeat of the action just denied, denied again
-without a classifier call. `budget` marks the action that exceeded the
+`jev` or `messages` the classifier, and `judge` a Jev deny the judge confirmed, held or overturned,
+or one whose judge call failed. `retry` is a repeat of the action just denied, denied again without
+a classifier call. `budget` marks the action that exceeded the
 [denial budget](./configuration.md#denial-budget): auto-mode wrote no verdict, Claude Code showed
 its prompt, and `denials` restarts at zero. Denial counts outside these records live in
 `$XDG_STATE_HOME/auto-mode/denials/`, keyed by a hash of the session and subagent identifiers;

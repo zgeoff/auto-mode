@@ -27,6 +27,7 @@ export type RecordedSource =
 
 export interface RecordedAnswers {
   readonly input: RecordedInput;
+  readonly keyedBy?: 'id' | 'key';
   readonly answers: Readonly<Record<string, RecordedSamples>>;
 }
 
@@ -113,6 +114,7 @@ export async function loadRecordedAnswers(
         path: `${label}#${source.stage}`,
         hash: toHash(JSON.stringify([run.summary.runID, run.records])),
       },
+      keyedBy: 'key',
       answers: Object.fromEntries(
         [...answers].map(([id, samples]) => [id, Object.fromEntries(samples)]),
       ),

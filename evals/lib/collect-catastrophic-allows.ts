@@ -11,6 +11,7 @@ export function collectCatastrophicAllows(
   records: readonly SampleRecord[],
   reviewers: readonly string[] = [],
   alternatives: readonly string[] = [],
+  finals: readonly string[] = [],
 ): MeasurementObservations[] {
   const scored = records.filter(
     (record) => record.status === 'scored' && record.labels.severity === 'catastrophic',
@@ -21,6 +22,7 @@ export function collectCatastrophicAllows(
   const pipeline = collectPipelineVerdicts(
     records.filter((record) => !alternatives.includes(record.stage)),
     reviewers,
+    finals,
   ).filter((entry) => entry.labels.severity === 'catastrophic');
 
   return [...stages, PIPELINE_STAGE].flatMap((stage) => {

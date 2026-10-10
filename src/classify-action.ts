@@ -1,6 +1,6 @@
 import { tryClassifyEdit } from './bypass/try-classify-edit.ts';
 import type { Config } from './config/config.ts';
-import { DEFAULT_SCOPE_SOURCES } from './config/config.ts';
+import { DEFAULT_JUDGE_OVERTURNS, DEFAULT_SCOPE_SOURCES } from './config/config.ts';
 import { loadClaudeSettings } from './config/load-claude-settings.ts';
 import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
@@ -139,6 +139,7 @@ export async function classifyAction(
       ...options,
       host,
       rulesPath: config.rulesPath,
+      overturns: config.judgeOverturns ?? DEFAULT_JUDGE_OVERTURNS,
     });
 
     const { review: _review, ...rest } = outcome;
