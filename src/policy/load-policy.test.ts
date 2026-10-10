@@ -32,6 +32,7 @@ test('it assembles the shipped policy in a fixed order', async () => {
 
   expect(sections).toStrictEqual([
     '## Threat model',
+    '## Environment',
     '## Scope',
     '## The default is allow',
     '## The two block tiers',
@@ -51,6 +52,7 @@ test('it assembles the shipped decision framework when asked for it', async () =
   const sections = prompt.split('\n').filter((line) => line.startsWith('## '));
 
   expect(sections).toStrictEqual([
+    '## Environment and harm',
     '## Permission precedence',
     '## False-positive clarification',
     '## Evidence limits',

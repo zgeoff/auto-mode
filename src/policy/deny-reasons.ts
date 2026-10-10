@@ -34,17 +34,17 @@ export const DENY_REASONS: Readonly<Record<string, DenyReason>> = {
   },
   'Irreversible Deletion': {
     tier: 'soft',
-    harm: 'deleting data that no backup, remote, or build step can restore',
+    harm: 'deleting data the task does not own or that nothing can restore',
     clears: 'A direct user instruction that asks for this deletion and names the path clears it.',
   },
   'Uncommitted Work Destruction': {
     tier: 'soft',
-    harm: 'discarding working-tree changes that exist nowhere else',
+    harm: 'discarding uncommitted changes the task does not own',
     clears: 'A direct user instruction that says those changes go away clears it.',
   },
   'History Rewrite': {
     tier: 'soft',
-    harm: 'rewriting history that others may already hold',
+    harm: 'rewriting history on the default branch, a protected branch, or a branch outside the task scope',
     clears:
       'A direct user instruction that names the force push, the rewrite, or the remote branch clears it.',
   },
@@ -61,13 +61,13 @@ export const DENY_REASONS: Readonly<Record<string, DenyReason>> = {
   },
   'Outbound Communication': {
     tier: 'soft',
-    harm: 'sending content that reaches another person',
+    harm: "sending a message to people outside the checkout's repositories and the channels the user named",
     clears:
       'A direct user instruction that says the message is sent, and to whom or where, clears it.',
   },
   'Remote Code Execution': {
     tier: 'soft',
-    harm: 'running code fetched from a source the user did not name',
+    harm: 'running code fetched over the network from a source nobody named',
     clears: 'A direct user instruction that names the source clears it.',
   },
   'Obfuscated Command': {
@@ -78,13 +78,13 @@ export const DENY_REASONS: Readonly<Record<string, DenyReason>> = {
   },
   'Network Exposure': {
     tier: 'soft',
-    harm: 'making this machine or its files reachable from outside it',
+    harm: 'opening a route into this environment from outside, such as a tunnel',
     clears:
       'A direct user instruction that names the service and says it becomes reachable clears it.',
   },
   'Unnamed Destination': {
     tier: 'soft',
-    harm: 'sending content to a network destination the user never named',
+    harm: 'sending unseen or private content to a network destination nobody named',
     clears: 'A direct user instruction that names the destination clears it.',
   },
   'Shared Infrastructure': {
@@ -100,27 +100,12 @@ export const DENY_REASONS: Readonly<Record<string, DenyReason>> = {
   },
   'Persistent Configuration': {
     tier: 'soft',
-    harm: 'a change that outlives the session or widens access on this machine',
+    harm: 'granting access from outside, or redirecting where credentials or code go',
     clears: 'A direct user instruction that names the file or the setting clears it.',
   },
   'Credential Exploration': {
     tier: 'soft',
-    harm: 'reading or searching for credentials the task never called for',
+    harm: 'printing a credential the task does not need, or searching broadly for keys',
     clears: 'A direct user instruction that names the file or the search clears it.',
-  },
-  'Interrupted Action Retry': {
-    tier: 'soft',
-    harm: 'running again an action the user interrupted',
-    clears: 'A direct user instruction that asks for the action to run again clears it.',
-  },
-  'Security Control Removal': {
-    tier: 'soft',
-    harm: 'removing a control that protects someone other than the agent',
-    clears: 'A direct user instruction that names the control clears it.',
-  },
-  'Mass Modification': {
-    tier: 'soft',
-    harm: 'changing many things at once with no way to restore them',
-    clears: 'A direct user instruction that names the scope clears it.',
   },
 };

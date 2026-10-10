@@ -168,7 +168,7 @@ test('it sends the configured rules and the direct user message without the sett
             criteria: {
               allow,
               block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
             },
           },
         ]),
@@ -190,9 +190,6 @@ test('it sends the configured rules and the direct user message without the sett
             ['rule_16', 'Destructive Database Operation'],
             ['rule_17', 'Persistent Configuration'],
             ['rule_18', 'Credential Exploration'],
-            ['rule_19', 'Interrupted Action Retry'],
-            ['rule_20', 'Security Control Removal'],
-            ['rule_21', 'Mass Modification'],
           ] as const
         ).map(([id, heading]) => [
           id,
@@ -205,7 +202,7 @@ test('it sends the configured rules and the direct user message without the sett
               allow:
                 'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
               block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
             },
           },
         ]),
@@ -218,7 +215,7 @@ test('it sends the configured rules and the direct user message without the sett
           allow:
             'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
           block: 'This named rule blocks the action and no permitted exception clears it.',
-          ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+          ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
         },
       },
     },
@@ -430,7 +427,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
               criteria: {
                 allow,
                 block: 'This named rule blocks the action and no permitted exception clears it.',
-                ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+                ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
               },
             },
           ]),
@@ -452,9 +449,6 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
               ['rule_16', 'Destructive Database Operation'],
               ['rule_17', 'Persistent Configuration'],
               ['rule_18', 'Credential Exploration'],
-              ['rule_19', 'Interrupted Action Retry'],
-              ['rule_20', 'Security Control Removal'],
-              ['rule_21', 'Mass Modification'],
             ] as const
           ).map(([id, heading]) => [
             id,
@@ -467,7 +461,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
                 allow:
                   'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
                 block: 'This named rule blocks the action and no permitted exception clears it.',
-                ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+                ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
               },
             },
           ]),
@@ -709,7 +703,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
             block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
           },
         },
       },
@@ -956,7 +950,7 @@ test('it evaluates a subagent on its task context without the parent consent', a
           allow:
             'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
           block: 'This named rule blocks the action and no permitted exception clears it.',
-          ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+          ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
         },
       },
       rule_1: {
@@ -967,7 +961,7 @@ test('it evaluates a subagent on its task context without the parent consent', a
           allow:
             'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
           block: 'This named rule blocks the action and no permitted exception clears it.',
-          ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+          ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
         },
       },
     },
@@ -1154,7 +1148,7 @@ test('it sends checked branch evidence for a routine feature commit and allows i
             criteria: {
               allow,
               block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
             },
           },
         ]),
@@ -1176,9 +1170,6 @@ test('it sends checked branch evidence for a routine feature commit and allows i
             ['rule_16', 'Destructive Database Operation'],
             ['rule_17', 'Persistent Configuration'],
             ['rule_18', 'Credential Exploration'],
-            ['rule_19', 'Interrupted Action Retry'],
-            ['rule_20', 'Security Control Removal'],
-            ['rule_21', 'Mass Modification'],
           ] as const
         ).map(([id, heading]) => [
           id,
@@ -1191,7 +1182,7 @@ test('it sends checked branch evidence for a routine feature commit and allows i
               allow:
                 'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
               block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
             },
           },
         ]),
@@ -1345,7 +1336,7 @@ test.each([
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
             block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
           },
         },
         rule_1: {
@@ -1356,7 +1347,7 @@ test.each([
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
             block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
           },
         },
       },
@@ -1487,7 +1478,7 @@ test.each(['Write', 'Edit'])(
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
             block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
           },
         },
         rule_1: {
@@ -1498,7 +1489,7 @@ test.each(['Write', 'Edit'])(
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
             block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
           },
         },
       },
@@ -1632,7 +1623,7 @@ test.each([
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
             block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
           },
         },
         rule_1: {
@@ -1643,7 +1634,7 @@ test.each([
             allow:
               'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
             block: 'This named rule blocks the action and no permitted exception clears it.',
-            ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+            ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
           },
         },
       },
@@ -2190,7 +2181,7 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
             criteria: {
               allow,
               block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
             },
           },
         ]),
@@ -2212,9 +2203,6 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
             ['rule_16', 'Destructive Database Operation'],
             ['rule_17', 'Persistent Configuration'],
             ['rule_18', 'Credential Exploration'],
-            ['rule_19', 'Interrupted Action Retry'],
-            ['rule_20', 'Security Control Removal'],
-            ['rule_21', 'Mass Modification'],
           ] as const
         ).map(([id, heading]) => [
           id,
@@ -2227,7 +2215,7 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
               allow:
                 'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.',
               block: 'This named rule blocks the action and no permitted exception clears it.',
-              ask: 'Evidence needed to settle this rule is absent or ambiguous; a human must decide.',
+              ask: 'Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.',
             },
           },
         ]),

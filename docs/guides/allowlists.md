@@ -93,13 +93,13 @@ to these settings or to the mod that runs auto-mode can match Policy Tampering.
 }
 ```
 
-| Entry                | Kind     | What it bypasses or decides                                                                                                                                                                                           |
-| -------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Bash(gh pr view)`   | Bypass   | Every auto-mode rule for this exact command, and the model call it would cost.                                                                                                                                        |
-| `Bash(gh pr checks)` | Bypass   | The same, for the check status of the current branch's pull request.                                                                                                                                                  |
-| `Bash(gh run list)`  | Bypass   | The same, for the list of recent workflow runs.                                                                                                                                                                       |
-| Pull request entry   | Decision | Can clear Outbound Communication for those three commands on `<owner>` repositories. Merging stays under Default Branch Write. A body or comment that carries a credential still matches Data Exfiltration.           |
-| `generated/` entry   | Decision | Can clear Irreversible Deletion for that one directory. Replace `generated/` with the build output your repository recreates; `dist`, `build`, and other common names already match the Regenerable output exception. |
+| Entry                | Kind     | What it bypasses or decides                                                                                                                                                                                                                       |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Bash(gh pr view)`   | Bypass   | Every auto-mode rule for this exact command, and the model call it would cost.                                                                                                                                                                    |
+| `Bash(gh pr checks)` | Bypass   | The same, for the check status of the current branch's pull request.                                                                                                                                                                              |
+| `Bash(gh run list)`  | Bypass   | The same, for the list of recent workflow runs.                                                                                                                                                                                                   |
+| Pull request entry   | Decision | Can clear Outbound Communication for those three commands on `<owner>` repositories that are not a remote of the checkout. Merging stays under Default Branch Write. A body or comment that carries a credential still matches Data Exfiltration. |
+| `generated/` entry   | Decision | Can clear Irreversible Deletion for that one directory. Replace `generated/` with the build output your repository recreates; `dist`, `build`, and other common names already match the Regenerable output exception.                             |
 
 Each bypass entry is an exact command that only reads pull request or workflow state, so no hard
 rule can match what it does. auto-mode's local tier does not allow `gh`, so each run that reaches

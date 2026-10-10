@@ -55,6 +55,14 @@ export function buildRecordedDecision(
 
 const CONFIGURED_KEY = /^(?<category>hard_deny|soft_deny)_(?<index>\d+)$/u;
 
+// Recorded answers can name a rule the shipped policy has retired; each replays at
+// the tier it held when the answers were recorded.
+const RETIRED_RULE_TIERS: Readonly<Record<string, DecisionRule['tier']>> = {
+  'Interrupted Action Retry': 'soft',
+  'Security Control Removal': 'soft',
+  'Mass Modification': 'soft',
+};
+
 function buildRule(
   key: string,
   tiers: Readonly<Record<string, DecisionRule['tier']>>,
@@ -72,7 +80,7 @@ function buildRule(
     };
   }
 
-  const tier = tiers[key];
+  const tier = tiers[key] ?? RETIRED_RULE_TIERS[key];
 
   if (tier === undefined) {
     throw new Error(`The recorded answers name a rule the shipped policy lacks: ${key}`);

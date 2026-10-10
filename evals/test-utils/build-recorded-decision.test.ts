@@ -38,6 +38,18 @@ test('it names a configured rule from its request id and tiers it by its categor
   });
 });
 
+test('it tiers a retired shipped rule by the tier it held when the answers were recorded', () => {
+  const decision = buildRecordedDecision(
+    { 'Mass Modification': ['allow', 0.9, 0.9, 0.05, 0.05] },
+    {},
+    'jev-1.13.0',
+  );
+
+  expect(decision.request.rules).toStrictEqual({
+    'Mass Modification': { name: 'Mass Modification', tier: 'soft', source: 'shipped', text: '' },
+  });
+});
+
 test('it answers each rule with the recorded choice, confidence, and probabilities', () => {
   const decision = buildRecordedDecision(
     { 'History Rewrite': ['ask', 0.6, 0.3, 0.1, 0.6] },
