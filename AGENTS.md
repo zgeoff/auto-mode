@@ -198,8 +198,8 @@ the judge after Jev, and is the library entry point; `index.ts` is the public AP
 is the unpublished `auto-mode/eval` subpath; `cli.ts` is the entrypoint the mod runs.
 `mods/auto-mode/` is the Claude Code mod; its `contract/` holds the request and verdict shapes, the
 message origins and the scope commands that the mod and the CLI share, with no dependencies, because
-the mod ships as raw TypeScript. `policy/` at the repo root holds the prompt itself.
-`fixtures/` holds mod requests recorded in a live Claude Code session.
+the mod ships as raw TypeScript. `policy/` at the repo root holds the prompt itself. `fixtures/`
+holds mod requests recorded in a live Claude Code session.
 
 `evals/` holds the evaluation tooling: `eval.ts` is the `bun run eval` command, which plans, runs,
 resumes and compares one experiment, measures live use from the action log, and anonymises a request
