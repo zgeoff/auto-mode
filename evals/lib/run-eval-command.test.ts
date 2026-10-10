@@ -72,6 +72,16 @@ test.each<[string, string[], string]>([
     ['live', '--since', '2026-10-10T10:00'],
     '--since takes an ISO 8601 time with an offset, or a date, not 2026-10-10T10:00.',
   ],
+  [
+    'an anonymise without --out',
+    ['anonymise', 'requests.jsonl'],
+    'anonymise takes one or more capture files and --out <dir>.',
+  ],
+  [
+    'an anonymise without capture files',
+    ['anonymise', '--out', 'corpus'],
+    'anonymise takes one or more capture files and --out <dir>.',
+  ],
 ])('it exits 2 with the problem and the usage for %s', async (_label, argv, problem) => {
   const ctx = await setupTest();
 

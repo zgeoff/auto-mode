@@ -7,6 +7,9 @@ import { planDenialBudget } from './budget/plan-denial-budget.ts';
 import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
 import type { DenialState } from './budget/types.ts';
 import { writeDenialState } from './budget/write-denial-state.ts';
+import { resolveCaptureDir } from './capture/resolve-capture-dir.ts';
+import type { CaptureOutcome } from './capture/try-write-request-capture.ts';
+import { tryWriteRequestCapture } from './capture/try-write-request-capture.ts';
 import type { ActionOutcome } from './classify-action.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
@@ -258,6 +261,19 @@ async function run(
       io.stderr,
     );
 
+    if (config.capture?.enabled === true) {
+      const captured = await tryWriteRequestCapture(resolveCaptureDir(config.capture, host), {
+        schemaVersion: 1,
+        time: new Date().toISOString(),
+        request: body,
+        verdict: plan.verdict,
+        decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
+        escalation: plan.escalation,
+      });
+
+      printCaptureNote(io.stderr, captured);
+    }
+
     const note = plan.escalation
       ? 'denial budget exhausted; the user decides this action'
       : outcome.note;
@@ -296,6 +312,16 @@ async function tryWriteDenialState(
 
 function printVerdict(stdout: Readonly<OutputStream>, verdict: Verdict): void {
   stdout.write(renderVerdict(verdict));
+}
+
+function printCaptureNote(stderr: Readonly<OutputStream>, captured: CaptureOutcome): void {
+  if (captured.kind === 'refused') {
+    stderr.write(`auto-mode: capture skipped: ${captured.reason}\n`);
+  }
+
+  if (captured.kind === 'failed') {
+    stderr.write('auto-mode: capture unavailable\n');
+  }
 }
 
 // Writes nothing on stdout: a record is not a verdict, and a failure costs the

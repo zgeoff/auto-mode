@@ -29,6 +29,11 @@ type ScopeSourceKind = (typeof SCOPE_SOURCE_KINDS)[number];
 
 const SCOPE_SOURCE_KINDS = ['cwd', 'session', 'globs', 'atc'] as const;
 
+export interface CaptureConfig {
+  readonly enabled: boolean;
+  readonly dir?: string | undefined;
+}
+
 export interface Config {
   readonly provider: ProviderConfig;
   readonly judge?: ProviderConfig | null;
@@ -39,6 +44,7 @@ export interface Config {
   readonly claudeSettingsPath?: string | null | undefined;
   readonly blockThreshold?: number | undefined;
   readonly denialBudget?: DenialBudget;
+  readonly capture?: CaptureConfig;
   readonly warnings?: readonly string[];
 }
 
@@ -130,6 +136,12 @@ const configFileSchema = z.strictObject({
       claudeSettingsPath: text.nullable().optional(),
     })
     .optional(),
+  capture: z
+    .strictObject({
+      enabled: z.boolean().optional(),
+      dir: text.optional(),
+    })
+    .optional(),
 });
 
 function buildConfig(json: unknown, path: string, home: string): Config {
@@ -185,6 +197,14 @@ function buildConfig(json: unknown, path: string, home: string): Config {
       consecutive: decision.denialBudget?.consecutive ?? DEFAULT_DENIAL_BUDGET.consecutive,
       perSession: decision.denialBudget?.perSession ?? DEFAULT_DENIAL_BUDGET.perSession,
     },
+    ...(file.capture === undefined
+      ? {}
+      : {
+          capture: {
+            enabled: file.capture.enabled ?? false,
+            dir: expandHomePath(file.capture.dir, home),
+          },
+        }),
     warnings,
   };
 }

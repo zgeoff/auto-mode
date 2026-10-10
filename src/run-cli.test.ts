@@ -1,5 +1,5 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, http } from 'msw';
@@ -1728,4 +1728,154 @@ test('it leaves stop signals alone outside Jev-only mode', async () => {
   });
 
   expect(ctx.stopSignals.subscribeToStopSignals).not.toHaveBeenCalled();
+});
+
+test('it captures no request when the config leaves capture off', async () => {
+  const ctx = await setupTest();
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Read',
+    toolInput: { file_path: join(ctx.repo, 'file.ts') },
+  });
+
+  await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  const stateEntries = await readdir(join(ctx.dir, 'auto-mode'));
+
+  expect(stateEntries).toStrictEqual(['denials']);
+});
+
+test('it captures the mod request with its verdict and deciding stage when capture is on', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({ capture: { enabled: true } }),
+  );
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Read',
+    toolInput: { file_path: join(ctx.repo, 'file.ts') },
+  });
+
+  const runStartedAt = Date.now();
+
+  const exitCode = await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  const runFinishedAt = Date.now();
+  const captures = join(ctx.dir, 'auto-mode', 'captures');
+
+  const entries = await readdir(captures);
+
+  const files = entries.filter((entry) => entry !== '.gitignore');
+
+  invariant(files.length === 1 && files[0] !== undefined, 'the run wrote one capture file');
+
+  const content = await readFile(join(captures, files[0]), 'utf8');
+
+  const lines = content.trim().split('\n');
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '{"decision":"allow"}',
+    stderr: '',
+  });
+
+  expect(files[0]).toMatch(/^requests-\d{4}-\d{2}-\d{2}\.jsonl$/);
+
+  expect(lines.map((line) => JSON.parse(line) as unknown)).toStrictEqual([
+    {
+      schemaVersion: 1,
+      time: expect.toSatisfy(
+        (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
+      ),
+      request: payload,
+      verdict: { kind: 'allow' },
+      decidingStage: 'local',
+      escalation: false,
+    },
+  ]);
+});
+
+test('it refuses to capture inside a git work tree and keeps the verdict', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({ capture: { enabled: true, dir: join(ctx.repo, 'captures') } }),
+  );
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Read',
+    toolInput: { file_path: join(ctx.repo, 'file.ts') },
+  });
+
+  const exitCode = await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '{"decision":"allow"}',
+    stderr: `auto-mode: capture skipped: the capture dir is inside the git work tree ${ctx.repo}\n`,
+  });
+
+  const repoEntries = await readdir(ctx.repo);
+
+  expect(repoEntries).toStrictEqual(['.git']);
+});
+
+test('it keeps the verdict and exit code when the capture write fails', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(join(ctx.dir, 'blocker'), '');
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({ capture: { enabled: true, dir: join(ctx.dir, 'blocker', 'captures') } }),
+  );
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Read',
+    toolInput: { file_path: join(ctx.repo, 'file.ts') },
+  });
+
+  const exitCode = await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '{"decision":"allow"}',
+    stderr: 'auto-mode: capture unavailable\n',
+  });
 });
