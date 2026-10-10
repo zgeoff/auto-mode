@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { answerGuidanceCorpusSchema } from '../../scripts/answer-guidance-corpus-schema.ts';
-import { pickEvaluationVerdict } from '../../src/evaluation/pick-evaluation-verdict.ts';
-import { buildRecordedDecision } from '../test-utils/build-recorded-decision.ts';
-import { answerGuidanceReportSchema } from '../test-utils/corpora/answer-guidance-report-schema.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
-import { loadShippedRuleTiers } from '../test-utils/load-shipped-rule-tiers.ts';
+import { answerGuidanceCorpusSchema } from '../lib/answer-guidance-corpus-schema.ts';
+import { buildRecordedDecision } from '../lib/build-recorded-decision.ts';
+import { answerGuidanceReportSchema } from '../lib/corpora/answer-guidance-report-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadShippedRuleTiers } from '../lib/load-shipped-rule-tiers.ts';
+import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
 
 test.each([
   ['before', 'docs/evaluations/answer-guidance-before.json'],
@@ -12,7 +12,7 @@ test.each([
 ])('it records the %s phase on the committed corpus', async (_phase, path) => {
   const [report, corpus] = await Promise.all([
     loadCorpus(path, answerGuidanceReportSchema),
-    loadCorpus('fixtures/answer-guidance/cases.json', answerGuidanceCorpusSchema),
+    loadCorpus('evals/corpora/answer-guidance/cases.json', answerGuidanceCorpusSchema),
   ]);
 
   expect(report.data.corpusHash).toBe(corpus.hash);
@@ -26,7 +26,7 @@ test.each([
   async (_phase, path) => {
     const [report, corpus] = await Promise.all([
       loadCorpus(path, answerGuidanceReportSchema),
-      loadCorpus('fixtures/answer-guidance/cases.json', answerGuidanceCorpusSchema),
+      loadCorpus('evals/corpora/answer-guidance/cases.json', answerGuidanceCorpusSchema),
     ]);
 
     expect(report.data.records).toHaveLength(12);

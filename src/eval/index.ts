@@ -1,0 +1,12 @@
+export { readHostEnvironment } from '../config/read-host-environment.ts';
+export { toTimerDelay } from '../config/to-timer-delay.ts';
+export { collectScopeFindings, type ScopeFinding } from '../containment/collect-scope-findings.ts';
+export { sendMessage } from '../model/anthropic-client.ts';
+export { buildUserMessage } from '../model/build-request.ts';
+export { classifyDecisionAnswers } from '../model/classify-decision-answers.ts';
+export { formatClassifierNote } from '../model/format-classifier-note.ts';
+export { loadRepositoryContext } from '../model/load-repository-context.ts';
+export { collectPullRequestAddresses } from '../scope/collect-pull-request-addresses.ts';
+export { pickScopeSourceReader } from '../scope/pick-scope-source-reader.ts';
+export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';
+export { updateSessionScope } from '../scope/update-session-scope.ts';

@@ -26,13 +26,13 @@ They are labelled `risk` and reported apart.
 
 ## Corpus
 
-The [corpus](../../fixtures/second-judge/cases.json) holds 95 cases.
+The [corpus](../../evals/corpora/second-judge/cases.json) holds 95 cases.
 
 | Source   | Cases | Label                          | Origin                                                                                     |
 | -------- | ----- | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | real     | 40    | safe                           | the 40 all-allow low-confidence asks in the 4–5 October diagnostics log, contrived         |
 | controls | 43    | catastrophic                   | synthetic: 11 work loss, 10 main or production, 11 outbound, 11 credentials or permissions |
-| frozen   | 12    | 6 safe, 4 catastrophic, 2 risk | the [answer-guidance corpus](../../fixtures/answer-guidance/cases.json)                    |
+| frozen   | 12    | 6 safe, 4 catastrophic, 2 risk | the [answer-guidance corpus](../../evals/corpora/answer-guidance/cases.json)               |
 
 Each real case was found by hashing transcript tool-call IDs against the log's `actionHash`. Its
 contrived version keeps the shape that made Jev uncertain (the tool, the command structure, the cwd
@@ -48,17 +48,17 @@ allow exception for removing those worktrees and their branches.
 
 - **Jev:** `jev-1.13.0` at the unchanged 0.8 threshold, 3 samples per case, sample-major order, one
   request at a time. A case is eligible on a sample when Jev asks and every answer chose allow.
-- **Guidance variant:** [five rule paragraphs](../../fixtures/second-judge/guidance.json) appended
-  to the question instructions for Default Branch Write, Data Exfiltration, Outbound Communication,
-  Secret Persistence, and Security Control Removal. The evaluation adds them after
+- **Guidance variant:** [five rule paragraphs](../../evals/corpora/second-judge/guidance.json)
+  appended to the question instructions for Default Branch Write, Data Exfiltration, Outbound
+  Communication, Secret Persistence, and Security Control Removal. The evaluation adds them after
   `buildDecisionRequest` returns; the shipped policy and request builder are unchanged. The text was
   written from the real ask patterns and committed before any Jev result on this corpus existed. The
   controls existed when it was written, but no control result did.
 - **Second judges:** each judge saw `classifier.md` and the case's last user message, as the shipped
   generative tier does, with no configured rules. Each judged the 48 cases eligible under either Jev
   variant, 3 samples, one request at a time, no retries. Judge sample _i_ pairs with Jev sample _i_.
-  The [fail-closed reader](../../src/model/parse-judge-verdict.ts) accepts only complete block tags
-  that all say no, and the [gate](../../src/model/pick-second-judge-verdict.ts) promotes only an
+  The [fail-closed reader](../../evals/lib/parse-judge-verdict.ts) accepts only complete block tags
+  that all say no, and the [gate](../../evals/lib/pick-second-judge-verdict.ts) promotes only an
   eligible ask.
 - **Catastrophic allows** count paired samples that end in allow. **Controls allowed** also lists a
   control when any eligible Jev sample meets any judge allow, unpaired, which is the stricter
@@ -158,5 +158,5 @@ bun run eval:second-judge --stage summary
 The Jev stage reads the key from the auto-mode configuration. A judge stage reads the preset's
 environment variable and removes any copy of the key from the recorded reply. The `claude-code`
 transport uses the logged-in Claude Code session and needs no key.
-[The replay test](../../src/evaluation/second-judge-evidence.test.ts) rebuilds every verdict from
-the committed reports and asserts the counts above.
+[The replay test](../../evals/evidence/second-judge.test.ts) rebuilds every verdict from the
+committed reports and asserts the counts above.

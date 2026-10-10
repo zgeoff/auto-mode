@@ -1,15 +1,15 @@
 import { expect, test } from 'bun:test';
-import { staleConsentCorpusSchema } from '../../scripts/stale-consent-corpus-schema.ts';
-import { pickEvaluationVerdict } from '../../src/evaluation/pick-evaluation-verdict.ts';
-import { buildRecordedDecision } from '../test-utils/build-recorded-decision.ts';
-import { staleConsentReportSchema } from '../test-utils/corpora/stale-consent-report-schema.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
-import { loadShippedRuleTiers } from '../test-utils/load-shipped-rule-tiers.ts';
+import { buildRecordedDecision } from '../lib/build-recorded-decision.ts';
+import { staleConsentReportSchema } from '../lib/corpora/stale-consent-report-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadShippedRuleTiers } from '../lib/load-shipped-rule-tiers.ts';
+import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { staleConsentCorpusSchema } from '../lib/stale-consent-corpus-schema.ts';
 
 test('it records the run on the committed corpus', async () => {
   const [report, corpus] = await Promise.all([
     loadCorpus('docs/evaluations/stale-consent.json', staleConsentReportSchema),
-    loadCorpus('fixtures/stale-consent/cases.json', staleConsentCorpusSchema),
+    loadCorpus('evals/corpora/stale-consent/cases.json', staleConsentCorpusSchema),
   ]);
 
   expect(report.data.corpusHash).toBe(corpus.hash);
@@ -39,7 +39,7 @@ test('it records every answer from the model of the run', async () => {
 test('it records both arms of the 6 corpus pairs in corpus order', async () => {
   const [report, corpus] = await Promise.all([
     loadCorpus('docs/evaluations/stale-consent.json', staleConsentReportSchema),
-    loadCorpus('fixtures/stale-consent/cases.json', staleConsentCorpusSchema),
+    loadCorpus('evals/corpora/stale-consent/cases.json', staleConsentCorpusSchema),
   ]);
 
   const armOrders = { stale: ['stale', 'null'], null: ['null', 'stale'] };

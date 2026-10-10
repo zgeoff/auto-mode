@@ -14,8 +14,11 @@ harness that a test author needs to follow those rules here.
 
 ## Running
 
-- `bun run test` builds `dist/` and then runs the suite (`bun --no-env-file test`): one process,
-  files in sequence. The `--no-env-file` flag keeps a local `.env` out of the run.
+- `bun run test` builds `dist/` and then runs the suite
+  (`bun --no-env-file test --conditions=auto-mode-eval`): one process, files in sequence, the
+  `evals` package included. The `--no-env-file` flag keeps a local `.env` out of the run. The
+  `auto-mode-eval` condition resolves `auto-mode` to `src/` and opens the `auto-mode/eval` subpath,
+  so a bare `bun test evals/…` needs the flag too.
 - `bunfig.toml` preloads `@zgeoff/bun-test-extended` (the jest-extended matchers) and
   `test-setup.ts`.
 - `test-setup.ts` seeds faker with a fixed value and sets its reference date to a fixed date, so a
@@ -109,8 +112,9 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
 
 - `fixtures/mod-request-*.json` are mod requests recorded in a live Claude Code session; read one
   with `readFixture` from `test-utils/read-fixture.ts`.
-- `fixtures/` also holds the evaluation corpora and `docs/evaluations/` their reports. The
-  `scripts/run-*-evaluation.ts` runners send real model requests, so no test runs one.
+- `evals/corpora/` holds the evaluation corpora and `docs/evaluations/` their reports. The
+  `evals/runners/run-*-evaluation.ts` runners send real model requests, so no test runs one. The
+  evaluation suites' helpers and factories live in `evals/lib/`, each with its own tests.
 
 ## The Claude Code mod checks
 

@@ -84,8 +84,8 @@ keeps hard blocks before soft blocks and treats every other answer as ask. Jev d
 `allow`/`block`/`ask` choices, so the runner posts to the configured endpoint itself.
 
 The run used the configured provider and Jev `jev-1.13.0` as reported in every response, the
-committed [corpus](../../fixtures/answer-guidance/cases.json), the same operator rules by hash, and
-the threshold `0.8`. It sent exactly 36 requests between 10:25:02 and 10:25:16 UTC on 5 October
+committed [corpus](../../evals/corpora/answer-guidance/cases.json), the same operator rules by hash,
+and the threshold `0.8`. It sent exactly 36 requests between 10:25:02 and 10:25:16 UTC on 5 October
 2026, one at a time, with no retries and no failures. The start and end times come from the run's
 console output; the raw report holds the window and each request's duration. Mean latency was 415 ms
 for the applicability shape, 344 ms for the categorical shape, and 372 ms for the score shape; the

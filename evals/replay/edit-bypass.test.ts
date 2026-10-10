@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test';
-import type { EditClassification } from '../../src/bypass/classify-edit.ts';
-import { classifyRecordedEdit } from '../test-utils/classify-recorded-edit.ts';
-import { countValues } from '../test-utils/count-values.ts';
-import { loadDecisionRulesCases } from '../test-utils/load-decision-rules-cases.ts';
+import type { EditClassification } from 'auto-mode';
+import { classifyRecordedEdit } from '../lib/classify-recorded-edit.ts';
+import { countValues } from '../lib/count-values.ts';
+import { loadDecisionRulesCases } from '../lib/load-decision-rules-cases.ts';
 
 test('it lets 83 of the 96 real file-tool edits skip Jev in the cwd scope of their session', async () => {
-  const cases = await loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json');
+  const cases = await loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json');
 
   const edits = cases.filter((entry) => ['Edit', 'Write', 'NotebookEdit'].includes(entry.tool));
 
@@ -22,7 +22,7 @@ test('it lets 83 of the 96 real file-tool edits skip Jev in the cwd scope of the
 });
 
 test('it sends the other real file-tool edits, 3 secret-shaped edits among them, to Jev', async () => {
-  const cases = await loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json');
+  const cases = await loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json');
 
   const edits = cases.filter((entry) => ['Edit', 'Write', 'NotebookEdit'].includes(entry.tool));
 
@@ -45,7 +45,7 @@ test('it sends the other real file-tool edits, 3 secret-shaped edits among them,
 });
 
 test('it classifies none of the 136 real actions that are not file-tool edits', async () => {
-  const cases = await loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json');
+  const cases = await loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json');
 
   const others = cases.filter((entry) => !['Edit', 'Write', 'NotebookEdit'].includes(entry.tool));
 

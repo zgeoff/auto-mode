@@ -23,7 +23,7 @@ The probe made no Jev call. Its evidence is on GEO-81.
 
 ## Method
 
-The [corpus](../../fixtures/relay-consent/cases.json) holds 8 synthetic actions in a fictional
+The [corpus](../../evals/corpora/relay-consent/cases.json) holds 8 synthetic actions in a fictional
 repository. None of them ran.
 
 - **6 risky actions**: 2 commits pushed to `main`, 2 `gh pr create` calls, and 2 comments (one on a

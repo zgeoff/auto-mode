@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
 import { resolve } from 'node:path';
-import { buildSecondJudgeSummary } from '../../src/evaluation/build-second-judge-summary.ts';
-import { jevReportSchema } from '../../src/evaluation/jev-report-schema.ts';
-import { judgeReportSchema } from '../../src/evaluation/judge-report-schema.ts';
-import { loadSecondJudgeCorpus } from '../../src/evaluation/load-second-judge-corpus.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
+import { buildSecondJudgeSummary } from '../lib/build-second-judge-summary.ts';
+import { jevReportSchema } from '../lib/jev-report-schema.ts';
+import { judgeReportSchema } from '../lib/judge-report-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 
 test('it holds 95 cases in the committed second-judge corpus', async () => {
   const corpus = await loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..'));
