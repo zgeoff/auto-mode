@@ -48,7 +48,7 @@ the one-question shape beside the per-rule shape.
   and `infrastructure-failures` (5); every experiment also reports 5 for the stages it sends.
 - **The results repo** (`zgeoff/auto-mode-evals`, private) holds every run: a run summary with the
   frozen run config, hashes and counts, and one record per sample.
-- **The action-log reader** turns the diagnostics log into measurement 6.
+- **The action-log reader,** `bun run eval live`, turns the diagnostics log into measurement 6.
 
 **Why:** results are large and change on every run, and the public repo is not the place for them.
 Each result records the public commit it ran against, so the two repos stay linked.

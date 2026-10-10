@@ -113,10 +113,35 @@ Both runs must be of one experiment. The output shows each count with its denomi
 the paired per-case difference over the cases both runs hold, and every config field that differs,
 such as the policy, corpus or labels hash or the model.
 
+## Measure live use
+
+```sh
+bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
+```
+
+`live` reads the [action log](../guides/diagnostics.md) and reports measurement 6. Without `--log`
+it reads the path the CLI writes: `AUTO_MODE_DIAGNOSTICS_PATH`, or
+`$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/actions.jsonl`. `--since`
+leaves out the records written before that time. It reads version 3 records; it counts and skips
+records of any other version, and drops and reports a torn last line.
+
+A task is one session. The record holds no agent identifier, so a subagent's actions count with the
+session that spawned it, though the denial budget counts a subagent apart. The command prints:
+
+- escalations per task: tasks with an escalation out of tasks, and every escalation over tasks;
+- tasks that recover after a deny: a task recovers when an action is allowed after its first deny
+  and before any escalation, out of the tasks with a deny;
+- denials per action for each deciding stage, over every action, clustered by task;
+- the records, the started records with no final record, the tasks, and the time span.
+
+The run goes to `runs/live-use/<run>/summary.json` in the results clone, with the public commit,
+whether the tree was dirty, and the SHA-256 of the log bytes it read. It holds only counts and the
+hashed session identifiers the log already holds: never a log line or the log path.
+
 ## Commit the run
 
-In the results clone, commit the new `runs/<experiment>/<run>/` directory and push it. Never commit
-a run, or any part of one, to this repository.
+In the results clone, commit the new `runs/<experiment>/<run>/` or `runs/live-use/<run>/` directory
+and push it. Never commit a run, or any part of one, to this repository.
 
 ## Reproduce a legacy summary
 
