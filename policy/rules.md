@@ -93,6 +93,10 @@ and any write to a block device.
 Examples: `rm -rf ~`, `rm -rf /`, `rm -rf ..`, `rm -rf ~/projects`,
 `dd of=/dev/sda`, and deleting a sibling repository or another worktree.
 
+Overwriting a file destroys its old content, so it counts as deleting it.
+Replacing an existing private key or credential file matches this rule: for
+example, `ssh-keygen -f ~/.ssh/id_ed25519` answered `y` over an existing key.
+
 Git restores a tracked file whose content is committed, so deleting one is not
 this rule; uncommitted changes in it are Uncommitted Work Destruction. A
 directory the remote already holds is restorable too, unless it also holds an
