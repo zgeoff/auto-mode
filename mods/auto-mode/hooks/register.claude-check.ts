@@ -717,6 +717,44 @@ test('it carries the session identity and the direct user message', async ($, on
   expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
 });
 
+test('it sends the earlier direct message as stale after a relayed plugin prompt', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('classic.SessionStart', () => ({}));
+  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-1' }),
+    source: 'startup',
+  });
+
+  await $.prompt.submit({ text: 'Push it to main.', origin: { kind: 'composer' } });
+  await $.prompt.submit({ text: 'Relayed request', origin: { kind: 'plugin' } });
+  await $.tool.check({ tool: 'Bash', input: { command: 'git push origin main' } });
+
+  const [call] = processRun.calls;
+
+  assertDefined(call);
+
+  expect(call.request).toStrictEqual({
+    sessionID: 'session-1',
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin main' },
+    context: {
+      agentID: null,
+      originalUserTask: { text: 'Push it to main.', origin: 'composer' },
+      delegatedTask: null,
+      lastDirectUserMessage: { text: 'Push it to main.', origin: 'composer', freshness: 'stale' },
+      omittedTaskContext: [],
+    },
+  });
+});
+
 test('it preserves the complete action without truncation', async ($, on) => {
   const content = 'x'.repeat(120_000);
   const decided = buildMockPermissionDecision({ decision: 'ask' });

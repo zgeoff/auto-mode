@@ -5,6 +5,7 @@ import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
+import { findCurrentDirectUserMessage } from '../request/find-current-direct-user-message.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import type { ModelOutcome } from './classify-with-model.ts';
@@ -50,10 +51,7 @@ export async function classifyWithJev(
 
     stage = 'evidence';
 
-    const directUserText =
-      payload.decisionContext?.agentID === null
-        ? (payload.decisionContext.lastDirectUserMessage?.text ?? null)
-        : null;
+    const directUserText = findCurrentDirectUserMessage(payload.decisionContext);
 
     const settings = await (options.claudeSettings ??
       loadClaudeSettings(config.claudeSettingsPath, options.host));

@@ -477,7 +477,7 @@ function buildMarkedRequest(base: DecisionRequest, guidance: string): DecisionRe
       lastUserMessage: null,
       taskContext: {
         ...context,
-        lastDirectUserMessage: { ...message, freshness: 'stale' } as typeof message,
+        lastDirectUserMessage: { ...message, freshness: 'stale' },
       },
     },
   };

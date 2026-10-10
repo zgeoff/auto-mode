@@ -1,4 +1,4 @@
-import type { PromptContext, UserTask } from './types.ts';
+import type { DirectUserMessage, PromptContext, UserTask } from './types.ts';
 
 export function buildPromptContext(
   previous: PromptContext | null,
@@ -20,16 +20,26 @@ export function buildPromptContext(
 
   const origin = input.origin.kind;
 
-  const lastDirectUserMessage: UserTask | null =
-    origin === 'composer' || origin === 'bridge' || origin === 'sdk'
-      ? { text: input.text, origin }
-      : (previous?.lastDirectUserMessage ?? null);
+  if (origin !== 'composer' && origin !== 'bridge' && origin !== 'sdk') {
+    return {
+      originalUserTask: previous?.originalUserTask ?? null,
+      lastDirectUserMessage: buildStaleMessage(previous?.lastDirectUserMessage ?? null),
+      canCaptureOriginal: previous?.canCaptureOriginal ?? false,
+    };
+  }
+
+  const message: UserTask = { text: input.text, origin };
 
   return {
     originalUserTask:
-      previous?.originalUserTask ??
-      (previous?.canCaptureOriginal === true ? lastDirectUserMessage : null),
-    lastDirectUserMessage,
+      previous?.originalUserTask ?? (previous?.canCaptureOriginal === true ? message : null),
+    lastDirectUserMessage: message,
     canCaptureOriginal: previous?.canCaptureOriginal ?? false,
   };
+}
+
+function buildStaleMessage(message: DirectUserMessage | null): DirectUserMessage | null {
+  return message === null
+    ? null
+    : { text: message.text, origin: message.origin, freshness: 'stale' };
 }

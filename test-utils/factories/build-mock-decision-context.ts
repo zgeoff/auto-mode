@@ -5,12 +5,14 @@ type UserTask = NonNullable<DecisionContext['originalUserTask']>;
 
 type DelegatedTask = NonNullable<DecisionContext['delegatedTask']>;
 
+type DirectUserMessage = NonNullable<DecisionContext['lastDirectUserMessage']>;
+
 interface DecisionContextOverrides extends Partial<
   Omit<DecisionContext, 'originalUserTask' | 'delegatedTask' | 'lastDirectUserMessage'>
 > {
   readonly originalUserTask?: Partial<UserTask> | null;
   readonly delegatedTask?: Partial<DelegatedTask> | null;
-  readonly lastDirectUserMessage?: Partial<UserTask> | null;
+  readonly lastDirectUserMessage?: Partial<DirectUserMessage> | null;
 }
 
 // The main agent with no delegated task and no direct user message: each of

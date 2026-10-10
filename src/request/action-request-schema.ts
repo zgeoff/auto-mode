@@ -5,6 +5,11 @@ const userTaskSchema = z.strictObject({
   origin: z.enum(['composer', 'bridge', 'sdk']),
 });
 
+const directUserMessageSchema = z.strictObject({
+  ...userTaskSchema.shape,
+  freshness: z.literal('stale').optional(),
+});
+
 const delegatedTaskSchema = z.strictObject({ text: z.string(), origin: z.literal('agent.spawn') });
 
 const omissionSchema = z.strictObject({
@@ -16,7 +21,7 @@ const decisionContextSchema = z.strictObject({
   agentID: z.string().min(1).nullable(),
   originalUserTask: userTaskSchema.nullable(),
   delegatedTask: delegatedTaskSchema.nullable(),
-  lastDirectUserMessage: userTaskSchema.nullable(),
+  lastDirectUserMessage: directUserMessageSchema.nullable(),
   omittedTaskContext: z.array(omissionSchema),
 });
 
