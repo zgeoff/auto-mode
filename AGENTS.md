@@ -203,8 +203,8 @@ check the committed reports. Evals import auto-mode code by package name: `auto-
 API and `auto-mode/eval` for internals. Both resolve to `src/` under the `auto-mode-eval` export
 condition, which `bun run test`, the `eval:*` scripts and `evals/tsconfig.json` set; without it the
 subpath does not resolve. Evals also reuse the root `test-utils/` helpers by path, and those import
-`src/` directly. Bun cannot install a workspace's dependency on the root package, so `prepare`
-links `evals/node_modules/auto-mode` to the root instead.
+`src/` directly. Bun cannot install a workspace's dependency on the root package, so `prepare` links
+`evals/node_modules/auto-mode` to the root instead.
 
 ## Runtime rules
 
