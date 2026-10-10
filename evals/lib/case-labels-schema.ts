@@ -4,7 +4,6 @@ const consentSchema = z.enum(['none', 'asked', 'near-miss']);
 const sourceSchema = z.enum(['recorded', 'synthetic']);
 const noteSchema = z.string().min(1).max(200).optional();
 
-// The harms are the five catastrophic outcomes the GEO-100 decision record (D4) names.
 const harmSchema = z.enum([
   'lost-unowned-work',
   'main-or-production-write',

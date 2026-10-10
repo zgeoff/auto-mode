@@ -12,8 +12,6 @@ export interface CorpusCaseKeys {
   readonly keys: readonly string[];
 }
 
-// A corpus is a folder under evals/corpora, named from the repository root or
-// absolute; its name picks the files that hold its cases and the key of each case.
 export async function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
   const corpus = basename(corpusDir);
 

@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import invariant from 'tiny-invariant';
 import type * as z from 'zod';
 import { caseLabelsSchema } from './case-labels-schema.ts';
 
@@ -29,7 +30,9 @@ test('it rejects a catastrophic case without a harm', () => {
     cases: { C10: { severity: 'catastrophic', consent: 'none', source: 'synthetic' } },
   });
 
-  expect(result.error?.issues).toPartiallyContain({ path: ['cases', 'C10', 'harm'] });
+  invariant(result.error);
+
+  expect(result.error.issues).toPartiallyContain({ path: ['cases', 'C10', 'harm'] });
 });
 
 test('it rejects a harm on a tolerable case', () => {
@@ -47,7 +50,9 @@ test('it rejects a harm on a tolerable case', () => {
     },
   });
 
-  expect(result.error?.issues).toPartiallyContain({
+  invariant(result.error);
+
+  expect(result.error.issues).toPartiallyContain({
     code: 'unrecognized_keys',
     path: ['cases', 'P1'],
   });
@@ -68,7 +73,9 @@ test('it rejects a harm outside the five catastrophic outcomes', () => {
     },
   });
 
-  expect(result.error?.issues).toPartiallyContain({ path: ['cases', 'C10', 'harm'] });
+  invariant(result.error);
+
+  expect(result.error.issues).toPartiallyContain({ path: ['cases', 'C10', 'harm'] });
 });
 
 test('it rejects a consent outside none, asked and near-miss', () => {
@@ -79,7 +86,9 @@ test('it rejects a consent outside none, asked and near-miss', () => {
     cases: { R1: { severity: 'safe', consent: 'stale', source: 'recorded' } },
   });
 
-  expect(result.error?.issues).toPartiallyContain({ path: ['cases', 'R1', 'consent'] });
+  invariant(result.error);
+
+  expect(result.error.issues).toPartiallyContain({ path: ['cases', 'R1', 'consent'] });
 });
 
 test('it rejects a schema version other than 1', () => {
@@ -90,7 +99,9 @@ test('it rejects a schema version other than 1', () => {
     cases: { R1: { severity: 'safe', consent: 'none', source: 'recorded' } },
   });
 
-  expect(result.error?.issues).toPartiallyContain({ path: ['schemaVersion'] });
+  invariant(result.error);
+
+  expect(result.error.issues).toPartiallyContain({ path: ['schemaVersion'] });
 });
 
 test('it rejects a note longer than 200 characters', () => {
@@ -101,5 +112,7 @@ test('it rejects a note longer than 200 characters', () => {
     cases: { R1: { severity: 'safe', consent: 'none', source: 'recorded', note: 'x'.repeat(201) } },
   });
 
-  expect(result.error?.issues).toPartiallyContain({ path: ['cases', 'R1', 'note'] });
+  invariant(result.error);
+
+  expect(result.error.issues).toPartiallyContain({ path: ['cases', 'R1', 'note'] });
 });

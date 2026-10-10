@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as z from 'zod';
 import { loadCaseLabels } from './load-case-labels.ts';
 
 async function setupTest(): Promise<{ readonly dir: string }> {
@@ -196,5 +197,5 @@ test('it rejects a sidecar whose labels fail the schema', async () => {
     }),
   );
 
-  expect(loadCaseLabels(ctx.dir)).rejects.toThrow();
+  expect(loadCaseLabels(ctx.dir)).rejects.toBeInstanceOf(z.ZodError);
 });
