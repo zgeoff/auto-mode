@@ -1,13 +1,13 @@
 import { expect, test } from 'bun:test';
-import { pickSecondJudgeVerdict } from '../../src/model/pick-second-judge-verdict.ts';
-import { buildRecordedDecision } from '../test-utils/build-recorded-decision.ts';
-import { answerGuidanceReportSchema } from '../test-utils/corpora/answer-guidance-report-schema.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
-import { loadShippedRuleTiers } from '../test-utils/load-shipped-rule-tiers.ts';
+import { buildRecordedDecision } from '../lib/build-recorded-decision.ts';
+import { answerGuidanceReportSchema } from '../lib/corpora/answer-guidance-report-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadShippedRuleTiers } from '../lib/load-shipped-rule-tiers.ts';
+import { pickSecondJudgeVerdict } from '../lib/pick-second-judge-verdict.ts';
 
 test('it sends only the all-allow, low-confidence asks of the recorded first judge to the second judge', async () => {
   const [report, tiers] = await Promise.all([
-    loadCorpus('docs/evaluations/answer-guidance-after.json', answerGuidanceReportSchema),
+    loadCorpus('evals/corpora/recorded/answer-guidance-after.json', answerGuidanceReportSchema),
     loadShippedRuleTiers(),
   ]);
 
@@ -39,7 +39,7 @@ test('it sends only the all-allow, low-confidence asks of the recorded first jud
 
 test('it allows every eligible recorded ask and keeps every other recorded verdict when the second judge allows', async () => {
   const [report, tiers] = await Promise.all([
-    loadCorpus('docs/evaluations/answer-guidance-after.json', answerGuidanceReportSchema),
+    loadCorpus('evals/corpora/recorded/answer-guidance-after.json', answerGuidanceReportSchema),
     loadShippedRuleTiers(),
   ]);
 
@@ -75,7 +75,7 @@ test.each([
   'it keeps every recorded first-judge verdict when the second judge gives %s',
   async (_label, judge) => {
     const [report, tiers] = await Promise.all([
-      loadCorpus('docs/evaluations/answer-guidance-after.json', answerGuidanceReportSchema),
+      loadCorpus('evals/corpora/recorded/answer-guidance-after.json', answerGuidanceReportSchema),
       loadShippedRuleTiers(),
     ]);
 

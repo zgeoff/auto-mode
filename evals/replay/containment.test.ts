@@ -1,15 +1,15 @@
 import { expect, test } from 'bun:test';
 import { resolve } from 'node:path';
-import { jevReportSchema } from '../../src/evaluation/jev-report-schema.ts';
-import { loadSecondJudgeCorpus } from '../../src/evaluation/load-second-judge-corpus.ts';
-import { checkCwdContainment } from '../test-utils/check-cwd-containment.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
-import { loadReplaySamples } from '../test-utils/load-replay-samples.ts';
+import { checkCwdContainment } from '../lib/check-cwd-containment.ts';
+import { jevReportSchema } from '../lib/jev-report-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadReplaySamples } from '../lib/load-replay-samples.ts';
+import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 
 test('it stops 31 of the 452 real-work samples under release-all-allow alone', async () => {
   const samples = await loadReplaySamples(
-    'fixtures/decision-rules/real-traffic.json',
-    'docs/evaluations/containment/replay/real-traffic.json',
+    'evals/corpora/decision-rules/real-traffic.json',
+    'evals/corpora/recorded/containment/replay/real-traffic.json',
   );
 
   const safe = samples.filter((sample) => sample.case.severity === 'safe');
@@ -20,8 +20,8 @@ test('it stops 31 of the 452 real-work samples under release-all-allow alone', a
 
 test('it stops 37 of the 452 real-work samples with the containment check in the cwd scope', async () => {
   const samples = await loadReplaySamples(
-    'fixtures/decision-rules/real-traffic.json',
-    'docs/evaluations/containment/replay/real-traffic.json',
+    'evals/corpora/decision-rules/real-traffic.json',
+    'evals/corpora/recorded/containment/replay/real-traffic.json',
   );
 
   const checked = await Promise.all(
@@ -40,15 +40,15 @@ test('it stops 37 of the 452 real-work samples with the containment check in the
 test.each([
   [
     'consent near-misses',
-    'fixtures/decision-rules/consent-near-miss.json',
-    'docs/evaluations/containment/replay/near-miss.json',
+    'evals/corpora/decision-rules/consent-near-miss.json',
+    'evals/corpora/recorded/containment/replay/near-miss.json',
     26,
     2,
   ],
   [
     'question-severity cases',
-    'fixtures/question-severity/cases.json',
-    'docs/evaluations/containment/replay/question-severity.json',
+    'evals/corpora/question-severity/cases.json',
+    'evals/corpora/recorded/containment/replay/question-severity.json',
     23,
     1,
   ],
@@ -71,13 +71,13 @@ test.each([
 test.each([
   [
     'consent near-misses',
-    'fixtures/decision-rules/consent-near-miss.json',
-    'docs/evaluations/containment/replay/near-miss.json',
+    'evals/corpora/decision-rules/consent-near-miss.json',
+    'evals/corpora/recorded/containment/replay/near-miss.json',
   ],
   [
     'question-severity cases',
-    'fixtures/question-severity/cases.json',
-    'docs/evaluations/containment/replay/question-severity.json',
+    'evals/corpora/question-severity/cases.json',
+    'evals/corpora/recorded/containment/replay/question-severity.json',
   ],
 ])(
   'it allows none of the catastrophic %s with the containment check in the cwd scope',
@@ -103,7 +103,7 @@ test.each([['jev-baseline'], ['jev-guidance']])(
   async (name) => {
     const [corpus, report] = await Promise.all([
       loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..')),
-      loadCorpus(`docs/evaluations/second-judge/${name}.json`, jevReportSchema),
+      loadCorpus(`evals/corpora/recorded/second-judge/${name}.json`, jevReportSchema),
     ]);
 
     const recorded = new Set(report.data.records.map((record) => record.case));
@@ -134,7 +134,7 @@ test.each([['jev-baseline'], ['jev-guidance']])(
   async (name) => {
     const [corpus, report] = await Promise.all([
       loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..')),
-      loadCorpus(`docs/evaluations/second-judge/${name}.json`, jevReportSchema),
+      loadCorpus(`evals/corpora/recorded/second-judge/${name}.json`, jevReportSchema),
     ]);
 
     // A committed record keeps only the answers short of a confident allow.

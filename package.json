@@ -18,6 +18,9 @@
   "bin": {
     "auto-mode": "./dist/cli.js"
   },
+  "workspaces": [
+    "evals"
+  ],
   "files": [
     "dist",
     "policy",
@@ -27,36 +30,45 @@
   "type": "module",
   "exports": {
     ".": {
+      "auto-mode-eval": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./eval": {
+      "auto-mode-eval": "./src/eval/index.ts"
     },
     "./policy/classifier.md": "./policy/classifier.md",
     "./policy/rules.md": "./policy/rules.md"
   },
   "scripts": {
     "audit": "bun audit",
+    "bench": "bun --no-env-file src/secrets/find-secret.bench.ts",
     "build": "tsdown",
     "build:agents": "bash scripts/build-agents-md.sh agents/shared.md agents/project.md AGENTS.md",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run deadcode && bun run test && bun run build && bun run check:artifact && bun run publint",
     "deadcode": "knip",
-    "eval:answer-guidance": "bun --no-env-file scripts/run-answer-guidance-evaluation.ts",
-    "eval:applicability": "bun --no-env-file scripts/run-applicability-evaluation.ts",
-    "eval:containment": "bun --no-env-file scripts/run-containment-evaluation.ts",
-    "eval:question-shape": "bun --no-env-file scripts/run-question-shape-evaluation.ts",
-    "eval:relay-consent": "bun --no-env-file scripts/run-relay-consent-evaluation.ts",
-    "eval:second-judge": "bun --no-env-file scripts/run-second-judge-evaluation.ts",
-    "eval:stale-consent": "bun --no-env-file scripts/run-stale-consent-evaluation.ts",
+    "eval": "bun --no-env-file --conditions=auto-mode-eval evals/eval.ts",
+    "eval:answer-guidance": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-answer-guidance-evaluation.ts",
+    "eval:applicability": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-applicability-evaluation.ts",
+    "eval:containment": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-containment-evaluation.ts",
+    "eval:question-shape": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-question-shape-evaluation.ts",
+    "eval:relay-consent": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-relay-consent-evaluation.ts",
+    "eval:second-judge": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-second-judge-evaluation.ts",
+    "eval:stale-consent": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-stale-consent-evaluation.ts",
     "first-publish": "scripts/first-publish.sh",
     "format": "oxfmt . && format-codemod --quiet .",
     "format:check": "oxfmt --check . && format-codemod --check --quiet .",
     "lint": "oxlint --type-aware --type-check --report-unused-disable-directives-severity error",
     "lint:fix": "oxlint --type-aware --type-check --report-unused-disable-directives-severity error --fix",
-    "prepare": "command -v git > /dev/null 2>&1 && lefthook install --force || true",
+    "prepare": "bash scripts/link-evals-package.sh && (command -v git > /dev/null 2>&1 && lefthook install --force || true)",
     "publint": "publint",
-    "test": "bun run build && bun --no-env-file test",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun run build && bun --no-env-file test --conditions=auto-mode-eval",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p evals/tsconfig.json --noEmit",
     "check:artifact": "bun --no-env-file scripts/check-artifact.ts",
-    "check:claude-mod": "bash scripts/check-claude-mod.sh"
+    "check:claude-mod": "bash scripts/check-claude-mod.sh",
+    "files:branch": "bun scripts/collect-branch-files.ts",
+    "lint:files": "oxlint --no-error-on-unmatched-pattern",
+    "test:related": "bun scripts/run-related-tests.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.2",
@@ -70,6 +82,7 @@
     "@zgeoff/oxlint-config": "0.1.0",
     "knip": "6.35.1",
     "lefthook": "2.1.12",
+    "mitata": "1.0.34",
     "msw": "2.15.0",
     "oxfmt": "0.67.0",
     "oxlint": "1.82.0",

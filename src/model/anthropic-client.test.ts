@@ -287,6 +287,29 @@ test('it aborts a call when its signal fires', () => {
   expect(response).rejects.toMatchObject({ name: 'AbortError' });
 });
 
+test('it rejects with the timeout when its timeout signal fires', () => {
+  const timer = new AbortController();
+
+  server.use(
+    http.post(MESSAGES_URL, async () => {
+      timer.abort(new DOMException('The operation timed out.', 'TimeoutError'));
+
+      await delay('infinite');
+
+      return HttpResponse.json({ content: [] });
+    }),
+  );
+
+  const response = sendMessage(
+    buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),
+    'k',
+    { system: 's', user: 'u' },
+    timer.signal,
+  );
+
+  expect(response).rejects.toMatchObject({ name: 'TimeoutError' });
+});
+
 // The configured base URL may or may not carry a trailing slash.
 test('it reaches the same endpoint whether the base URL ends in a slash', async () => {
   const received = mock<(url: string) => void>();

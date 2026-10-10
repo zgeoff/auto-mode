@@ -154,16 +154,17 @@ overstate friction on GitHub calls.
   - GEO-78's 40 real cases were built from the same traffic. By command text, 30 of them closely
     match an action here, and the other 10 match only in part. This report does not pool GEO-78's
     results with these.
-  - The corpus is `fixtures/decision-rules/real-traffic.json`. It drops the transcript call IDs and
-    action hashes. It replaces the people's names, the home directory, the repository owner, the
+  - The corpus is `evals/corpora/decision-rules/real-traffic.json`. It drops the transcript call IDs
+    and action hashes. It replaces the people's names, the home directory, the repository owner, the
     project name, session and call IDs, task IDs, review-thread IDs, and comment IDs, each
     consistently. Code and commands are unchanged apart from those names and one provider URL in
     test code. Branch names, PR numbers and commit SHAs are unchanged.
   - Replayed under the shipped rule with the product code of `2ec6015`, 419 of 464 samples match the
     recorded verdict. 38 samples that asked under 0.4.2 now allow, 4 deferred samples now allow, and
     3 that allowed now ask.
-- **Near-misses:** 26 pairs in `fixtures/decision-rules/consent-near-miss.json`, written for this
-  evaluation, in the same repository's session-list worktree on `feat/session-list-columns-glm`.
+- **Near-misses:** 26 pairs in `evals/corpora/decision-rules/consent-near-miss.json`, written for
+  this evaluation, in the same repository's session-list worktree on
+  `feat/session-list-columns-glm`.
 - **Decision rules** were pre-registered in GEO-104 before any request: R0–R3 and the in-project
   edit bypass. The bypass allows an Edit or Write inside the action's cwd, but not inside its
   `.worktrees/` directory. 86 of the 232 real actions qualify.
@@ -213,6 +214,6 @@ Compare a repeat with the committed-corpus run, not the real-names run. If Jev r
 `--resume <report>` with the earlier output and a larger `--max-requests`.
 
 ```sh
-bun run eval:question-shape --live --window-start <ISO time> --window-end <ISO time> --corpus fixtures/decision-rules/consent-near-miss.json --shapes baseline --samples 3 --max-requests 170 --max-failures 15 --seed 104 --output /tmp/near-miss.json
-bun run eval:question-shape --live --window-start <ISO time> --window-end <ISO time> --corpus fixtures/decision-rules/real-traffic.json --shapes baseline --samples 2 --max-requests 480 --max-failures 30 --seed 104 --output /tmp/real-traffic.json
+bun run eval:question-shape --live --window-start <ISO time> --window-end <ISO time> --corpus evals/corpora/decision-rules/consent-near-miss.json --shapes baseline --samples 3 --max-requests 170 --max-failures 15 --seed 104 --output /tmp/near-miss.json
+bun run eval:question-shape --live --window-start <ISO time> --window-end <ISO time> --corpus evals/corpora/decision-rules/real-traffic.json --shapes baseline --samples 2 --max-requests 480 --max-failures 30 --seed 104 --output /tmp/real-traffic.json
 ```

@@ -11,8 +11,8 @@ import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
 import { buildMockRepositoryContext } from '../../test-utils/factories/build-mock-repository-context.ts';
+import type { DecisionResponse } from './build-decision-response-schema.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
-import type { DecisionResponse } from './decision-response-schema.ts';
 import { sendDecision } from './send-decision.ts';
 
 test('it authenticates a structured decision request and reads typed probabilities', async () => {
@@ -485,6 +485,129 @@ test('it removes optional tasks to keep a complete action near the request limit
         criteria: { allow: 'yes', block: 'no', ask: 'unsure' },
       },
     },
+  });
+});
+
+test('it reads answers over the choice set its caller names', async () => {
+  server.use(
+    http.post(DECISION_URL, () =>
+      HttpResponse.json({
+        model: 'jev-1.13.0',
+        answers: {
+          categorical: {
+            type: 'choice',
+            choice: 'none',
+            confidence: 0.9,
+            probabilities: { rule_0: 0.05, none: 0.9, unclear: 0.05 },
+          },
+        },
+        usage: { input_tokens: 400 },
+      }),
+    ),
+  );
+
+  const result = await sendDecision(
+    buildMockProviderConfig(),
+    'test-key',
+    {
+      state: buildMockDecisionRequest().state,
+      questions: {
+        categorical: {
+          type: 'choice',
+          instructions: 'Which rule refuses the action?',
+          criteria: { rule_0: 'The first rule', none: 'No rule', unclear: 'A fact is missing' },
+        },
+      },
+    },
+    new AbortController().signal,
+    { choices: ['rule_0', 'none', 'unclear'] },
+  );
+
+  expect(result).toStrictEqual({
+    model: 'jev-1.13.0',
+    answers: {
+      categorical: {
+        type: 'choice',
+        choice: 'none',
+        confidence: 0.9,
+        probabilities: { rule_0: 0.05, none: 0.9, unclear: 0.05 },
+      },
+    },
+    inputTokens: 400,
+    requestBytes: expect.toBePositive(),
+  });
+});
+
+test('it rejects an answer over choices outside the set its caller names', () => {
+  const response = sendDecision(
+    buildMockProviderConfig(),
+    'test-key',
+    {
+      state: buildMockDecisionRequest().state,
+      questions: {
+        categorical: {
+          type: 'choice',
+          instructions: 'Which rule refuses the action?',
+          criteria: { rule_0: 'The first rule', none: 'No rule', unclear: 'A fact is missing' },
+        },
+      },
+    },
+    new AbortController().signal,
+    { choices: ['rule_0', 'none', 'unclear'] },
+  );
+
+  expect(response).rejects.toThrowWithMessage(
+    DecisionRequestError,
+    /^Decision API returned a malformed response$/u,
+  );
+});
+
+test('it sends the request through the fetch its caller supplies', async () => {
+  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable RequestInit
+  const sendFetch = mock((url: string, init: Readonly<RequestInit>) => fetch(url, init));
+
+  const result = await sendDecision(
+    buildMockProviderConfig({ baseURL: 'https://decision.test' }),
+    'test-key',
+    buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
+    new AbortController().signal,
+    { fetch: sendFetch },
+  );
+
+  expect(sendFetch).toHaveBeenCalledExactlyOnceWith(
+    'https://decision.test/v1/systemone',
+    expect.objectContaining({ method: 'POST' }),
+  );
+
+  expect(result.model).toBe('jev-1.13.0');
+});
+
+test('it reports a request its timeout signal ends as aborted', () => {
+  const timer = new AbortController();
+
+  server.use(
+    http.post(DECISION_URL, async () => {
+      timer.abort(new DOMException('The operation timed out.', 'TimeoutError'));
+
+      await delay('infinite');
+
+      return HttpResponse.json({});
+    }),
+  );
+
+  const response = sendDecision(
+    buildMockProviderConfig(),
+    'test-key',
+    buildMockDecisionRequest(),
+    timer.signal,
+  );
+
+  expect(response).rejects.toThrowWithMessage(DecisionRequestError, /^Decision request aborted$/u);
+
+  expect(response).rejects.toMatchObject({
+    reason: 'aborted',
+    requestBytes: expect.toBePositive(),
+    cause: { name: 'TimeoutError' },
   });
 });
 

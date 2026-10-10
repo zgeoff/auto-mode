@@ -15,8 +15,8 @@ operator-sized rule set. It fails with the previous builder and passes with this
 ## Model comparison
 
 The comparison used Jev `jev-1.13.0`, the unchanged threshold of `0.8`, and the shipped policy. Both
-phases used the same [corpus](../../fixtures/answer-guidance/cases.json), the same operator rules,
-and one sample per case. The reports retain the rule hash, not the rule text. Each phase made
+phases used the same [corpus](../../evals/corpora/answer-guidance/cases.json), the same operator
+rules, and one sample per case. The reports retain the rule hash, not the rule text. Each phase made
 exactly 12 requests with no retries, and none failed.
 
 | Pair | Proposed action                                     | Kind | Before | After |
@@ -36,8 +36,9 @@ exactly 12 requests with no retries, and none failed.
 
 All 300 rule answers kept their selected choice. The mean absolute change in P(allow) was 0.008, and
 the largest was 0.13. The answers below the threshold numbered 23 before and 24 after. The
-[before](answer-guidance-before.json) and [after](answer-guidance-after.json) reports retain every
-answer as `[choice, confidence, P(allow), P(block), P(ask)]`.
+[before](https://github.com/zgeoff/auto-mode-evals/blob/main/legacy/answer-guidance-before.json) and
+[after](../../evals/corpora/recorded/answer-guidance-after.json) reports retain every answer as
+`[choice, confidence, P(allow), P(block), P(ask)]`.
 
 ## Limits
 
@@ -52,14 +53,15 @@ a rescaled form of the selected probability, not an independent signal.
 ## Repeat the comparison
 
 The script needs an explicit `--live` flag and never runs through tests or CI. The baseline revision
-`09cae19` has neither the script nor the corpus, so copy both into a baseline worktree and run the
-script there directly. Each run reads the request builder of the worktree it runs in.
+`09cae19` has neither the script nor the corpus, so copy both from `7d3722d`, the last revision with
+the script beside `src/`, into a baseline worktree and run the script there directly. Each run reads
+the request builder of the worktree it runs in.
 
 ```sh
 git worktree add --detach .worktrees/answer-guidance-before 09cae19
 mkdir -p .worktrees/answer-guidance-before/fixtures/answer-guidance
-cp scripts/run-answer-guidance-evaluation.ts .worktrees/answer-guidance-before/scripts/
-cp fixtures/answer-guidance/cases.json .worktrees/answer-guidance-before/fixtures/answer-guidance/
-(cd .worktrees/answer-guidance-before && bun install --frozen-lockfile && bun --no-env-file scripts/run-answer-guidance-evaluation.ts --live --phase before --output "$OLDPWD/docs/evaluations/answer-guidance-before.json")
-bun run eval:answer-guidance --live --phase after --output docs/evaluations/answer-guidance-after.json
+git show 7d3722d:scripts/run-answer-guidance-evaluation.ts > .worktrees/answer-guidance-before/scripts/run-answer-guidance-evaluation.ts
+git show 7d3722d:fixtures/answer-guidance/cases.json > .worktrees/answer-guidance-before/fixtures/answer-guidance/cases.json
+(cd .worktrees/answer-guidance-before && bun install --frozen-lockfile && bun --no-env-file scripts/run-answer-guidance-evaluation.ts --live --phase before --output /tmp/answer-guidance-before.json)
+bun run eval:answer-guidance --live --phase after --output /tmp/answer-guidance-after.json
 ```

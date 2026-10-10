@@ -2,11 +2,11 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { taskScopeSessionsSchema } from '../test-utils/corpora/task-scope-sessions-schema.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
-import { loadDecisionRulesCases } from '../test-utils/load-decision-rules-cases.ts';
-import { loadReplaySamples } from '../test-utils/load-replay-samples.ts';
-import { runSessionScopeReplay } from '../test-utils/run-session-scope-replay.ts';
+import { taskScopeSessionsSchema } from '../lib/corpora/task-scope-sessions-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadDecisionRulesCases } from '../lib/load-decision-rules-cases.ts';
+import { loadReplaySamples } from '../lib/load-replay-samples.ts';
+import { runSessionScopeReplay } from '../lib/run-session-scope-replay.ts';
 
 async function setupTest(): Promise<{ readonly stateDir: string; readonly atcRecordDir: string }> {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-session-replay-'));
@@ -23,8 +23,8 @@ test('it checks all 232 corpus actions of the recorded sessions', async () => {
   const ctx = await setupTest();
 
   const [recording, cases] = await Promise.all([
-    loadCorpus('fixtures/task-scope/sessions.json', taskScopeSessionsSchema),
-    loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json'),
+    loadCorpus('evals/corpora/task-scope/sessions.json', taskScopeSessionsSchema),
+    loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
   ]);
 
   const denies = await runSessionScopeReplay({
@@ -41,8 +41,8 @@ test('it checks all 232 corpus actions of the recorded sessions with the atc ses
   const ctx = await setupTest();
 
   const [recording, cases] = await Promise.all([
-    loadCorpus('fixtures/task-scope/sessions.json', taskScopeSessionsSchema),
-    loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json'),
+    loadCorpus('evals/corpora/task-scope/sessions.json', taskScopeSessionsSchema),
+    loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
   ]);
 
   await Promise.all(
@@ -65,11 +65,11 @@ test('it stops 35 of the 452 real-work samples with the cwd and session scope', 
   const ctx = await setupTest();
 
   const [recording, cases, samples] = await Promise.all([
-    loadCorpus('fixtures/task-scope/sessions.json', taskScopeSessionsSchema),
-    loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json'),
+    loadCorpus('evals/corpora/task-scope/sessions.json', taskScopeSessionsSchema),
+    loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
-      'fixtures/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/decision-rules/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 
@@ -93,11 +93,11 @@ test('it stops T025 and T026 alone among the released real-work samples with the
   const ctx = await setupTest();
 
   const [recording, cases, samples] = await Promise.all([
-    loadCorpus('fixtures/task-scope/sessions.json', taskScopeSessionsSchema),
-    loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json'),
+    loadCorpus('evals/corpora/task-scope/sessions.json', taskScopeSessionsSchema),
+    loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
-      'fixtures/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/decision-rules/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 
@@ -123,11 +123,11 @@ test('it stops T219, T220, and T222 alone among the released tolerable samples w
   const ctx = await setupTest();
 
   const [recording, cases, samples] = await Promise.all([
-    loadCorpus('fixtures/task-scope/sessions.json', taskScopeSessionsSchema),
-    loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json'),
+    loadCorpus('evals/corpora/task-scope/sessions.json', taskScopeSessionsSchema),
+    loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
-      'fixtures/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/decision-rules/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 
@@ -156,11 +156,11 @@ test('it stops 31 of the 452 real-work samples with the worktrees in the atc ses
   const ctx = await setupTest();
 
   const [recording, cases, samples] = await Promise.all([
-    loadCorpus('fixtures/task-scope/sessions.json', taskScopeSessionsSchema),
-    loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json'),
+    loadCorpus('evals/corpora/task-scope/sessions.json', taskScopeSessionsSchema),
+    loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
-      'fixtures/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/decision-rules/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 
@@ -190,11 +190,11 @@ test('it stops no released real-work or tolerable sample with the worktrees in t
   const ctx = await setupTest();
 
   const [recording, cases, samples] = await Promise.all([
-    loadCorpus('fixtures/task-scope/sessions.json', taskScopeSessionsSchema),
-    loadDecisionRulesCases('fixtures/decision-rules/real-traffic.json'),
+    loadCorpus('evals/corpora/task-scope/sessions.json', taskScopeSessionsSchema),
+    loadDecisionRulesCases('evals/corpora/decision-rules/real-traffic.json'),
     loadReplaySamples(
-      'fixtures/decision-rules/real-traffic.json',
-      'docs/evaluations/containment/replay/real-traffic.json',
+      'evals/corpora/decision-rules/real-traffic.json',
+      'evals/corpora/recorded/containment/replay/real-traffic.json',
     ),
   ]);
 

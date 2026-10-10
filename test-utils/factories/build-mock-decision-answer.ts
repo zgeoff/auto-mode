@@ -1,4 +1,4 @@
-import type { DecisionResponse } from '../../src/model/decision-response-schema.ts';
+import type { DecisionResponse } from '../../src/model/build-decision-response-schema.ts';
 
 type DecisionAnswer = DecisionResponse['answers'][string];
 

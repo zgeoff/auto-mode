@@ -1,5 +1,6 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { mkdir, mkdtemp, open, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { http } from 'msw';
@@ -245,6 +246,95 @@ test('it denies an uncertain Jev decision with the rule, its fixed reason, and t
   invariant(question, 'the request asks about rule_0');
 
   expect(question.instructions).toInclude('### Data Exfiltration\n');
+});
+
+// A named pipe hands its content to one reader only: a second read of the
+// settings file blocks until the test times out.
+test('it reads the Claude settings file once per action', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, '.claude'));
+
+  const settingsPath = join(ctx.dir, '.claude', 'settings.json');
+
+  Bun.spawnSync(['mkfifo', settingsPath]);
+
+  onTestFinished(async () => {
+    for (const flags of [constants.O_RDONLY, constants.O_WRONLY]) {
+      const handle = await open(settingsPath, flags | constants.O_NONBLOCK).catch(() => null);
+
+      await handle?.close();
+    }
+  });
+
+  const writing = writeFile(
+    settingsPath,
+    JSON.stringify({
+      enabledMcpjsonServers: ['docs'],
+      autoMode: { soft_deny: ['Never deploy on a Friday'] },
+    }),
+  );
+
+  await writeFile(
+    join(ctx.dir, 'repo', '.mcp.json'),
+    JSON.stringify({
+      mcpServers: { docs: { type: 'http', url: 'https://docs.example.test/mcp' } },
+    }),
+  );
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make deploy' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: undefined,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  await writing;
+
+  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+  expect(received).toHaveBeenCalledOnce();
+
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const state = z
+    .object({ configuredRules: z.unknown(), mcpServers: z.unknown() })
+    .parse(z.object({ state: z.unknown() }).parse(call[0]).state);
+
+  expect(state.configuredRules).toStrictEqual({
+    environment: [],
+    allow: [],
+    soft_deny: ['Never deploy on a Friday'],
+    hard_deny: [],
+  });
+
+  expect(state.mcpServers).toStrictEqual([
+    { name: 'docs', scope: 'project', transport: 'http', host: 'docs.example.test' },
+  ]);
 });
 
 test('it ends a failure reason with a full stop before the safer-path instruction', async () => {

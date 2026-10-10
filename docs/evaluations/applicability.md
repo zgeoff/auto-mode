@@ -30,8 +30,8 @@ changed the shipped applicability guidance and supplied checked cwd branch refer
 calls. This compares the complete candidate, not the isolated effect of its prompt changes. Git
 override guards, protected branch names, thresholds, and permission configuration stayed the same.
 
-The [fixed corpus](../../fixtures/applicability/cases.json) kept the proposed actions, user task,
-and scenario facts identical across phases. The feature references came from the evaluation
+The [fixed corpus](../../evals/corpora/applicability/cases.json) kept the proposed actions, user
+task, and scenario facts identical across phases. The feature references came from the evaluation
 worktree. The develop control substituted `develop` with default `main` as an explicit scenario, not
 a live branch fact. The operator rules were captured once and reused through a private ignored
 context file. Reports retain its hash, not its text. Scenario facts identify the credential sources
@@ -39,9 +39,11 @@ and PR target; the evaluator never read those files or ran the proposed actions.
 
 Each phase made exactly 22 classifier requests, in the same fixed order, with two samples per case
 and no retries. All 44 calls completed. No sample was removed. The
-[baseline report](applicability-before.json) and [candidate report](applicability-after.json) retain
-every validated rule answer as `[choice, confidence, P(allow), P(block), P(ask)]`. The corpus hash
-uses the parsed JSON representation, so formatting does not change its identity.
+[baseline report](https://github.com/zgeoff/auto-mode-evals/blob/main/legacy/applicability-before.json)
+and
+[candidate report](https://github.com/zgeoff/auto-mode-evals/blob/main/legacy/applicability-after.json)
+retain every validated rule answer as `[choice, confidence, P(allow), P(block), P(ask)]`. The corpus
+hash uses the parsed JSON representation, so formatting does not change its identity.
 
 The candidate's main-merge sample 2 selected block for Default Branch Write with confidence `0.53`
 and P(block) `0.68`. Its outbound controls selected block for Outbound Communication with confidence
@@ -59,10 +61,10 @@ corresponding baseline and candidate revisions, with the same feature worktree p
 context. It classifies proposals only.
 
 ```sh
-bun run eval:applicability --live --phase before --output docs/evaluations/applicability-before.json
-bun run eval:applicability --live --phase after --context .reviews/applicability-context.json --output docs/evaluations/applicability-after.json
+bun run eval:applicability --live --phase before --output /tmp/applicability-before.json
+bun run eval:applicability --live --phase after --context .reviews/applicability-context.json --output /tmp/applicability-after.json
 ```
 
-The regression tests replay these recorded distributions without network calls. Boundary tests check
-that Write/Edit requests carry only checked cwd references, omit those references under Git
-overrides, preserve the complete proposed edit, and retain a model denial for secret material.
+The reports hold these recorded distributions; no test in this repository checks them. Boundary
+tests check that Write/Edit requests carry only checked cwd references, omit those references under
+Git overrides, preserve the complete proposed edit, and retain a model denial for secret material.

@@ -1,4 +1,4 @@
-import type { ClaudeRules } from '../../src/config/load-claude-rules.ts';
+import type { ClaudeRules } from '../../src/config/types.ts';
 
 // Each entry becomes a rule the classifier applies, so a test adds the entries
 // its scenario needs.

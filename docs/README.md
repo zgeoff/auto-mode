@@ -9,6 +9,8 @@ auto-mode is a permission classifier: a core library and a Claude Code mod. The
   failure handling.
 - [Decision model](./architecture/decision-model.md) — the approved design: the pipeline, deny with
   a reason, the denial budget, task scope, the edit bypass, Jev, the judge, and the evidence.
+- [Evaluation](./architecture/evaluation.md) — the six measurements, the evaluation parts, case
+  labels, and the reporting rules.
 
 ## Guides
 
@@ -20,6 +22,11 @@ auto-mode is a permission classifier: a core library and a Claude Code mod. The
   which entries bypass auto-mode, and how to write exclusions.
 - [Writing a policy](./guides/policy.md) — the rule tiers, the consent bar, and how to change or
   replace the shipped rules.
+
+## Runbooks
+
+- [Run an evaluation](./runbooks/run-an-evaluation.md) — the results clone, the plan, offline and
+  capped live runs, resume, compare, and committing a run.
 
 ## The policy itself
 

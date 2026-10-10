@@ -13,7 +13,7 @@ paths = ['''\.test\.ts$''']
 [[allowlists]]
 targetRules = ["generic-api-key"]
 description = "fixtures are recorded mod requests and corpora with placeholder values"
-paths = ['''^fixtures/''']
+paths = ['''^fixtures/''', '''^evals/corpora/''']
 
 [[allowlists]]
 targetRules = ["sourcegraph-access-token", "aws-amazon-bedrock-api-key-short-lived"]

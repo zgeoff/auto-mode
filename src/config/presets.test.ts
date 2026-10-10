@@ -26,6 +26,15 @@ test('#MESSAGES_DEFAULTS names no model for the generic Messages API kind', () =
   });
 });
 
+test('#PRESETS sends every kind but jev over the Messages protocol', () => {
+  expect(Object.values(PRESETS).map((preset) => preset.protocol)).toStrictEqual([
+    'system-one',
+    'messages',
+    'messages',
+    'messages',
+  ]);
+});
+
 test('#findPreset finds a built-in kind by its id', () => {
   expect(findPreset('jev')).toStrictEqual({
     protocol: 'system-one',

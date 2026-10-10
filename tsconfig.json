@@ -7,12 +7,12 @@
     "src/**/*.ts",
     "e2e/**/*.ts",
     "test-utils/**/*.ts",
-    "evals/**/*.ts",
     "mocks/**/*.ts",
     "mods/auto-mode/hooks/**/*.ts",
     "scripts/**/*.ts",
     "test-setup.ts",
     "*.config.ts",
     "*.config.js"
-  ]
+  ],
+  "exclude": ["node_modules", "dist", ".worktrees", "evals"]
 }

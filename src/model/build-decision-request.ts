@@ -1,4 +1,4 @@
-import type { ClaudeRules } from '../config/load-claude-rules.ts';
+import type { ClaudeRules } from '../config/types.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildTaskContext } from './build-task-context.ts';
 import type { DecisionRequest, DecisionRule, MCPServerFact, RepositoryContext } from './types.ts';
