@@ -6,6 +6,7 @@ test('it returns the experiment it is given', () => {
     name: 'local-check',
     description: 'A deterministic stage.',
     corpus: 'containment',
+    inputs: [],
     samples: 1,
     loadCases: () => Promise.resolve(new Map<string, string>()),
     stages: [],

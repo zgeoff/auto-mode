@@ -66,6 +66,7 @@ test.each<[string, string[], string]>([
         name: 'local-check',
         description: 'A deterministic stage.',
         corpus: 'containment',
+        inputs: [],
         samples: 1,
         loadCases: async (dir) => {
           const loaded = await loadCaseKeys(dir);
@@ -97,6 +98,7 @@ test('it lists each experiment with its corpus, stages and default samples', asy
         name: 'local-check',
         description: 'A deterministic stage.',
         corpus: 'containment',
+        inputs: [],
         samples: 2,
         loadCases: () => Promise.resolve(new Map<string, string>()),
         stages: [
@@ -140,6 +142,7 @@ test('it refuses to write results inside the public repository', async () => {
           name: 'local-check',
           description: 'A deterministic stage.',
           corpus: 'containment',
+          inputs: [],
           samples: 1,
           loadCases: async (dir) => {
             const loaded = await loadCaseKeys(dir);
@@ -175,6 +178,7 @@ test('it writes a run into the directory AUTO_MODE_EVALS_DIR names', async () =>
         name: 'local-check',
         description: 'A deterministic stage.',
         corpus: 'containment',
+        inputs: [],
         samples: 1,
         loadCases: async (dir) => {
           const loaded = await loadCaseKeys(dir);
@@ -216,6 +220,7 @@ test('it refuses to compare runs of different experiments', async () => {
         name: 'first-check',
         description: 'A deterministic stage.',
         corpus: 'containment',
+        inputs: [],
         samples: 1,
         loadCases: async (dir) => {
           const loaded = await loadCaseKeys(dir);
@@ -229,6 +234,7 @@ test('it refuses to compare runs of different experiments', async () => {
         name: 'second-check',
         description: 'A deterministic stage.',
         corpus: 'containment',
+        inputs: [],
         samples: 1,
         loadCases: async (dir) => {
           const loaded = await loadCaseKeys(dir);

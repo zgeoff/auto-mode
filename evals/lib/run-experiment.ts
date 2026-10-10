@@ -57,7 +57,7 @@ export async function runExperiment<Case>(
   const [labels, cases, hashes] = await Promise.all([
     loadCaseLabels(corpusDir),
     experiment.loadCases(corpusDir),
-    loadCorpusHashes(corpusDir),
+    loadCorpusHashes(corpusDir, experiment.inputs),
   ]);
 
   const caseKeys = Object.keys(labels.cases).toSorted();
@@ -191,7 +191,16 @@ export async function runExperiment<Case>(
       const latencyMs = Math.round(performance.now() - started);
       const checked = checkModel(outcome, model, responseModel);
 
-      model ??= responseModel;
+      // The first answer names the run's model; writing it at once keeps it for a
+      // resume after an interruption, which would otherwise accept any model.
+      if (model === null && responseModel !== null) {
+        model = responseModel;
+
+        await writeReport(
+          join(runDir, 'summary.json'),
+          buildSummary(runID, { ...config, model }, experiment, records),
+        );
+      }
 
       const record: SampleRecord = {
         caseKey: unit.caseKey,

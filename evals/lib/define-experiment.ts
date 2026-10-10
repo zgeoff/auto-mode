@@ -57,6 +57,7 @@ export interface Experiment<Case> {
   readonly description: string;
   readonly corpus: string;
   readonly samples: number;
+  readonly inputs: readonly string[];
   readonly loadCases: (corpusDir: string) => Promise<ReadonlyMap<string, Case>>;
   readonly stages: readonly Stage<Case>[];
   readonly measurements: readonly Measurement[];

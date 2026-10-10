@@ -36,6 +36,7 @@ test('it plans a model experiment without live mode and sends and writes nothing
       name: 'model-check',
       description: 'A stage that asks the model.',
       corpus: 'containment',
+      inputs: [],
       samples: 1,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -93,6 +94,7 @@ test('it refuses a live run whose plan needs more requests than the cap', async 
       name: 'model-check',
       description: 'A stage that asks the model.',
       corpus: 'containment',
+      inputs: [],
       samples: 1,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -146,6 +148,7 @@ test('it records each live answer with its model, probability of block and reque
       name: 'model-check',
       description: 'A stage that asks the model.',
       corpus: 'containment',
+      inputs: [],
       samples: 1,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -203,6 +206,70 @@ test('it records each live answer with its model, probability of block and reque
   );
 });
 
+test('it keeps the model of a live run that stops after its first answer', async () => {
+  const ctx = await setupTest();
+
+  let calls = 0;
+
+  const run = runExperiment(
+    defineExperiment({
+      name: 'model-check',
+      description: 'A stage that asks the model.',
+      corpus: 'containment',
+      inputs: [],
+      samples: 1,
+      loadCases: async (dir) => {
+        const loaded = await loadCaseKeys(dir);
+
+        return new Map(loaded.keys.map((key) => [key, key]));
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: async (_entry, context) => {
+            calls += 1;
+
+            if (calls > 1) {
+              throw new Error('interrupted');
+            }
+
+            await context.send(buildMockDecisionRequest());
+
+            return { status: 'scored', verdict: 'allow', pBlock: 0, reason: null };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      seed: 1,
+      samples: 1,
+      live: true,
+      maxRequests: 13,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        policy: 'policy',
+        configuredRules: {},
+        send: (request) => sendEvaluationDecision(buildMockProviderConfig(), 'test-key', request),
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(run).rejects.toThrowWithMessage(Error, 'interrupted');
+
+  const [runID] = await readdir(join(ctx.resultsDir, 'runs/model-check'));
+  const interrupted = await loadRun(join(ctx.resultsDir, 'runs/model-check', runID ?? ''));
+
+  expect(interrupted.summary.config.model).toBe('jev-1.13.0');
+  expect(interrupted.records).toHaveLength(1);
+});
+
 test('it records a failed request as not scorable with its reason', async () => {
   const ctx = await setupTest();
 
@@ -217,6 +284,7 @@ test('it records a failed request as not scorable with its reason', async () => 
       name: 'model-check',
       description: 'A stage that asks the model.',
       corpus: 'containment',
+      inputs: [],
       samples: 1,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -280,6 +348,7 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
       name: 'local-check',
       description: 'A deterministic stage.',
       corpus: 'containment',
+      inputs: [],
       samples: 2,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -318,6 +387,7 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
       name: 'local-check',
       description: 'A deterministic stage.',
       corpus: 'containment',
+      inputs: [],
       samples: 2,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -364,6 +434,7 @@ test('it refuses to resume a run with another seed', async () => {
       name: 'local-check',
       description: 'A deterministic stage.',
       corpus: 'containment',
+      inputs: [],
       samples: 1,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -394,6 +465,7 @@ test('it refuses to resume a run with another seed', async () => {
       name: 'local-check',
       description: 'A deterministic stage.',
       corpus: 'containment',
+      inputs: [],
       samples: 1,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -428,6 +500,7 @@ test('it refuses to write a run with no results directory named', async () => {
       name: 'local-check',
       description: 'A deterministic stage.',
       corpus: 'containment',
+      inputs: [],
       samples: 1,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);
@@ -468,6 +541,7 @@ test('it writes a run whose summary and samples the result schemas read back', a
       name: 'local-check',
       description: 'A deterministic stage.',
       corpus: 'containment',
+      inputs: [],
       samples: 1,
       loadCases: async (dir) => {
         const loaded = await loadCaseKeys(dir);

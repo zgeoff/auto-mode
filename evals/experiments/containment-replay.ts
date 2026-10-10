@@ -14,6 +14,8 @@ interface ReplayCase {
   readonly released: ReadonlyMap<number, boolean>;
 }
 
+const REPLAY_DIR = 'recorded/containment/replay';
+
 const CORPUS_FILES = [
   ['consent-near-miss.json', 'near-miss.json'],
   ['real-traffic.json', 'real-traffic.json'],
@@ -26,8 +28,9 @@ export const containmentReplay = defineExperiment<ReplayCase>({
     'with the containment check in the cwd scope beside them. Sends nothing.',
   corpus: 'decision-rules',
   samples: 3,
+  inputs: CORPUS_FILES.map(([, replayFile]) => `${REPLAY_DIR}/${replayFile}`),
   loadCases: async (corpusDir) => {
-    const replayDir = join(dirname(corpusDir), 'recorded/containment/replay');
+    const replayDir = join(dirname(corpusDir), REPLAY_DIR);
 
     const loaded = await Promise.all(
       CORPUS_FILES.map(async ([corpusFile, replayFile]) => {
