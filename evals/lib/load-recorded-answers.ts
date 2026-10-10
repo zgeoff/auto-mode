@@ -5,15 +5,29 @@ import type { RecordedInput } from './define-experiment.ts';
 import { jevReportSchema } from './jev-report-schema.ts';
 import { judgeReportSchema } from './judge-report-schema.ts';
 import { loadCorpus } from './load-corpus.ts';
-import type { RecordedSample, RecordedSamples } from './load-measurement-sets.ts';
+import type {
+  MeasurementCorpus,
+  RecordedSample,
+  RecordedSamples,
+} from './load-measurement-sets.ts';
+import { loadRun } from './load-run.ts';
+import { toHash } from './to-hash.ts';
 
 export type RecordedSource =
   | { readonly kind: 'jev-report'; readonly root: 'corpora' | 'results'; readonly path: string }
   | { readonly kind: 'judge-report'; readonly root: 'corpora' | 'results'; readonly path: string }
-  | { readonly kind: 'release'; readonly root: 'corpora' | 'results'; readonly path: string };
+  | { readonly kind: 'release'; readonly root: 'corpora' | 'results'; readonly path: string }
+  | {
+      readonly kind: 'run';
+      readonly root: 'corpora' | 'results';
+      readonly path: string;
+      readonly stage: string;
+      readonly corpus: MeasurementCorpus;
+    };
 
 export interface RecordedAnswers {
   readonly input: RecordedInput;
+  readonly keyedBy?: 'id' | 'key';
   readonly answers: Readonly<Record<string, RecordedSamples>>;
 }
 
@@ -68,6 +82,39 @@ export async function loadRecordedAnswers(
 
     return {
       input: { path: label, hash: report.hash },
+      answers: Object.fromEntries(
+        [...answers].map(([id, samples]) => [id, Object.fromEntries(samples)]),
+      ),
+    };
+  }
+
+  if (source.kind === 'run') {
+    const run = await loadRun(path);
+
+    const model = run.summary.config.models[source.stage];
+
+    if (model === undefined) {
+      throw new Error(`${label} names no model for the ${source.stage} stage.`);
+    }
+
+    const prefix = `${source.corpus}/`;
+
+    for (const record of run.records) {
+      if (record.stage === source.stage && record.caseKey.startsWith(prefix)) {
+        setAnswer(record.caseKey.slice(prefix.length), record.sample, {
+          kind: 'sample',
+          record,
+          model,
+        });
+      }
+    }
+
+    return {
+      input: {
+        path: `${label}#${source.stage}`,
+        hash: toHash(JSON.stringify([run.summary.runID, run.records])),
+      },
+      keyedBy: 'key',
       answers: Object.fromEntries(
         [...answers].map(([id, samples]) => [id, Object.fromEntries(samples)]),
       ),

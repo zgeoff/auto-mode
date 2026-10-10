@@ -7,6 +7,7 @@ import { buildJevStage } from './build-jev-stage.ts';
 import { buildMockJevContributor } from './factories/build-mock-jev-contributor.ts';
 import { buildMockJevRecord } from './factories/build-mock-jev-record.ts';
 import { buildMockMeasurementCase } from './factories/build-mock-measurement-case.ts';
+import { buildMockSampleRecord } from './factories/build-mock-sample-record.ts';
 import { buildMockStageContext } from './factories/build-mock-stage-context.ts';
 
 test('it sends the shipped request with the case message and scores a confident allow', async () => {
@@ -174,5 +175,38 @@ test('it skips a sample the recording holds no answer for', async () => {
   expect(outcome).toStrictEqual({
     status: 'skipped',
     reason: 'The recording holds no Jev sample 2.',
+  });
+});
+
+test('it replays a recorded run sample as the outcome that run scored', async () => {
+  const labels = { severity: 'safe', consent: 'none', source: 'recorded' } as const;
+
+  const record = buildMockSampleRecord({
+    stage: 'jev',
+    verdict: 'deny',
+    pBlock: 0.91,
+    reason: 'deny: Irreversible Deletion',
+    latencyMs: 412,
+  });
+
+  const measurementCase = buildMockMeasurementCase({
+    recorded: { jev: { 0: { kind: 'sample', record, model: 'jev-model' } } },
+  });
+
+  const stage = buildJevStage('shipped');
+
+  invariant(stage.replay);
+
+  const outcome = await stage.replay(
+    { key: 'set/a', labels, case: measurementCase },
+    buildMockStageContext(),
+  );
+
+  expect(outcome).toStrictEqual({
+    status: 'scored',
+    verdict: 'deny',
+    pBlock: 0.91,
+    reason: 'deny: Irreversible Deletion',
+    recorded: { answer: record, latencyMs: 412, model: 'jev-model' },
   });
 });

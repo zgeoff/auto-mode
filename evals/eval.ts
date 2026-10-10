@@ -1,12 +1,6 @@
 import { resolve } from 'node:path';
 import { loadClaudeRules, loadConfig, loadPolicy, resolveApiKey, sendDecision } from 'auto-mode';
-import {
-  buildUserMessage,
-  formatClassifierNote,
-  readHostEnvironment,
-  sendMessage,
-  toTimerDelay,
-} from 'auto-mode/eval';
+import { readHostEnvironment, sendJudgeMessage, toTimerDelay } from 'auto-mode/eval';
 import { experiments } from './experiments/index.ts';
 import { assertShippedJevConfig } from './lib/assert-shipped-jev-config.ts';
 import { readPublicCommit } from './lib/read-public-commit.ts';
@@ -25,14 +19,14 @@ async function main(): Promise<void> {
     repoRoot,
     experiments,
     now: () => new Date(),
-    prepareRun: async (live) => {
+    prepareRun: async (live, judgeModel) => {
       const config = await loadConfig(undefined, host);
 
       const publicCommit = readPublicCommit(repoRoot, live);
 
       const [policy, judgePolicy, configuredRules] = await Promise.all([
         loadPolicy({}, 'decision.md'),
-        loadPolicy({}, 'classifier.md'),
+        loadPolicy({}, 'judge.md'),
         loadClaudeRules(config.claudeSettingsPath, host),
       ]);
 
@@ -56,8 +50,17 @@ async function main(): Promise<void> {
         throw new Error('The configured evaluation credential is unavailable.');
       }
 
-      const judge = config.judge ?? null;
-      const judgeKey = judge === null ? null : await resolveApiKey(judge, { host });
+      const configured = config.judge ?? null;
+
+      const judge =
+        configured === null || judgeModel === null
+          ? configured
+          : { ...configured, model: judgeModel };
+
+      const judgeKey =
+        judge === null || judge.protocol === 'claude-code'
+          ? null
+          : await resolveApiKey(judge, { host });
 
       return {
         ...base,
@@ -71,29 +74,17 @@ async function main(): Promise<void> {
             { choices },
           ),
         sendJudge:
-          judge === null || judgeKey === null
+          judge === null || (judge.protocol !== 'claude-code' && judgeKey === null)
             ? null
             : async (request) => {
-                const transcript =
-                  request.lastUserMessage === null
-                    ? []
-                    : [{ role: 'user' as const, text: request.lastUserMessage }];
-
-                const user = buildUserMessage(
-                  request.action,
-                  transcript,
-                  judge.reasoning,
-                  request.repository,
-                );
-
-                const reply = await sendMessage(
+                const text = await sendJudgeMessage(
                   judge,
-                  judgeKey,
-                  { system: judgePolicy, user },
+                  { system: judgePolicy, user: request.user },
+                  { apiKey: judgeKey, env: host.env },
                   AbortSignal.timeout(toTimerDelay(judge.timeoutMs)),
                 );
 
-                return { model: judge.model, text: formatClassifierNote(reply.text, judgeKey) };
+                return { model: judge.model, text };
               },
       };
     },

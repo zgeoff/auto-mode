@@ -15,6 +15,7 @@ import type { JevReport } from './jev-report-schema.ts';
 import type { JudgeReport } from './judge-report-schema.ts';
 import { loadCorpus } from './load-corpus.ts';
 import { loadSecondJudgeCorpus } from './load-second-judge-corpus.ts';
+import type { SampleRecord } from './sample-record-schema.ts';
 
 type MCPServerFacts = NonNullable<Parameters<typeof buildDecisionRequest>[6]>;
 
@@ -30,7 +31,8 @@ export type RecordedSample =
       readonly kind: 'judge';
       readonly record: JudgeReport['records'][number];
       readonly model: string;
-    };
+    }
+  | { readonly kind: 'sample'; readonly record: SampleRecord; readonly model: string };
 
 // Zero-based sample index to the recorded answer of that sample.
 export type RecordedSamples = Readonly<Record<number, RecordedSample>>;

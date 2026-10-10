@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import * as z from 'zod';
 import type { DenialBudget } from '../budget/types.ts';
+import type { JudgeOverturns } from '../judge/types.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 import { readHostEnvironment } from './read-host-environment.ts';
@@ -10,7 +11,7 @@ import type { EvaluationOptions, HostEnvironment } from './types.ts';
 export { PRESETS } from './presets.ts';
 
 export interface ProviderConfig {
-  readonly protocol?: 'messages' | 'system-one';
+  readonly protocol?: 'messages' | 'system-one' | 'claude-code';
   readonly baseURL: string;
   readonly model: string;
   readonly apiKeyEnv?: string | undefined;
@@ -37,6 +38,7 @@ export interface CaptureConfig {
 export interface Config {
   readonly provider: ProviderConfig;
   readonly judge?: ProviderConfig | null;
+  readonly judgeOverturns?: JudgeOverturns;
   readonly scopeSources?: Readonly<Record<string, ScopeSource>>;
   readonly classifierPath?: string | undefined;
   readonly rulesPath?: string | undefined;
@@ -49,9 +51,10 @@ export interface Config {
 }
 
 const DEFAULT_PROVIDER = findPreset('jev');
+const DEFAULT_JUDGE = findPreset('claude-code');
 
-if (DEFAULT_PROVIDER === undefined) {
-  throw new Error('the jev preset is missing');
+if (DEFAULT_PROVIDER === undefined || DEFAULT_JUDGE === undefined) {
+  throw new Error('the jev or claude-code preset is missing');
 }
 
 export const DEFAULT_DENIAL_BUDGET: DenialBudget = { consecutive: 3, perSession: 20 };
@@ -63,9 +66,12 @@ export const DEFAULT_SCOPE_SOURCES: Readonly<Record<string, ScopeSource>> = {
 };
 
 export const DEFAULT_BLOCK_THRESHOLD = 0.2;
+export const DEFAULT_JUDGE_OVERTURNS: JudgeOverturns = 'consent';
 
 export const DEFAULT_CONFIG: Config = {
   provider: DEFAULT_PROVIDER,
+  judge: DEFAULT_JUDGE,
+  judgeOverturns: DEFAULT_JUDGE_OVERTURNS,
   onFailure: 'defer',
   blockThreshold: DEFAULT_BLOCK_THRESHOLD,
   denialBudget: DEFAULT_DENIAL_BUDGET,
@@ -124,6 +130,7 @@ const configFileSchema = z.strictObject({
     .strictObject({
       classifier: text.optional(),
       judge: text.nullable().optional(),
+      judgeOverturns: z.enum(['consent', 'any']).optional(),
       blockThreshold: z.number().gt(0).max(1).optional(),
       onFailure: z.enum(['defer', 'deny']).optional(),
       denialBudget: denialBudgetSchema.optional(),
@@ -172,20 +179,33 @@ function buildConfig(json: unknown, path: string, home: string): Config {
 
   const decision = file.decision ?? {};
   const policy = file.policy ?? {};
-  const judgeID = decision.judge ?? null;
+  const judgeID = decision.judge === undefined ? 'claude-code' : decision.judge;
+
+  const provider = resolveRole(
+    'classifier',
+    decision.classifier ?? 'jev',
+    classifiers.entries,
+    classifiers.droppedIDs,
+    path,
+  );
+
+  if (provider.protocol === 'claude-code') {
+    throw new Error(`${path}: decision.classifier names a claude-code kind, which only judges`);
+  }
+
+  const judge =
+    judgeID === null
+      ? null
+      : resolveRole('judge', judgeID, classifiers.entries, classifiers.droppedIDs, path);
+
+  if (judge?.protocol === 'system-one') {
+    throw new Error(`${path}: decision.judge names a Jev kind, which cannot write a reason`);
+  }
 
   return {
-    provider: resolveRole(
-      'classifier',
-      decision.classifier ?? 'jev',
-      classifiers.entries,
-      classifiers.droppedIDs,
-      path,
-    ),
-    judge:
-      judgeID === null
-        ? null
-        : resolveRole('judge', judgeID, classifiers.entries, classifiers.droppedIDs, path),
+    provider,
+    judge,
+    judgeOverturns: decision.judgeOverturns ?? DEFAULT_JUDGE_OVERTURNS,
     scopeSources: configuredSources ?? DEFAULT_SCOPE_SOURCES,
     classifierPath: expandHomePath(policy.frameworkPath ?? undefined, home),
     rulesPath: expandHomePath(policy.rulesPath ?? undefined, home),

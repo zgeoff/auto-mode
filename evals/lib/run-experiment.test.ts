@@ -1357,16 +1357,7 @@ test.each([
             name: 'judge',
             sends: true,
             run: async (_entry, context) => {
-              const reply = await context.sendJudge({
-                action: {
-                  sessionID: 'session',
-                  cwd: '/home/dev/app',
-                  toolName: 'Bash',
-                  toolInput: { command: 'ls' },
-                },
-                lastUserMessage: null,
-                repository: { cwd: '/home/dev/app', branch: 'main', defaultBranch: 'main' },
-              });
+              const reply = await context.sendJudge({ user: 'Review this deny.' });
 
               return { status: 'scored', verdict: 'allow', pBlock: null, reason: reply.text };
             },
@@ -1437,16 +1428,7 @@ test('it stops a live run whose judge stage has no judge transport instead of re
           name: 'judge',
           sends: true,
           run: async (_entry, context) => {
-            const reply = await context.sendJudge({
-              action: {
-                sessionID: 'session',
-                cwd: '/home/dev/app',
-                toolName: 'Bash',
-                toolInput: { command: 'ls' },
-              },
-              lastUserMessage: null,
-              repository: { cwd: '/home/dev/app', branch: 'main', defaultBranch: 'main' },
-            });
+            const reply = await context.sendJudge({ user: 'Review this deny.' });
 
             return { status: 'scored', verdict: 'allow', pBlock: null, reason: reply.text };
           },

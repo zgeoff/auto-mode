@@ -4,6 +4,7 @@ import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { readHostEnvironment } from '../config/read-host-environment.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions } from '../config/types.ts';
+import type { JudgeEvidence } from '../judge/classify-with-judge.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
@@ -21,6 +22,9 @@ export interface ModelOutcome {
   readonly note: string;
   readonly unavailable?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
+
+  // Only a Jev deny carries the evidence the judge reviews.
+  readonly review?: JudgeEvidence;
 }
 
 export async function classifyWithModel(

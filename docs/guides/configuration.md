@@ -22,7 +22,8 @@ leaves the action without a verdict and writes a diagnostic.
   },
   "decision": {
     "classifier": "jev",
-    "judge": null,
+    "judge": "claude-code",
+    "judgeOverturns": "consent",
     "blockThreshold": 0.2,
     "onFailure": "defer",
     "denialBudget": { "consecutive": 3, "perSession": 20 }
@@ -38,7 +39,8 @@ leaves the action without a verdict and writes a diagnostic.
 The file has five blocks. `classifiers` and `scopeSources` are registries keyed by an id you choose.
 `decision` assigns roles by pointing at registry ids. `policy` selects the prompt files and the
 Claude settings to import. `capture` turns the request capture on. Every block is optional; an empty
-file `{}` runs Jev with the shipped policy and captures nothing.
+file `{}` runs Jev with the shipped policy, reviews each Jev deny with the `claude-code` judge, and
+captures nothing.
 
 ## Classifiers
 
@@ -46,13 +48,14 @@ Each entry describes one model endpoint. `kind` selects the defaults the entry s
 entry without `kind` uses its own id as the kind. So `"jev": {}` is the shipped Jev endpoint, and
 `"fast": { "kind": "jev", "timeoutMs": 3000 }` is a second Jev entry with a shorter deadline.
 
-| Kind       | Protocol      | Model                        | Key variable        |
-| ---------- | ------------- | ---------------------------- | ------------------- |
-| `jev`      | Jev decisions | `jev-1.13.0`                 | `TYPESAFE_API_KEY`  |
-| `spark`    | Messages API  | `muse-spark-1.3-contributor` | `META_API_KEY`      |
-| `claude`   | Messages API  | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
-| `glm`      | Messages API  | `glm-5.3-flash`              | `ZAI_API_KEY`       |
-| `messages` | Messages API  | none; the entry must name it | none                |
+| Kind          | Protocol      | Model                        | Key variable        |
+| ------------- | ------------- | ---------------------------- | ------------------- |
+| `jev`         | Jev decisions | `jev-1.13.0`                 | `TYPESAFE_API_KEY`  |
+| `claude-code` | `claude -p`   | `claude-sonnet-5-5`          | none; judge only    |
+| `spark`       | Messages API  | `muse-spark-1.3-contributor` | `META_API_KEY`      |
+| `claude`      | Messages API  | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
+| `glm`         | Messages API  | `glm-5.3-flash`              | `ZAI_API_KEY`       |
+| `messages`    | Messages API  | none; the entry must name it | none                |
 
 The `messages` kind starts from `https://api.anthropic.com`, reasoning on, 3,000 output tokens and a
 45-second deadline. Every field below overrides the kind's default:
@@ -71,8 +74,15 @@ The `messages` kind starts from `https://api.anthropic.com`, reasoning on, 3,000
 The Jev kind calls TypeSafe's `/v1/systemone` endpoint with a Bearer key and waits up to 5 seconds.
 Set `baseURL` to the API root of a compatible provider. The Messages API kinds use `/v1/messages`
 and the generative framework. Their history is the last direct user message that the mod captured,
-and they do not import Claude's `autoMode` entries. The mod passes `--jev-only`, so these kinds
-serve library callers and `auto-mode run` without that flag.
+and they do not import Claude's `autoMode` entries. The mod passes `--jev-only`, so as classifiers
+these kinds serve library callers and `auto-mode run` without that flag; as the judge they serve the
+mod too.
+
+The `claude-code` kind can only judge. It runs `claude -p` with no tools, settings, MCP servers or
+session file, through the local `claude` login, so it needs no API key. It drops every `ANTHROPIC_*`
+variable and the Bedrock, Vertex and Foundry switches from the child's environment, so a session
+pointed at another provider still reaches Claude. It waits up to 120 seconds. A machine without a
+`claude` login fails the judge call, and the deny keeps its fixed reason.
 
 ### Credentials
 
@@ -131,17 +141,41 @@ default branch is unknown. `/tmp` is scratch space that every task owns.
 
 ## Decision
 
-| Field            | Default | Effect                                                            |
-| ---------------- | ------- | ----------------------------------------------------------------- |
-| `classifier`     | `jev`   | The classifiers id that judges each escalated action              |
-| `judge`          | `null`  | The classifiers id that reviews each deny; `null` for none        |
-| `blockThreshold` | `0.2`   | Deny when some rule's block probability reaches this value        |
-| `onFailure`      | `defer` | Keep the manual approval, or deny, when the classifier fails      |
-| `denialBudget`   | 3, 20   | Denials allowed in a row and per session before the user is asked |
+| Field            | Default       | Effect                                                            |
+| ---------------- | ------------- | ----------------------------------------------------------------- |
+| `classifier`     | `jev`         | The classifiers id that judges each escalated action              |
+| `judge`          | `claude-code` | The classifiers id that reviews each Jev deny; `null` for none    |
+| `judgeOverturns` | `consent`     | Which judge overturns of a soft rule allow: `consent` or `any`    |
+| `blockThreshold` | `0.2`         | Deny when some rule's block probability reaches this value        |
+| `onFailure`      | `defer`       | Keep the manual approval, or deny, when the classifier fails      |
+| `denialBudget`   | 3, 20         | Denials allowed in a row and per session before the user is asked |
 
 A role names a registry id. When the registry has no entry by that id and the id is a built-in kind,
 the role uses that kind's defaults, so `"classifier": "glm"` works without a `glm` entry. A role
 that names a dropped entry, or an id that is neither an entry nor a kind, makes the file invalid.
+The classifier cannot be a `claude-code` kind, and the judge cannot be a Jev kind, because Jev
+writes no text.
+
+### Judge
+
+The judge reviews each deny Jev makes, with the prompt in `policy/judge.md` and the rules spliced
+in. It reads the denied rule, the action, the last direct user message and the repository facts, and
+answers confirm or overturn with a short reason.
+
+- A confirm keeps the deny, and the agent reads `The reviewer confirmed the <rule> deny:` followed
+  by the judge's reason, cut to 600 characters, then the instruction every deny ends with.
+- The judge overturns a soft rule on one of two bases. `consent`: the last direct user message asks
+  for this operation on this target. `misread`: the facts show that no rule covers the action. A
+  consent overturn allows the action. A misread overturn allows it only when `judgeOverturns` is
+  `any`; under the default `consent` it keeps the deny with its fixed reason.
+- A hard rule and a configured hard deny entry never clear. The judge writes their reason only, and
+  an overturn of one keeps the deny with its fixed reason.
+- A missing key, a timeout, a failed call or an unreadable reply keeps the deny with its fixed
+  reason. The judge never turns a failure into an allow, whatever `onFailure` says.
+
+A containment deny, a retry of the action just denied, and a deny from a Messages API classifier
+never reach the judge. The judge's deadline is its entry's `timeoutMs`, bounded by the time the mod
+leaves the CLI.
 
 ### Denial budget
 

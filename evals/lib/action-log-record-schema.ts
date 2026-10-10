@@ -2,11 +2,12 @@ import * as z from 'zod';
 
 const hashSchema = z.string().regex(/^[0-9a-f]{16}$/);
 
-// A version 3 record of the diagnostics log. The diagnostics field passes
-// unchecked: no measurement reads it and no result keeps it.
+// A version 3 or 4 record of the diagnostics log; version 4 adds the judge
+// stage and its field. The diagnostics and judge fields pass unchecked: no
+// measurement reads them and no result keeps them.
 export const actionLogRecordSchema = z
   .strictObject({
-    schemaVersion: z.literal(3),
+    schemaVersion: z.union([z.literal(3), z.literal(4)]),
     time: z.iso.datetime(),
     invocationID: z.string().min(1),
     sessionHash: hashSchema,
@@ -23,7 +24,7 @@ export const actionLogRecordSchema = z
     ]),
     verdict: z.enum(['allow', 'deny', 'defer']).nullable(),
     decidingStage: z
-      .enum(['local', 'containment', 'bypass', 'jev', 'messages', 'retry', 'budget'])
+      .enum(['local', 'containment', 'bypass', 'jev', 'judge', 'messages', 'retry', 'budget'])
       .nullable(),
     denials: z
       .strictObject({
@@ -34,6 +35,7 @@ export const actionLogRecordSchema = z
       .nullable(),
     escalation: z.boolean(),
     diagnostics: z.unknown(),
+    judge: z.unknown().optional(),
   })
   .readonly();
 

@@ -22,6 +22,7 @@ interface Verdict {
 export function collectConsentOutcomes(
   records: readonly SampleRecord[],
   reviewers: readonly string[] = [],
+  finals: readonly string[] = [],
 ): MeasurementObservations[] {
   const byStage = new Map<string, Verdict[]>();
 
@@ -34,7 +35,7 @@ export function collectConsentOutcomes(
     }
   }
 
-  byStage.set(PIPELINE_STAGE, collectPipelineVerdicts(records, reviewers));
+  byStage.set(PIPELINE_STAGE, collectPipelineVerdicts(records, reviewers, finals));
 
   return [...byStage].flatMap(([stage, verdicts]) =>
     SOURCES.flatMap((source) =>

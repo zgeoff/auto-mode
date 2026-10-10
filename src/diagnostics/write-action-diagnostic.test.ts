@@ -62,7 +62,7 @@ test('it appends private correlated records without action, task, credential, or
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 3,
+      schemaVersion: 4,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -73,9 +73,10 @@ test('it appends private correlated records without action, task, credential, or
       denials: null,
       escalation: false,
       diagnostics: null,
+      judge: null,
     },
     {
-      schemaVersion: 3,
+      schemaVersion: 4,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -86,6 +87,7 @@ test('it appends private correlated records without action, task, credential, or
       denials: { consecutive: 1, session: 1 },
       escalation: false,
       diagnostics: null,
+      judge: null,
     },
   ]);
 
@@ -131,6 +133,59 @@ test('it creates the record file readable by its owner only', async () => {
   expect(info.mode & 0o777).toBe(0o600);
 });
 
+test('it records the judge diagnostics of an overturned deny', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.dir, 'actions.jsonl');
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({ sessionID: 's', toolUseID: undefined }),
+    {
+      invocationID: 'i',
+      status: 'allow',
+      verdict: 'allow',
+      decidingStage: 'judge',
+      judge: {
+        status: 'overturned',
+        overturnBasis: 'consent',
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        rule: 'Default Branch Write',
+        tier: 'soft',
+        elapsedMs: 2400,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  // The session hash is the first 16 hex digits of `printf s | sha256sum`.
+  expect(JSON.parse(text)).toStrictEqual({
+    schemaVersion: 4,
+    time: expect.toBeDateString(),
+    invocationID: 'i',
+    sessionHash: '043a718774c572bd',
+    actionHash: null,
+    status: 'allow',
+    verdict: 'allow',
+    decidingStage: 'judge',
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: {
+      status: 'overturned',
+      overturnBasis: 'consent',
+      failureReason: null,
+      model: 'claude-haiku-5-5',
+      rule: 'Default Branch Write',
+      tier: 'soft',
+      elapsedMs: 2400,
+    },
+  });
+});
+
 test('it records no action hash for a request without a tool use id', async () => {
   const ctx = await setupTest();
 
@@ -147,7 +202,7 @@ test('it records no action hash for a request without a tool use id', async () =
 
   // The session hash is the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -158,6 +213,7 @@ test('it records no action hash for a request without a tool use id', async () =
     denials: null,
     escalation: false,
     diagnostics: null,
+    judge: null,
   });
 });
 
@@ -222,7 +278,7 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
 
   // The session hash is the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -233,5 +289,6 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
     denials: null,
     escalation: false,
     diagnostics: null,
+    judge: null,
   });
 });

@@ -12,8 +12,8 @@ test('#PRESETS budgets enough output tokens for Spark to finish reasoning', () =
   expect(spark.maxTokens).toBeGreaterThanOrEqual(3000);
 });
 
-test('#PRESETS offers the jev, spark, claude, and glm kinds', () => {
-  expect(PRESETS).toContainAllKeys(['jev', 'spark', 'claude', 'glm']);
+test('#PRESETS offers the jev, claude-code, spark, claude, and glm kinds', () => {
+  expect(PRESETS).toContainAllKeys(['jev', 'claude-code', 'spark', 'claude', 'glm']);
 });
 
 test('#MESSAGES_DEFAULTS names no model for the generic Messages API kind', () => {
@@ -26,9 +26,10 @@ test('#MESSAGES_DEFAULTS names no model for the generic Messages API kind', () =
   });
 });
 
-test('#PRESETS sends every kind but jev over the Messages protocol', () => {
+test('#PRESETS sends every kind but jev and claude-code over the Messages protocol', () => {
   expect(Object.values(PRESETS).map((preset) => preset.protocol)).toStrictEqual([
     'system-one',
+    'claude-code',
     'messages',
     'messages',
     'messages',
@@ -44,6 +45,17 @@ test('#findPreset finds a built-in kind by its id', () => {
     reasoning: false,
     maxTokens: 3000,
     timeoutMs: 5000,
+  });
+});
+
+test('#findPreset finds the claude-code judge kind, which needs no API key', () => {
+  expect(findPreset('claude-code')).toStrictEqual({
+    protocol: 'claude-code',
+    baseURL: 'https://api.anthropic.com',
+    model: 'claude-sonnet-5-5',
+    reasoning: false,
+    maxTokens: 3000,
+    timeoutMs: 120_000,
   });
 });
 

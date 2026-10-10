@@ -32,6 +32,15 @@ test('#loadConfig falls back to the shipped defaults when there is no config fil
       maxTokens: 3000,
       timeoutMs: 5000,
     },
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
+    judgeOverturns: 'consent',
     onFailure: 'defer',
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
@@ -62,7 +71,16 @@ test('#loadConfig reads the config file under the home config directory when no 
       maxTokens: 3000,
       timeoutMs: 5000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -70,6 +88,7 @@ test('#loadConfig reads the config file under the home config directory when no 
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
@@ -117,7 +136,7 @@ test('#loadConfig names the built-in kinds when a role names one that is not', a
     loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(
     Error,
-    `${ctx.configFile}: decision.classifier names 'gpt', which is neither a classifiers entry nor a built-in kind (jev, spark, claude, glm)`,
+    `${ctx.configFile}: decision.classifier names 'gpt', which is neither a classifiers entry nor a built-in kind (jev, claude-code, spark, claude, glm)`,
   );
 });
 
@@ -148,7 +167,16 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
       maxTokens: 3000,
       timeoutMs: 45_000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -156,6 +184,7 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
@@ -187,7 +216,16 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
       maxTokens: 3000,
       timeoutMs: 5000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -195,11 +233,12 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
 
-test('#loadConfig resolves the decision classifier from the registry by id', async () => {
+test('#loadConfig resolves the decision classifier and judge from the registry by id', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -213,7 +252,7 @@ test('#loadConfig resolves the decision classifier from the registry by id', asy
           apiKeyEnv: 'ANTHROPIC_API_KEY',
         },
       },
-      decision: { classifier: 'haiku', judge: 'jev' },
+      decision: { classifier: 'jev', judge: 'haiku' },
     }),
   );
 
@@ -224,16 +263,6 @@ test('#loadConfig resolves the decision classifier from the registry by id', asy
 
   expect(config).toStrictEqual({
     provider: {
-      protocol: 'messages',
-      baseURL: 'https://api.anthropic.com',
-      model: 'claude-haiku-4-5-20251001',
-      apiKeyEnv: 'ANTHROPIC_API_KEY',
-      apiKeyCommand: undefined,
-      reasoning: true,
-      maxTokens: 3000,
-      timeoutMs: 45_000,
-    },
-    judge: {
       protocol: 'system-one',
       baseURL: 'https://api.typesafe.ai',
       model: 'jev-1.13.0',
@@ -243,6 +272,16 @@ test('#loadConfig resolves the decision classifier from the registry by id', asy
       maxTokens: 3000,
       timeoutMs: 5000,
     },
+    judge: {
+      protocol: 'messages',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-haiku-4-5-20251001',
+      apiKeyEnv: 'ANTHROPIC_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: true,
+      maxTokens: 3000,
+      timeoutMs: 45_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -250,8 +289,93 @@ test('#loadConfig resolves the decision classifier from the registry by id', asy
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
+});
+
+test('#loadConfig judges with the claude-code kind when the file names no judge', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'jev' } }));
+
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
+
+  expect(config.judge).toStrictEqual({
+    protocol: 'claude-code',
+    baseURL: 'https://api.anthropic.com',
+    model: 'claude-sonnet-5-5',
+    apiKeyEnv: undefined,
+    apiKeyCommand: undefined,
+    reasoning: false,
+    maxTokens: 3000,
+    timeoutMs: 120_000,
+  });
+});
+
+test('#loadConfig turns the judge off when the file sets it to null', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { judge: null } }));
+
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
+
+  expect(config.judge).toBeNull();
+});
+
+test('#loadConfig lets any judge overturn clear a soft rule when the file sets judgeOverturns to any', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { judgeOverturns: 'any' } }));
+
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
+
+  expect(config.judgeOverturns).toBe('any');
+});
+
+test('#loadConfig refuses a judgeOverturns value other than consent or any', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { judgeOverturns: 'misread' } }));
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+  ).rejects.toThrowWithMessage(Error, /→ at decision\.judgeOverturns$/u);
+});
+
+test('#loadConfig refuses a classifier of the claude-code kind, which only judges', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'claude-code' } }));
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+  ).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile}: decision.classifier names a claude-code kind, which only judges`,
+  );
+});
+
+test('#loadConfig refuses a judge of the jev kind, which cannot write a reason', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { judge: 'jev' } }));
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+  ).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile}: decision.judge names a Jev kind, which cannot write a reason`,
+  );
 });
 
 test('#loadConfig falls back to a built-in kind when the registry has no entry for the role', async () => {
@@ -275,7 +399,16 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
       maxTokens: 3000,
       timeoutMs: 60_000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -283,6 +416,7 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
@@ -325,7 +459,16 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
       maxTokens: 3000,
       timeoutMs: 4000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: {
       cwd: { kind: 'cwd' },
       scratch: { kind: 'globs', paths: [join(ctx.dir, 'scratch', '**')] },
@@ -336,8 +479,9 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [
-      `${ctx.configFile}: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, spark, claude, glm, messages`,
+      `${ctx.configFile}: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, claude-code, spark, claude, glm, messages`,
       `${ctx.configFile}: classifiers.stray dropped: Unrecognized key: "maxToken"`,
       `${ctx.configFile}: classifiers.literal dropped: holds a literal apiKey; name the key with apiKeyEnv or apiKeyCommand`,
       `${ctx.configFile}: classifiers.bare dropped: kind 'messages' needs a model`,
@@ -372,7 +516,7 @@ test('#loadConfig refuses a decision role that names no entry and no built-in ki
     loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
   ).rejects.toThrowWithMessage(
     Error,
-    `${ctx.configFile}: decision.judge names 'nobody', which is neither a classifiers entry nor a built-in kind (jev, spark, claude, glm)`,
+    `${ctx.configFile}: decision.judge names 'nobody', which is neither a classifiers entry nor a built-in kind (jev, claude-code, spark, claude, glm)`,
   );
 });
 
@@ -455,7 +599,16 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
       maxTokens: 3000,
       timeoutMs: 5000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: join(ctx.dir, 'rules.md'),
@@ -463,6 +616,7 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
     claudeSettingsPath: '/claude/settings.json',
     blockThreshold: 0.3,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
@@ -527,7 +681,16 @@ test('#loadConfig disables the Claude rule import when the policy sets the setti
       maxTokens: 3000,
       timeoutMs: 5000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -535,6 +698,7 @@ test('#loadConfig disables the Claude rule import when the policy sets the setti
     claudeSettingsPath: null,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
@@ -544,7 +708,7 @@ test.each([
   ['toString', "names 'toString', whose entry was dropped"],
   [
     '__proto__',
-    "names '__proto__', which is neither a classifiers entry nor a built-in kind (jev, spark, claude, glm)",
+    "names '__proto__', which is neither a classifiers entry nor a built-in kind (jev, claude-code, spark, claude, glm)",
   ],
 ])(
   '#loadConfig refuses a decision role named %s, which only an inherited property matches',
@@ -622,6 +786,7 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
     claudeSettingsPath: null,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 5, perSession: 40 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
@@ -647,7 +812,16 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
       maxTokens: 3000,
       timeoutMs: 5000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -655,6 +829,7 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
@@ -680,7 +855,16 @@ test('#loadConfig runs the cwd, session, and atc sources when the file has no sc
       maxTokens: 3000,
       timeoutMs: 5000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -688,6 +872,7 @@ test('#loadConfig runs the cwd, session, and atc sources when the file has no sc
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [],
   });
 });
@@ -718,7 +903,16 @@ test('#loadConfig warns about a registry without the cwd source and a glob over 
       maxTokens: 3000,
       timeoutMs: 5000,
     },
-    judge: null,
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      apiKeyEnv: undefined,
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
     scopeSources: { all: { kind: 'globs', paths: ['/repo/.worktrees/**', '/scratch/**'] } },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -726,6 +920,7 @@ test('#loadConfig warns about a registry without the cwd source and a glob over 
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
+    judgeOverturns: 'consent',
     warnings: [
       `${ctx.configFile}: scopeSources has no cwd entry, so the task owns only what the other sources name`,
       `${ctx.configFile}: scopeSources glob /repo/.worktrees/** covers worktrees that other tasks own`,
@@ -733,7 +928,7 @@ test('#loadConfig warns about a registry without the cwd source and a glob over 
   });
 });
 
-test('#DEFAULT_CONFIG ships Jev, deferring on failure, with the default budget and scope sources', () => {
+test('#DEFAULT_CONFIG ships Jev judged by claude-code, deferring on failure, with the default budget and scope sources', () => {
   expect(DEFAULT_CONFIG).toStrictEqual({
     provider: {
       protocol: 'system-one',
@@ -744,6 +939,15 @@ test('#DEFAULT_CONFIG ships Jev, deferring on failure, with the default budget a
       maxTokens: 3000,
       timeoutMs: 5000,
     },
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'claude-sonnet-5-5',
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 120_000,
+    },
+    judgeOverturns: 'consent',
     onFailure: 'defer',
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },

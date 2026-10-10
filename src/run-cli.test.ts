@@ -485,7 +485,7 @@ test('it exits successfully on malformed classifier configuration without echoin
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 3,
+      schemaVersion: 4,
       time: expect.toSatisfy(
         (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
       ),
@@ -498,9 +498,10 @@ test('it exits successfully on malformed classifier configuration without echoin
       denials: null,
       escalation: false,
       diagnostics: null,
+      judge: null,
     },
     {
-      schemaVersion: 3,
+      schemaVersion: 4,
       time: expect.toSatisfy(
         (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
       ),
@@ -513,6 +514,7 @@ test('it exits successfully on malformed classifier configuration without echoin
       denials: null,
       escalation: false,
       diagnostics: null,
+      judge: null,
     },
   ]);
 });
@@ -584,7 +586,7 @@ test('it counts down to one denial left on the second denial in a row', async ()
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
@@ -597,6 +599,7 @@ test('it counts down to one denial left on the second denial in a row', async ()
     denials: { consecutive: 2, session: 2 },
     escalation: false,
     diagnostics: null,
+    judge: null,
   });
 });
 
@@ -669,7 +672,7 @@ test('it warns on the third denial in a row that it is the last before the user 
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
@@ -682,6 +685,7 @@ test('it warns on the third denial in a row that it is the last before the user 
     denials: { consecutive: 3, session: 3 },
     escalation: false,
     diagnostics: null,
+    judge: null,
   });
 });
 
@@ -750,7 +754,7 @@ test('it leaves the fourth action in a row to the user after three denials', asy
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
@@ -763,6 +767,7 @@ test('it leaves the fourth action in a row to the user after three denials', asy
     denials: { consecutive: 0, session: 0 },
     escalation: true,
     diagnostics: null,
+    judge: null,
   });
 });
 
@@ -854,7 +859,7 @@ test('it starts the denial count over after the user decides an action', async (
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
@@ -867,6 +872,7 @@ test('it starts the denial count over after the user decides an action', async (
     denials: { consecutive: 1, session: 1 },
     escalation: false,
     diagnostics: null,
+    judge: null,
   });
 
   expect(userDecidedStdout.read()).toBe('');
@@ -938,7 +944,7 @@ test('it denies a retry of the action just denied without asking the classifier'
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
@@ -951,6 +957,7 @@ test('it denies a retry of the action just denied without asking the classifier'
     denials: { consecutive: 2, session: 2 },
     escalation: false,
     diagnostics: null,
+    judge: null,
   });
 });
 
@@ -1058,7 +1065,7 @@ test('it keeps the denial count across runs for a resumed session', async () => 
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
@@ -1071,6 +1078,7 @@ test('it keeps the denial count across runs for a resumed session', async () => 
     denials: { consecutive: 0, session: 0 },
     escalation: true,
     diagnostics: null,
+    judge: null,
   });
 });
 
@@ -1410,7 +1418,7 @@ test('it allows an action that Jev clears', async () => {
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
@@ -1422,6 +1430,7 @@ test('it allows an action that Jev clears', async () => {
     decidingStage: 'jev',
     denials: { consecutive: 0, session: 0 },
     escalation: false,
+    judge: null,
     diagnostics: {
       status: 'allow',
       stage: 'response',
@@ -1445,7 +1454,7 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
     join(ctx.dir, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
-      decision: { classifier: 'jev', onFailure: 'defer' },
+      decision: { classifier: 'jev', judge: null, onFailure: 'defer' },
     }),
   );
 
@@ -1506,6 +1515,80 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
   invariant(question, 'the request asks about rule_0');
 
   expect(question.instructions).toInclude('### Data Exfiltration\n');
+});
+
+test('it allows an action whose Jev deny the judge overturns and records the judge in the action log', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.dir, 'bin'));
+
+  await writeFile(
+    join(ctx.dir, 'bin', 'claude'),
+    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
+    { mode: 0o755 },
+  );
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({
+      classifiers: { jev: { baseURL: 'https://decision.test' } },
+      decision: { classifier: 'jev', judge: 'claude-code', onFailure: 'defer' },
+    }),
+  );
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'make release' },
+  });
+
+  const exitCode = await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: {
+      ...ctx.host,
+      env: {
+        ...ctx.host.env,
+        PATH: `${join(ctx.dir, 'bin')}:${ctx.host.env['PATH'] ?? ''}`,
+        TYPESAFE_API_KEY: 'cli-test-key',
+        STUB_CLAUDE_REPLY:
+          '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for the release.</reason>',
+      },
+    },
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+
+  const last = log.trim().split('\n').at(-1);
+
+  invariant(last !== undefined, 'the run wrote a diagnostic record');
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '{"decision":"allow"}',
+    stderr: '',
+  });
+
+  expect(JSON.parse(last)).toMatchObject({
+    schemaVersion: 4,
+    status: 'allow',
+    verdict: 'allow',
+    decidingStage: 'judge',
+    judge: {
+      status: 'overturned',
+      overturnBasis: 'consent',
+      failureReason: null,
+      model: 'claude-sonnet-5-5',
+      rule: 'Default Branch Write',
+      tier: 'soft',
+      elapsedMs: expect.toBeNumber(),
+    },
+  });
 });
 
 test('it writes no verdict and notes the failure when Jev fails under a defer setting', async () => {

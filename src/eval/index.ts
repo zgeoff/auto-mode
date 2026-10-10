@@ -1,7 +1,11 @@
 export { findEnclosingWorkTree } from '../capture/find-enclosing-work-tree.ts';
-export { DEFAULT_BLOCK_THRESHOLD } from '../config/config.ts';
+export { DEFAULT_BLOCK_THRESHOLD, DEFAULT_JUDGE_OVERTURNS } from '../config/config.ts';
 export { readHostEnvironment } from '../config/read-host-environment.ts';
 export { toTimerDelay } from '../config/to-timer-delay.ts';
+export { buildJudgeMessage } from '../judge/build-judge-message.ts';
+export { buildJudgedVerdict } from '../judge/build-judged-verdict.ts';
+export { parseJudgeReply } from '../judge/parse-judge-reply.ts';
+export { sendJudgeMessage } from '../judge/send-judge-message.ts';
 export { collectScopeFindings, type ScopeFinding } from '../containment/collect-scope-findings.ts';
 export { sendMessage } from '../model/anthropic-client.ts';
 export { buildUserMessage } from '../model/build-request.ts';

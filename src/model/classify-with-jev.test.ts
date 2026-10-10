@@ -553,6 +553,16 @@ test('it keeps a separate shipped hard block after the self-protection finding c
         'The action matches this rule: sending sensitive data, such as credentials or private code, off the machine. No instruction or configuration clears this rule.',
     },
     note: expect.toBeString(),
+    review: {
+      rule: {
+        name: 'Data Exfiltration',
+        tier: 'hard',
+        source: 'shipped',
+        text: expect.toStartWith('### Data Exfiltration\n'),
+      },
+      basis: 'matched',
+      repositoryContext: expect.toBeObject(),
+    },
     diagnostics: {
       status: 'deny',
       stage: 'response',
@@ -653,6 +663,11 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
           'The action matches this rule: the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
       },
       note: expect.toBeString(),
+      review: {
+        rule: { name, tier: 'hard', source: 'replacement', text: expect.toBeString() },
+        basis: 'matched',
+        repositoryContext: expect.toBeObject(),
+      },
       diagnostics: {
         status: 'deny',
         stage: 'response',
@@ -880,6 +895,16 @@ test('it evaluates a subagent on its task context without the parent consent', a
         'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
     },
     note: expect.toBeString(),
+    review: {
+      rule: {
+        name: 'Data Exfiltration',
+        tier: 'hard',
+        source: 'replacement',
+        text: expect.toBeString(),
+      },
+      basis: 'unresolved',
+      repositoryContext: expect.toBeObject(),
+    },
     diagnostics: {
       status: 'deny',
       stage: 'response',
@@ -1285,6 +1310,11 @@ test.each([
           'The action matches this rule: the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
       },
       note: expect.toBeString(),
+      review: {
+        rule: { name: rule, tier, source: 'replacement', text: expect.toBeString() },
+        basis: 'matched',
+        repositoryContext: expect.toBeObject(),
+      },
       diagnostics: {
         status: 'deny',
         stage: 'response',
@@ -1424,6 +1454,16 @@ test.each(['Write', 'Edit'])(
           'The action matches this rule: the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
       },
       note: expect.toBeString(),
+      review: {
+        rule: {
+          name: 'Data Exfiltration',
+          tier: 'hard',
+          source: 'replacement',
+          text: expect.toBeString(),
+        },
+        basis: 'matched',
+        repositoryContext: expect.toBeObject(),
+      },
       diagnostics: {
         status: 'deny',
         stage: 'response',
@@ -1570,6 +1610,16 @@ test.each([
           'The action matches this rule: the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
       },
       note: expect.toBeString(),
+      review: {
+        rule: {
+          name: 'Data Exfiltration',
+          tier: 'hard',
+          source: 'replacement',
+          text: expect.toBeString(),
+        },
+        basis: 'matched',
+        repositoryContext: null,
+      },
       diagnostics: {
         status: 'deny',
         stage: 'response',
@@ -1703,6 +1753,16 @@ test('it denies an unsure allow at the block threshold and records only the rule
         'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
     },
     note: expect.toBeString(),
+    review: {
+      rule: {
+        name: 'Data Exfiltration',
+        tier: 'hard',
+        source: 'replacement',
+        text: expect.toBeString(),
+      },
+      basis: 'unresolved',
+      repositoryContext: expect.toBeObject(),
+    },
     diagnostics: {
       status: 'deny',
       stage: 'response',

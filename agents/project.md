@@ -17,13 +17,15 @@ and renders a verdict; `rules/` is the deterministic first tier; `model/` is the
 decision and Messages API clients; `policy/` assembles the prompt; `config/` holds configuration and
 presets; `budget/` counts denials per session; `containment/` denies a write outside the task scope;
 `scope/` builds that scope from the configured scope sources and keeps what each session created;
-`bypass/` lets an in-scope file edit skip Jev; `secrets/` scans edit content with the bundled
-Betterleaks rule set, which `scripts/build-secret-rules.ts` generates; `capture/` appends each
-judged request to the opt-in capture, never inside a git work tree. `classify-action.ts` runs both
-tiers with the containment check and the edit bypass between them, and is the library entry point;
-`index.ts` is the public API; `eval/index.ts` is the unpublished `auto-mode/eval` subpath; `cli.ts`
-is the entrypoint the mod runs. `mods/auto-mode/` is the Claude Code mod. `policy/` at the repo root
-holds the prompt itself. `fixtures/` holds mod requests recorded in a live Claude Code session.
+`bypass/` lets an in-scope file edit skip Jev; `judge/` reviews each Jev deny, confirming it with a
+written reason or overturning it, through `claude -p` or the Messages API; `secrets/` scans edit
+content with the bundled Betterleaks rule set, which `scripts/build-secret-rules.ts` generates;
+`capture/` appends each judged request to the opt-in capture, never inside a git work tree.
+`classify-action.ts` runs both tiers with the containment check and the edit bypass between them and
+the judge after Jev, and is the library entry point; `index.ts` is the public API; `eval/index.ts`
+is the unpublished `auto-mode/eval` subpath; `cli.ts` is the entrypoint the mod runs.
+`mods/auto-mode/` is the Claude Code mod. `policy/` at the repo root holds the prompt itself.
+`fixtures/` holds mod requests recorded in a live Claude Code session.
 
 `evals/` holds the evaluation tooling: `eval.ts` is the `bun run eval` command, which plans, runs,
 resumes and compares one experiment, measures live use from the action log, and anonymises a request
@@ -66,10 +68,11 @@ Everything under `policy/` is verbatim model input. It is not prose for a reader
 is configured to leave it alone: its bytes are the prompt and the cache prefix, so a reflow is a
 prompt change and belongs in a commit that reviews it as one.
 
-- `decision.md` is the Jev framework, `classifier.md` is the generative framework, and `rules.md` is
-  the rule list. `denial.md` is the instruction every deny reason ends with; it reaches the agent,
-  not a classifier. `loadPolicy` splices the rules at the `<rules>` marker. `auto-mode print-prompt`
-  prints the selected base policy; configured rules and action evidence are separate request fields.
+- `decision.md` is the Jev framework, `classifier.md` is the generative framework, `judge.md` is the
+  judge's framework, and `rules.md` is the rule list. `denial.md` is the instruction every deny
+  reason ends with; it reaches the agent, not a classifier. `loadPolicy` splices the rules at the
+  `<rules>` marker. `auto-mode print-prompt` prints the selected base policy; configured rules and
+  action evidence are separate request fields.
 - Every instruction to block must terminate at a rule name that exists in `rules.md` or an explicit
   configured deny entry. An evaluation rule in `classifier.md` may never order a block on its own —
   a block the model cannot name is one the user cannot read or appeal. A block that cannot be named

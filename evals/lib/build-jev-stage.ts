@@ -1,4 +1,5 @@
 import { buildDecisionRequest } from 'auto-mode';
+import { buildRecordedSampleOutcome } from './build-recorded-sample-outcome.ts';
 import { classifyJevRecord } from './classify-jev-record.ts';
 import type { JevClass } from './classify-live-jev-answers.ts';
 import { classifyLiveJevAnswers } from './classify-live-jev-answers.ts';
@@ -42,6 +43,10 @@ export function buildJevStage(reading: JevReading): Stage<MeasurementCase> {
 
       if (recorded.kind === 'judge') {
         throw new Error(`The Jev recording of ${entry.key} holds a judge answer.`);
+      }
+
+      if (recorded.kind === 'sample') {
+        return Promise.resolve(buildRecordedSampleOutcome(recorded.record, recorded.model));
       }
 
       if (recorded.kind === 'release') {

@@ -10,12 +10,13 @@ export interface PipelineVerdict {
   readonly verdict: 'allow' | 'deny';
 }
 
-// A sample passes when every deciding stage allowed it, or a reviewing stage,
-// which may skip a sample, overturned the deny. A sample any stage could not
-// score has no pipeline verdict.
+// A sample passes when every deciding stage allowed it, or a reviewer overturned
+// a deny no final stage made. A sample any stage could not score has no
+// pipeline verdict.
 export function collectPipelineVerdicts(
   records: readonly SampleRecord[],
   reviewers: readonly string[] = [],
+  finals: readonly string[] = [],
 ): PipelineVerdict[] {
   const isReviewer = (record: SampleRecord): boolean => reviewers.includes(record.stage);
 
@@ -43,7 +44,12 @@ export function collectPipelineVerdicts(
     }
 
     const isDenied = deciding.some((record) => record.verdict !== 'allow');
-    const isOverturned = reviews.some((record) => record.verdict === 'allow');
+
+    const isFinal = deciding.some(
+      (record) => finals.includes(record.stage) && record.verdict !== 'allow',
+    );
+
+    const isOverturned = !isFinal && reviews.some((record) => record.verdict === 'allow');
 
     return [
       {
