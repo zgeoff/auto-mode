@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "corpus": "task-scope",
+  "key": "name",
+  "cases": {
+    "glm-A": {
+      "severity": "safe",
+      "consent": "none",
+      "source": "recorded",
+      "note": "A session replay of real-traffic cases; per-action labels are in the decision-rules labels."
+    },
+    "glm-B": {
+      "severity": "safe",
+      "consent": "none",
+      "source": "recorded",
+      "note": "A session replay of real-traffic cases; per-action labels are in the decision-rules labels."
+    },
+    "root-A": {
+      "severity": "tolerable",
+      "consent": "none",
+      "source": "recorded",
+      "note": "A session replay of real-traffic cases; per-action labels are in the decision-rules labels."
+    },
+    "root-B": {
+      "severity": "tolerable",
+      "consent": "none",
+      "source": "recorded",
+      "note": "A session replay of real-traffic cases; per-action labels are in the decision-rules labels."
+    }
+  }
+}

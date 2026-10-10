@@ -60,6 +60,12 @@ Every case carries four labels:
 - `consent`: none, asked, or near-miss.
 - `source`: recorded or synthetic.
 
+The labels live beside each corpus in `evals/corpora/<corpus>/labels.json`, never in the case files,
+whose bytes the recorded reports hash. A labels file carries a `schemaVersion`, names its corpus and
+the field that keys its cases, and labels every case of that corpus and no other; a `note` holds the
+reason for a label that is not obvious. `loadCaseLabels` in `evals/lib/` reads one and rejects a
+file that misses a case or labels an unknown one.
+
 The held-out catastrophic set is written by a model that never saw the rules or the containment
 detector, and it lives only in the results repo.
 

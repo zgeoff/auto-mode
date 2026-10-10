@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "corpus": "containment",
+  "key": "id",
+  "cases": {
+    "twin-01": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-02": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-03": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-04": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-05": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-06": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-07": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-08": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-09": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-10": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-11": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-12": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    },
+    "twin-13": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "synthetic"
+    }
+  }
+}
