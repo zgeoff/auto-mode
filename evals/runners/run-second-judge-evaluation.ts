@@ -1,22 +1,15 @@
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import {
-  DecisionRequestError,
-  PRESETS,
-  loadConfig,
-  loadPolicy,
-  resolveApiKey,
-  sendDecision,
-} from 'auto-mode';
+import { DecisionRequestError, PRESETS, loadConfig, loadPolicy, resolveApiKey } from 'auto-mode';
 import { buildUserMessage, formatClassifierNote, sendMessage, toTimerDelay } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { buildEvaluationPayload } from '../lib/build-evaluation-payload.ts';
 import { buildEvaluationRequest } from '../lib/build-evaluation-request.ts';
 import { buildSecondJudgeSummary } from '../lib/build-second-judge-summary.ts';
@@ -28,6 +21,9 @@ import type { SecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 import { parseJudgeVerdict } from '../lib/parse-judge-verdict.ts';
 import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
+import { toHash } from '../lib/to-hash.ts';
+import { writeReport } from '../lib/write-report.ts';
 
 const SAMPLES = 3;
 const THRESHOLD = 0.8;
@@ -125,14 +121,7 @@ async function runJevStage(
 
   const config = await loadConfig();
 
-  invariant(
-    config.provider.protocol === 'system-one' &&
-      config.rulesPath === undefined &&
-      config.classifierPath === undefined,
-    'Evaluate the shipped Jev policy with no replacement policy.',
-  );
-
-  invariant((config.minConfidence ?? THRESHOLD) === THRESHOLD, 'Keep the threshold at 0.8.');
+  assertShippedJevConfig(config);
 
   const key = await resolveApiKey(config.provider);
 
@@ -171,12 +160,7 @@ async function runJevStage(
       let record: JevReport['records'][number];
 
       try {
-        const result = await sendDecision(
-          config.provider,
-          key,
-          request,
-          AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
-        );
+        const result = await sendEvaluationDecision(config.provider, key, request);
 
         const verdict = pickEvaluationVerdict(request, result, THRESHOLD);
 
@@ -236,7 +220,7 @@ async function runJevStage(
 
       const report: JevReport = { ...header, model, requestsSent: records.length, records };
 
-      await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
+      await writeReport(output, report);
 
       console.log(JSON.stringify({ variant, sample, case: entry.id, status: record.status }));
     }
@@ -372,7 +356,7 @@ async function runJudgeStage(
 
         const report: JudgeReport = { ...header, requestsSent: records.length, records };
 
-        await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
+        await writeReport(output, report);
 
         console.log(
           JSON.stringify({ preset: presetName, sample, case: entry.id, verdict: record.verdict }),
@@ -528,10 +512,6 @@ async function loadJevReports(reportsDir: string, corpus: SecondJudgeCorpus): Pr
   }
 
   return reports;
-}
-
-function toHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 await main();

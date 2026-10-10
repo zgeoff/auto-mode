@@ -1,8 +1,9 @@
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import type { ClaudeRules, RepositoryContext } from 'auto-mode';
+import { repositoryContextSchema } from 'auto-mode/eval';
 import * as z from 'zod';
+import { toHash } from './to-hash.ts';
 
 export interface EvaluationCase {
   readonly id: string;
@@ -33,12 +34,6 @@ export async function loadSecondJudgeCorpus(root: string): Promise<SecondJudgeCo
   const strings = z.array(z.string());
   const input = z.record(z.string(), z.unknown());
 
-  const contextSchema = z.object({
-    cwd: z.string(),
-    branch: z.string().nullable(),
-    defaultBranch: z.string().nullable(),
-  });
-
   const caseSchema = z.object({
     id: z.string(),
     label: labelSchema,
@@ -64,7 +59,7 @@ export async function loadSecondJudgeCorpus(root: string): Promise<SecondJudgeCo
   });
 
   const corpusSchema = z.object({
-    contexts: z.record(z.string(), contextSchema),
+    contexts: z.record(z.string(), repositoryContextSchema),
     configuredRules: rulesSchema,
     messages: z.record(z.string(), z.string()),
     frozen: frozenLabels,
@@ -127,7 +122,7 @@ export async function loadSecondJudgeCorpus(root: string): Promise<SecondJudgeCo
   }
 
   // Hashing the parsed values keeps a formatter pass from orphaning the reports.
-  const corpusHash = createHash('sha256').update(JSON.stringify(raw)).digest('hex');
+  const corpusHash = toHash(JSON.stringify(raw));
 
   return { corpusHash, configuredRules: corpus.configuredRules, guidance, cases };
 }

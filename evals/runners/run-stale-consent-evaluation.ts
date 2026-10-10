@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
@@ -9,13 +8,17 @@ import {
   loadConfig,
   loadPolicy,
   resolveApiKey,
-  sendDecision,
 } from 'auto-mode';
-import type { ActionRequest, DecisionRequest } from 'auto-mode';
-import { readHostEnvironment, toTimerDelay } from 'auto-mode/eval';
+import type { ActionRequest } from 'auto-mode';
+import { readHostEnvironment } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
+import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
 import { staleConsentCorpusSchema } from '../lib/stale-consent-corpus-schema.ts';
+import { toControlHash } from '../lib/to-control-hash.ts';
+import { toHash } from '../lib/to-hash.ts';
+import { writeReport } from '../lib/write-report.ts';
 
 async function main(): Promise<void> {
   const args = parseArgs({ options: { live: { type: 'boolean' }, output: { type: 'string' } } });
@@ -35,14 +38,7 @@ async function main(): Promise<void> {
 
   const config = await loadConfig();
 
-  invariant(
-    config.provider.protocol === 'system-one' &&
-      config.rulesPath === undefined &&
-      config.classifierPath === undefined,
-    'Evaluate the shipped Jev policy with no replacement policy.',
-  );
-
-  invariant((config.minConfidence ?? 0.8) === 0.8, 'Keep the configured threshold at 0.8.');
+  assertShippedJevConfig(config);
 
   const configuredRules = await loadClaudeRules(config.claudeSettingsPath, readHostEnvironment());
   const policy = await loadPolicy({}, 'decision.md');
@@ -154,12 +150,7 @@ async function main(): Promise<void> {
     const started = performance.now();
 
     try {
-      const result = await sendDecision(
-        config.provider,
-        key,
-        request,
-        AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
-      );
+      const result = await sendEvaluationDecision(config.provider, key, request);
 
       const verdict = pickEvaluationVerdict(request, result, 0.8);
 
@@ -214,31 +205,6 @@ async function main(): Promise<void> {
 
     await writeReport(output, report);
   }
-}
-
-async function writeReport(path: string, report: unknown): Promise<void> {
-  await writeFile(path, `${JSON.stringify(report, null, 2)}\n`);
-}
-
-function toControlHash(request: DecisionRequest): string {
-  const taskContext = request.state.taskContext;
-
-  return toHash(
-    JSON.stringify({
-      ...request,
-      state: {
-        ...request.state,
-        lastUserMessage: null,
-        ...(taskContext === undefined
-          ? {}
-          : { taskContext: { ...taskContext, lastDirectUserMessage: null } }),
-      },
-    }),
-  );
-}
-
-function toHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 await main();

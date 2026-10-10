@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type * as z from 'zod';
+import { toHash } from './to-hash.ts';
 
 export interface LoadedCorpus<T> {
   readonly data: T;
@@ -22,7 +22,7 @@ export async function loadCorpus<Schema extends z.ZodType>(
 
   return {
     data: schema.parse(raw),
-    hash: createHash('sha256').update(JSON.stringify(raw)).digest('hex'),
-    textHash: createHash('sha256').update(text).digest('hex'),
+    hash: toHash(JSON.stringify(raw)),
+    textHash: toHash(text),
   };
 }

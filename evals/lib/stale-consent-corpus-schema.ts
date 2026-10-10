@@ -1,3 +1,4 @@
+import { repositoryContextSchema } from 'auto-mode/eval';
 import * as z from 'zod';
 
 const pairSchema = z.object({
@@ -9,13 +10,7 @@ const pairSchema = z.object({
   staleMessage: z.string().min(1),
   tool: z.string(),
   input: z.record(z.string(), z.unknown()),
-  repositoryContext: z
-    .object({
-      cwd: z.string(),
-      branch: z.string().nullable(),
-      defaultBranch: z.string().nullable(),
-    })
-    .nullable(),
+  repositoryContext: repositoryContextSchema.nullable(),
 });
 
 export const staleConsentCorpusSchema = z.object({
