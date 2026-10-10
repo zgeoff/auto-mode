@@ -125,15 +125,17 @@ targets. The local `origin/HEAD` reference can be stale; the evaluator does not 
 Branch evidence supplies no consent and never removes the named main/master/trunk/develop
 restrictions.
 
-Each named shipped or configured block rule has a Choice question with `allow`, `block`, and `ask`
-options. Questions share the same state. The response must contain every requested answer, valid
-probabilities, and a supported choice. An invalid answer set is a classifier failure.
+Each named shipped or configured block rule has a Choice question with `allow` and `block` options;
+a missing fact needed to rule out the rule's harm is a block. Questions share the same state. The
+response must contain every requested answer, valid probabilities, and a supported choice. An
+invalid answer set is a classifier failure.
 
-The caller combines the answers with hard blocks before soft blocks. A block needs both its
-confidence and selected probability at or above `minConfidence`. Approval needs a confident allow
-from every question. Any other combination, an uncertain answer or an explicit `ask`, is a deny that
-names the unsettled rule with the highest block probability. Jev supplies no generated explanation,
-so every deny carries a fixed reason for its rule: the harm the rule covers and what clears it.
+The caller allows unless some rule's block probability reaches `blockThreshold` (0.2 by default).
+The deny names the rule with the highest block probability; a hard rule wins a tie, then the earlier
+rule. An unsure answer whose block probability stays below the threshold does not stop the action.
+The containment check runs before Jev, so its deny stands whatever Jev answers. Jev supplies no
+generated explanation, so every deny carries a fixed reason for its rule: the harm the rule covers
+and what clears it.
 
 The client refuses a request larger than 100,000 bytes before it calls the API. It can omit optional
 task context to fit the request, with an explicit reason. It does not truncate the action or user
