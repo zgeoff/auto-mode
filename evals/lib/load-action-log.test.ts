@@ -42,6 +42,25 @@ test('it reads every version 3 record and hashes the bytes it read', async () =>
   });
 });
 
+test('it reads a version 4 record the judge decided beside a version 3 record', async () => {
+  const ctx = await setupTest();
+
+  const earlier = buildMockActionLogRecord({ schemaVersion: 3 });
+
+  const judged = buildMockActionLogRecord({
+    schemaVersion: 4,
+    decidingStage: 'judge',
+    judge: { status: 'overturned', rule: 'Irreversible Deletion', tier: 'soft' },
+  });
+
+  await writeFile(ctx.path, `${JSON.stringify(earlier)}\n${JSON.stringify(judged)}\n`);
+
+  const log = await loadActionLog(ctx.path, null);
+
+  expect(log.records).toStrictEqual([earlier, judged]);
+  expect(log.skippedVersions).toStrictEqual({});
+});
+
 test('it counts and skips the records of other schema versions', async () => {
   const ctx = await setupTest();
 

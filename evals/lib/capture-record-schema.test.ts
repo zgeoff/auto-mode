@@ -28,6 +28,32 @@ test('it accepts a capture record with a deny verdict', () => {
   expect(captureRecordSchema.safeParse(payload).data).toStrictEqual(payload);
 });
 
+test('it accepts a capture record the judge decided', () => {
+  const payload: z.input<typeof captureRecordSchema> = {
+    schemaVersion: 1,
+    time: '2026-10-10T12:00:00.000Z',
+    request: {
+      sessionID: 's-1',
+      toolUseID: 't-1',
+      cwd: '/tmp',
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf build' },
+      context: {
+        agentID: null,
+        originalUserTask: null,
+        delegatedTask: null,
+        lastDirectUserMessage: { text: 'clean the build', origin: 'composer' },
+        omittedTaskContext: [],
+      },
+    },
+    verdict: { kind: 'allow' },
+    decidingStage: 'judge',
+    escalation: false,
+  };
+
+  expect(captureRecordSchema.safeParse(payload).data).toStrictEqual(payload);
+});
+
 test('it rejects a capture record with a deciding stage it does not know', () => {
   const result = captureRecordSchema.safeParse({
     schemaVersion: 1,
@@ -47,7 +73,7 @@ test('it rejects a capture record with a deciding stage it does not know', () =>
       },
     },
     verdict: { kind: 'deny', rule: 'Production Deploy', reason: 'reason' },
-    decidingStage: 'judge',
+    decidingStage: 'reviewer',
     escalation: false,
   });
 

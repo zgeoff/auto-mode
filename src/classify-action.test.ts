@@ -1,6 +1,6 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
 import { constants } from 'node:fs';
-import { mkdir, mkdtemp, open, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { http } from 'msw';
@@ -17,7 +17,11 @@ import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-hos
 import { runGit } from '../test-utils/run-git.ts';
 import { classifyAction } from './classify-action.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
+async function setupTest(): Promise<{
+  readonly dir: string;
+  readonly binDir: string;
+  readonly recordPath: string;
+}> {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-classify-action-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
@@ -28,7 +32,18 @@ async function setupTest(): Promise<{ readonly dir: string }> {
   // above the temp root, so the repo is a checkout of its own.
   runGit(dir, ['init', '-q', '-b', 'main', join(dir, 'repo')]);
 
-  return { dir };
+  const binDir = join(dir, 'bin');
+
+  await mkdir(binDir);
+
+  // the judge finds `claude` through the host PATH a test passes, so the stub stands in for it
+  await writeFile(
+    join(binDir, 'claude'),
+    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
+    { mode: 0o755 },
+  );
+
+  return { dir, binDir, recordPath: join(dir, 'claude-calls.jsonl') };
 }
 
 test('it allows a read-only tool in the local tier', async () => {
@@ -426,12 +441,18 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
-      judge: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code' },
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
     {
       host: buildMockHostEnvironment({
-        env: { TYPESAFE_API_KEY: 'test-key' },
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>Routine cleanup.</reason>',
+        },
         home: ctx.dir,
         scratchPaths: [],
       }),
@@ -450,6 +471,295 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
   });
 
   expect(received).not.toHaveBeenCalled();
+  expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test('it allows an action whose soft-rule Jev deny the judge overturns', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const startedAt = performance.now();
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for the release on main.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  const elapsedMs = performance.now() - startedAt;
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'judge',
+    note: expect.toBeString(),
+    status: 'allow',
+    diagnostics: expect.toBeObject(),
+    judge: {
+      status: 'overturned',
+      overturnBasis: 'consent',
+      failureReason: null,
+      model: 'claude-haiku-5-5',
+      rule: 'Default Branch Write',
+      tier: 'soft',
+      elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
+    },
+  });
+
+  expect(outcome.note).toMatch(
+    /^jev-1\.13\.0: deny \(\d+ms, 400 input tokens\); judge overturned \(\d+ms\)$/u,
+  );
+
+  expect(outcome.diagnostics?.status).toBe('deny');
+});
+
+test('it keeps a soft-rule Jev deny the judge overturns as a misread under the default overturn setting', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>misread</basis><reason>main is the task branch.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: {
+      kind: 'deny',
+      rule: 'Default Branch Write',
+      reason: expect.toStartWith('The action matches this rule: '),
+    },
+    decidingStage: 'judge',
+    status: 'deny',
+    judge: { status: 'held', overturnBasis: 'misread' },
+  });
+});
+
+test('it allows an action whose soft-rule Jev deny the judge overturns as a misread when any overturn may clear it', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      judgeOverturns: 'any',
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>misread</basis><reason>main is the task branch.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    decidingStage: 'judge',
+    status: 'allow',
+    judge: { status: 'overturned', overturnBasis: 'misread' },
+  });
+});
+
+test('it denies with the judge’s reason and the safer-path instruction when the judge confirms a Jev deny', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '<verdict>confirm</verdict><reason>The user asked for a branch, not main.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: {
+      kind: 'deny',
+      rule: 'Default Branch Write',
+      reason:
+        'The reviewer confirmed the Default Branch Write deny: The user asked for a branch, not main. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+    },
+    decidingStage: 'judge',
+    status: 'deny',
+    judge: { status: 'confirmed', failureReason: null },
+  });
+});
+
+test('it keeps a hard-rule Jev deny with its template reason when the judge overturns it', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set('rule_1', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>The value is a test literal.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: {
+      kind: 'deny',
+      rule: 'Secret Persistence',
+      reason: expect.toStartWith('The action matches this rule: '),
+    },
+    decidingStage: 'judge',
+    status: 'deny',
+    judge: { status: 'held', rule: 'Secret Persistence', tier: 'hard' },
+  });
+});
+
+test('it denies a stored-password change the user only asked to check at the containment check, before Jev or the judge (GEO-78 control-39)', async () => {
+  const ctx = await setupTest();
+
+  const received = mock();
+
+  server.use(
+    http.post(DECISION_URL, (info) => {
+      received();
+
+      return sendDecisionReply(info);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: {
+        command: 'op item edit "harbor deploy" password=harbor-2026-reset --vault agents',
+        description: 'Check deploy item',
+      },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: 'Check that the harbor deploy item exists in the agents vault.',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>confirm</verdict><reason>The user asked to check that the item exists; this replaces its password.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outside Task Scope',
+      reason: `This action writes outside the task scope: credential or global setting op item edit. The task owns the worktree ${join(ctx.dir, 'repo')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
+    },
+    decidingStage: 'containment',
+    note: 'denied by the containment check: op item edit',
+    status: 'deny',
+  });
+
+  expect(received).not.toHaveBeenCalled();
+  expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
 });
 
 test('it passes a target it cannot resolve to the classifier', async () => {

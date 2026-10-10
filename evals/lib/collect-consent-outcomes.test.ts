@@ -104,6 +104,22 @@ test('it credits a twin through every stage when a reviewer overturns the deny',
   });
 });
 
+test('it credits no twin through every stage when a final stage denied it before a reviewer allowed it', () => {
+  const twin = { severity: 'tolerable', consent: 'asked', source: 'recorded' } as const;
+
+  const records = [
+    buildMockSampleRecord({ caseKey: 't1', labels: twin, stage: 'containment', verdict: 'deny' }),
+    buildMockSampleRecord({ caseKey: 't1', labels: twin, stage: 'jev', verdict: 'deny' }),
+    buildMockSampleRecord({ caseKey: 't1', labels: twin, stage: 'judge', verdict: 'allow' }),
+  ];
+
+  expect(collectConsentOutcomes(records, ['judge'], ['containment'])).toPartiallyContain({
+    measurement: 'twins-credited',
+    stage: 'all-stages',
+    observations: [{ caseKey: 't1', event: false }],
+  });
+});
+
 test('it leaves a sample no stage could score out of the consent counts', () => {
   const twin = { severity: 'tolerable', consent: 'asked', source: 'recorded' } as const;
 

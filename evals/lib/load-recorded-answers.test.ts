@@ -6,6 +6,7 @@ import { buildMockJevRecord } from './factories/build-mock-jev-record.ts';
 import { buildMockJevReport } from './factories/build-mock-jev-report.ts';
 import { buildMockJudgeRecord } from './factories/build-mock-judge-record.ts';
 import { buildMockJudgeReport } from './factories/build-mock-judge-report.ts';
+import { buildMockSampleRecord } from './factories/build-mock-sample-record.ts';
 import { loadRecordedAnswers } from './load-recorded-answers.ts';
 
 async function setupTest() {
@@ -124,6 +125,138 @@ test('it refuses a recording that answers one sample two ways', async () => {
       { corporaDir: ctx.corporaDir, resultsDir: null },
     ),
   ).rejects.toThrowWithMessage(Error, 'corpora:release.json records twin-01 sample 0 twice.');
+});
+
+test('it reads one stage of one corpus from a run directory, keyed by case key without the corpus', async () => {
+  const ctx = await setupTest();
+
+  const summary = {
+    runID: '20261010T120000Z-0a1b2c3d',
+    config: {
+      schemaVersion: 2,
+      experiment: 'judge-alone',
+      publicCommit: '8c52b93',
+      dirtyTree: false,
+      policyHash: 'p',
+      judgePolicyHash: 'j',
+      configuredRulesHash: 'r',
+      corpusHash: 'c',
+      labelsHash: 'l',
+      recording: null,
+      models: { jev: 'jev-model', judge: 'judge-model' },
+      seed: 1,
+      samples: 2,
+      maxRequests: null,
+      live: true,
+      startedAt: '2026-10-10T12:00:00.000Z',
+      completedAt: '2026-10-10T13:00:00.000Z',
+    },
+    notMeasured: [],
+    counts: [],
+    notScorable: [],
+    latency: [],
+    requiredCases: [],
+  };
+
+  const first = buildMockSampleRecord({
+    caseKey: 'second-judge/control-39',
+    sample: 0,
+    stage: 'judge',
+    verdict: 'deny',
+    reason: 'confirmed: Credential Exploration',
+  });
+
+  const second = buildMockSampleRecord({
+    caseKey: 'second-judge/control-39',
+    sample: 1,
+    stage: 'judge',
+    status: 'not-scorable',
+    verdict: null,
+    reason: 'judge-unreadable',
+  });
+
+  const otherStage = buildMockSampleRecord({
+    caseKey: 'second-judge/control-39',
+    sample: 0,
+    stage: 'jev',
+    verdict: 'deny',
+  });
+
+  const otherCorpus = buildMockSampleRecord({
+    caseKey: 'answer-guidance/pair-01',
+    sample: 0,
+    stage: 'judge',
+    verdict: 'allow',
+  });
+
+  await mkdir(join(ctx.corporaDir, 'run'));
+  await writeFile(join(ctx.corporaDir, 'run', 'summary.json'), JSON.stringify(summary));
+
+  await writeFile(
+    join(ctx.corporaDir, 'run', 'samples.jsonl'),
+    `${[first, otherStage, otherCorpus, second].map((record) => JSON.stringify(record)).join('\n')}\n`,
+  );
+
+  const recorded = await loadRecordedAnswers(
+    { kind: 'run', root: 'corpora', path: 'run', stage: 'judge', corpus: 'second-judge' },
+    { corporaDir: ctx.corporaDir, resultsDir: null },
+  );
+
+  expect(recorded).toStrictEqual({
+    input: {
+      path: 'corpora:run#judge',
+      hash: expect.toSatisfy((hash: string) => /^[0-9a-f]{64}$/u.test(hash)),
+    },
+    keyedBy: 'key',
+    answers: {
+      'control-39': {
+        0: { kind: 'sample', record: first, model: 'judge-model' },
+        1: { kind: 'sample', record: second, model: 'judge-model' },
+      },
+    },
+  });
+});
+
+test('it refuses a run directory whose summary names no model for the stage', async () => {
+  const ctx = await setupTest();
+
+  const summary = {
+    runID: '20261010T120000Z-0a1b2c3d',
+    config: {
+      schemaVersion: 2,
+      experiment: 'judge-alone',
+      publicCommit: '8c52b93',
+      dirtyTree: false,
+      policyHash: 'p',
+      judgePolicyHash: 'j',
+      configuredRulesHash: 'r',
+      corpusHash: 'c',
+      labelsHash: 'l',
+      recording: null,
+      models: { jev: 'jev-model' },
+      seed: 1,
+      samples: 1,
+      maxRequests: null,
+      live: true,
+      startedAt: '2026-10-10T12:00:00.000Z',
+      completedAt: '2026-10-10T13:00:00.000Z',
+    },
+    notMeasured: [],
+    counts: [],
+    notScorable: [],
+    latency: [],
+    requiredCases: [],
+  };
+
+  await mkdir(join(ctx.corporaDir, 'run'));
+  await writeFile(join(ctx.corporaDir, 'run', 'summary.json'), JSON.stringify(summary));
+
+  expect(
+    loadRecordedAnswers(
+      { kind: 'run', root: 'corpora', path: 'run', stage: 'judge', corpus: 'second-judge' },
+      { corporaDir: ctx.corporaDir, resultsDir: null },
+    ),
+  ).rejects.toThrowWithMessage(Error, 'corpora:run names no model for the judge stage.');
 });
 
 test('it reads nothing from the results clone when no clone is named', async () => {

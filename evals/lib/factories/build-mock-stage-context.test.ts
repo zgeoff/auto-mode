@@ -1,6 +1,4 @@
 import { expect, test } from 'bun:test';
-import { buildMockActionRequest } from '../../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockRepositoryContext } from '../../../test-utils/factories/build-mock-repository-context.ts';
 import { buildMockStageContext } from './build-mock-stage-context.ts';
 
 test('it builds a default stage context', () => {
@@ -33,10 +31,9 @@ test('it applies overrides on top of the defaults', () => {
 
 test('it rejects a judge request the test did not wire', () => {
   const context = buildMockStageContext();
-  const action = buildMockActionRequest();
-  const repository = buildMockRepositoryContext();
 
-  expect(
-    context.sendJudge({ action, lastUserMessage: null, repository }),
-  ).rejects.toThrowWithMessage(Error, 'The stage sent a judge request.');
+  expect(context.sendJudge({ user: 'Review this deny.' })).rejects.toThrowWithMessage(
+    Error,
+    'The stage sent a judge request.',
+  );
 });

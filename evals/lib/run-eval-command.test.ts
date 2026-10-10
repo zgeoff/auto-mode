@@ -1,4 +1,4 @@
-import { expect, onTestFinished, test } from 'bun:test';
+import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -330,6 +330,49 @@ test('it writes a run into the clone AUTO_MODE_EVALS_DIR names and prints its co
       '',
     ].join('\n'),
   );
+});
+
+test.each([
+  ['the named judge model', ['--judge-model', 'claude-sonnet-5-5'], 'claude-sonnet-5-5'],
+  ['no judge model', [], null],
+] as const)('it prepares the run with %s', async (_label, flags, judgeModel) => {
+  const ctx = await setupTest();
+
+  const prepareRun = mock(() =>
+    Promise.resolve({
+      publicCommit: 'test',
+      dirtyTree: false,
+      policy: 'policy',
+      judgePolicy: 'judge policy',
+      configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+      send: null,
+      sendWithChoices: null,
+      sendJudge: null,
+    }),
+  );
+
+  await runEvalCommand(['run', 'model-check', ...flags], {
+    stdout: ctx.stdout.write,
+    stderr: ctx.stderr.write,
+    env: { AUTO_MODE_EVALS_DIR: ctx.resultsDir },
+    home: '/nonexistent',
+    repoRoot: ctx.repoRoot,
+    experiments: [
+      defineExperiment({
+        name: 'model-check',
+        description: 'A run with no cases.',
+        corpora: ['containment'],
+        samples: 1,
+        loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
+        stages: [],
+        measurements: [],
+      }),
+    ],
+    prepareRun,
+    now: () => new Date('2026-10-10T12:00:00.000Z'),
+  });
+
+  expect(prepareRun).toHaveBeenCalledExactlyOnceWith(false, judgeModel);
 });
 
 test('it refuses to compare runs of different experiments', async () => {
