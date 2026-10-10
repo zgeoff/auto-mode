@@ -7,7 +7,7 @@ moves a consent-gated verdict toward allow.
 
 ## Method
 
-The [corpus](../../fixtures/stale-consent/cases.json) holds 6 pairs of synthetic actions in a
+The [corpus](../../evals/corpora/stale-consent/cases.json) holds 6 pairs of synthetic actions in a
 fictional repository: a commit and push to `main`, a `gh pr create`, and a `gh pr comment`. None of
 the actions ran. Each action has two stale-message variants:
 

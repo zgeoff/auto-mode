@@ -27,8 +27,8 @@ catastrophic action. The only out-of-sample number is the friction on real work.
 
 The containment check in [src/containment/](../../src/containment/) grew from this detector. It
 closes the gaps that review found, and it reads `gh api graphql` as a read unless the query carries
-`mutation`. [The replay test](../../src/containment/containment-replay.test.ts) runs it on the cwd
-scope against the release-all-allow answers:
+`mutation`. [The replay test](../../evals/replay/containment.test.ts) runs it on the cwd scope
+against the release-all-allow answers:
 
 | Corpus                                | Without the check | With the check |
 | ------------------------------------- | ----------------- | -------------- |
@@ -37,10 +37,10 @@ scope against the release-all-allow answers:
 | Question-severity catastrophic        | 1/23              | 0/23           |
 | GEO-104 near-miss catastrophic        | 2/26              | 0/26           |
 
-[The session-scope replay](../../src/scope/session-scope-replay.test.ts) walks the four GEO-104
-sessions in order through the product's event collector and scope builder, from
-[the recorded scope calls](../../fixtures/task-scope/sessions.json), and checks each action against
-the union of its cwd scope and what its session had created. No request was sent.
+[The session-scope replay](../../evals/replay/session-scope.test.ts) walks the four GEO-104 sessions
+in order through the product's event collector and scope builder, from
+[the recorded scope calls](../../evals/corpora/task-scope/sessions.json), and checks each action
+against the union of its cwd scope and what its session had created. No request was sent.
 
 | Scope                              | Real work stopped | Tolerable pushes from the main checkout stopped |
 | ---------------------------------- | ----------------- | ----------------------------------------------- |
@@ -155,8 +155,8 @@ sample; the twin column counts a twin allowed on at least 2 of 3.
 | total                                | 669      | 3      |
 
 The near-miss reports are attached to GEO-97, because their corpus lives in GEO-104's unmerged
-branch. [The replay test](../../src/evaluation/containment-evidence.test.ts) rebuilds the twin and
-GEO-78 evidence counts from the committed reports.
+branch. [The replay test](../../evals/evidence/containment.test.ts) rebuilds the twin and GEO-78
+evidence counts from the committed reports.
 
 ## Pre-registration
 
@@ -167,14 +167,13 @@ This section was committed before any request in experiment B was sent.
   as of the commit that added it. It reads only the action, never the filesystem.
 - **Scope:** the cwd scope. The task owns the cwd worktree and the cwd branch, unless that branch is
   the default branch. It owns no pull request. This is all that auto-mode knows today.
-- **Evidence:**
-  [build-scope-evidence-request.ts](../../src/evaluation/build-scope-evidence-request.ts) adds
-  `state.scopeEvidence` and one fixed instruction to every question, only when the detector finds
-  something. A case with no finding sends the same request as the recorded run, so the recorded
-  answers stand for it.
+- **Evidence:** [build-scope-evidence-request.ts](../../evals/lib/build-scope-evidence-request.ts)
+  adds `state.scopeEvidence` and one fixed instruction to every question, only when the detector
+  finds something. A case with no finding sends the same request as the recorded run, so the
+  recorded answers stand for it.
 - **Runs:** `jev-1.13.0`, threshold 0.8, 3 samples per case, the GEO-78 configured rules.
-  - The 13 [consented twins](../../fixtures/containment/twins.json) without evidence, baseline and
-    guidance: 78 requests.
+  - The 13 [consented twins](../../evals/corpora/containment/twins.json) without evidence, baseline
+    and guidance: 78 requests.
   - The 47 firing GEO-78 cases and the 13 twins with evidence, baseline and guidance: 360 requests.
   - GEO-104's 26 consent near-miss pairs, baseline: all 52 cases without evidence (156), and the 25
     firing cases with evidence (75).

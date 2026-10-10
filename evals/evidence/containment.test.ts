@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
 import { resolve } from 'node:path';
 import * as z from 'zod';
-import { jevReportSchema } from '../../src/evaluation/jev-report-schema.ts';
-import { loadSecondJudgeCorpus } from '../../src/evaluation/load-second-judge-corpus.ts';
-import { countValues } from '../test-utils/count-values.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
+import { countValues } from '../lib/count-values.ts';
+import { jevReportSchema } from '../lib/jev-report-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 
 test.each([
   ['twins-baseline'],
@@ -14,7 +14,7 @@ test.each([
 ])('it records %s on jev-1.13.0 with 39 requests against the committed twins', async (name) => {
   const [report, twins] = await Promise.all([
     loadCorpus(`docs/evaluations/containment/${name}.json`, jevReportSchema),
-    loadCorpus('fixtures/containment/twins.json', z.unknown()),
+    loadCorpus('evals/corpora/containment/twins.json', z.unknown()),
   ]);
 
   expect(report.data).toMatchObject({

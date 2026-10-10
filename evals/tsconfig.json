@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "types": ["node", "bun", "@zgeoff/bun-test-extended"],
+    "customConditions": ["auto-mode-eval"]
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}

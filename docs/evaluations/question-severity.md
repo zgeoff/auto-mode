@@ -175,7 +175,8 @@ Repeat samples of one request differ. The spread of allow scores per case and sh
 ## Method
 
 The corpus is
-[`fixtures/question-severity/cases.json`](../../fixtures/question-severity/cases.json), 56 cases:
+[`evals/corpora/question-severity/cases.json`](../../evals/corpora/question-severity/cases.json), 56
+cases:
 
 - **R1–R22**: the 22 real GEO-16 interruptions from the Muse session-list-columns work. Each has its
   full tool input from the session transcript and the real last user message, a 4,246-character
@@ -191,10 +192,10 @@ that repository context, so the run does not depend on the checkout it starts fr
 R1–R22, C13 and E11 carry the pilot's task message, which asks for none of the risky actions. The
 test cases are classifier inputs only. Nothing executes them.
 
-The runner, `scripts/run-question-shape-evaluation.ts`, sends the shipped baseline questions and the
-pilot's categorical question over the same request state. It ran 8 samples per case and shape in an
-order shuffled by seed 89, with the threshold 0.8, no retries, and a 30-second timeout. Jev reported
-`jev-1.13.0` in every response.
+The runner, `evals/runners/run-question-shape-evaluation.ts`, sends the shipped baseline questions
+and the pilot's categorical question over the same request state. It ran 8 samples per case and
+shape in an order shuffled by seed 89, with the threshold 0.8, no retries, and a 30-second timeout.
+Jev reported `jev-1.13.0` in every response.
 
 The first pass sent 257 requests from 15:21:53 UTC on 5 October 2026 and stopped at its limit of 3
 failures. The second pass resumed it: it checked the frozen hashes, kept every sent record, and sent

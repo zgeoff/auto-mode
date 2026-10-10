@@ -1,18 +1,18 @@
 import { expect, test } from 'bun:test';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { buildRelayConsentSummary } from '../../scripts/build-relay-consent-summary.ts';
-import { relayConsentCorpusSchema } from '../../scripts/relay-consent-corpus-schema.ts';
-import { pickEvaluationVerdict } from '../../src/evaluation/pick-evaluation-verdict.ts';
-import { buildRecordedDecision } from '../test-utils/build-recorded-decision.ts';
-import { relayConsentReportSchema } from '../test-utils/corpora/relay-consent-report-schema.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
-import { loadShippedRuleTiers } from '../test-utils/load-shipped-rule-tiers.ts';
+import { buildRecordedDecision } from '../lib/build-recorded-decision.ts';
+import { buildRelayConsentSummary } from '../lib/build-relay-consent-summary.ts';
+import { relayConsentReportSchema } from '../lib/corpora/relay-consent-report-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadShippedRuleTiers } from '../lib/load-shipped-rule-tiers.ts';
+import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { relayConsentCorpusSchema } from '../lib/relay-consent-corpus-schema.ts';
 
 test('it records the run on the committed corpus', async () => {
   const [report, corpus] = await Promise.all([
     loadCorpus('docs/evaluations/relay-consent.json', relayConsentReportSchema),
-    loadCorpus('fixtures/relay-consent/cases.json', relayConsentCorpusSchema),
+    loadCorpus('evals/corpora/relay-consent/cases.json', relayConsentCorpusSchema),
   ]);
 
   expect(report.data.corpusHash).toBe(corpus.hash);
@@ -35,7 +35,7 @@ test('it plans and attempts 760 requests on jev-1.13.0 at the 0.8 threshold, wit
 test('it records each scheduled request of the frozen corpus once', async () => {
   const [report, corpus] = await Promise.all([
     loadCorpus('docs/evaluations/relay-consent.json', relayConsentReportSchema),
-    loadCorpus('fixtures/relay-consent/cases.json', relayConsentCorpusSchema),
+    loadCorpus('evals/corpora/relay-consent/cases.json', relayConsentCorpusSchema),
   ]);
 
   const scheduled = corpus.data.actions.flatMap((action) =>
@@ -110,7 +110,7 @@ test('it never resends a failed request', async () => {
 test('it holds one control request for every corpus action', async () => {
   const [report, corpus] = await Promise.all([
     loadCorpus('docs/evaluations/relay-consent.json', relayConsentReportSchema),
-    loadCorpus('fixtures/relay-consent/cases.json', relayConsentCorpusSchema),
+    loadCorpus('evals/corpora/relay-consent/cases.json', relayConsentCorpusSchema),
   ]);
 
   expect(report.data.controlHashes).toContainAllKeys(
@@ -129,7 +129,7 @@ test('it sends every request of an action with the control of that action', asyn
 test('it sends the absent cell of every action as its control request', async () => {
   const [report, corpus] = await Promise.all([
     loadCorpus('docs/evaluations/relay-consent.json', relayConsentReportSchema),
-    loadCorpus('fixtures/relay-consent/cases.json', relayConsentCorpusSchema),
+    loadCorpus('evals/corpora/relay-consent/cases.json', relayConsentCorpusSchema),
   ]);
 
   const absent = report.data.records.filter((record) => record.cell === 'absent');
@@ -252,7 +252,7 @@ test('it reproduces every recorded verdict and deny rule from the recorded answe
 test('it records the answer of the gating rule of each action as its gating answer', async () => {
   const [report, corpus] = await Promise.all([
     loadCorpus('docs/evaluations/relay-consent.json', relayConsentReportSchema),
-    loadCorpus('fixtures/relay-consent/cases.json', relayConsentCorpusSchema),
+    loadCorpus('evals/corpora/relay-consent/cases.json', relayConsentCorpusSchema),
   ]);
 
   const gatingRules = new Map(corpus.data.actions.map((action) => [action.id, action.gatingRule]));

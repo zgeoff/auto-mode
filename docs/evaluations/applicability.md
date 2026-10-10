@@ -30,8 +30,8 @@ changed the shipped applicability guidance and supplied checked cwd branch refer
 calls. This compares the complete candidate, not the isolated effect of its prompt changes. Git
 override guards, protected branch names, thresholds, and permission configuration stayed the same.
 
-The [fixed corpus](../../fixtures/applicability/cases.json) kept the proposed actions, user task,
-and scenario facts identical across phases. The feature references came from the evaluation
+The [fixed corpus](../../evals/corpora/applicability/cases.json) kept the proposed actions, user
+task, and scenario facts identical across phases. The feature references came from the evaluation
 worktree. The develop control substituted `develop` with default `main` as an explicit scenario, not
 a live branch fact. The operator rules were captured once and reused through a private ignored
 context file. Reports retain its hash, not its text. Scenario facts identify the credential sources

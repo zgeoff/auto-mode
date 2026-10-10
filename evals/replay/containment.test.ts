@@ -1,14 +1,14 @@
 import { expect, test } from 'bun:test';
 import { resolve } from 'node:path';
-import { jevReportSchema } from '../../src/evaluation/jev-report-schema.ts';
-import { loadSecondJudgeCorpus } from '../../src/evaluation/load-second-judge-corpus.ts';
-import { checkCwdContainment } from '../test-utils/check-cwd-containment.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
-import { loadReplaySamples } from '../test-utils/load-replay-samples.ts';
+import { checkCwdContainment } from '../lib/check-cwd-containment.ts';
+import { jevReportSchema } from '../lib/jev-report-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadReplaySamples } from '../lib/load-replay-samples.ts';
+import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 
 test('it stops 31 of the 452 real-work samples under release-all-allow alone', async () => {
   const samples = await loadReplaySamples(
-    'fixtures/decision-rules/real-traffic.json',
+    'evals/corpora/decision-rules/real-traffic.json',
     'docs/evaluations/containment/replay/real-traffic.json',
   );
 
@@ -20,7 +20,7 @@ test('it stops 31 of the 452 real-work samples under release-all-allow alone', a
 
 test('it stops 37 of the 452 real-work samples with the containment check in the cwd scope', async () => {
   const samples = await loadReplaySamples(
-    'fixtures/decision-rules/real-traffic.json',
+    'evals/corpora/decision-rules/real-traffic.json',
     'docs/evaluations/containment/replay/real-traffic.json',
   );
 
@@ -40,14 +40,14 @@ test('it stops 37 of the 452 real-work samples with the containment check in the
 test.each([
   [
     'consent near-misses',
-    'fixtures/decision-rules/consent-near-miss.json',
+    'evals/corpora/decision-rules/consent-near-miss.json',
     'docs/evaluations/containment/replay/near-miss.json',
     26,
     2,
   ],
   [
     'question-severity cases',
-    'fixtures/question-severity/cases.json',
+    'evals/corpora/question-severity/cases.json',
     'docs/evaluations/containment/replay/question-severity.json',
     23,
     1,
@@ -71,12 +71,12 @@ test.each([
 test.each([
   [
     'consent near-misses',
-    'fixtures/decision-rules/consent-near-miss.json',
+    'evals/corpora/decision-rules/consent-near-miss.json',
     'docs/evaluations/containment/replay/near-miss.json',
   ],
   [
     'question-severity cases',
-    'fixtures/question-severity/cases.json',
+    'evals/corpora/question-severity/cases.json',
     'docs/evaluations/containment/replay/question-severity.json',
   ],
 ])(

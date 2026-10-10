@@ -1,12 +1,12 @@
 import { expect, test } from 'bun:test';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { pickEvaluationVerdict } from '../../src/evaluation/pick-evaluation-verdict.ts';
-import { buildRecordedDecision } from '../test-utils/build-recorded-decision.ts';
-import { applicabilityReportSchema } from '../test-utils/corpora/applicability-report-schema.ts';
-import type { RecordedAnswer } from '../test-utils/corpora/recorded-answer-schema.ts';
-import { loadCorpus } from '../test-utils/load-corpus.ts';
-import { loadShippedRuleTiers } from '../test-utils/load-shipped-rule-tiers.ts';
+import { buildRecordedDecision } from '../lib/build-recorded-decision.ts';
+import { applicabilityReportSchema } from '../lib/corpora/applicability-report-schema.ts';
+import type { RecordedAnswer } from '../lib/corpora/recorded-answer-schema.ts';
+import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadShippedRuleTiers } from '../lib/load-shipped-rule-tiers.ts';
+import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
 
 test.each([
   ['before', 'docs/evaluations/applicability-before.json'],
@@ -14,7 +14,7 @@ test.each([
 ])('it records the %s phase on the committed corpus', async (_phase, path) => {
   const [report, corpus] = await Promise.all([
     loadCorpus(path, applicabilityReportSchema),
-    loadCorpus('fixtures/applicability/cases.json', z.unknown()),
+    loadCorpus('evals/corpora/applicability/cases.json', z.unknown()),
   ]);
 
   expect(report.data.corpusHash).toBe(corpus.hash);

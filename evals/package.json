@@ -1,0 +1,15 @@
+{
+  "name": "auto-mode-evals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Evaluation runners, corpora and suites for auto-mode",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@faker-js/faker": "10.6.0",
+    "@tsconfig/strictest": "2.0.8",
+    "tiny-invariant": "1.3.3",
+    "ts-pattern": "5.9.0",
+    "zod": "4.6.2"
+  }
+}
