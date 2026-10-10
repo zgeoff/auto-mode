@@ -415,6 +415,51 @@ test('it reports a known edge that the code no longer has', async () => {
   ]);
 });
 
+test('it reports a repeat of a known import beyond the times the list holds it', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'scripts/check-imports-known.json'),
+    JSON.stringify({
+      'GEO-223': [
+        {
+          rule: 'child-process',
+          file: 'src/config/read-api-key-from-command.ts',
+          message: 'node:child_process outside src/process/',
+        },
+      ],
+    }),
+  );
+
+  await Bun.write(
+    join(ctx.dir, 'src/config/read-api-key-from-command.ts'),
+    "import { spawn } from 'node:child_process';\n\nexport const value = [spawn, await import('node:child_process')];\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'child-process',
+      file: 'src/config/read-api-key-from-command.ts',
+      line: 3,
+      message: 'node:child_process outside src/process/',
+    },
+  ]);
+});
+
+test('it rejects a known-edge list with a missing field, naming the list file', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'scripts/check-imports-known.json'),
+    JSON.stringify({ 'GEO-221': [{ rule: 'stages', file: 'src/rules/classify-locally.ts' }] }),
+  );
+
+  expect(() => checkImports(ctx.dir)).toThrowWithMessage(
+    Error,
+    /^scripts\/check-imports-known\.json is not a known-edge list:/u,
+  );
+});
+
 test('it reports a stage-to-stage import that the known list lacks', async () => {
   const ctx = await setupTest();
 

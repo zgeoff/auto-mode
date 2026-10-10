@@ -36,11 +36,14 @@ export interface CheckImportsResult {
 }
 
 export function checkImports(root: string): CheckImportsResult {
-  const knownEdges = Object.fromEntries(
-    Object.values(loadKnownEdges(root))
-      .flat()
-      .map((edge) => [toKnownKey(edge), edge]),
-  );
+  const knownEdges = Object.values(loadKnownEdges(root)).flat();
+  const remaining: Record<string, number> = {};
+
+  for (const edge of knownEdges) {
+    const key = toKnownKey(edge);
+
+    remaining[key] = (remaining[key] ?? 0) + 1;
+  }
 
   const selfReferences = loadSelfReferences(root);
   const findings: ImportFinding[] = [];
@@ -50,15 +53,24 @@ export function checkImports(root: string): CheckImportsResult {
     const fileFindings = checkFile(root, file, selfReferences);
 
     for (const finding of fileFindings.filter((entry) => shouldReport(file, entry))) {
-      (Object.hasOwn(knownEdges, toKnownKey(finding)) ? known : findings).push(finding);
+      const key = toKnownKey(finding);
+      const count = remaining[key] ?? 0;
+
+      if (count > 0) {
+        remaining[key] = count - 1;
+
+        known.push(finding);
+      } else {
+        findings.push(finding);
+      }
     }
   }
 
-  return { findings: [...findings, ...planStaleFindings(knownEdges, known)], known };
+  return { findings: [...findings, ...planStaleFindings(knownEdges, remaining)], known };
 }
 
 const knownEdgeSchema = z.object({
-  rule: z.enum(RULE_NAMES),
+  rule: z.enum(RULE_NAMES).exclude(['stale-known-edge']),
   file: z.string(),
   message: z.string(),
 });
@@ -77,27 +89,60 @@ function loadKnownEdges(root: string): Record<string, KnownEdge[]> {
     return {};
   }
 
-  return knownEdgesSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
+  const result = knownEdgesSchema.safeParse(parseKnownEdgesJSON(readFileSync(path, 'utf8')));
+
+  if (!result.success) {
+    throw new Error(
+      `${KNOWN_EDGES_PATH} is not a known-edge list:\n${z.prettifyError(result.error)}`,
+    );
+  }
+
+  return result.data;
 }
 
-function toKnownKey(edge: Readonly<KnownEdge>): string {
+function parseKnownEdgesJSON(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${KNOWN_EDGES_PATH} is not JSON`, { cause: error });
+  }
+}
+
+interface EdgeKeyFields {
+  readonly rule: RuleName;
+  readonly file: string;
+  readonly message: string;
+}
+
+function toKnownKey(edge: EdgeKeyFields): string {
   return JSON.stringify([edge.rule, edge.file, edge.message]);
 }
 
 function planStaleFindings(
-  knownEdges: Readonly<Record<string, Readonly<KnownEdge>>>,
-  known: readonly ImportFinding[],
+  knownEdges: readonly Readonly<KnownEdge>[],
+  remaining: Readonly<Record<string, number>>,
 ): ImportFinding[] {
-  const seen = new Set(known.map((finding) => toKnownKey(finding)));
+  const left = { ...remaining };
 
-  return Object.entries(knownEdges)
-    .filter(([key]) => !seen.has(key))
-    .map(([, edge]) => ({
-      rule: 'stale-known-edge',
-      file: edge.file,
-      line: 1,
-      message: `known edge no longer exists; remove it from ${KNOWN_EDGES_PATH}: ${edge.rule} ${edge.message}`,
-    }));
+  return knownEdges.flatMap((edge) => {
+    const key = toKnownKey(edge);
+    const count = left[key] ?? 0;
+
+    if (count === 0) {
+      return [];
+    }
+
+    left[key] = count - 1;
+
+    return [
+      {
+        rule: 'stale-known-edge',
+        file: edge.file,
+        line: 1,
+        message: `known edge no longer exists; remove it from ${KNOWN_EDGES_PATH}: ${edge.rule} ${edge.message}`,
+      },
+    ];
+  });
 }
 
 interface SelfReferences {
@@ -536,7 +581,15 @@ function shouldReport(file: string, finding: ImportFinding): boolean {
 
 function main(): void {
   const root = join(import.meta.dirname, '..');
-  const result = checkImports(root);
+  const result = tryCheckImports(root);
+
+  if (result instanceof Error) {
+    process.stderr.write(`check-imports: ${result.message}\n`);
+
+    process.exitCode = 1;
+
+    return;
+  }
 
   for (const [ticket, edges] of Object.entries(loadKnownEdges(root))) {
     process.stdout.write(`check-imports: ${edges.length} known edges wait for ${ticket}\n`);
@@ -555,6 +608,14 @@ function main(): void {
   }
 
   process.stdout.write('check-imports: no forbidden imports\n');
+}
+
+function tryCheckImports(root: string): CheckImportsResult | Error {
+  try {
+    return checkImports(root);
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
 }
 
 if (import.meta.main) {

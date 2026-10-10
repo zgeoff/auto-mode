@@ -148,6 +148,11 @@
     },
     {
       "rule": "stages",
+      "file": "src/judge/send-judge-message.ts",
+      "message": "stage imports stage: src/judge/send-judge-message.ts → src/model/anthropic-client.ts"
+    },
+    {
+      "rule": "stages",
       "file": "src/model/classify-with-model.ts",
       "message": "stage imports stage: src/model/classify-with-model.ts → src/judge/classify-with-judge.ts"
     }
