@@ -3,14 +3,19 @@ import { parseArgs } from 'node:util';
 import type { Experiment } from './define-experiment.ts';
 import { formatComparison } from './format-comparison.ts';
 import { loadRun } from './load-run.ts';
+import { readPublicCommit } from './read-public-commit.ts';
 import { requireResultsClone } from './require-results-clone.ts';
+import { resolveActionLogPath } from './resolve-action-log-path.ts';
 import type { RunEnvironment } from './run-experiment.ts';
 import { runExperiment } from './run-experiment.ts';
+import { runLiveUse } from './run-live-use.ts';
+import type { MeasurementCount } from './run-summary-schema.ts';
 
 export interface EvalCommandIO {
   readonly stdout: (text: string) => boolean;
   readonly stderr: (text: string) => boolean;
   readonly env: Readonly<Record<string, string | undefined>>;
+  readonly home: string;
   readonly repoRoot: string;
   readonly experiments: readonly Experiment<unknown>[];
   readonly prepareRun: (live: boolean) => Promise<RunEnvironment>;
@@ -22,6 +27,7 @@ const USAGE = `Usage:
   bun run eval run <experiment> [--live --max-requests <n> | --recorded <recording>]
                    [--resume <run-dir>] [--seed <n>] [--samples <n>] [--results <dir>]
   bun run eval compare <run-dir-a> <run-dir-b>
+  bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
 
 Results go to --results, or else to AUTO_MODE_EVALS_DIR: a clone of the
 private results repository, outside this repository.
@@ -46,6 +52,9 @@ export async function runEvalCommand(
       }
       case 'compare': {
         return await runCompareCommand(rest, io);
+      }
+      case 'live': {
+        return await runLiveCommand(rest, io);
       }
       case undefined: {
         return printUsage(io, null);
@@ -175,16 +184,7 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
       io.stdout(`not measured: ${entry}\n`);
     }
 
-    for (const count of result.summary.counts) {
-      const effective =
-        count.effectiveTotal === null
-          ? ''
-          : `, design effect ${count.designEffect ?? 1}, effective n ${count.effectiveTotal}`;
-
-      io.stdout(
-        `${count.measurement} / ${count.stage} / ${count.source}: ${count.events}/${count.total} ${count.unit} (${count.cases} cases${effective}; Wilson ${count.wilson.lower}–${count.wilson.upper})\n`,
-      );
-    }
+    printCounts(io, result.summary.counts);
 
     for (const failure of result.summary.notScorable) {
       const reasons = Object.entries(failure.reasons)
@@ -210,6 +210,19 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
   }
 
   return 0;
+}
+
+function printCounts(io: Readonly<EvalCommandIO>, counts: readonly MeasurementCount[]): void {
+  for (const count of counts) {
+    const effective =
+      count.effectiveTotal === null
+        ? ''
+        : `, design effect ${count.designEffect ?? 1}, effective n ${count.effectiveTotal}`;
+
+    io.stdout(
+      `${count.measurement} / ${count.stage} / ${count.source}: ${count.events}/${count.total} ${count.unit} (${count.cases} cases${effective}; Wilson ${count.wilson.lower}–${count.wilson.upper})\n`,
+    );
+  }
 }
 
 async function runCompareCommand(
@@ -253,6 +266,97 @@ async function runCompareCommand(
   );
 
   return 0;
+}
+
+// A live-use summary never names the log path, and carries only aggregates and
+// the hashed session identifiers the log already holds.
+async function runLiveCommand(
+  args: readonly string[],
+  io: Readonly<EvalCommandIO>,
+): Promise<number> {
+  const parsed = parseCommandArgs(args, {
+    log: { type: 'string' },
+    since: { type: 'string' },
+    results: { type: 'string' },
+  });
+
+  if (parsed.positionals.length > 0) {
+    throw new UsageError('live takes no positional arguments.');
+  }
+
+  const since = parseSince(parsed.values.since);
+
+  const resultsDir = await resolveResultsDir(
+    parsed.values.results ?? io.env['AUTO_MODE_EVALS_DIR'] ?? null,
+    io.repoRoot,
+  );
+
+  if (resultsDir === null) {
+    throw new UsageError(
+      'live writes to the results clone: pass --results or set AUTO_MODE_EVALS_DIR.',
+    );
+  }
+
+  const logPath =
+    parsed.values.log === undefined
+      ? resolveActionLogPath(io.env, io.home)
+      : resolve(parsed.values.log);
+
+  const publicCommit = readPublicCommit(io.repoRoot, false);
+
+  const result = await runLiveUse({
+    logPath,
+    since,
+    resultsDir,
+    publicCommit: publicCommit.commit,
+    dirtyTree: publicCommit.dirty,
+    now: io.now,
+  });
+
+  const log = result.summary.log;
+  const measures = result.summary.measures;
+
+  const skipped = Object.entries(log.skippedVersions)
+    .map(([version, count]) => `version ${version} ${count}`)
+    .join(', ');
+
+  io.stdout(`Wrote ${result.runDir}\n`);
+
+  io.stdout(
+    `records: ${measures.records} (${measures.started} started, ${measures.finals} final, ${measures.incomplete} incomplete) from ${log.lines} lines; ${log.beforeSince} before --since; skipped ${skipped === '' ? 'none' : skipped}\n`,
+  );
+
+  if (log.tornLineCharacters !== null) {
+    io.stdout(`Dropped a torn last line (${log.tornLineCharacters} characters).\n`);
+  }
+
+  io.stdout(
+    `tasks: ${measures.tasks}, from ${measures.firstAt ?? '-'} to ${measures.lastAt ?? '-'}\n`,
+  );
+
+  const perTask = measures.escalationsPerTask;
+
+  io.stdout(
+    `escalations per task: ${perTask.escalations}/${perTask.tasks} (mean ${perTask.mean}, standard error ${perTask.standardError ?? 'n/a'})\n`,
+  );
+
+  printCounts(io, measures.counts);
+
+  return 0;
+}
+
+function parseSince(value: string | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  const time = Date.parse(value);
+
+  if (Number.isNaN(time)) {
+    throw new UsageError(`--since takes an ISO 8601 time, not ${value}.`);
+  }
+
+  return new Date(time).toISOString();
 }
 
 type OptionSpec = Readonly<Record<string, { readonly type: 'boolean' | 'string' }>>;

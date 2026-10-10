@@ -21,6 +21,7 @@ async function main(): Promise<void> {
     stdout: (text) => process.stdout.write(text),
     stderr: (text) => process.stderr.write(text),
     env: host.env,
+    home: host.home,
     repoRoot,
     experiments,
     now: () => new Date(),
