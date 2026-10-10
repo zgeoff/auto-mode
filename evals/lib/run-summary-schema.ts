@@ -2,7 +2,7 @@ import * as z from 'zod';
 
 const intervalSchema = z.strictObject({ lower: z.number(), upper: z.number() }).readonly();
 
-export const runConfigSchema = z
+const runConfigSchema = z
   .strictObject({
     schemaVersion: z.literal(1),
     experiment: z.string().min(1),
@@ -23,7 +23,7 @@ export const runConfigSchema = z
 
 export type RunConfig = z.output<typeof runConfigSchema>;
 
-export const measurementCountSchema = z
+const measurementCountSchema = z
   .strictObject({
     measurement: z.string().min(1),
     stage: z.string().min(1),
@@ -41,7 +41,7 @@ export const measurementCountSchema = z
 
 export type MeasurementCount = z.output<typeof measurementCountSchema>;
 
-export const stageFailureCountSchema = z
+const stageFailureCountSchema = z
   .strictObject({
     stage: z.string().min(1),
     notScorable: z.number().int().nonnegative(),

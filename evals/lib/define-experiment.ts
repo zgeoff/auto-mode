@@ -31,13 +31,13 @@ type StageRun<Case> = {
   run(entry: Readonly<LabelledCase<Case>>, context: Readonly<StageContext>): Promise<StageOutcome>;
 }['run'];
 
-export interface Stage<Case> {
+interface Stage<Case> {
   readonly name: string;
   readonly sends: boolean;
   readonly run: StageRun<Case>;
 }
 
-export interface Observation {
+interface Observation {
   readonly caseKey: string;
   readonly event: boolean;
 }
@@ -50,7 +50,7 @@ export interface MeasurementObservations {
   readonly observations: readonly Observation[];
 }
 
-export type Measurement = (records: readonly SampleRecord[]) => MeasurementObservations[];
+type Measurement = (records: readonly SampleRecord[]) => MeasurementObservations[];
 
 export interface Experiment<Case> {
   readonly name: string;

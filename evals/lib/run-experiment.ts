@@ -15,7 +15,7 @@ import type { SampleRecord } from './sample-record-schema.ts';
 import { toHash } from './to-hash.ts';
 import { writeReport } from './write-report.ts';
 
-export type SendRequest = (request: Readonly<DecisionRequest>) => Promise<DecisionResult>;
+type SendRequest = (request: Readonly<DecisionRequest>) => Promise<DecisionResult>;
 
 export interface RunEnvironment {
   readonly publicCommit: string;

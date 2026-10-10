@@ -1,11 +1,11 @@
 import { makeSeededRandom } from './make-seeded-random.ts';
 
-export interface PlannedStage {
+interface PlannedStage {
   readonly name: string;
   readonly sends: boolean;
 }
 
-export interface PlannedUnit {
+interface PlannedUnit {
   readonly caseKey: string;
   readonly sample: number;
   readonly stages: readonly PlannedStage[];
