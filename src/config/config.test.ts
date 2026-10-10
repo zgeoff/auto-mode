@@ -467,6 +467,45 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
   });
 });
 
+test('#loadConfig reads the capture block, expanding a leading tilde in its dir', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.configFile,
+    JSON.stringify({ capture: { enabled: true, dir: '~/captures' } }),
+  );
+
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
+
+  expect(config.capture).toStrictEqual({ enabled: true, dir: join(ctx.dir, 'captures') });
+});
+
+test('#loadConfig leaves capture off when the capture block omits enabled', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ capture: {} }));
+
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
+
+  expect(config.capture).toStrictEqual({ enabled: false, dir: undefined });
+});
+
+test('#loadConfig refuses a capture block with a key it does not know', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ capture: { enabled: true, path: '/x' } }));
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+  ).rejects.toThrowWithMessage(Error, /capture/);
+});
+
 test('#loadConfig disables the Claude rule import when the policy sets the settings path to null', async () => {
   const ctx = await setupTest();
 
