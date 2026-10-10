@@ -1,6 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreBinaries": ["gitleaks"],
+  "ignoreBinaries": ["gitleaks", "shellcheck", "shfmt", "actionlint"],
+  "ignoreIssues": {
+    "mods/auto-mode/hooks/types.ts": ["types"]
+  },
   "workspaces": {
     ".": {
       "entry": [
@@ -9,10 +12,20 @@
         "e2e/**/*.test.ts",
         "test-utils/**/*.test.ts",
         "test-utils/run-stub-*.ts",
-        "mocks/**/*.test.ts"
+        "mocks/**/*.test.ts",
+        "scripts/*.ts",
+        "mods/auto-mode/hooks/register.ts",
+        "mods/auto-mode/hooks/**/*.claude-check.ts"
       ],
-      "project": ["src/**/*.ts", "e2e/**/*.ts", "test-utils/**/*.ts", "mocks/**/*.ts"],
-      "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/oxlint-config"]
+      "project": [
+        "src/**/*.ts",
+        "e2e/**/*.ts",
+        "test-utils/**/*.ts",
+        "mocks/**/*.ts",
+        "scripts/*.ts",
+        "mods/auto-mode/hooks/**"
+      ],
+      "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/oxlint-config", "claude-code"]
     },
     "evals": {
       "entry": ["**/*.test.ts", "runners/*.ts", "eval.ts"],
