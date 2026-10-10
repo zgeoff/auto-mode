@@ -59,6 +59,15 @@ jobs:
       - name: Dead code
         run: bun run deadcode
 
+      - name: Shellcheck
+        run: bun run lint:shellcheck
+
+      - name: Shfmt
+        run: bun run lint:shfmt
+
+      - name: Actionlint
+        run: bun run lint:actionlint
+
       - name: Format
         run: bun run format:check
 
