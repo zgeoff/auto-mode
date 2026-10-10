@@ -25,6 +25,11 @@ pre-commit:
     - name: gitleaks
       run: gitleaks git --pre-commit --staged --redact --no-banner
 
+pre-push:
+  jobs:
+    - name: check:imports
+      run: bun run check:imports
+
 commit-msg:
   jobs:
     - name: commitlint

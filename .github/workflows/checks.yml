@@ -65,6 +65,9 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Module boundaries
+        run: bun run check:imports
+
       - name: Typecheck
         run: bun run typecheck
 
