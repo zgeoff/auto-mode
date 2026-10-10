@@ -140,6 +140,33 @@ The run goes to `runs/live-use/<run>/summary.json` in the results clone, with th
 whether the tree was dirty, and the SHA-256 of the log bytes it read. It holds only counts and the
 hashed session identifiers the log already holds: never a log line or the log path.
 
+## Anonymise a capture into a corpus
+
+```sh
+bun run eval anonymise <capture.jsonl...> --out <dir>
+```
+
+[Turn the capture on](../guides/configuration.md#capture) to record real traffic, then build a
+candidate corpus from its files. The raw capture stays on the machine that recorded it; only the
+output of this command may enter a repository.
+
+1. Run the command over one or more capture files. It replaces user names, home paths, hosts,
+   emails, repository owners and names, branch names, session and tool-use identifiers, and tokens
+   with placeholders such as `user-3f9a01c2`. One run maps a value to one placeholder; the key comes
+   from a random salt that is never written, so two runs cannot be joined. The tool, the command
+   structure and the path structure stay as recorded, and so do `main` and a loopback host.
+2. The command writes `cases.json` and `labels.todo.json` to a private temp directory and scans it
+   with `gitleaks dir` and its default rules; `gitleaks` must be on `PATH`. A finding, or a scan
+   that cannot run, deletes the temp directory and writes nothing. Only a passing scan copies the
+   files to `--out`.
+3. `--out` must not exist, and its parent must. It may sit outside every git work tree, or under
+   `evals/corpora/` of this repository; the command refuses any other directory inside a work tree.
+4. Every case is `source: recorded`. `labels.todo.json` lists the case keys with that label alone,
+   because a case's severity, harm and consent need a reader. Label each one and save the file as
+   `labels.json` in the [labels format](../architecture/evaluation.md#cases).
+5. Read every case before you commit it. The placeholders cover the forms above and the bundled
+   secret rules, not every way a prompt can name a person or a project.
+
 ## Commit the run
 
 In the results clone, commit the new `runs/<experiment>/<run>/` or `runs/live-use/<run>/` directory

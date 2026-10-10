@@ -75,9 +75,9 @@ detector, and it lives only in the results repo.
 **Why:** every older catastrophic case was in view while the rules and the detector were written, so
 only a set kept out of reach of the rule author tests them out of sample.
 
-Real traffic comes from an opt-in capture in the mod. A raw capture never enters git, in either
-repo: it stays on the machine that recorded it, and only its anonymised form, after a gitleaks scan
-that passes, becomes a corpus.
+Real traffic comes from an opt-in capture in the CLI the mod runs. A raw capture never enters git,
+in either repo: it stays on the machine that recorded it, and only its anonymised form, after a
+gitleaks scan that passes, becomes a corpus.
 
 **Why:** a raw capture holds real prompts, paths, and possibly secrets, and git history is permanent
 and shared, so the anonymised and scanned form is the only way into any repo.

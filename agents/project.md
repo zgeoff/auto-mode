@@ -18,28 +18,29 @@ decision and Messages API clients; `policy/` assembles the prompt; `config/` hol
 presets; `budget/` counts denials per session; `containment/` denies a write outside the task scope;
 `scope/` builds that scope from the configured scope sources and keeps what each session created;
 `bypass/` lets an in-scope file edit skip Jev; `secrets/` scans edit content with the bundled
-Betterleaks rule set, which `scripts/build-secret-rules.ts` generates. `classify-action.ts` runs
-both tiers with the containment check and the edit bypass between them, and is the library entry
-point; `index.ts` is the public API; `eval/index.ts` is the unpublished `auto-mode/eval` subpath;
-`cli.ts` is the entrypoint the mod runs. `mods/auto-mode/` is the Claude Code mod. `policy/` at the
-repo root holds the prompt itself. `fixtures/` holds mod requests recorded in a live Claude Code
-session.
+Betterleaks rule set, which `scripts/build-secret-rules.ts` generates; `capture/` appends each
+judged request to the opt-in capture, never inside a git work tree. `classify-action.ts` runs both
+tiers with the containment check and the edit bypass between them, and is the library entry point;
+`index.ts` is the public API; `eval/index.ts` is the unpublished `auto-mode/eval` subpath; `cli.ts`
+is the entrypoint the mod runs. `mods/auto-mode/` is the Claude Code mod. `policy/` at the repo root
+holds the prompt itself. `fixtures/` holds mod requests recorded in a live Claude Code session.
 
 `evals/` holds the evaluation tooling: `eval.ts` is the `bun run eval` command, which plans, runs,
-resumes and compares one experiment and measures live use from the action log; `experiments/` holds
-one `defineExperiment` file per experiment (its corpora, its ordered stages, its measurements, the
-recordings it can replay) and the registry that lists them; `runners/` are the older `eval:*`
-scripts, kept for the live runs no experiment covers: the guidance variant and the `claude -p` judge
-transport, the question-shape threshold sweep, and the containment evidence, relay, stale-consent,
-answer-guidance and applicability corpora; `corpora/` the committed corpora, with the recorded model
-answers the replays read under `corpora/recorded/`; `lib/` the helpers they and the suites share,
-including the run, plan, result schemas and interval statistics; and `replay/` the suites that
-replay the corpora offline. Evaluation reports live in the private zgeoff/auto-mode-evals
-repository, not here. Evals import auto-mode code by package name: `auto-mode` for the public API
-and `auto-mode/eval` for internals. Both resolve to `src/` under the `auto-mode-eval` export
-condition, which `bun run test`, the `eval:*` scripts and `evals/tsconfig.json` set; without it the
-subpath does not resolve. Evals also reuse the root `test-utils/` helpers by path, and those import
-`src/` directly. Bun cannot install a workspace's dependency on the root package, so `prepare` links
+resumes and compares one experiment, measures live use from the action log, and anonymises a request
+capture into a candidate corpus behind a gitleaks scan; `experiments/` holds one `defineExperiment`
+file per experiment (its corpora, its ordered stages, its measurements, the recordings it can
+replay) and the registry that lists them; `runners/` are the older `eval:*` scripts, kept for the
+live runs no experiment covers: the guidance variant and the `claude -p` judge transport, the
+question-shape threshold sweep, and the containment evidence, relay, stale-consent, answer-guidance
+and applicability corpora; `corpora/` the committed corpora, with the recorded model answers the
+replays read under `corpora/recorded/`; `lib/` the helpers they and the suites share, including the
+run, plan, result schemas and interval statistics; and `replay/` the suites that replay the corpora
+offline. Evaluation reports live in the private zgeoff/auto-mode-evals repository, not here. Evals
+import auto-mode code by package name: `auto-mode` for the public API and `auto-mode/eval` for
+internals. Both resolve to `src/` under the `auto-mode-eval` export condition, which `bun run test`,
+the `eval:*` scripts and `evals/tsconfig.json` set; without it the subpath does not resolve. Evals
+also reuse the root `test-utils/` helpers by path, and those import `src/` directly. Bun cannot
+install a workspace's dependency on the root package, so `prepare` links
 `evals/node_modules/auto-mode` to the root instead.
 
 ## Runtime rules
