@@ -1,23 +1,27 @@
 // Fails on an import that crosses a forbidden module boundary. Each file under
 // src/ and mods/ gets a zone; each import it makes is resolved, the target gets
-// a zone too, and every rule that is on judges the edge.
+// a zone too, and every rule judges the edge.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { Visitor, parseSync } from 'oxc-parser';
 import { z } from 'zod';
 
-export type RuleName =
-  | 'zone-assignment'
-  | 'unresolved'
-  | 'src-mods-apart'
-  | 'core-no-tooling'
-  | 'network'
-  | 'mod'
-  | 'contract'
-  | 'request'
-  | 'support'
-  | 'stages'
-  | 'child-process';
+const RULE_NAMES = [
+  'zone-assignment',
+  'unresolved',
+  'src-mods-apart',
+  'core-no-tooling',
+  'network',
+  'mod',
+  'contract',
+  'request',
+  'support',
+  'stages',
+  'child-process',
+  'stale-known-edge',
+] as const;
+
+export type RuleName = (typeof RULE_NAMES)[number];
 
 export interface ImportFinding {
   readonly rule: RuleName;
@@ -26,58 +30,74 @@ export interface ImportFinding {
   readonly message: string;
 }
 
-export interface CheckImportsOptions {
-  // a rule that is off has findings today, so a test switches it on to exercise it
-  readonly enable?: readonly RuleName[];
-}
-
 export interface CheckImportsResult {
   readonly findings: readonly ImportFinding[];
-  readonly pending: readonly ImportFinding[];
+  readonly known: readonly ImportFinding[];
 }
 
-export function checkImports(root: string, options: CheckImportsOptions = {}): CheckImportsResult {
-  const enabled = collectEnabledRules(options);
+export function checkImports(root: string): CheckImportsResult {
+  const knownEdges = Object.fromEntries(
+    Object.values(loadKnownEdges(root))
+      .flat()
+      .map((edge) => [toKnownKey(edge), edge]),
+  );
+
   const selfReferences = loadSelfReferences(root);
   const findings: ImportFinding[] = [];
-  const pending: ImportFinding[] = [];
+  const known: ImportFinding[] = [];
 
   for (const file of collectCheckedFiles(root)) {
     const fileFindings = checkFile(root, file, selfReferences);
 
     for (const finding of fileFindings.filter((entry) => shouldReport(file, entry))) {
-      (enabled.has(finding.rule) ? findings : pending).push(finding);
+      (Object.hasOwn(knownEdges, toKnownKey(finding)) ? known : findings).push(finding);
     }
   }
 
-  return { findings, pending };
+  return { findings: [...findings, ...planStaleFindings(knownEdges, known)], known };
 }
 
-interface Rule {
-  readonly name: RuleName;
-  readonly enabled: boolean;
-  readonly ticket?: string;
+const knownEdgeSchema = z.object({
+  rule: z.enum(RULE_NAMES),
+  file: z.string(),
+  message: z.string(),
+});
+
+type KnownEdge = z.infer<typeof knownEdgeSchema>;
+
+const knownEdgesSchema = z.record(z.string(), z.array(knownEdgeSchema));
+
+// each import that breaks a zone today, grouped by the ticket that removes it
+const KNOWN_EDGES_PATH = 'scripts/check-imports-known.json';
+
+function loadKnownEdges(root: string): Record<string, KnownEdge[]> {
+  const path = join(root, KNOWN_EDGES_PATH);
+
+  if (!existsSync(path)) {
+    return {};
+  }
+
+  return knownEdgesSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
 }
 
-const RULES: readonly Rule[] = [
-  { name: 'zone-assignment', enabled: true },
-  { name: 'unresolved', enabled: true },
-  { name: 'src-mods-apart', enabled: true },
-  { name: 'core-no-tooling', enabled: true },
-  { name: 'network', enabled: true },
-  { name: 'mod', enabled: true },
-  { name: 'contract', enabled: false, ticket: 'GEO-220' },
-  { name: 'request', enabled: false, ticket: 'GEO-220' },
-  { name: 'support', enabled: false, ticket: 'GEO-221' },
-  { name: 'stages', enabled: false, ticket: 'GEO-221' },
-  { name: 'child-process', enabled: false, ticket: 'GEO-223' },
-];
+function toKnownKey(edge: Readonly<KnownEdge>): string {
+  return JSON.stringify([edge.rule, edge.file, edge.message]);
+}
 
-function collectEnabledRules(options: CheckImportsOptions): Set<RuleName> {
-  return new Set([
-    ...RULES.filter((rule) => rule.enabled).map((rule) => rule.name),
-    ...(options.enable ?? []),
-  ]);
+function planStaleFindings(
+  knownEdges: Readonly<Record<string, Readonly<KnownEdge>>>,
+  known: readonly ImportFinding[],
+): ImportFinding[] {
+  const seen = new Set(known.map((finding) => toKnownKey(finding)));
+
+  return Object.entries(knownEdges)
+    .filter(([key]) => !seen.has(key))
+    .map(([, edge]) => ({
+      rule: 'stale-known-edge',
+      file: edge.file,
+      line: 1,
+      message: `known edge no longer exists; remove it from ${KNOWN_EDGES_PATH}: ${edge.rule} ${edge.message}`,
+    }));
 }
 
 interface SelfReferences {
@@ -462,7 +482,7 @@ function planEdgeFindings(
     findings.push(['core-no-tooling', `src/ imports eval, script or test code: ${edge}`]);
   }
 
-  if ((typeOnly && isTypesFile(target)) || toZone === 'contract') {
+  if (findings.length > 0 || (typeOnly && isTypesFile(target)) || toZone === 'contract') {
     return findings;
   }
 
@@ -515,14 +535,11 @@ function shouldReport(file: string, finding: ImportFinding): boolean {
 }
 
 function main(): void {
-  const result = checkImports(join(import.meta.dirname, '..'));
+  const root = join(import.meta.dirname, '..');
+  const result = checkImports(root);
 
-  for (const rule of RULES.filter((entry) => !entry.enabled)) {
-    const count = result.pending.filter((finding) => finding.rule === rule.name).length;
-
-    process.stdout.write(
-      `check-imports: ${rule.name} is off until ${rule.ticket} (${count} edges)\n`,
-    );
+  for (const [ticket, edges] of Object.entries(loadKnownEdges(root))) {
+    process.stdout.write(`check-imports: ${edges.length} known edges wait for ${ticket}\n`);
   }
 
   for (const finding of result.findings) {

@@ -47,8 +47,10 @@ install a workspace's dependency on the root package, so `prepare` links
 
 `bun run check:imports` (`scripts/check-imports.ts`) enforces the module boundaries in CI and on
 pre-push. Every file under `src/` belongs to a zone: an orchestrator file, `request/`, a support
-module or a stage. A new `src/` folder joins a zone in that script, in the same PR that adds it. The
-script prints each zone that is still off and the ticket that turns it on.
+module or a stage. A new `src/` folder joins a zone in that script, in the same PR that adds it.
+`scripts/check-imports-known.json` lists each import that breaks a zone today, grouped by the ticket
+that removes it. Any other forbidden import fails the check, and so does a listed import the code no
+longer has, so the list only shrinks. Never add an entry to make a new import pass.
 
 ## Runtime rules
 

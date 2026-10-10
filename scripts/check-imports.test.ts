@@ -47,7 +47,7 @@ test('it passes a core file that imports a support module', async () => {
     "import { config } from '../config/config.ts';\n\nexport const value = config;\n",
   );
 
-  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], pending: [] });
+  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], known: [] });
 });
 
 test('it reports a mod file that imports the core', async () => {
@@ -101,7 +101,7 @@ test('it passes a core test file that imports test code', async () => {
     "import { waitFor } from '../test-utils/wait-for.ts';\n\nexport const value = waitFor;\n",
   );
 
-  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], pending: [] });
+  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], known: [] });
 });
 
 test.each([
@@ -308,7 +308,7 @@ test('it passes a fetch call inside the model module', async () => {
     "export const value = await fetch('https://example.com');\n",
   );
 
-  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], pending: [] });
+  expect(checkImports(ctx.dir)).toStrictEqual({ findings: [], known: [] });
 });
 
 test('it reports a core file outside every zone', async () => {
@@ -344,8 +344,22 @@ test('it reports an import that resolves to no file', async () => {
   ]);
 });
 
-test('it holds a stage-to-stage import as pending while the stages rule is off', async () => {
+test('it holds a listed stage-to-stage import apart from the findings', async () => {
   const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'scripts/check-imports-known.json'),
+    JSON.stringify({
+      'GEO-221': [
+        {
+          rule: 'stages',
+          file: 'src/containment/check-containment.ts',
+          message:
+            'stage imports stage: src/containment/check-containment.ts → src/rules/split-shell-command.ts',
+        },
+      ],
+    }),
+  );
 
   await Bun.write(join(ctx.dir, 'src/rules/split-shell-command.ts'), 'export const split = 1;\n');
 
@@ -356,7 +370,7 @@ test('it holds a stage-to-stage import as pending while the stages rule is off',
 
   expect(checkImports(ctx.dir)).toStrictEqual({
     findings: [],
-    pending: [
+    known: [
       {
         rule: 'stages',
         file: 'src/containment/check-containment.ts',
@@ -368,7 +382,40 @@ test('it holds a stage-to-stage import as pending while the stages rule is off',
   });
 });
 
-test('it reports a stage-to-stage import once the stages rule is on', async () => {
+test('it reports a known edge that the code no longer has', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'scripts/check-imports-known.json'),
+    JSON.stringify({
+      'GEO-221': [
+        {
+          rule: 'stages',
+          file: 'src/containment/check-containment.ts',
+          message:
+            'stage imports stage: src/containment/check-containment.ts → src/rules/split-shell-command.ts',
+        },
+      ],
+    }),
+  );
+
+  await Bun.write(
+    join(ctx.dir, 'src/containment/check-containment.ts'),
+    'export const value = 1;\n',
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'stale-known-edge',
+      file: 'src/containment/check-containment.ts',
+      line: 1,
+      message:
+        'known edge no longer exists; remove it from scripts/check-imports-known.json: stages stage imports stage: src/containment/check-containment.ts → src/rules/split-shell-command.ts',
+    },
+  ]);
+});
+
+test('it reports a stage-to-stage import that the known list lacks', async () => {
   const ctx = await setupTest();
 
   await Bun.write(join(ctx.dir, 'src/rules/split-shell-command.ts'), 'export const split = 1;\n');
@@ -378,13 +425,76 @@ test('it reports a stage-to-stage import once the stages rule is on', async () =
     "import { split } from '../rules/split-shell-command.ts';\n\nexport const value = split;\n",
   );
 
-  expect(checkImports(ctx.dir, { enable: ['stages'] }).findings).toStrictEqual([
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
     {
       rule: 'stages',
       file: 'src/containment/check-containment.ts',
       line: 1,
       message:
         'stage imports stage: src/containment/check-containment.ts → src/rules/split-shell-command.ts',
+    },
+  ]);
+});
+
+test('it reports a support module that imports a stage', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/model/load-mcp-servers.ts'), 'export const servers = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/scope/load-task-scope.ts'),
+    "import { servers } from '../model/load-mcp-servers.ts';\n\nexport const value = servers;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'support',
+      file: 'src/scope/load-task-scope.ts',
+      line: 1,
+      message:
+        'support imports stage: src/scope/load-task-scope.ts → src/model/load-mcp-servers.ts',
+    },
+  ]);
+});
+
+test('it reports a request file that imports a support module', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'src/scope/update-session-scope.ts'), 'export const update = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/request/parse-scope-record-request.ts'),
+    "import { update } from '../scope/update-session-scope.ts';\n\nexport const value = update;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'request',
+      file: 'src/request/parse-scope-record-request.ts',
+      line: 1,
+      message:
+        'request imports support: src/request/parse-scope-record-request.ts → src/scope/update-session-scope.ts',
+    },
+  ]);
+});
+
+test('it reports a contract file that imports a mod file', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(join(ctx.dir, 'mods/auto-mode/hooks/types.ts'), 'export const mod = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'mods/auto-mode/contract/verdict.ts'),
+    "import { mod } from '../hooks/types.ts';\n\nexport const value = mod;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'contract',
+      file: 'mods/auto-mode/contract/verdict.ts',
+      line: 1,
+      message:
+        'contract imports mod: mods/auto-mode/contract/verdict.ts → mods/auto-mode/hooks/types.ts',
     },
   ]);
 });
@@ -399,9 +509,9 @@ test('it passes a type-only import of a types file across stages', async () => {
     "import type { Verdict } from '../model/types.ts';\n\nexport const value: Verdict = 'allow';\n",
   );
 
-  expect(checkImports(ctx.dir, { enable: ['stages'] })).toStrictEqual({
+  expect(checkImports(ctx.dir)).toStrictEqual({
     findings: [],
-    pending: [],
+    known: [],
   });
 });
 
@@ -415,7 +525,7 @@ test('it reports a value import of a types file across stages', async () => {
     "import { verdicts } from '../model/types.ts';\n\nexport const value = verdicts;\n",
   );
 
-  expect(checkImports(ctx.dir, { enable: ['stages'] }).findings).toStrictEqual([
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
     {
       rule: 'stages',
       file: 'src/containment/check-containment.ts',
@@ -425,7 +535,7 @@ test('it reports a value import of a types file across stages', async () => {
   ]);
 });
 
-test('it reports a child process import outside the process module once the rule is on', async () => {
+test('it reports a child process import outside the process module', async () => {
   const ctx = await setupTest();
 
   await Bun.write(
@@ -433,7 +543,7 @@ test('it reports a child process import outside the process module once the rule
     "import { spawn } from 'node:child_process';\n\nexport const value = spawn;\n",
   );
 
-  expect(checkImports(ctx.dir, { enable: ['child-process'] }).findings).toStrictEqual([
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
     {
       rule: 'child-process',
       file: 'src/config/read-api-key-from-command.ts',
