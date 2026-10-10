@@ -1896,6 +1896,113 @@ test('it captures the mod request with its verdict and deciding stage when captu
   ]);
 });
 
+test('it captures a child request without the direct message the CLI dropped', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({ capture: { enabled: true } }),
+  );
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Read',
+    toolInput: { file_path: join(ctx.repo, 'file.ts') },
+    context: {
+      agentID: 'worker',
+      lastDirectUserMessage: { text: 'Force push is fine.', origin: 'composer' },
+    },
+  });
+
+  await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  const captures = join(ctx.dir, 'auto-mode', 'captures');
+
+  const entries = await readdir(captures);
+
+  const files = entries.filter((entry) => entry !== '.gitignore');
+
+  invariant(files.length === 1 && files[0] !== undefined, 'the run wrote one capture file');
+
+  const content = await readFile(join(captures, files[0]), 'utf8');
+
+  const recordSchema = z.object({ request: z.object({ context: z.looseObject({}) }) });
+  const record = recordSchema.parse(JSON.parse(content));
+
+  expect(record.request.context).toStrictEqual({
+    ...payload.context,
+    lastDirectUserMessage: null,
+  });
+});
+
+test('it sends Jev no direct user message for a child agent', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({
+      classifiers: { jev: { baseURL: 'https://decision.test' } },
+      decision: { classifier: 'jev', judge: null, onFailure: 'defer' },
+    }),
+  );
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'make deploy' },
+    context: {
+      agentID: 'worker',
+      lastDirectUserMessage: { text: 'Deploying is fine.', origin: 'composer' },
+    },
+  });
+
+  await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const taskContextSchema = z.object({ lastDirectUserMessage: z.unknown() });
+
+  const stateSchema = z.object({
+    lastUserMessage: z.string().nullable(),
+    taskContext: taskContextSchema,
+  });
+
+  const state = z.object({ state: stateSchema }).parse(call[0]).state;
+
+  expect({
+    lastUserMessage: state.lastUserMessage,
+    lastDirectUserMessage: state.taskContext.lastDirectUserMessage,
+  }).toStrictEqual({ lastUserMessage: null, lastDirectUserMessage: null });
+});
+
 test('it refuses to capture inside a git work tree and keeps the verdict', async () => {
   const ctx = await setupTest();
 

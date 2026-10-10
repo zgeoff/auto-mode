@@ -20,6 +20,7 @@ import { loadPolicy } from './policy/load-policy.ts';
 import { parseActionRequest } from './request/parse-action-request.ts';
 import { parseScopeRecordRequest } from './request/parse-scope-record-request.ts';
 import { renderVerdict } from './request/render-verdict.ts';
+import { toModRequest } from './request/to-mod-request.ts';
 import type { Verdict } from './request/types.ts';
 import { readPullRequest } from './scope/read-pull-request.ts';
 import { updateSessionScope } from './scope/update-session-scope.ts';
@@ -266,7 +267,7 @@ async function run(
       const captured = await tryWriteRequestCapture(resolveCaptureDir(config.capture, host), {
         schemaVersion: 1,
         time: new Date().toISOString(),
-        request: body,
+        request: toModRequest(request),
         verdict: plan.verdict,
         decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
         escalation: plan.escalation,

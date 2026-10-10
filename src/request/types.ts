@@ -16,6 +16,8 @@ export type ActionRequest = DeepReadonly<Omit<ModRequest, 'context'>> & {
   readonly decisionContext?: DecisionContext | undefined;
 };
 
+export type ParsedActionRequest = ActionRequest & { readonly decisionContext: DecisionContext };
+
 export type ScopeRecordRequest = Readonly<z.infer<typeof scopeRecordRequestSchema>>;
 
 export type Verdict =
