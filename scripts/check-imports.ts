@@ -4,6 +4,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { Visitor, parseSync } from 'oxc-parser';
+import { z } from 'zod';
 
 export type RuleName =
   | 'zone-assignment'
@@ -37,11 +38,14 @@ export interface CheckImportsResult {
 
 export function checkImports(root: string, options: CheckImportsOptions = {}): CheckImportsResult {
   const enabled = collectEnabledRules(options);
+  const selfReferences = loadSelfReferences(root);
   const findings: ImportFinding[] = [];
   const pending: ImportFinding[] = [];
 
   for (const file of collectCheckedFiles(root)) {
-    for (const finding of checkFile(root, file).filter((entry) => shouldReport(file, entry))) {
+    const fileFindings = checkFile(root, file, selfReferences);
+
+    for (const finding of fileFindings.filter((entry) => shouldReport(file, entry))) {
       (enabled.has(finding.rule) ? findings : pending).push(finding);
     }
   }
@@ -76,6 +80,47 @@ function collectEnabledRules(options: CheckImportsOptions): Set<RuleName> {
   ]);
 }
 
+interface SelfReferences {
+  readonly name: string | undefined;
+  readonly targets: Readonly<Record<string, string>>;
+}
+
+const exportTargetSchema = z.union([z.string(), z.record(z.string(), z.string())]);
+
+const manifestSchema = z.object({
+  name: z.string().optional(),
+  exports: z.record(z.string(), exportTargetSchema).optional(),
+});
+
+// the eval condition maps each export to source, which is what the zones judge
+const SOURCE_CONDITION = 'auto-mode-eval';
+
+function loadSelfReferences(root: string): SelfReferences {
+  const path = join(root, 'package.json');
+
+  if (!existsSync(path)) {
+    return { name: undefined, targets: {} };
+  }
+
+  const manifest = manifestSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
+  const targets: Record<string, string> = {};
+
+  for (const [subpath, value] of Object.entries(manifest.exports ?? {})) {
+    const target =
+      typeof value === 'string' ? value : (value[SOURCE_CONDITION] ?? value['default']);
+
+    if (target !== undefined) {
+      targets[`${manifest.name}${subpath.slice(1)}`] = normalizePath(target);
+    }
+  }
+
+  return { name: manifest.name, targets };
+}
+
+function normalizePath(path: string): string {
+  return path.replace(/^\.\//u, '');
+}
+
 const CHECKED_FILES = new Bun.Glob('{src,mods}/**/*.ts');
 
 function collectCheckedFiles(root: string): string[] {
@@ -98,7 +143,7 @@ type Zone =
 
 type PlannedFinding = readonly [RuleName, string];
 
-function checkFile(root: string, file: string): ImportFinding[] {
+function checkFile(root: string, file: string, selfReferences: SelfReferences): ImportFinding[] {
   const source = readFileSync(join(root, file), 'utf8');
   const facts = collectFileFacts(file, source);
   const fromZone = getZone(file);
@@ -118,7 +163,7 @@ function checkFile(root: string, file: string): ImportFinding[] {
   }
 
   for (const edge of facts.edges) {
-    for (const planned of planImportFindings(root, file, fromZone, edge)) {
+    for (const planned of planImportFindings(root, file, fromZone, edge, selfReferences)) {
       findings.push(buildFinding(edge.offset, planned));
     }
   }
@@ -323,12 +368,20 @@ function planImportFindings(
   file: string,
   fromZone: Zone,
   edge: ImportEdge,
+  selfReferences: SelfReferences,
 ): PlannedFinding[] {
-  if (!edge.specifier.startsWith('.')) {
+  const isSelfReference =
+    selfReferences.name !== undefined &&
+    (edge.specifier === selfReferences.name ||
+      edge.specifier.startsWith(`${selfReferences.name}/`));
+
+  if (!isSelfReference && !edge.specifier.startsWith('.')) {
     return planBuiltinFindings(file, edge);
   }
 
-  const target = resolveImport(root, file, edge.specifier);
+  const target = isSelfReference
+    ? selfReferences.targets[edge.specifier]
+    : resolveImport(root, file, edge.specifier);
 
   if (target === undefined) {
     return [['unresolved', `cannot resolve ${edge.specifier}`]];

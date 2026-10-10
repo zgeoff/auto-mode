@@ -172,6 +172,59 @@ test('it reports a mod file that imports test code', async () => {
   ]);
 });
 
+test('it reports a mod file that imports the core by package name', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'package.json'),
+    JSON.stringify({
+      name: 'auto-mode',
+      exports: { '.': { 'auto-mode-eval': './src/index.ts', default: './dist/index.js' } },
+    }),
+  );
+
+  await Bun.write(join(ctx.dir, 'src/index.ts'), 'export const index = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'mods/auto-mode/hooks/register.ts'),
+    "import { index } from 'auto-mode';\n\nexport const value = index;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'src-mods-apart',
+      file: 'mods/auto-mode/hooks/register.ts',
+      line: 1,
+      message: 'the mod imports outside itself: mods/auto-mode/hooks/register.ts → src/index.ts',
+    },
+  ]);
+});
+
+test('it reports a package subpath that the exports map lacks', async () => {
+  const ctx = await setupTest();
+
+  await Bun.write(
+    join(ctx.dir, 'package.json'),
+    JSON.stringify({ name: 'auto-mode', exports: { '.': './src/index.ts' } }),
+  );
+
+  await Bun.write(join(ctx.dir, 'src/index.ts'), 'export const index = 1;\n');
+
+  await Bun.write(
+    join(ctx.dir, 'src/rules/classify-locally.ts'),
+    "import { index } from 'auto-mode/internal';\n\nexport const value = index;\n",
+  );
+
+  expect(checkImports(ctx.dir).findings).toStrictEqual([
+    {
+      rule: 'unresolved',
+      file: 'src/rules/classify-locally.ts',
+      line: 1,
+      message: 'cannot resolve auto-mode/internal',
+    },
+  ]);
+});
+
 test('it reports a contract file that imports the core', async () => {
   const ctx = await setupTest();
 
