@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockRecordedDecisionAnswer } from '../../test-utils/factories/build-mock-recorded-decision-answer.ts';
+import { buildMockRecordedDecisionResult } from '../../test-utils/factories/build-mock-recorded-decision-result.ts';
 import { pickSecondJudgeVerdict } from './pick-second-judge-verdict.ts';
 
 test('it keeps a confident allow away from the second judge', () => {
@@ -10,9 +10,9 @@ test('it keeps a confident allow away from the second judge', () => {
     rules: { rule_0: buildMockDecisionRule({ name: 'History Rewrite', tier: 'soft' }) },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'allow',
         confidence: 0.95,
         probabilities: { allow: 0.95, block: 0.03, ask: 0.02 },
@@ -30,9 +30,9 @@ test('it sends an ask whose every answer chooses allow to the second judge', () 
     rules: { rule_0: buildMockDecisionRule({ name: 'History Rewrite', tier: 'soft' }) },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'allow',
         confidence: 0.6,
         probabilities: { allow: 0.6, block: 0.1, ask: 0.3 },
@@ -51,9 +51,9 @@ test('it allows an eligible ask when the second judge allows', () => {
     rules: { rule_0: buildMockDecisionRule({ name: 'History Rewrite', tier: 'soft' }) },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'allow',
         confidence: 0.6,
         probabilities: { allow: 0.6, block: 0.1, ask: 0.3 },
@@ -77,9 +77,9 @@ test.each([
     rules: { rule_0: buildMockDecisionRule({ name: 'History Rewrite', tier: 'soft' }) },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'allow',
         confidence: 0.6,
         probabilities: { allow: 0.6, block: 0.1, ask: 0.3 },
@@ -98,9 +98,9 @@ test('it keeps an ask with an answer that does not choose allow away from the se
     rules: { rule_0: buildMockDecisionRule({ name: 'History Rewrite', tier: 'soft' }) },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'ask',
         confidence: 0.6,
         probabilities: { allow: 0.3, block: 0.1, ask: 0.6 },
@@ -119,9 +119,9 @@ test('it keeps a confident block away from the second judge', () => {
     rules: { rule_0: buildMockDecisionRule({ name: 'History Rewrite', tier: 'soft' }) },
   });
 
-  const result = buildMockDecisionResult({
+  const result = buildMockRecordedDecisionResult({
     answers: {
-      rule_0: buildMockDecisionAnswer({
+      rule_0: buildMockRecordedDecisionAnswer({
         choice: 'block',
         confidence: 0.95,
         probabilities: { allow: 0.02, block: 0.95, ask: 0.03 },

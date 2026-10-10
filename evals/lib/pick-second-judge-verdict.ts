@@ -1,4 +1,5 @@
-import type { DecisionRequest, DecisionResult } from 'auto-mode';
+import type { DecisionRequest } from 'auto-mode';
+import type { ScoredDecisionResult } from './classify-recorded-answers.ts';
 import type { JudgeVerdict } from './parse-judge-verdict.ts';
 import type { EvaluationVerdict } from './pick-evaluation-verdict.ts';
 import { pickEvaluationVerdict } from './pick-evaluation-verdict.ts';
@@ -10,7 +11,7 @@ export interface SecondJudgeVerdict {
 
 export function pickSecondJudgeVerdict(
   request: DecisionRequest,
-  result: DecisionResult,
+  result: ScoredDecisionResult,
   minConfidence: number,
   judge: JudgeVerdict | null,
 ): SecondJudgeVerdict {

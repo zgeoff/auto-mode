@@ -33,7 +33,7 @@ test('#loadConfig falls back to the shipped defaults when there is no config fil
       timeoutMs: 5000,
     },
     onFailure: 'defer',
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
   });
@@ -68,7 +68,7 @@ test('#loadConfig reads the config file under the home config directory when no 
     rulesPath: undefined,
     onFailure: 'deny',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -154,7 +154,7 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -193,7 +193,7 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -248,7 +248,7 @@ test('#loadConfig resolves the decision classifier from the registry by id', asy
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -281,7 +281,7 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -334,7 +334,7 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [
       `${ctx.configFile}: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, spark, claude, glm, messages`,
@@ -398,13 +398,39 @@ test.each([
   );
 });
 
+test('#loadConfig refuses the retired decision.minConfidence key and names it', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { minConfidence: 0.8 } }));
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+  ).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile} is not a valid config: ✖ Unrecognized key: "minConfidence"\n  → at decision`,
+  );
+});
+
+test.each([
+  ['zero', 0],
+  ['above one', 1.1],
+])('#loadConfig refuses a block threshold of %s', async (_label, blockThreshold) => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { blockThreshold } }));
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+  ).rejects.toThrowWithMessage(Error, /→ at decision\.blockThreshold$/u);
+});
+
 test('#loadConfig reads the policy block, expanding a leading tilde', async () => {
   const ctx = await setupTest();
 
   await writeFile(
     ctx.configFile,
     JSON.stringify({
-      decision: { minConfidence: 0.9, onFailure: 'deny' },
+      decision: { blockThreshold: 0.3, onFailure: 'deny' },
       policy: {
         rulesPath: '~/rules.md',
         frameworkPath: null,
@@ -435,7 +461,7 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
     rulesPath: join(ctx.dir, 'rules.md'),
     onFailure: 'deny',
     claudeSettingsPath: '/claude/settings.json',
-    minConfidence: 0.9,
+    blockThreshold: 0.3,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -468,7 +494,7 @@ test('#loadConfig disables the Claude rule import when the policy sets the setti
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: null,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -520,7 +546,7 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
       decision: {
         classifier: 'jev',
         judge: null,
-        minConfidence: 0.8,
+        blockThreshold: 0.2,
         onFailure: 'defer',
         denialBudget: { consecutive: 5, perSession: 40 },
       },
@@ -555,7 +581,7 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: null,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 5, perSession: 40 },
     warnings: [],
   });
@@ -588,7 +614,7 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -621,7 +647,7 @@ test('#loadConfig runs the cwd, session, and atc sources when the file has no sc
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [],
   });
@@ -659,7 +685,7 @@ test('#loadConfig warns about a registry without the cwd source and a glob over 
     rulesPath: undefined,
     onFailure: 'defer',
     claudeSettingsPath: undefined,
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     warnings: [
       `${ctx.configFile}: scopeSources has no cwd entry, so the task owns only what the other sources name`,
@@ -680,7 +706,7 @@ test('#DEFAULT_CONFIG ships Jev, deferring on failure, with the default budget a
       timeoutMs: 5000,
     },
     onFailure: 'defer',
-    minConfidence: 0.8,
+    blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
   });

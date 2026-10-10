@@ -167,7 +167,9 @@ async function main(): Promise<void> {
               answer.confidence,
               answer.probabilities.allow,
               answer.probabilities.block,
-              answer.probabilities.ask,
+
+              // The question offers no ask, so the recorded tuple holds 0 there.
+              0,
             ],
           ];
         }),

@@ -1,38 +1,17 @@
-import invariant from 'tiny-invariant';
-import { classifyDecisionAnswers } from './classify-decision-answers.ts';
+import { collectBlockingRules } from './collect-blocking-rules.ts';
 import type { DecisionDiagnostics, DecisionRequest, DecisionResult } from './types.ts';
 
 export function collectDecisionContributors(
   request: DecisionRequest,
   result: DecisionResult,
-  minConfidence: number,
+  blockThreshold: number,
 ): DecisionDiagnostics['contributors'] {
-  const decision = classifyDecisionAnswers(request, result, minConfidence);
-
-  return Object.entries(request.rules).flatMap(([id, rule]) => {
-    const answer = result.answers[id];
-
-    invariant(answer, 'the classification refused a result with a rule unanswered');
-
-    const contributes =
-      decision.kind === 'block'
-        ? rule === decision.rule
-        : decision.kind === 'uncertain' &&
-          (answer.choice !== 'allow' ||
-            answer.confidence < minConfidence ||
-            answer.probabilities.allow < minConfidence);
-
-    return contributes
-      ? [
-          {
-            rule: rule.source === 'shipped' ? rule.name : id,
-            source: rule.source,
-            tier: rule.tier,
-            choice: answer.choice,
-            confidence: answer.confidence,
-            probability: answer.probabilities[answer.choice],
-          },
-        ]
-      : [];
-  });
+  return collectBlockingRules(request, result, blockThreshold).map((entry) => ({
+    rule: entry.rule.source === 'shipped' ? entry.rule.name : entry.id,
+    source: entry.rule.source,
+    tier: entry.rule.tier,
+    choice: entry.answer.choice,
+    confidence: entry.answer.confidence,
+    blockProbability: entry.answer.probabilities.block,
+  }));
 }

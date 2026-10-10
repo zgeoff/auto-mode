@@ -22,6 +22,7 @@ const recordSchema = z
     rule: z.string().nullable(),
     ruleCount: z.number().int(),
     contributors: z.array(contributorSchema).readonly(),
+    blockProbabilities: z.record(z.string(), probabilitySchema).readonly().optional(),
     elapsedMs: z.number().int(),
     requestBytes: z.number().int(),
   })

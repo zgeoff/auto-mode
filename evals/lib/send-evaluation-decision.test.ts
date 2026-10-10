@@ -20,7 +20,7 @@ test('it returns the answers Jev gives to the request', async () => {
         type: 'choice',
         choice: 'allow',
         confidence: 1,
-        probabilities: { allow: 1, block: 0, ask: 0 },
+        probabilities: { allow: 1, block: 0 },
       },
     },
     inputTokens: 400,

@@ -1,4 +1,4 @@
-import type { DecisionRequest, DecisionResult } from 'auto-mode';
+import type { DecisionRequest, DecisionResult, RecordedDecisionChoice } from 'auto-mode';
 import type { JevReport } from './jev-report-schema.ts';
 import type { JudgeReport } from './judge-report-schema.ts';
 import type { EvaluationCase } from './load-second-judge-corpus.ts';
@@ -157,10 +157,10 @@ export function buildSecondJudgeSummary(
 
 function buildFirstJudge(record: JevReport['records'][number]): {
   request: DecisionRequest;
-  result: DecisionResult;
+  result: DecisionResult<RecordedDecisionChoice>;
 } {
   const rules: Record<string, DecisionRequest['rules'][string]> = {};
-  const answers: Record<string, DecisionResult['answers'][string]> = {};
+  const answers: Record<string, DecisionResult<RecordedDecisionChoice>['answers'][string]> = {};
 
   // Only the answers that kept Jev from a confident allow are recorded; the
   // rest were confident allows, which no verdict path reads past.

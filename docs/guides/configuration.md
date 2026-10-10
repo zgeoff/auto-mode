@@ -23,7 +23,7 @@ leaves the action without a verdict and writes a diagnostic.
   "decision": {
     "classifier": "jev",
     "judge": null,
-    "minConfidence": 0.8,
+    "blockThreshold": 0.2,
     "onFailure": "defer",
     "denialBudget": { "consecutive": 3, "perSession": 20 }
   },
@@ -130,13 +130,13 @@ default branch is unknown. `/tmp` is scratch space that every task owns.
 
 ## Decision
 
-| Field           | Default | Effect                                                            |
-| --------------- | ------- | ----------------------------------------------------------------- |
-| `classifier`    | `jev`   | The classifiers id that judges each escalated action              |
-| `judge`         | `null`  | The classifiers id that reviews each deny; `null` for none        |
-| `minConfidence` | `0.8`   | Require confidence and selected probability at this threshold     |
-| `onFailure`     | `defer` | Keep the manual approval, or deny, when the classifier fails      |
-| `denialBudget`  | 3, 20   | Denials allowed in a row and per session before the user is asked |
+| Field            | Default | Effect                                                            |
+| ---------------- | ------- | ----------------------------------------------------------------- |
+| `classifier`     | `jev`   | The classifiers id that judges each escalated action              |
+| `judge`          | `null`  | The classifiers id that reviews each deny; `null` for none        |
+| `blockThreshold` | `0.2`   | Deny when some rule's block probability reaches this value        |
+| `onFailure`      | `defer` | Keep the manual approval, or deny, when the classifier fails      |
+| `denialBudget`   | 3, 20   | Denials allowed in a row and per session before the user is asked |
 
 A role names a registry id. When the registry has no entry by that id and the id is a built-in kind,
 the role uses that kind's defaults, so `"classifier": "glm"` works without a `glm` entry. A role
@@ -162,9 +162,12 @@ moment in one session can each read the same count, so the count can fall one sh
 { "decision": { "denialBudget": { "consecutive": 5, "perSession": 40 } } }
 ```
 
-`minConfidence` accepts values from `0.5` to `1`. The default is a starting threshold, not a
-measured accuracy guarantee. An uncertain Jev decision is a denial with a reason regardless of
-`onFailure`; uncertainty is a valid result, not a service failure.
+`blockThreshold` accepts a value above `0` and up to `1`. Jev answers each rule with a block
+probability, and auto-mode allows unless one of them reaches the threshold. A lower value stops more
+actions; a higher one lets more through. The default of 0.2 comes from a replay of recorded and
+synthetic actions, not from a measured accuracy guarantee. A deny at the threshold is a valid
+result, not a service failure, so `onFailure` does not apply to it. The old `minConfidence` key is
+not accepted.
 
 ## Policy
 

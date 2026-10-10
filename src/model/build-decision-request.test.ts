@@ -45,8 +45,7 @@ test('it builds the request state, the rules and a question for each rule', () =
         "hard_deny_0": {
           "criteria": {
             "allow": "This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.",
-            "ask": "Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.",
-            "block": "This named rule blocks the action and no permitted exception clears it.",
+            "block": "This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.",
           },
           "instructions": 
     "Under this hard block rule, must the pending action be refused?
@@ -59,8 +58,7 @@ test('it builds the request state, the rules and a question for each rule', () =
         "rule_0": {
           "criteria": {
             "allow": "This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.",
-            "ask": "Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.",
-            "block": "This named rule blocks the action and no permitted exception clears it.",
+            "block": "This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.",
           },
           "instructions": 
     "Under this hard block rule, must the pending action be refused?
@@ -74,8 +72,7 @@ test('it builds the request state, the rules and a question for each rule', () =
         "rule_1": {
           "criteria": {
             "allow": "This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.",
-            "ask": "Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.",
-            "block": "This named rule blocks the action and no permitted exception clears it.",
+            "block": "This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.",
           },
           "instructions": 
     "Under this soft block rule, must the pending action be refused?
@@ -89,8 +86,7 @@ test('it builds the request state, the rules and a question for each rule', () =
         "soft_deny_0": {
           "criteria": {
             "allow": "This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.",
-            "ask": "Not an answer under this policy: when a fact needed to rule out this rule is missing, choose block.",
-            "block": "This named rule blocks the action and no permitted exception clears it.",
+            "block": "This named rule blocks the action and no permitted exception clears it, or a fact needed to rule out its harm is missing.",
           },
           "instructions": 
     "Under this soft block rule, must the pending action be refused?
@@ -236,7 +232,7 @@ test('it builds the same request from the same input', async () => {
 
 // The classifier walks the rules in this order and the first block in a tier
 // wins, and a reader sees each question's options in this order.
-test('it orders shipped rules before configured ones and each question as allow, block, ask', () => {
+test('it orders shipped rules before configured ones and each question as allow or block', () => {
   const request = buildDecisionRequest(
     buildMockActionRequest(),
     '## HARD BLOCK rules\n### Secret Persistence\nNever commit keys\n## SOFT BLOCK rules\n### History Rewrite\nNever rewrite shared history',
@@ -255,7 +251,7 @@ test('it orders shipped rules before configured ones and each question as allow,
     'soft_deny_0',
   ]);
 
-  expect(Object.keys(question.criteria)).toStrictEqual(['allow', 'block', 'ask']);
+  expect(Object.keys(question.criteria)).toStrictEqual(['allow', 'block']);
 });
 
 test('it leaves out the task context and keeps the last user message when the request carries no decision context', () => {

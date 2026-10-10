@@ -1,13 +1,27 @@
-import type { DecisionRequest, DecisionResult, DecisionRule } from './types.ts';
+import type { DecisionRequest, DecisionRule } from 'auto-mode';
+
+// A live two-choice result and a recorded three-choice one both fit this shape.
+export interface ScoredDecisionResult {
+  readonly answers: Readonly<
+    Record<
+      string,
+      {
+        readonly choice: string;
+        readonly confidence: number;
+        readonly probabilities: Readonly<{ allow: number; block: number }>;
+      }
+    >
+  >;
+}
 
 type DecisionClass =
   | { readonly kind: 'allow' }
   | { readonly kind: 'block'; readonly rule: DecisionRule }
   | { readonly kind: 'uncertain'; readonly rule: DecisionRule };
 
-export function classifyDecisionAnswers(
+export function classifyRecordedAnswers(
   request: DecisionRequest,
-  result: DecisionResult,
+  result: ScoredDecisionResult,
   minConfidence: number,
 ): DecisionClass {
   const entries = Object.entries(request.rules).map(([id, rule]) => {

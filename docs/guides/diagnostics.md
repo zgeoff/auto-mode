@@ -23,10 +23,10 @@ complete, `http-status` for a non-success response, and `invalid-response` for a
 validation. It is `null` for other failures and for a completed decision. `requestBytes` holds the
 UTF-8 size of the serialized request body whenever the body was built, including for the failures
 above; it is `null` when a failure came before the body. It records a size only, never content.
-`contributors` records the rule that caused a confident denial, or every answer that left the
-decision uncertain, with its choice, confidence, and selected probability. A denial whose
-contributors hold no confident block is an uncertain one. `minConfidence` records the unchanged
-threshold. The final `verdict` distinguishes a failure that defers from one that fails closed.
+`contributors` records every rule whose block probability reached the threshold, highest first, with
+its choice, confidence, and `blockProbability`; the first one is the rule the deny names. An allow
+has no contributors. `blockThreshold` records the threshold in force. The final `verdict`
+distinguishes a failure that defers from one that fails closed.
 
 Each final record also measures the task, so escalations can be counted per session:
 

@@ -1,5 +1,5 @@
 import type { Config } from '../config/config.ts';
-import { resolveApiKey } from '../config/config.ts';
+import { DEFAULT_BLOCK_THRESHOLD, resolveApiKey } from '../config/config.ts';
 import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
@@ -26,7 +26,7 @@ export async function classifyWithJev(
   const now = options.now ?? Date.now;
   let key: string | null = null;
   let stage: DecisionDiagnostics['stage'] = 'credential';
-  const minConfidence = config.minConfidence ?? 0.8;
+  const blockThreshold = config.blockThreshold ?? DEFAULT_BLOCK_THRESHOLD;
   let keySource: DecisionDiagnostics['keySource'] = 'none';
 
   const envKey =
@@ -95,7 +95,7 @@ export async function classifyWithJev(
 
     stage = 'response';
 
-    const verdict = pickDecisionVerdict(request, result, minConfidence);
+    const verdict = pickDecisionVerdict(request, result, blockThreshold);
 
     return {
       verdict,
@@ -107,8 +107,8 @@ export async function classifyWithJev(
         failureReason: null,
         requestBytes: result.requestBytes,
         elapsedMs: Math.round(performance.now() - start),
-        minConfidence,
-        contributors: collectDecisionContributors(request, result, minConfidence),
+        blockThreshold,
+        contributors: collectDecisionContributors(request, result, blockThreshold),
       },
       note: formatClassifierNote(
         `${config.provider.model}: ${verdict.kind} (${Math.round(performance.now() - start)}ms, ${result.inputTokens} input tokens)`,
@@ -151,7 +151,7 @@ export async function classifyWithJev(
         failureReason: error instanceof DecisionRequestError ? error.reason : null,
         requestBytes: error instanceof DecisionRequestError ? error.requestBytes : null,
         elapsedMs: Math.round(performance.now() - start),
-        minConfidence,
+        blockThreshold,
         contributors: [],
       },
     };
