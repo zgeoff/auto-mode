@@ -1,6 +1,6 @@
 {
   "name": "auto-mode",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "A permission classifier library and Claude Code mod, so agents that are not Claude can run unattended",
   "keywords": [
     "agent",
