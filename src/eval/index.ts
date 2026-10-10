@@ -1,3 +1,4 @@
+export { findEnclosingWorkTree } from '../capture/find-enclosing-work-tree.ts';
 export { DEFAULT_BLOCK_THRESHOLD } from '../config/config.ts';
 export { readHostEnvironment } from '../config/read-host-environment.ts';
 export { toTimerDelay } from '../config/to-timer-delay.ts';
@@ -9,8 +10,10 @@ export { loadRepositoryContext } from '../model/load-repository-context.ts';
 export { pickDecisionVerdict } from '../model/pick-decision-verdict.ts';
 export { probabilitySchema } from '../model/probability-schema.ts';
 export { repositoryContextSchema } from '../model/repository-context-schema.ts';
+export { actionRequestSchema } from '../request/action-request-schema.ts';
 export { collectPullRequestAddresses } from '../scope/collect-pull-request-addresses.ts';
 export { pickScopeSourceReader } from '../scope/pick-scope-source-reader.ts';
 export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';
 export { updateSessionScope } from '../scope/update-session-scope.ts';
+export { findSecret } from '../secrets/find-secret.ts';
 export { resolveStateDir } from '../state/resolve-state-dir.ts';

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import * as z from 'zod';
@@ -11,6 +12,7 @@ import type { RunEnvironment } from './run-experiment.ts';
 import { runExperiment } from './run-experiment.ts';
 import { runLiveUse } from './run-live-use.ts';
 import type { MeasurementCount } from './run-summary-schema.ts';
+import { writeAnonymisedCorpus } from './write-anonymised-corpus.ts';
 
 export interface EvalCommandIO {
   readonly stdout: (text: string) => boolean;
@@ -29,6 +31,7 @@ const USAGE = `Usage:
                    [--resume <run-dir>] [--seed <n>] [--samples <n>] [--results <dir>]
   bun run eval compare <run-dir-a> <run-dir-b>
   bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
+  bun run eval anonymise <capture.jsonl...> --out <dir>
 
 Results go to --results, or else to AUTO_MODE_EVALS_DIR: a clone of the
 private results repository, outside this repository.
@@ -56,6 +59,9 @@ export async function runEvalCommand(
       }
       case 'live': {
         return await runLiveCommand(rest, io);
+      }
+      case 'anonymise': {
+        return await runAnonymiseCommand(rest, io);
       }
       case undefined: {
         return printUsage(io, null);
@@ -360,6 +366,32 @@ function parseSince(value: string | undefined): string | null {
   }
 
   return new Date(value).toISOString();
+}
+
+async function runAnonymiseCommand(
+  args: readonly string[],
+  io: Readonly<EvalCommandIO>,
+): Promise<number> {
+  const parsed = parseCommandArgs(args, { out: { type: 'string' } });
+  const out = parsed.values.out;
+
+  if (parsed.positionals.length === 0 || out === undefined) {
+    throw new UsageError('anonymise takes one or more capture files and --out <dir>.');
+  }
+
+  const result = await writeAnonymisedCorpus({
+    captureFiles: parsed.positionals.map((path) => resolve(path)),
+    outDir: resolve(out),
+    repoRoot: io.repoRoot,
+    env: io.env,
+    salt: randomBytes(32).toString('hex'),
+  });
+
+  io.stdout(
+    `Wrote ${String(result.cases)} cases to ${result.outDir}. Label each case from labels.todo.json and review every case before you commit it.\n`,
+  );
+
+  return 0;
 }
 
 type OptionSpec = Readonly<Record<string, { readonly type: 'boolean' | 'string' }>>;
