@@ -15,6 +15,7 @@ export { pickDecisionVerdict } from '../model/pick-decision-verdict.ts';
 export { probabilitySchema } from '../model/probability-schema.ts';
 export { repositoryContextSchema } from '../model/repository-context-schema.ts';
 export { actionRequestSchema } from '../request/action-request-schema.ts';
+export { findCurrentDirectUserMessage } from '../request/find-current-direct-user-message.ts';
 export { collectPullRequestAddresses } from '../scope/collect-pull-request-addresses.ts';
 export { pickScopeSourceReader } from '../scope/pick-scope-source-reader.ts';
 export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';

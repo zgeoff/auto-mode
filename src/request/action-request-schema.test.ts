@@ -24,6 +24,27 @@ test('it accepts a complete mod request', () => {
   expect(result.data).toStrictEqual(payload);
 });
 
+test('it accepts a last direct user message marked stale', () => {
+  const payload: z.input<typeof actionRequestSchema> = {
+    sessionID: 'session',
+    toolUseID: 'toolu_1',
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'git push origin main' },
+    context: {
+      agentID: null,
+      originalUserTask: { text: 'Ship the retry budget', origin: 'composer' },
+      delegatedTask: null,
+      lastDirectUserMessage: { text: 'Push it to main', origin: 'composer', freshness: 'stale' },
+      omittedTaskContext: [],
+    },
+  };
+
+  const result = actionRequestSchema.safeParse(payload);
+
+  expect(result.data).toStrictEqual(payload);
+});
+
 test.each([
   ['a string', 'not an object', { code: 'invalid_type', path: [] }],
   ['null', null, { code: 'invalid_type', path: [] }],
@@ -128,6 +149,50 @@ test.each([
       },
     },
     { path: ['context', 'lastDirectUserMessage'] },
+  ],
+  [
+    'a request whose last direct user message has a freshness other than stale',
+    {
+      sessionID: 'session',
+      toolUseID: 'toolu_1',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf dist' },
+      context: {
+        agentID: null,
+        originalUserTask: { text: 'Clean the build output', origin: 'composer' },
+        delegatedTask: null,
+        lastDirectUserMessage: {
+          text: 'Clean the build output',
+          origin: 'composer',
+          freshness: 'current',
+        },
+        omittedTaskContext: [],
+      },
+    },
+    { path: ['context', 'lastDirectUserMessage', 'freshness'] },
+  ],
+  [
+    'a request whose original user task carries a freshness',
+    {
+      sessionID: 'session',
+      toolUseID: 'toolu_1',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf dist' },
+      context: {
+        agentID: null,
+        originalUserTask: {
+          text: 'Clean the build output',
+          origin: 'composer',
+          freshness: 'stale',
+        },
+        delegatedTask: null,
+        lastDirectUserMessage: { text: 'Clean the build output', origin: 'composer' },
+        omittedTaskContext: [],
+      },
+    },
+    { code: 'unrecognized_keys', keys: ['freshness'], path: ['context', 'originalUserTask'] },
   ],
 ])('it rejects %s', (_label, payload, issue) => {
   const result = actionRequestSchema.safeParse(payload);

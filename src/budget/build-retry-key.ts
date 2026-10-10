@@ -7,8 +7,8 @@ const DESCRIPTIVE_FIELDS: Readonly<Record<string, readonly string[]>> = {
   Bash: ['description', 'timeout', 'run_in_background'],
 };
 
-// The last direct user message is part of the key, because new consent from the
-// user is new evidence that the classifier must see.
+// The last direct user message and its staleness are part of the key, because
+// new consent from the user is new evidence that the classifier must see.
 export function buildRetryKey(request: Readonly<ActionRequest>): string {
   const ignored = Object.hasOwn(DESCRIPTIVE_FIELDS, request.toolName)
     ? (DESCRIPTIVE_FIELDS[request.toolName] ?? [])
@@ -18,12 +18,15 @@ export function buildRetryKey(request: Readonly<ActionRequest>): string {
     Object.entries(request.toolInput).filter(([key]) => !ignored.includes(key)),
   );
 
+  const message = request.decisionContext?.lastDirectUserMessage ?? null;
+
   const canonical = JSON.stringify(
     sortKeys({
       cwd: request.cwd,
       toolName: request.toolName,
       toolInput: input,
-      lastDirectUserMessage: request.decisionContext?.lastDirectUserMessage?.text ?? null,
+      lastDirectUserMessage: message?.text ?? null,
+      ...(message?.freshness === 'stale' ? { lastDirectUserMessageFreshness: 'stale' } : {}),
     }),
   );
 

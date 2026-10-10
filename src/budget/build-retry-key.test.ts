@@ -96,3 +96,21 @@ test('it keys the same action after a new direct user message as another action'
 
   expect(buildRetryKey(after)).not.toBe(buildRetryKey(before));
 });
+
+test('it keys the same action after a stale message becomes current as another action', () => {
+  const stale = buildMockActionRequest({
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'git push' },
+    decisionContext: { lastDirectUserMessage: { text: 'yes, push it', freshness: 'stale' } },
+  });
+
+  const current = buildMockActionRequest({
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'git push' },
+    decisionContext: { lastDirectUserMessage: { text: 'yes, push it' } },
+  });
+
+  expect(buildRetryKey(current)).not.toBe(buildRetryKey(stale));
+});

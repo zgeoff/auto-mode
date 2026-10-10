@@ -668,3 +668,58 @@ test('it gives the Messages classifier the configured MCP servers by name and ho
 
   expect(received).not.toHaveBeenCalledWith(expect.toInclude('planted'));
 });
+
+test('it leaves a stale direct message out of the Messages classifier transcript', async () => {
+  const ctx = await setupTest();
+
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [{ type: 'text', text: '<block>no</block>' }],
+      usage: {
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    }),
+  );
+
+  const received = mock<(body: string) => void>();
+
+  server.use(
+    http.post(MESSAGES_URL, async (info) => {
+      const body = await info.request.clone().text();
+
+      received(body);
+    }),
+  );
+
+  await classifyWithModel(
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push origin main' },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Push the fix to main.', freshness: 'stale' },
+      },
+    }),
+    buildMockConfig({
+      provider: {
+        protocol: 'messages',
+        baseURL: 'https://gateway.test',
+        model: 'test-model',
+        apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
+      },
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
+  );
+
+  expect(received).toHaveBeenCalledOnce();
+  expect(received).not.toHaveBeenCalledWith(expect.toInclude('Push the fix to main.'));
+});

@@ -3,11 +3,15 @@ interface UserTask {
   readonly origin: 'composer' | 'bridge' | 'sdk';
 }
 
+interface DirectUserMessage extends UserTask {
+  readonly freshness?: 'stale' | undefined;
+}
+
 export interface DecisionContext {
   readonly agentID: string | null;
   readonly originalUserTask: UserTask | null;
   readonly delegatedTask: { readonly text: string; readonly origin: 'agent.spawn' } | null;
-  readonly lastDirectUserMessage: UserTask | null;
+  readonly lastDirectUserMessage: DirectUserMessage | null;
   readonly omittedTaskContext: readonly {
     readonly field: 'originalUserTask' | 'delegatedTask';
     readonly reason: 'unavailable' | 'budget';

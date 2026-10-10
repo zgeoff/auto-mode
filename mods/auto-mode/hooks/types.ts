@@ -50,9 +50,13 @@ export interface UserTask {
   readonly origin: 'composer' | 'bridge' | 'sdk';
 }
 
+export interface DirectUserMessage extends UserTask {
+  readonly freshness?: 'stale';
+}
+
 export interface PromptContext {
   readonly originalUserTask: UserTask | null;
-  readonly lastDirectUserMessage: UserTask | null;
+  readonly lastDirectUserMessage: DirectUserMessage | null;
   readonly canCaptureOriginal: boolean;
 }
 
