@@ -358,7 +358,10 @@ async function runJudgeStage(
             verdict: 'failure',
             rule: null,
             failureReason:
-              error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'request',
+              error instanceof Error &&
+              (error.name === 'AbortError' || error.name === 'TimeoutError')
+                ? 'timeout'
+                : 'request',
             elapsedMs: Math.round(performance.now() - started),
             outputTokens: null,
             tail: null,

@@ -3,17 +3,21 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
+  DecisionRequestError,
   buildDecisionRequest,
   loadClaudeRules,
   loadConfig,
   loadPolicy,
   resolveApiKey,
+  sendDecision,
 } from 'auto-mode';
-import type { DecisionRequest, DecisionRule } from 'auto-mode';
+import type { DecisionRequest, DecisionRule, ProviderConfig } from 'auto-mode';
 import { readHostEnvironment } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { SEVERITIES, decisionRulesCorpusSchema } from '../lib/decision-rules-corpus-schema.ts';
+import { makeRecordingFetch } from '../lib/make-recording-fetch.ts';
+import type { ResponseCopy } from '../lib/make-recording-fetch.ts';
 
 const THRESHOLD = 0.8;
 const SHAPES = ['baseline', 'categorical'] as const;
@@ -231,7 +235,12 @@ async function main(): Promise<void> {
 
     const started = performance.now();
 
-    const outcome = await sendShapeRequest(config.provider.baseURL, key, plan.body, plan.questions);
+    const outcome = await sendShapeRequest(
+      config.provider,
+      key,
+      plan.baseline.state,
+      plan.questions,
+    );
 
     const elapsedMs = Math.round(performance.now() - started);
 
@@ -381,13 +390,6 @@ function buildShapeQuestions(
   };
 }
 
-const answerSchema = z.object({
-  type: z.literal('choice'),
-  choice: z.string(),
-  confidence: z.number().min(0).max(1),
-  probabilities: z.record(z.string(), z.number().min(0).max(1)),
-});
-
 interface ShapeAnswer {
   readonly type: 'choice';
   readonly choice: string;
@@ -399,103 +401,75 @@ type ShapeOutcome =
   | {
       readonly kind: 'success';
       readonly model: string;
-      readonly inputTokens: number | null;
+      readonly inputTokens: number;
       readonly answers: Readonly<Record<string, ShapeAnswer>>;
     }
   | { readonly kind: 'failure'; readonly reason: string; readonly detail?: unknown };
 
 async function sendShapeRequest(
-  baseURL: string,
+  provider: ProviderConfig,
   key: string,
-  body: string,
+  state: DecisionRequest['state'],
   questions: Readonly<Record<string, ShapeQuestion>>,
 ): Promise<ShapeOutcome> {
-  const controller = new AbortController();
+  const [first, ...others] = Object.values(questions);
 
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, TIMEOUT_MS);
+  invariant(first !== undefined, 'A shape asks at least one question.');
+
+  const [choice, ...choices] = Object.keys(first.criteria);
+  const choiceSet = JSON.stringify([choice, ...choices]);
+
+  invariant(
+    choice !== undefined &&
+      others.every((question) => JSON.stringify(Object.keys(question.criteria)) === choiceSet),
+    'Every question of a shape offers the same choices.',
+  );
+
+  const responses: ResponseCopy[] = [];
 
   try {
-    const response = await fetch(`${baseURL.replace(/\/$/, '')}/v1/systemone`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-      body,
-      redirect: 'manual',
-    });
-
-    if (response.status >= 300 && response.status < 400) {
-      return { kind: 'failure', reason: 'redirect' };
-    }
-
-    if (!response.ok) {
-      return { kind: 'failure', reason: `http-${response.status}` };
-    }
-
-    const responseBody: unknown = await response.json();
-
-    const parsed = z
-      .object({
-        model: z.string().min(1),
-        answers: z.record(z.string(), answerSchema),
-        usage: z.object({ input_tokens: z.number().int().nonnegative() }).optional(),
-      })
-      .safeParse(responseBody);
-
-    if (!parsed.success) {
-      return { kind: 'failure', reason: 'invalid-response', detail: parsed.error.issues };
-    }
-
-    // Jev answers hold only probabilities, so keeping a rejected set costs nothing
-    // and is the only evidence of why it failed.
-    if (!isCompleteAnswerSet(questions, parsed.data.answers)) {
-      return { kind: 'failure', reason: 'invalid-response', detail: parsed.data.answers };
-    }
+    const result = await sendDecision(
+      provider,
+      key,
+      { state, questions },
+      AbortSignal.timeout(TIMEOUT_MS),
+      {
+        choices: [choice, ...choices],
+        fetch: makeRecordingFetch(fetch, { redirect: 'manual', responses }),
+      },
+    );
 
     return {
       kind: 'success',
-      model: parsed.data.model,
-      inputTokens: parsed.data.usage?.input_tokens ?? null,
-      answers: parsed.data.answers,
+      model: result.model,
+      inputTokens: result.inputTokens,
+      answers: result.answers,
     };
   } catch (error) {
-    return {
-      kind: 'failure',
-      reason: error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'network',
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
+    const response = responses.at(-1);
 
-function isCompleteAnswerSet(
-  questions: Readonly<Record<string, ShapeQuestion>>,
-  answers: Readonly<Record<string, ShapeAnswer>>,
-): boolean {
-  if (Object.keys(answers).length !== Object.keys(questions).length) {
-    return false;
-  }
-
-  return Object.entries(questions).every(([id, question]) => {
-    const answer = answers[id];
-    const options = Object.keys(question.criteria);
-
-    if (answer === undefined) {
-      return false;
+    if (!(error instanceof DecisionRequestError) || error.reason === 'network') {
+      return { kind: 'failure', reason: 'network' };
     }
 
-    const distribution = Object.entries(answer.probabilities);
-    const total = distribution.reduce((sum, [, p]) => sum + p, 0);
-    const top = Math.max(...distribution.map(([, p]) => p));
+    if (error.reason === 'aborted') {
+      return { kind: 'failure', reason: 'timeout' };
+    }
 
-    return (
-      distribution.length === options.length &&
-      options.every((option) => option in answer.probabilities) &&
-      Math.abs(total - 1) <= 0.01 &&
-      answer.probabilities[answer.choice] === top
-    );
-  });
+    if (error.reason === 'http-status' && response !== undefined) {
+      return {
+        kind: 'failure',
+        reason:
+          response.status >= 300 && response.status < 400 ? 'redirect' : `http-${response.status}`,
+      };
+    }
+
+    // Jev answers hold only probabilities, so keeping a rejected body costs
+    // nothing and is the only evidence of why it failed.
+    const detail = response === undefined ? null : await response.text().catch(() => null);
+
+    return { kind: 'failure', reason: error.reason, detail };
+  }
 }
 
 function pickShapeVerdict(

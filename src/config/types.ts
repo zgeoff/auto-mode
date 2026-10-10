@@ -10,7 +10,20 @@ export interface HostEnvironment {
   readonly scratchPaths?: readonly string[] | undefined;
 }
 
+export interface ClaudeRules {
+  readonly environment: readonly string[];
+  readonly allow: readonly string[];
+  readonly soft_deny: readonly string[];
+  readonly hard_deny: readonly string[];
+}
+
+export interface ClaudeSettings {
+  readonly rules: ClaudeRules;
+  readonly userSettings: unknown;
+}
+
 export interface EvaluationOptions {
+  readonly claudeSettings?: ClaudeSettings | undefined;
   readonly deadlineAt?: number | undefined;
   readonly signal?: Readonly<AbortSignal> | undefined;
   readonly taskScope?: TaskScopeSummary | undefined;

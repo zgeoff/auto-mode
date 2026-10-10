@@ -1,8 +1,9 @@
 import type { Config } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
-import { loadClaudeRules } from '../config/load-claude-rules.ts';
+import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
+import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
@@ -53,14 +54,16 @@ export async function classifyWithJev(
         ? (payload.decisionContext.lastDirectUserMessage?.text ?? null)
         : null;
 
-    const [policy, rules, repositoryContext, mcpServers] = await Promise.all([
+    const settings = await (options.claudeSettings ??
+      loadClaudeSettings(config.claudeSettingsPath, options.host));
+
+    const [policy, repositoryContext, mcpServers] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
       ),
-      loadClaudeRules(config.claudeSettingsPath, options.host),
       loadRepositoryEvidence(payload.cwd, options.taskScope, options.host.env).catch(() => null),
-      loadMCPServers(payload.cwd, options.host).catch(() => []),
+      loadMCPServers(payload.cwd, options.host, settings.userSettings).catch(() => []),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
@@ -68,7 +71,7 @@ export async function classifyWithJev(
     const request = buildDecisionRequest(
       payload,
       policy,
-      rules,
+      settings.rules,
       directUserText,
       rulesSource,
       repositoryContext,
@@ -137,10 +140,7 @@ export async function classifyWithJev(
     const note = formatClassifierNote(`${config.provider.model} unavailable: ${reason}`, key);
 
     return {
-      verdict:
-        config.onFailure === 'deny'
-          ? { kind: 'deny', rule: 'Classifier Unavailable', reason: note }
-          : null,
+      verdict: buildUnavailableVerdict(config.onFailure, note),
       note,
       unavailable: true,
       diagnostics: {

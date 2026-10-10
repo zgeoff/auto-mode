@@ -1,6 +1,6 @@
 import { HttpResponse } from 'msw';
 import invariant from 'tiny-invariant';
-import type { DecisionResponse } from '../src/model/decision-response-schema.ts';
+import type { DecisionResponse } from '../src/model/build-decision-response-schema.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
 import { decisionAnswers } from './decision-answers.ts';
 

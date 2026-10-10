@@ -1,7 +1,7 @@
 import { tryClassifyEdit } from './bypass/try-classify-edit.ts';
 import type { Config } from './config/config.ts';
 import { DEFAULT_SCOPE_SOURCES } from './config/config.ts';
-import { loadClaudeRules } from './config/load-claude-rules.ts';
+import { loadClaudeSettings } from './config/load-claude-settings.ts';
 import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
@@ -9,6 +9,7 @@ import type { OwnedScope } from './containment/collect-scope-findings.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
+import { buildUnavailableVerdict } from './policy/build-unavailable-verdict.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
@@ -37,18 +38,19 @@ export async function classifyAction(
   options: ClassifyOptions = {},
 ): Promise<ActionOutcome> {
   const host = options.host ?? readHostEnvironment();
-  let configured = null;
+  let claudeSettings = options.claudeSettings;
 
-  if (config.provider.protocol === 'system-one') {
+  if (config.provider.protocol === 'system-one' && claudeSettings === undefined) {
     try {
-      configured = await loadClaudeRules(config.claudeSettingsPath, host);
+      claudeSettings = await loadClaudeSettings(config.claudeSettingsPath, host);
     } catch {
-      const guidance = config.onFailure === 'deny' ? await tryReadDenialGuidance() : null;
+      const unavailable = buildUnavailableVerdict(config.onFailure, 'Claude settings unreadable.');
+      const guidance = unavailable === null ? null : await tryReadDenialGuidance();
 
       return {
         verdict:
-          config.onFailure === 'deny'
-            ? buildGuidedDeny('Classifier Unavailable', 'Claude settings unreadable.', guidance)
+          unavailable?.kind === 'deny'
+            ? buildGuidedDeny(unavailable.rule, unavailable.reason, guidance)
             : null,
         decidingStage: 'jev',
         note: 'Claude settings unreadable; classifier unavailable',
@@ -58,8 +60,11 @@ export async function classifyAction(
     }
   }
 
+  const configured = claudeSettings?.rules;
+
   const hasConfiguredDenies =
-    configured !== null && (configured.hard_deny.length > 0 || configured.soft_deny.length > 0);
+    configured !== undefined &&
+    (configured.hard_deny.length > 0 || configured.soft_deny.length > 0);
 
   const local = hasConfiguredDenies ? { kind: 'escalate' as const } : classifyLocally(request);
 
@@ -113,7 +118,7 @@ export async function classifyAction(
   const taskScope = scope === null ? undefined : buildTaskScopeSummary(scope);
 
   const [outcome, guidance] = await Promise.all([
-    classifyWithModel(request, config, { ...options, taskScope, host }),
+    classifyWithModel(request, config, { ...options, taskScope, host, claudeSettings }),
     tryReadDenialGuidance(),
   ]);
 
