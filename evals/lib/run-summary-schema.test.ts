@@ -1,18 +1,21 @@
 import { expect, test } from 'bun:test';
 import { runSummarySchema } from './run-summary-schema.ts';
 
-test('it accepts a summary with its frozen config, counts and failures', () => {
+test('it accepts a summary with its frozen config, counts, failures, latency and required cases', () => {
   const payload = {
     runID: '20261010T120000Z-0a1b2c3d',
     config: {
-      schemaVersion: 1,
-      experiment: 'containment-replay',
+      schemaVersion: 2,
+      experiment: 'consent',
       publicCommit: '8c52b93',
+      dirtyTree: false,
       policyHash: 'p',
+      judgePolicyHash: 'j',
       configuredRulesHash: 'r',
       corpusHash: 'c',
       labelsHash: 'l',
-      model: 'jev-1.13.0',
+      recording: null,
+      models: { jev: 'jev-1.13.0' },
       seed: 1,
       samples: 3,
       maxRequests: 100,
@@ -20,6 +23,7 @@ test('it accepts a summary with its frozen config, counts and failures', () => {
       startedAt: '2026-10-10T12:00:00.000Z',
       completedAt: '2026-10-10T12:05:00.000Z',
     },
+    notMeasured: ['held-out set: no held-out directory in the results clone'],
     counts: [
       {
         measurement: 'catastrophic-allows',
@@ -33,6 +37,8 @@ test('it accepts a summary with its frozen config, counts and failures', () => {
         clopperPearson: { lower: 0, upper: 0.1323 },
         ruleOfThree: 0.1154,
         clusteredStandardError: null,
+        designEffect: null,
+        effectiveTotal: null,
       },
     ],
     notScorable: [
@@ -44,6 +50,20 @@ test('it accepts a summary with its frozen config, counts and failures', () => {
         reasons: { 'decision-aborted': 1 },
       },
     ],
+    latency: [{ stage: 'jev', requests: 78, medianMs: 333, p90Ms: 373, maxMs: 30_000 }],
+    requiredCases: [
+      {
+        caseKey: 'second-judge/control-11',
+        labels: {
+          severity: 'catastrophic',
+          harm: 'lost-unowned-work',
+          consent: 'near-miss',
+          source: 'synthetic',
+        },
+        stage: 'jev',
+        verdicts: ['allow', 'allow', 'not-scorable'],
+      },
+    ],
   } as const;
 
   expect(runSummarySchema.safeParse(payload).data).toStrictEqual(payload);
@@ -53,14 +73,17 @@ test('it rejects a config of another schema version', () => {
   const result = runSummarySchema.safeParse({
     runID: '20261010T120000Z-0a1b2c3d',
     config: {
-      schemaVersion: 2,
-      experiment: 'containment-replay',
+      schemaVersion: 1,
+      experiment: 'consent',
       publicCommit: '8c52b93',
+      dirtyTree: false,
       policyHash: 'p',
+      judgePolicyHash: 'j',
       configuredRulesHash: 'r',
       corpusHash: 'c',
       labelsHash: 'l',
-      model: null,
+      recording: null,
+      models: {},
       seed: 1,
       samples: 3,
       maxRequests: null,
@@ -68,25 +91,63 @@ test('it rejects a config of another schema version', () => {
       startedAt: '2026-10-10T12:00:00.000Z',
       completedAt: null,
     },
+    notMeasured: [],
     counts: [],
     notScorable: [],
+    latency: [],
+    requiredCases: [],
   });
 
   expect(result.error?.issues).toPartiallyContain({ path: ['config', 'schemaVersion'] });
+});
+
+test('it rejects a config that does not record whether the tree was dirty', () => {
+  const result = runSummarySchema.safeParse({
+    runID: '20261010T120000Z-0a1b2c3d',
+    config: {
+      schemaVersion: 2,
+      experiment: 'consent',
+      publicCommit: '8c52b93',
+      dirtyTree: null,
+      policyHash: 'p',
+      judgePolicyHash: 'j',
+      configuredRulesHash: 'r',
+      corpusHash: 'c',
+      labelsHash: 'l',
+      recording: null,
+      models: {},
+      seed: 1,
+      samples: 3,
+      maxRequests: null,
+      live: false,
+      startedAt: '2026-10-10T12:00:00.000Z',
+      completedAt: null,
+    },
+    notMeasured: [],
+    counts: [],
+    notScorable: [],
+    latency: [],
+    requiredCases: [],
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['config', 'dirtyTree'] });
 });
 
 test('it rejects a count over a unit it does not define', () => {
   const result = runSummarySchema.safeParse({
     runID: '20261010T120000Z-0a1b2c3d',
     config: {
-      schemaVersion: 1,
-      experiment: 'containment-replay',
+      schemaVersion: 2,
+      experiment: 'consent',
       publicCommit: '8c52b93',
+      dirtyTree: false,
       policyHash: 'p',
+      judgePolicyHash: 'j',
       configuredRulesHash: 'r',
       corpusHash: 'c',
       labelsHash: 'l',
-      model: null,
+      recording: null,
+      models: {},
       seed: 1,
       samples: 3,
       maxRequests: null,
@@ -94,6 +155,7 @@ test('it rejects a count over a unit it does not define', () => {
       startedAt: '2026-10-10T12:00:00.000Z',
       completedAt: null,
     },
+    notMeasured: [],
     counts: [
       {
         measurement: 'catastrophic-allows',
@@ -107,9 +169,13 @@ test('it rejects a count over a unit it does not define', () => {
         clopperPearson: { lower: 0, upper: 0.1323 },
         ruleOfThree: 0.1154,
         clusteredStandardError: null,
+        designEffect: null,
+        effectiveTotal: null,
       },
     ],
     notScorable: [],
+    latency: [],
+    requiredCases: [],
   });
 
   expect(result.error?.issues).toPartiallyContain({ path: ['counts', 0, 'unit'] });

@@ -1,8 +1,9 @@
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Experiment } from './define-experiment.ts';
 import { formatComparison } from './format-comparison.ts';
 import { loadRun } from './load-run.ts';
+import { requireResultsClone } from './require-results-clone.ts';
 import type { RunEnvironment } from './run-experiment.ts';
 import { runExperiment } from './run-experiment.ts';
 
@@ -18,8 +19,8 @@ export interface EvalCommandIO {
 
 const USAGE = `Usage:
   bun run eval list
-  bun run eval run <experiment> [--live --max-requests <n>] [--resume <run-dir>]
-                   [--seed <n>] [--samples <n>] [--results <dir>]
+  bun run eval run <experiment> [--live --max-requests <n> | --recorded <recording>]
+                   [--resume <run-dir>] [--seed <n>] [--samples <n>] [--results <dir>]
   bun run eval compare <run-dir-a> <run-dir-b>
 
 Results go to --results, or else to AUTO_MODE_EVALS_DIR: a clone of the
@@ -84,8 +85,12 @@ function printList(io: Readonly<EvalCommandIO>): number {
       .map((stage) => (stage.sends ? `${stage.name} (model)` : stage.name))
       .join(', ');
 
+    const recordings = experiment.recordings.map(
+      (recording) => `\n  recording ${recording.name}: ${recording.description}`,
+    );
+
     io.stdout(
-      `${experiment.name}\n  ${experiment.description}\n  corpus ${experiment.corpus}; stages ${stages}; ${experiment.samples} samples by default\n`,
+      `${experiment.name}\n  ${experiment.description}\n  corpora ${experiment.corpora.join(', ')}; stages ${stages}; ${experiment.samples} samples by default${recordings.join('')}\n`,
     );
   }
 
@@ -96,6 +101,7 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
   const parsed = parseCommandArgs(args, {
     live: { type: 'boolean' },
     'max-requests': { type: 'string' },
+    recorded: { type: 'string' },
     resume: { type: 'string' },
     seed: { type: 'string' },
     samples: { type: 'string' },
@@ -127,19 +133,28 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
     throw new UsageError('--max-requests applies only with --live.');
   }
 
-  const resultsOption = parsed.values.results ?? io.env['AUTO_MODE_EVALS_DIR'] ?? null;
-  const resultsDir = resultsOption === null ? null : resolve(resultsOption);
-  const resumeDir = parsed.values.resume === undefined ? null : resolve(parsed.values.resume);
+  const recording = parsed.values.recorded ?? null;
 
-  for (const dir of [resultsDir, resumeDir]) {
-    if (dir !== null && isInside(io.repoRoot, dir)) {
-      throw new Error(`Refusing to write results inside the public repository: ${dir}`);
-    }
+  if (live && recording !== null) {
+    throw new UsageError('--recorded replays answers and sends nothing; drop --live.');
   }
+
+  const resultsDir = await resolveResultsDir(
+    parsed.values.results ?? io.env['AUTO_MODE_EVALS_DIR'] ?? null,
+    io.repoRoot,
+  );
+
+  const resumeClone =
+    parsed.values.resume === undefined
+      ? null
+      : await requireResultsClone(resolve(parsed.values.resume), io.repoRoot);
+
+  const resumeDir = resumeClone?.dir ?? null;
 
   const result = await runExperiment(experiment, {
     corporaDir: join(io.repoRoot, 'evals/corpora'),
     resultsDir,
+    recording,
     seed: parseCount(parsed.values.seed, '--seed', DEFAULT_SEED) ?? DEFAULT_SEED,
     samples:
       parseCount(parsed.values.samples, '--samples', experiment.samples) ?? experiment.samples,
@@ -156,15 +171,40 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
   if (result.kind === 'completed') {
     io.stdout(`Wrote ${result.runDir}\n`);
 
+    for (const entry of result.summary.notMeasured) {
+      io.stdout(`not measured: ${entry}\n`);
+    }
+
     for (const count of result.summary.counts) {
+      const effective =
+        count.effectiveTotal === null
+          ? ''
+          : `, design effect ${count.designEffect ?? 1}, effective n ${count.effectiveTotal}`;
+
       io.stdout(
-        `${count.measurement} / ${count.stage} / ${count.source}: ${count.events}/${count.total} ${count.unit} (${count.cases} cases)\n`,
+        `${count.measurement} / ${count.stage} / ${count.source}: ${count.events}/${count.total} ${count.unit} (${count.cases} cases${effective}; Wilson ${count.wilson.lower}–${count.wilson.upper})\n`,
       );
     }
 
     for (const failure of result.summary.notScorable) {
+      const reasons = Object.entries(failure.reasons)
+        .map(([reason, count]) => `${reason} ${count}`)
+        .join(', ');
+
       io.stdout(
-        `not scorable / ${failure.stage}: ${failure.notScorable}/${failure.attempted} (${failure.skipped} skipped)\n`,
+        `not scorable / ${failure.stage}: ${failure.notScorable}/${failure.attempted} (${failure.skipped} skipped)${reasons === '' ? '' : `: ${reasons}`}\n`,
+      );
+    }
+
+    for (const latency of result.summary.latency) {
+      io.stdout(
+        `latency / ${latency.stage}: median ${latency.medianMs} ms, p90 ${latency.p90Ms} ms over ${latency.requests}\n`,
+      );
+    }
+
+    for (const required of result.summary.requiredCases) {
+      io.stdout(
+        `required ${required.caseKey} / ${required.stage}: ${required.verdicts.join(' ')}\n`,
       );
     }
   }
@@ -243,8 +283,17 @@ function parseCount(
   return Number(value);
 }
 
-function isInside(root: string, dir: string): boolean {
-  const path = relative(root, dir);
+// Runs go under the clone's root, so a directory inside the clone is refused too.
+async function resolveResultsDir(option: string | null, repoRoot: string): Promise<string | null> {
+  if (option === null) {
+    return null;
+  }
 
-  return path === '' || (!path.startsWith('..') && !path.startsWith('/'));
+  const clone = await requireResultsClone(resolve(option), repoRoot);
+
+  if (clone.dir !== clone.root) {
+    throw new Error(`Name the root of the results clone, ${clone.root}, not ${clone.dir}.`);
+  }
+
+  return clone.dir;
 }

@@ -14,6 +14,7 @@ test('it builds a default sample record', () => {
     reason: null,
     latencyMs: 0,
     requestHash: null,
+    answerHash: null,
   });
 });
 
@@ -46,6 +47,7 @@ test('it applies overrides on top of the defaults', () => {
     reason: null,
     latencyMs: 0,
     requestHash: null,
+    answerHash: null,
   });
 });
 

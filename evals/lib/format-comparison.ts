@@ -10,11 +10,14 @@ export interface ComparedRun {
 
 const CONFIG_FIELDS = [
   'publicCommit',
+  'dirtyTree',
   'policyHash',
+  'judgePolicyHash',
   'configuredRulesHash',
   'corpusHash',
   'labelsHash',
-  'model',
+  'recording',
+  'models',
   'seed',
   'samples',
   'live',
@@ -25,7 +28,10 @@ const CONFIG_FIELDS = [
 export function formatComparison(a: Readonly<ComparedRun>, b: Readonly<ComparedRun>): string {
   const configA = a.run.summary.config;
   const configB = b.run.summary.config;
-  const changed = CONFIG_FIELDS.filter((field) => configA[field] !== configB[field]);
+
+  const changed = CONFIG_FIELDS.filter(
+    (field) => formatField(configA[field]) !== formatField(configB[field]),
+  );
 
   const lines = [
     `Experiment: ${configA.experiment}`,
@@ -33,7 +39,7 @@ export function formatComparison(a: Readonly<ComparedRun>, b: Readonly<ComparedR
     `b: ${b.run.summary.runID}`,
     changed.length === 0
       ? 'Config: the same in every compared field.'
-      : `Config differs in: ${changed.map((field) => `${field} (${String(configA[field])} → ${String(configB[field])})`).join(', ')}`,
+      : `Config differs in: ${changed.map((field) => `${field} (${formatField(configA[field])} → ${formatField(configB[field])})`).join(', ')}`,
   ];
 
   const keys = [
@@ -90,7 +96,33 @@ function formatCount(count: Readonly<MeasurementCount> | undefined): string {
     parts.push(`clustered SE ${formatRate(count.clusteredStandardError)}`);
   }
 
+  if (count.effectiveTotal !== null) {
+    parts.push(`effective n ${count.effectiveTotal}`);
+  }
+
   return parts.join(', ');
+}
+
+function formatField(value: unknown): string {
+  return typeof value === 'object' && value !== null
+    ? JSON.stringify(sortKeys(value))
+    : String(value);
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sortKeys(entry));
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .toSorted(([keyA], [keyB]) => Number(keyA > keyB) - Number(keyA < keyB))
+      .map(([key, entry]) => [key, sortKeys(entry)]),
+  );
 }
 
 function formatRate(value: number | null): string {

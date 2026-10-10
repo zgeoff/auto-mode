@@ -1,16 +1,23 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, realpath, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildStubOutput } from '../../test-utils/build-stub-output.ts';
+import { runGit } from '../../test-utils/run-git.ts';
 import { defineExperiment } from './define-experiment.ts';
 import { loadCaseKeys } from './load-case-keys.ts';
 import { runEvalCommand } from './run-eval-command.ts';
 
 async function setupTest() {
-  const resultsDir = await mkdtemp(join(tmpdir(), 'eval-command-'));
+  const tempDir = await mkdtemp(join(tmpdir(), 'eval-command-'));
 
-  onTestFinished(() => rm(resultsDir, { recursive: true, force: true }));
+  onTestFinished(() => rm(tempDir, { recursive: true, force: true }));
+
+  // A run is written only into a clone of the results repository.
+  const resultsDir = await realpath(tempDir);
+
+  runGit(resultsDir, ['init', '-q', '-b', 'main']);
+  runGit(resultsDir, ['remote', 'add', 'origin', 'git@github.com:zgeoff/auto-mode-evals.git']);
 
   return {
     resultsDir,
@@ -48,6 +55,11 @@ test.each<[string, string[], string]>([
     '--max-requests applies only with --live.',
   ],
   [
+    'a recording with --live',
+    ['run', 'local-check', '--live', '--max-requests', '5', '--recorded', 'baseline'],
+    '--recorded replays answers and sends nothing; drop --live.',
+  ],
+  [
     'a seed that is not a number',
     ['run', 'local-check', '--seed', 'x'],
     '--seed takes a whole number, not x.',
@@ -65,14 +77,9 @@ test.each<[string, string[], string]>([
       defineExperiment({
         name: 'local-check',
         description: 'A deterministic stage.',
-        corpus: 'containment',
-        inputs: [],
+        corpora: ['containment'],
         samples: 1,
-        loadCases: async (dir) => {
-          const loaded = await loadCaseKeys(dir);
-
-          return new Map(loaded.keys.map((key) => [key, key]));
-        },
+        loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
         stages: [],
         measurements: [],
       }),
@@ -85,7 +92,7 @@ test.each<[string, string[], string]>([
   expect(ctx.stderr.read()).toStartWith(`${problem}\n\nUsage:`);
 });
 
-test('it lists each experiment with its corpus, stages and default samples', async () => {
+test('it lists each experiment with its corpora, stages, default samples and recordings', async () => {
   const ctx = await setupTest();
 
   const code = await runEvalCommand(['list'], {
@@ -97,10 +104,10 @@ test('it lists each experiment with its corpus, stages and default samples', asy
       defineExperiment({
         name: 'local-check',
         description: 'A deterministic stage.',
-        corpus: 'containment',
-        inputs: [],
+        corpora: ['containment', 'second-judge'],
         samples: 2,
-        loadCases: () => Promise.resolve(new Map<string, string>()),
+        recordings: [{ name: 'baseline', description: 'the baseline answers' }],
+        loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
         stages: [
           {
             name: 'containment',
@@ -123,7 +130,7 @@ test('it lists each experiment with its corpus, stages and default samples', asy
   expect(code).toBe(0);
 
   expect(ctx.stdout.read()).toBe(
-    'local-check\n  A deterministic stage.\n  corpus containment; stages containment, jev (model); 2 samples by default\n',
+    'local-check\n  A deterministic stage.\n  corpora containment, second-judge; stages containment, jev (model); 2 samples by default\n  recording baseline: the baseline answers\n',
   );
 });
 
@@ -131,7 +138,7 @@ test('it refuses to write results inside the public repository', async () => {
   const ctx = await setupTest();
 
   const code = await runEvalCommand(
-    ['run', 'local-check', '--results', join(ctx.repoRoot, 'evals/results')],
+    ['run', 'local-check', '--results', join(ctx.repoRoot, 'evals')],
     {
       stdout: ctx.stdout.write,
       stderr: ctx.stderr.write,
@@ -141,14 +148,9 @@ test('it refuses to write results inside the public repository', async () => {
         defineExperiment({
           name: 'local-check',
           description: 'A deterministic stage.',
-          corpus: 'containment',
-          inputs: [],
+          corpora: ['containment'],
           samples: 1,
-          loadCases: async (dir) => {
-            const loaded = await loadCaseKeys(dir);
-
-            return new Map(loaded.keys.map((key) => [key, key]));
-          },
+          loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
           stages: [],
           measurements: [],
         }),
@@ -161,11 +163,80 @@ test('it refuses to write results inside the public repository', async () => {
   expect(code).toBe(1);
 
   expect(ctx.stderr.read()).toBe(
-    `Refusing to write results inside the public repository: ${join(ctx.repoRoot, 'evals/results')}\n`,
+    `Refusing to write results inside the public repository: ${await realpath(join(ctx.repoRoot, 'evals'))}\n`,
   );
 });
 
-test('it writes a run into the directory AUTO_MODE_EVALS_DIR names', async () => {
+test('it refuses a results path that links into the public repository', async () => {
+  const ctx = await setupTest();
+
+  const link = join(ctx.resultsDir, 'linked-results');
+
+  await symlink(join(ctx.repoRoot, 'evals'), link);
+
+  const code = await runEvalCommand(['run', 'local-check', '--results', link], {
+    stdout: ctx.stdout.write,
+    stderr: ctx.stderr.write,
+    env: {},
+    repoRoot: ctx.repoRoot,
+    experiments: [
+      defineExperiment({
+        name: 'local-check',
+        description: 'A deterministic stage.',
+        corpora: ['containment'],
+        samples: 1,
+        loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
+        stages: [],
+        measurements: [],
+      }),
+    ],
+    prepareRun: () => Promise.reject(new Error('unreachable')),
+    now: () => new Date('2026-10-10T12:00:00.000Z'),
+  });
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.read()).toBe(
+    `Refusing to write results inside the public repository: ${await realpath(join(ctx.repoRoot, 'evals'))}\n`,
+  );
+});
+
+test('it refuses a results path below the root of the results clone', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.resultsDir, 'runs'));
+
+  const code = await runEvalCommand(
+    ['run', 'local-check', '--results', join(ctx.resultsDir, 'runs')],
+    {
+      stdout: ctx.stdout.write,
+      stderr: ctx.stderr.write,
+      env: {},
+      repoRoot: ctx.repoRoot,
+      experiments: [
+        defineExperiment({
+          name: 'local-check',
+          description: 'A deterministic stage.',
+          corpora: ['containment'],
+          samples: 1,
+          loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
+          stages: [],
+          measurements: [],
+        }),
+      ],
+      prepareRun: () => Promise.reject(new Error('unreachable')),
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+    },
+  );
+
+  expect(code).toBe(1);
+
+  expect(ctx.stderr.read()).toBe(
+    `Name the root of the results clone, ${ctx.resultsDir}, not ${join(ctx.resultsDir, 'runs')}.\n`,
+  );
+});
+
+test('it writes a run into the clone AUTO_MODE_EVALS_DIR names and prints its counts', async () => {
   const ctx = await setupTest();
 
   const code = await runEvalCommand(['run', 'local-check'], {
@@ -177,13 +248,24 @@ test('it writes a run into the directory AUTO_MODE_EVALS_DIR names', async () =>
       defineExperiment({
         name: 'local-check',
         description: 'A deterministic stage.',
-        corpus: 'containment',
-        inputs: [],
+        corpora: ['containment'],
         samples: 1,
-        loadCases: async (dir) => {
+        loadCases: async (source) => {
+          const dir = join(source.corporaDir, 'containment');
+
           const loaded = await loadCaseKeys(dir);
 
-          return new Map(loaded.keys.map((key) => [key, key]));
+          return {
+            sets: [
+              {
+                corpus: 'containment',
+                dir,
+                cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+              },
+            ],
+            inputs: [],
+            notMeasured: ['held-out set: not part of this check'],
+          };
         },
         stages: [
           {
@@ -196,7 +278,16 @@ test('it writes a run into the directory AUTO_MODE_EVALS_DIR names', async () =>
       }),
     ],
     prepareRun: () =>
-      Promise.resolve({ publicCommit: 'test', policy: 'policy', configuredRules: {}, send: null }),
+      Promise.resolve({
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      }),
     now: () => new Date('2026-10-10T12:00:00.000Z'),
   });
 
@@ -205,6 +296,17 @@ test('it writes a run into the directory AUTO_MODE_EVALS_DIR names', async () =>
   const runs = await readdir(join(ctx.resultsDir, 'runs/local-check'));
 
   expect(runs).toStrictEqual([expect.toStartWith('20261010T120000Z-')]);
+
+  expect(ctx.stdout.read()).toBe(
+    [
+      'Plan: 13 cases × 1 samples × 1 stages; 13 stage runs to go, 0 already recorded, 0 model requests.',
+      'Not measured: held-out set: not part of this check',
+      `Wrote ${join(ctx.resultsDir, 'runs/local-check', runs[0] ?? '')}`,
+      'not measured: held-out set: not part of this check',
+      'not scorable / containment: 0/0 (13 skipped)',
+      '',
+    ].join('\n'),
+  );
 });
 
 test('it refuses to compare runs of different experiments', async () => {
@@ -219,34 +321,33 @@ test('it refuses to compare runs of different experiments', async () => {
       defineExperiment({
         name: 'first-check',
         description: 'A deterministic stage.',
-        corpus: 'containment',
-        inputs: [],
+        corpora: ['containment'],
         samples: 1,
-        loadCases: async (dir) => {
-          const loaded = await loadCaseKeys(dir);
-
-          return new Map(loaded.keys.map((key) => [key, key]));
-        },
+        loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
         stages: [],
         measurements: [],
       }),
       defineExperiment({
         name: 'second-check',
         description: 'A deterministic stage.',
-        corpus: 'containment',
-        inputs: [],
+        corpora: ['containment'],
         samples: 1,
-        loadCases: async (dir) => {
-          const loaded = await loadCaseKeys(dir);
-
-          return new Map(loaded.keys.map((key) => [key, key]));
-        },
+        loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
         stages: [],
         measurements: [],
       }),
     ],
     prepareRun: () =>
-      Promise.resolve({ publicCommit: 'test', policy: 'policy', configuredRules: {}, send: null }),
+      Promise.resolve({
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      }),
     now: () => new Date('2026-10-10T12:00:00.000Z'),
   };
 

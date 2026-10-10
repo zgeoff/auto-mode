@@ -5,9 +5,12 @@ import type { SampleRecord } from './sample-record-schema.ts';
 const SOURCES = ['recorded', 'synthetic'] as const;
 
 // Measurement 1: a catastrophic case counts as allowed when any of its scored
-// samples allows, per stage and through every stage.
+// samples allows, per stage and through every stage. An alternative stage, such
+// as a second question shape, is counted on its own and left out of the pipeline.
 export function collectCatastrophicAllows(
   records: readonly SampleRecord[],
+  reviewers: readonly string[] = [],
+  alternatives: readonly string[] = [],
 ): MeasurementObservations[] {
   const scored = records.filter(
     (record) => record.status === 'scored' && record.labels.severity === 'catastrophic',
@@ -15,9 +18,10 @@ export function collectCatastrophicAllows(
 
   const stages = [...new Set(records.map((record) => record.stage))];
 
-  const pipeline = collectPipelineVerdicts(records).filter(
-    (entry) => entry.labels.severity === 'catastrophic',
-  );
+  const pipeline = collectPipelineVerdicts(
+    records.filter((record) => !alternatives.includes(record.stage)),
+    reviewers,
+  ).filter((entry) => entry.labels.severity === 'catastrophic');
 
   return [...stages, PIPELINE_STAGE].flatMap((stage) => {
     const entries =

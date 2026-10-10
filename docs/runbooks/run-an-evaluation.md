@@ -8,7 +8,11 @@ means; this runbook covers the steps.
 
 1. Clone `zgeoff/auto-mode-evals` outside this repository.
 2. Export `AUTO_MODE_EVALS_DIR` with the path of that clone, or pass `--results <dir>` on each run.
-   The command refuses a run with neither, and refuses a directory inside this repository.
+   The command refuses a run with neither. It resolves the path through any symlink and refuses a
+   directory inside this repository, a directory that is not the root of a git clone, and a clone
+   that is not of `zgeoff/auto-mode-evals`: its `origin` must name that repository, or its root must
+   hold the results `README.md` and `MANIFEST.sha256`. `--resume` takes a run directory inside that
+   clone.
 
 ## List the experiments
 
@@ -16,7 +20,18 @@ means; this runbook covers the steps.
 bun run eval list
 ```
 
-Each entry names its corpus, its stages, which stages ask the model, and its default sample count.
+Each entry names its corpora, its stages, which stages ask the model, and its default sample count,
+then one line for each recording it can replay.
+
+| Experiment                | Measurement                                                             |
+| ------------------------- | ----------------------------------------------------------------------- |
+| `catastrophic-allows`     | 1: catastrophic cases allowed per stage and by harm, both Jev shapes    |
+| `consent`                 | 3: twins credited and near-misses held, with GEO-78 control-11 and -39  |
+| `judge-alone`             | 4: the judge on Jev denies: overturns, catastrophic overturns, failures |
+| `infrastructure-failures` | 5: failed and unreadable requests per stage, the judge on every sample  |
+| `containment-replay`      | 1 and 2 for the containment check over the recorded Jev answers         |
+
+Every experiment also reports measurement 5 for the stages it sends.
 
 ## Read the plan
 
@@ -24,14 +39,28 @@ Each entry names its corpus, its stages, which stages ask the model, and its def
 bun run eval run <experiment>
 ```
 
-The command prints the plan: cases, samples, stages, and the model requests the plan needs. When a
-stage asks the model, the command stops there and sends nothing. Use `--samples <n>` and
-`--seed <n>` to change the plan.
+The command prints the plan: cases, samples, stages, and the model requests each stage needs. A
+stage that reviews another stage's denies, such as the judge, sends at most one request per deny, so
+its line is an upper bound. When a stage asks the model, the command stops there and sends nothing.
+Use `--samples <n>` and `--seed <n>` to change the plan.
 
 ## Run offline
 
 An experiment whose stages ask no model, such as a replay of recorded answers, runs in full without
 `--live` and writes a run. It prints each count with its denominator and the run directory.
+
+## Replay a recording
+
+```sh
+bun run eval run <experiment> --recorded <recording>
+```
+
+A recording is a set of past model answers, named in `bun run eval list`. Each stage that sends
+replays the recorded answer for its case and sample, with the recording's latency and model; a stage
+the recording holds no answers for is left out and named as not measured. A recording kept under
+`legacy/` in the results clone is read from there; without it, that stage is not measured either.
+`--recorded` and `--live` cannot be combined. The run records each answer's hash beside its request
+hash, and whether the tree was dirty, so an offline run from a dirty tree still says so.
 
 ## Run live
 
@@ -50,6 +79,18 @@ A live run spends money on model requests, so get the owner's approval for the r
 A request that times out, fails, or returns an invalid answer is recorded as not scorable with its
 reason. It leaves the other measurements' denominators and counts under the infrastructure failures.
 
+## Read the counts
+
+Each count carries its denominator, a Wilson and a Clopper-Pearson interval, and the rule-of-three
+bound when it is zero. A count over samples or requests, where one case contributes several, also
+carries the clustered standard error and its design effect: the intervals use the effective sample
+size, n divided by the design effect, so they are wider than a naive interval over the same samples.
+Where the rate is 0 or 1 the design effect is the mean samples per case, so each case counts once.
+An all-stages count from a recording that left a stage out names that stage, as in
+`all-stages without judge`. The output lists what the run did not measure: a missing held-out set, a
+stage without recorded answers. A required case, such as the consent controls, is listed by key with
+each stage's verdict on every sample.
+
 ## Resume an interrupted run
 
 ```sh
@@ -57,7 +98,10 @@ bun run eval run <experiment> --live --max-requests <n> --resume <run-dir>
 ```
 
 The resumed run skips every stage run its `samples.jsonl` already holds, and refuses a run whose
-commit, hashes, seed or sample count differ. The cap applies to the requests still to send.
+commit, hashes, seed or sample count differ. The cap applies to the requests still to send. A run
+interrupted mid-write can leave a torn last line; the resume drops it, prints how many characters it
+dropped, and runs that stage again. A run started from a dirty tree cannot be resumed, because no
+commit names its code.
 
 ## Compare two runs
 

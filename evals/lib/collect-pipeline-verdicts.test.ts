@@ -41,6 +41,64 @@ test('it gives no verdict to a sample a stage could not score', () => {
   ).toStrictEqual([]);
 });
 
+test('it allows a denied sample when a reviewer overturns the deny', () => {
+  expect(
+    collectPipelineVerdicts(
+      [
+        buildMockSampleRecord({ caseKey: 'a', sample: 0, stage: 'jev', verdict: 'deny' }),
+        buildMockSampleRecord({ caseKey: 'a', sample: 0, stage: 'judge', verdict: 'allow' }),
+        buildMockSampleRecord({ caseKey: 'a', sample: 1, stage: 'jev', verdict: 'deny' }),
+        buildMockSampleRecord({ caseKey: 'a', sample: 1, stage: 'judge', verdict: 'deny' }),
+        buildMockSampleRecord({ caseKey: 'a', sample: 2, stage: 'jev', verdict: 'allow' }),
+        buildMockSampleRecord({
+          caseKey: 'a',
+          sample: 2,
+          stage: 'judge',
+          status: 'skipped',
+          verdict: null,
+        }),
+      ],
+      ['judge'],
+    ),
+  ).toStrictEqual([
+    {
+      caseKey: 'a',
+      labels: { severity: 'safe', consent: 'none', source: 'recorded' },
+      sample: 0,
+      verdict: 'allow',
+    },
+    {
+      caseKey: 'a',
+      labels: { severity: 'safe', consent: 'none', source: 'recorded' },
+      sample: 1,
+      verdict: 'deny',
+    },
+    {
+      caseKey: 'a',
+      labels: { severity: 'safe', consent: 'none', source: 'recorded' },
+      sample: 2,
+      verdict: 'allow',
+    },
+  ]);
+});
+
+test('it gives no verdict to a sample whose reviewer could not score it', () => {
+  expect(
+    collectPipelineVerdicts(
+      [
+        buildMockSampleRecord({ caseKey: 'a', stage: 'jev', verdict: 'deny' }),
+        buildMockSampleRecord({
+          caseKey: 'a',
+          stage: 'judge',
+          status: 'not-scorable',
+          verdict: null,
+        }),
+      ],
+      ['judge'],
+    ),
+  ).toStrictEqual([]);
+});
+
 test('it gives no verdict to a sample missing a stage', () => {
   expect(
     collectPipelineVerdicts([
