@@ -149,7 +149,20 @@ test('it fails on a version 3 record of the wrong shape, naming only the field',
   );
 
   expect(loadActionLog(ctx.path, null)).rejects.toThrow(
-    'Record 1 of the action log is not a version 3 record: sessionHash.',
+    'Record 1 of the action log is not a valid version 3 record: sessionHash.',
+  );
+});
+
+test('it fails on a version 4 record of the wrong shape, naming its version and the field', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.path,
+    `${JSON.stringify(buildMockActionLogRecord({ schemaVersion: 4, sessionHash: 'private-session-canary' }))}\n`,
+  );
+
+  expect(loadActionLog(ctx.path, null)).rejects.toThrow(
+    'Record 1 of the action log is not a valid version 4 record: sessionHash.',
   );
 });
 
@@ -162,6 +175,6 @@ test('it fails on a version 3 record with an unknown field, without naming the f
   );
 
   expect(loadActionLog(ctx.path, null)).rejects.toThrow(
-    'Record 1 of the action log is not a version 3 record: an unknown field.',
+    'Record 1 of the action log is not a valid version 3 record: an unknown field.',
   );
 });

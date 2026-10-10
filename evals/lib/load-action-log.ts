@@ -51,7 +51,9 @@ export async function loadActionLog(path: string, since: string | null): Promise
         .map((issue) => (issue.path.length === 0 ? 'an unknown field' : issue.path.join('.')))
         .join(', ');
 
-      throw new Error(`Record ${index + 1} of the action log is not a version 3 record: ${paths}.`);
+      throw new Error(
+        `Record ${index + 1} of the action log is not a valid version ${version} record: ${paths}.`,
+      );
     }
 
     if (since !== null && Date.parse(parsed.data.time) < Date.parse(since)) {
