@@ -9,7 +9,7 @@ export interface CapturedAction {
   readonly decidingStage: string;
 }
 
-export interface AnonymisedCase {
+interface AnonymisedCase {
   readonly id: string;
   readonly source: 'recorded';
   readonly request: unknown;
