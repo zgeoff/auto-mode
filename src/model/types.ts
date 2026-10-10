@@ -10,7 +10,7 @@ export interface DecisionRule {
 
 export type DecisionChoice = 'allow' | 'block' | 'ask';
 
-export interface DecisionQuestion<Choice extends string = DecisionChoice> {
+interface DecisionQuestion<Choice extends string = DecisionChoice> {
   readonly type: 'choice';
   readonly instructions: string;
   readonly criteria: Readonly<Record<Choice, string>>;
