@@ -186,10 +186,20 @@ async function runJevStage(
                   confidence: answer.confidence,
                   allow: answer.probabilities.allow,
                   block: answer.probabilities.block,
-                  ask: answer.probabilities.ask,
+
+                  // The question offers no ask, so the report holds 0 there.
+                  ask: 0,
                 },
               ];
         });
+
+        // A threshold sweep needs every rule's P(block), confident allows included.
+        const blockProbabilities = Object.fromEntries(
+          Object.entries(request.rules).map(([id, rule]) => [
+            rule.source === 'shipped' ? rule.name : id,
+            result.answers[id]?.probabilities.block ?? 0,
+          ]),
+        );
 
         record = {
           case: entry.id,
@@ -199,6 +209,7 @@ async function runJevStage(
           rule: verdict.kind === 'deny' ? verdict.rule : null,
           ruleCount: Object.keys(request.rules).length,
           contributors,
+          blockProbabilities,
           elapsedMs: Math.round(performance.now() - started),
           requestBytes,
         };
