@@ -68,9 +68,9 @@ test.each<[string, string[], string]>([
   ],
   ['one run to compare', ['compare', 'a'], 'compare takes two run directories.'],
   [
-    'a since that is not a time',
-    ['live', '--since', 'x'],
-    '--since takes an ISO 8601 time, not x.',
+    'a since time without an offset',
+    ['live', '--since', '2026-10-10T10:00'],
+    '--since takes an ISO 8601 time with an offset, or a date, not 2026-10-10T10:00.',
   ],
 ])('it exits 2 with the problem and the usage for %s', async (_label, argv, problem) => {
   const ctx = await setupTest();

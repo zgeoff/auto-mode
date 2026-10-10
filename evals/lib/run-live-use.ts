@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { LiveUseMeasures } from './build-live-use-summary.ts';
-import { buildLiveUseSummary } from './build-live-use-summary.ts';
+import type { LiveUseMeasures } from './build-live-use-measures.ts';
+import { buildLiveUseMeasures } from './build-live-use-measures.ts';
 import { loadActionLog } from './load-action-log.ts';
 import { toHash } from './to-hash.ts';
 import { writeReport } from './write-report.ts';
@@ -15,7 +15,7 @@ export interface LiveUseOptions {
   readonly now: () => Date;
 }
 
-export interface LiveUseConfig {
+interface LiveUseConfig {
   readonly schemaVersion: 1;
   readonly experiment: 'live-use';
   readonly publicCommit: string;
@@ -26,7 +26,7 @@ export interface LiveUseConfig {
   readonly startedAt: string;
 }
 
-export interface LiveUseSummary {
+interface LiveUseSummary {
   readonly runID: string;
   readonly config: LiveUseConfig;
   readonly log: {
@@ -34,6 +34,7 @@ export interface LiveUseSummary {
     readonly skippedVersions: Readonly<Record<string, number>>;
     readonly beforeSince: number;
     readonly tornLineCharacters: number | null;
+    readonly unreadableLines: number;
   };
   readonly measures: LiveUseMeasures;
 }
@@ -71,8 +72,9 @@ export async function runLiveUse(options: Readonly<LiveUseOptions>): Promise<Liv
       skippedVersions: log.skippedVersions,
       beforeSince: log.beforeSince,
       tornLineCharacters: log.tornLineCharacters,
+      unreadableLines: log.unreadableLines,
     },
-    measures: buildLiveUseSummary(log.records),
+    measures: buildLiveUseMeasures(log.records),
   };
 
   await mkdir(dirname(runDir), { recursive: true });

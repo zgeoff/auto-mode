@@ -122,8 +122,9 @@ bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
 `live` reads the [action log](../guides/diagnostics.md) and reports measurement 6. Without `--log`
 it reads the path the CLI writes: `AUTO_MODE_DIAGNOSTICS_PATH`, or
 `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/actions.jsonl`. `--since`
-leaves out the records written before that time. It reads version 3 records; it counts and skips
-records of any other version, and drops and reports a torn last line.
+takes an ISO 8601 time with an offset, or a date, and leaves out the records written before it. It
+reads version 3 records; it counts and skips records of any other version and lines that are not
+JSON, such as a torn append, and fails on a version 3 record of the wrong shape.
 
 A task is one session. The record holds no agent identifier, so a subagent's actions count with the
 session that spawned it, though the denial budget counts a subagent apart. The command prints:
@@ -131,7 +132,8 @@ session that spawned it, though the denial budget counts a subagent apart. The c
 - escalations per task: tasks with an escalation out of tasks, and every escalation over tasks;
 - tasks that recover after a deny: a task recovers when an action is allowed after its first deny
   and before any escalation, out of the tasks with a deny;
-- denials per action for each deciding stage, over every action, clustered by task;
+- denials per action for each deciding stage, over every action, clustered by task; an escalated
+  action reached the user rather than the agent, so it is not a denial;
 - the records, the started records with no final record, the tasks, and the time span.
 
 The run goes to `runs/live-use/<run>/summary.json` in the results clone, with the public commit,

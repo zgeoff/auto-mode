@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { buildLiveUseSummary } from './build-live-use-summary.ts';
+import { buildLiveUseMeasures } from './build-live-use-measures.ts';
 import { buildMockActionLogRecord } from './factories/build-mock-action-log-record.ts';
 
 test('it measures a log of two tasks', () => {
   expect(
-    buildLiveUseSummary([
+    buildLiveUseMeasures([
       {
         schemaVersion: 3,
         time: '2026-10-01T10:00:00.000Z',
@@ -232,11 +232,11 @@ test('it gives the same measures for the same records', () => {
     buildMockActionLogRecord(),
   ];
 
-  expect(buildLiveUseSummary(records)).toStrictEqual(buildLiveUseSummary(records));
+  expect(buildLiveUseMeasures(records)).toStrictEqual(buildLiveUseMeasures(records));
 });
 
 test('it counts every escalation of a task, and the task once among tasks with one', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({ sessionHash: 'aaaaaaaaaaaaaaaa', escalation: true }),
     buildMockActionLogRecord({ sessionHash: 'aaaaaaaaaaaaaaaa', escalation: true }),
     buildMockActionLogRecord({ sessionHash: 'bbbbbbbbbbbbbbbb' }),
@@ -257,7 +257,7 @@ test('it counts every escalation of a task, and the task once among tasks with o
 });
 
 test('it counts a task as recovered when an allow follows its first deny before any escalation', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({
       sessionHash: 'aaaaaaaaaaaaaaaa',
       time: '2026-10-01T10:00:00.000Z',
@@ -290,7 +290,7 @@ test('it counts a task as recovered when an allow follows its first deny before 
 });
 
 test('it counts a task as not recovered when an escalation comes before the next allow', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({
       sessionHash: 'aaaaaaaaaaaaaaaa',
       time: '2026-10-01T10:00:00.000Z',
@@ -315,7 +315,7 @@ test('it counts a task as not recovered when an escalation comes before the next
 });
 
 test('it counts a task that ends on a deny as not recovered', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({
       sessionHash: 'aaaaaaaaaaaaaaaa',
       time: '2026-10-01T10:00:00.000Z',
@@ -333,7 +333,7 @@ test('it counts a task that ends on a deny as not recovered', () => {
 });
 
 test('it orders a task by time, so an allow logged before the deny it follows still recovers', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({
       sessionHash: 'aaaaaaaaaaaaaaaa',
       time: '2026-10-01T10:00:02.000Z',
@@ -351,7 +351,7 @@ test('it orders a task by time, so an allow logged before the deny it follows st
 });
 
 test('it leaves a task with no deny out of the recovery denominator', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({ sessionHash: 'aaaaaaaaaaaaaaaa', verdict: 'allow' }),
   ]);
 
@@ -363,7 +363,7 @@ test('it leaves a task with no deny out of the recovery denominator', () => {
 });
 
 test('it counts a subagent with the session that spawned it, as the record holds no agent identity', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({ sessionHash: 'aaaaaaaaaaaaaaaa', invocationID: 'main' }),
     buildMockActionLogRecord({
       sessionHash: 'aaaaaaaaaaaaaaaa',
@@ -376,7 +376,7 @@ test('it counts a subagent with the session that spawned it, as the record holds
 });
 
 test('it counts denials per action for each deciding stage over every action', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({ status: 'deny', verdict: 'deny', decidingStage: 'containment' }),
     buildMockActionLogRecord({ status: 'deny', verdict: 'deny', decidingStage: 'jev' }),
     buildMockActionLogRecord({ status: 'deny', verdict: 'deny', decidingStage: 'jev' }),
@@ -395,7 +395,7 @@ test('it counts denials per action for each deciding stage over every action', (
 });
 
 test('it counts a started record without a final record as incomplete', () => {
-  const summary = buildLiveUseSummary([
+  const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({
       invocationID: 'killed',
       status: 'started',

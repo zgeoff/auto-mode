@@ -10,10 +10,11 @@ export interface ActionLog {
   readonly skippedVersions: Readonly<Record<string, number>>;
   readonly beforeSince: number;
   readonly tornLineCharacters: number | null;
+  readonly unreadableLines: number;
 }
 
-// A CLI killed mid-append leaves a torn last line, which is dropped. An error
-// names a line number and field paths only, so no log content reaches output.
+// An error names a record number and field paths only, so no log content
+// reaches the output.
 export async function loadActionLog(path: string, since: string | null): Promise<ActionLog> {
   const bytes = await readFile(path);
 
@@ -25,12 +26,15 @@ export async function loadActionLog(path: string, since: string | null): Promise
   const records: ActionLogRecord[] = [];
   const skippedVersions: Record<string, number> = {};
   let beforeSince = 0;
+  let unreadableLines = 0;
 
   for (const [index, line] of complete.entries()) {
     const value = parseJSON(line);
 
+    // A torn append merges with the next record into a line that is not JSON.
     if (value === undefined) {
-      throw new Error(`Record ${index + 1} of the action log is not JSON.`);
+      unreadableLines += 1;
+      continue;
     }
 
     const version = getSchemaVersion(value);
@@ -43,7 +47,9 @@ export async function loadActionLog(path: string, since: string | null): Promise
     const parsed = actionLogRecordSchema.safeParse(value);
 
     if (!parsed.success) {
-      const paths = parsed.error.issues.map((issue) => issue.path.join('.')).join(', ');
+      const paths = parsed.error.issues
+        .map((issue) => (issue.path.length === 0 ? 'an unknown field' : issue.path.join('.')))
+        .join(', ');
 
       throw new Error(`Record ${index + 1} of the action log is not a version 3 record: ${paths}.`);
     }
@@ -63,6 +69,7 @@ export async function loadActionLog(path: string, since: string | null): Promise
     skippedVersions,
     beforeSince,
     tornLineCharacters: torn ? (last?.length ?? 0) : null,
+    unreadableLines,
   };
 }
 
@@ -79,5 +86,5 @@ function getSchemaVersion(value: unknown): string {
     return 'none';
   }
 
-  return String(value.schemaVersion);
+  return Number.isSafeInteger(value.schemaVersion) ? String(value.schemaVersion) : 'other';
 }

@@ -38,6 +38,7 @@ test('it reads every version 3 record and hashes the bytes it read', async () =>
     skippedVersions: {},
     beforeSince: 0,
     tornLineCharacters: null,
+    unreadableLines: 0,
   });
 });
 
@@ -62,6 +63,19 @@ test('it counts and skips the records of other schema versions', async () => {
 
   expect(log.records).toStrictEqual([current]);
   expect(log.skippedVersions).toStrictEqual({ '1': 1, '2': 2, none: 1 });
+});
+
+test('it counts a version that is not a whole number as other, without keeping its value', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.path,
+    `${JSON.stringify({ schemaVersion: 'private-version-canary' })}\n${JSON.stringify({ schemaVersion: { nested: 1 } })}\n`,
+  );
+
+  const log = await loadActionLog(ctx.path, null);
+
+  expect(log.skippedVersions).toStrictEqual({ other: 2 });
 });
 
 test('it drops and reports a torn last line', async () => {
@@ -91,15 +105,20 @@ test('it leaves out the records written before the since time', async () => {
   expect(log.beforeSince).toBe(1);
 });
 
-test('it fails on a line that is not JSON before the last line, without quoting it', async () => {
+test('it counts and skips a torn append that the next record completed into a line that is not JSON', async () => {
   const ctx = await setupTest();
+
+  const record = buildMockActionLogRecord();
 
   await writeFile(
     ctx.path,
-    `private-content-canary\n${JSON.stringify(buildMockActionLogRecord())}\n`,
+    `{"schemaVersion":3,"ti${JSON.stringify(record)}\n${JSON.stringify(record)}\n`,
   );
 
-  expect(loadActionLog(ctx.path, null)).rejects.toThrow('Record 1 of the action log is not JSON.');
+  const log = await loadActionLog(ctx.path, null);
+
+  expect(log.records).toStrictEqual([record]);
+  expect(log.unreadableLines).toBe(1);
 });
 
 test('it fails on a version 3 record of the wrong shape, naming only the field', async () => {
@@ -112,5 +131,18 @@ test('it fails on a version 3 record of the wrong shape, naming only the field',
 
   expect(loadActionLog(ctx.path, null)).rejects.toThrow(
     'Record 1 of the action log is not a version 3 record: sessionHash.',
+  );
+});
+
+test('it fails on a version 3 record with an unknown field, without naming the field', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.path,
+    `${JSON.stringify({ ...buildMockActionLogRecord(), private_canary: 1 })}\n`,
+  );
+
+  expect(loadActionLog(ctx.path, null)).rejects.toThrow(
+    'Record 1 of the action log is not a version 3 record: an unknown field.',
   );
 });

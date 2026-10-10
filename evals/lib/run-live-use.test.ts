@@ -54,7 +54,13 @@ test('it writes the summary under runs/live-use with the run config and the log 
       since: '2026-09-01T00:00:00.000Z',
       startedAt: '2026-10-10T12:00:00.000Z',
     },
-    log: { lines: 2, skippedVersions: { '2': 1 }, beforeSince: 0, tornLineCharacters: null },
+    log: {
+      lines: 2,
+      skippedVersions: { '2': 1 },
+      beforeSince: 0,
+      tornLineCharacters: null,
+      unreadableLines: 0,
+    },
     measures: result.summary.measures,
   });
 });

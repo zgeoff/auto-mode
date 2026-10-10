@@ -4,7 +4,7 @@ import { buildMeasurementCounts } from './build-measurement-counts.ts';
 import type { MeasurementObservations } from './define-experiment.ts';
 import type { MeasurementCount } from './run-summary-schema.ts';
 
-export interface TaskOutcome {
+interface TaskOutcome {
   readonly sessionHash: string;
   readonly actions: number;
   readonly denials: number;
@@ -34,7 +34,7 @@ const ALL_STAGES = 'all';
 
 // A task is one session: the record holds the hashed session identifier and no
 // agent identifier, so a subagent's actions count with the session that spawned it.
-export function buildLiveUseSummary(records: readonly ActionLogRecord[]): LiveUseMeasures {
+export function buildLiveUseMeasures(records: readonly ActionLogRecord[]): LiveUseMeasures {
   const finals = records
     .map((record, index) => ({ record, index }))
     .filter((entry) => entry.record.status !== 'started')
@@ -104,8 +104,6 @@ export function buildLiveUseSummary(records: readonly ActionLogRecord[]): LiveUs
   };
 }
 
-// A task recovers when, after its first deny, an action is allowed before any
-// action reaches the user through the denial budget.
 function buildTaskOutcome(sessionHash: string, actions: readonly ActionLogRecord[]): TaskOutcome {
   const firstDeny = actions.findIndex((record) => record.verdict === 'deny');
 

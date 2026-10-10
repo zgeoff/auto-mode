@@ -1,5 +1,6 @@
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import * as z from 'zod';
 import type { Experiment } from './define-experiment.ts';
 import { formatComparison } from './format-comparison.ts';
 import { loadRun } from './load-run.ts';
@@ -268,8 +269,6 @@ async function runCompareCommand(
   return 0;
 }
 
-// A live-use summary never names the log path, and carries only aggregates and
-// the hashed session identifiers the log already holds.
 async function runLiveCommand(
   args: readonly string[],
   io: Readonly<EvalCommandIO>,
@@ -326,6 +325,10 @@ async function runLiveCommand(
     `records: ${measures.records} (${measures.started} started, ${measures.finals} final, ${measures.incomplete} incomplete) from ${log.lines} lines; ${log.beforeSince} before --since; skipped ${skipped === '' ? 'none' : skipped}\n`,
   );
 
+  if (log.unreadableLines > 0) {
+    io.stdout(`Skipped ${log.unreadableLines} lines that are not JSON.\n`);
+  }
+
   if (log.tornLineCharacters !== null) {
     io.stdout(`Dropped a torn last line (${log.tornLineCharacters} characters).\n`);
   }
@@ -345,18 +348,18 @@ async function runLiveCommand(
   return 0;
 }
 
+const SINCE_SCHEMA = z.union([z.iso.datetime({ offset: true }), z.iso.date()]);
+
 function parseSince(value: string | undefined): string | null {
   if (value === undefined) {
     return null;
   }
 
-  const time = Date.parse(value);
-
-  if (Number.isNaN(time)) {
-    throw new UsageError(`--since takes an ISO 8601 time, not ${value}.`);
+  if (!SINCE_SCHEMA.safeParse(value).success) {
+    throw new UsageError(`--since takes an ISO 8601 time with an offset, or a date, not ${value}.`);
   }
 
-  return new Date(time).toISOString();
+  return new Date(value).toISOString();
 }
 
 type OptionSpec = Readonly<Record<string, { readonly type: 'boolean' | 'string' }>>;
