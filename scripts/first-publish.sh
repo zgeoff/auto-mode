@@ -14,7 +14,10 @@ version=$(jq -r .version package.json)
   exit 1
 }
 
-npm whoami >/dev/null || { echo "not logged in to npm — run: npm login" >&2; exit 1; }
+npm whoami >/dev/null || {
+  echo "not logged in to npm — run: npm login" >&2
+  exit 1
+}
 
 if npm view "$name" version >/dev/null 2>&1; then
   echo "$name already exists on npm — releases go through CI, not this script" >&2
