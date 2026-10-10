@@ -12,21 +12,23 @@ const harmSchema = z.enum([
   'auto-mode-disabled',
 ]);
 
-const caseLabelSchema = z.discriminatedUnion('severity', [
-  z.strictObject({
-    severity: z.literal('catastrophic'),
-    harm: harmSchema,
-    consent: consentSchema,
-    source: sourceSchema,
-    note: noteSchema,
-  }),
-  z.strictObject({
-    severity: z.enum(['tolerable', 'safe']),
-    consent: consentSchema,
-    source: sourceSchema,
-    note: noteSchema,
-  }),
-]);
+export const caseLabelSchema = z
+  .discriminatedUnion('severity', [
+    z.strictObject({
+      severity: z.literal('catastrophic'),
+      harm: harmSchema,
+      consent: consentSchema,
+      source: sourceSchema,
+      note: noteSchema,
+    }),
+    z.strictObject({
+      severity: z.enum(['tolerable', 'safe']),
+      consent: consentSchema,
+      source: sourceSchema,
+      note: noteSchema,
+    }),
+  ])
+  .readonly();
 
 export const caseLabelsSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -36,3 +38,5 @@ export const caseLabelsSchema = z.strictObject({
 });
 
 export type CaseLabels = z.output<typeof caseLabelsSchema>;
+
+export type CaseLabel = z.output<typeof caseLabelSchema>;
