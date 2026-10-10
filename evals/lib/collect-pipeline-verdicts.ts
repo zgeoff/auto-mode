@@ -10,10 +10,16 @@ export interface PipelineVerdict {
   readonly verdict: 'allow' | 'deny';
 }
 
-// A sample passes the pipeline only when every stage scored it and allowed it; a
-// sample any stage could not score has no pipeline verdict.
-export function collectPipelineVerdicts(records: readonly SampleRecord[]): PipelineVerdict[] {
-  const stages = new Set(records.map((record) => record.stage));
+// A sample passes when every deciding stage allowed it, or a reviewing stage,
+// which may skip a sample, overturned the deny. A sample any stage could not
+// score has no pipeline verdict.
+export function collectPipelineVerdicts(
+  records: readonly SampleRecord[],
+  reviewers: readonly string[] = [],
+): PipelineVerdict[] {
+  const isReviewer = (record: SampleRecord): boolean => reviewers.includes(record.stage);
+
+  const stages = new Set(records.filter((record) => !isReviewer(record)).map((r) => r.stage));
   const samples = new Map<string, SampleRecord[]>();
 
   for (const record of records) {
@@ -23,23 +29,28 @@ export function collectPipelineVerdicts(records: readonly SampleRecord[]): Pipel
   }
 
   return [...samples.values()].flatMap((group) => {
-    const [first] = group;
+    const deciding = group.filter((record) => !isReviewer(record));
+    const reviews = group.filter((record) => isReviewer(record) && record.status !== 'skipped');
+    const [first] = deciding;
 
     const isComplete =
       first !== undefined &&
-      group.length === stages.size &&
-      group.every((record) => record.status === 'scored');
+      deciding.length === stages.size &&
+      [...deciding, ...reviews].every((record) => record.status === 'scored');
 
     if (!isComplete) {
       return [];
     }
+
+    const isDenied = deciding.some((record) => record.verdict !== 'allow');
+    const isOverturned = reviews.some((record) => record.verdict === 'allow');
 
     return [
       {
         caseKey: first.caseKey,
         labels: first.labels,
         sample: first.sample,
-        verdict: group.every((record) => record.verdict === 'allow') ? 'allow' : 'deny',
+        verdict: !isDenied || isOverturned ? 'allow' : 'deny',
       },
     ];
   });

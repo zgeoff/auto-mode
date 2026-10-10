@@ -13,6 +13,7 @@ export const sampleRecordSchema = z
     reason: z.string().nullable(),
     latencyMs: z.number().nonnegative(),
     requestHash: z.string().nullable(),
+    answerHash: z.string().nullable(),
   })
   .readonly();
 

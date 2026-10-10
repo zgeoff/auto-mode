@@ -1,5 +1,5 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { HttpResponse, http } from 'msw';
@@ -35,13 +35,24 @@ test('it plans a model experiment without live mode and sends and writes nothing
     defineExperiment({
       name: 'model-check',
       description: 'A stage that asks the model.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [
         {
@@ -53,27 +64,45 @@ test('it plans a model experiment without live mode and sends and writes nothing
             return { status: 'scored', verdict: 'allow', pBlock: 0, reason: null };
           },
         },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: () => Promise.resolve({ status: 'skipped', reason: 'Jev allowed.' }),
+        },
       ],
       measurements: [],
     }),
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 2,
       live: false,
       maxRequests: null,
       resumeDir: null,
-      environment: { publicCommit: 'test', policy: 'policy', configuredRules: {}, send },
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: (line) => printed.push(line),
     },
   );
 
-  expect(result).toMatchObject({ kind: 'planned', plan: { cases: 13, requests: 26 } });
+  expect(result).toMatchObject({ kind: 'planned', plan: { cases: 13, requests: 52 } });
 
   expect(printed).toStrictEqual([
-    'Plan: 13 cases × 2 samples × 1 stages; 26 stage runs to go, 0 already recorded, 26 model requests.',
+    'Plan: 13 cases × 2 samples × 2 stages; 52 stage runs to go, 0 already recorded, 52 model requests.',
+    '  jev: 26 model requests',
+    '  judge: at most 26 model requests, one for each jev deny',
     'Nothing was sent. Pass --live --max-requests <n> to send these requests.',
   ]);
 
@@ -93,13 +122,24 @@ test('it refuses a live run whose plan needs more requests than the cap', async 
     defineExperiment({
       name: 'model-check',
       description: 'A stage that asks the model.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [
         {
@@ -117,12 +157,22 @@ test('it refuses a live run whose plan needs more requests than the cap', async 
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 1,
       live: true,
       maxRequests: 12,
       resumeDir: null,
-      environment: { publicCommit: 'test', policy: 'policy', configuredRules: {}, send },
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
     },
@@ -140,20 +190,31 @@ test('it refuses a live run whose plan needs more requests than the cap', async 
   expect(entries).toBeEmpty();
 });
 
-test('it records each live answer with its model, probability of block and request hash', async () => {
+test('it records each live answer with its stage model, probability of block, request hash and answer hash', async () => {
   const ctx = await setupTest();
 
   const result = await runExperiment(
     defineExperiment({
       name: 'model-check',
       description: 'A stage that asks the model.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [
         {
@@ -175,6 +236,7 @@ test('it records each live answer with its model, probability of block and reque
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 1,
       live: true,
@@ -182,9 +244,13 @@ test('it records each live answer with its model, probability of block and reque
       resumeDir: null,
       environment: {
         publicCommit: 'test',
+        dirtyTree: false,
         policy: 'policy',
-        configuredRules: {},
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: (request) => sendEvaluationDecision(buildMockProviderConfig(), 'test-key', request),
+        sendWithChoices: null,
+        sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
@@ -195,18 +261,19 @@ test('it records each live answer with its model, probability of block and reque
 
   const run = await loadRun(result.runDir);
 
-  expect(run.summary.config.model).toBe('jev-1.13.0');
+  expect(run.summary.config.models).toStrictEqual({ jev: 'jev-1.13.0' });
   expect(run.records).toHaveLength(13);
 
   expect(run.records).toSatisfyAll(
     (record: SampleRecord) =>
       record.status === 'scored' &&
       record.pBlock === 0 &&
-      /^[0-9a-f]{64}$/.test(record.requestHash ?? ''),
+      /^[0-9a-f]{64}$/.test(record.requestHash ?? '') &&
+      /^[0-9a-f]{64}$/.test(record.answerHash ?? ''),
   );
 });
 
-test('it keeps the model of a live run that stops after its first answer', async () => {
+test('it keeps the stage model of a live run that stops after its first answer', async () => {
   const ctx = await setupTest();
 
   let calls = 0;
@@ -215,13 +282,24 @@ test('it keeps the model of a live run that stops after its first answer', async
     defineExperiment({
       name: 'model-check',
       description: 'A stage that asks the model.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [
         {
@@ -245,6 +323,7 @@ test('it keeps the model of a live run that stops after its first answer', async
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 1,
       live: true,
@@ -252,9 +331,13 @@ test('it keeps the model of a live run that stops after its first answer', async
       resumeDir: null,
       environment: {
         publicCommit: 'test',
+        dirtyTree: false,
         policy: 'policy',
-        configuredRules: {},
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: (request) => sendEvaluationDecision(buildMockProviderConfig(), 'test-key', request),
+        sendWithChoices: null,
+        sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
@@ -266,7 +349,7 @@ test('it keeps the model of a live run that stops after its first answer', async
   const [runID] = await readdir(join(ctx.resultsDir, 'runs/model-check'));
   const interrupted = await loadRun(join(ctx.resultsDir, 'runs/model-check', runID ?? ''));
 
-  expect(interrupted.summary.config.model).toBe('jev-1.13.0');
+  expect(interrupted.summary.config.models).toStrictEqual({ jev: 'jev-1.13.0' });
   expect(interrupted.records).toHaveLength(1);
 });
 
@@ -283,13 +366,24 @@ test('it records a failed request as not scorable with its reason', async () => 
     defineExperiment({
       name: 'model-check',
       description: 'A stage that asks the model.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [
         {
@@ -307,6 +401,7 @@ test('it records a failed request as not scorable with its reason', async () => 
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 1,
       live: true,
@@ -314,9 +409,13 @@ test('it records a failed request as not scorable with its reason', async () => 
       resumeDir: null,
       environment: {
         publicCommit: 'test',
+        dirtyTree: false,
         policy: 'policy',
-        configuredRules: {},
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: (request) => sendEvaluationDecision(buildMockProviderConfig(), 'test-key', request),
+        sendWithChoices: null,
+        sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
@@ -325,7 +424,7 @@ test('it records a failed request as not scorable with its reason', async () => 
 
   invariant(result.kind === 'completed');
 
-  expect(result.summary.config.model).toBeNull();
+  expect(result.summary.config.models).toStrictEqual({});
 
   expect(result.summary.notScorable).toStrictEqual([
     {
@@ -334,6 +433,366 @@ test('it records a failed request as not scorable with its reason', async () => 
       attempted: 13,
       skipped: 0,
       reasons: { 'decision-http-status': 13 },
+    },
+  ]);
+});
+
+test('it replays a recording through the stages that can, names the stage that cannot, and sends nothing', async () => {
+  const ctx = await setupTest();
+
+  const send = mock(() => Promise.reject(new Error('unreachable')));
+
+  const result = await runExperiment(
+    defineExperiment({
+      name: 'recorded-check',
+      description: 'A model stage with a recording and one without.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'baseline', description: 'the baseline answers' }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [{ path: 'corpora:recorded/baseline.json', hash: 'abc' }],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: () =>
+            Promise.resolve({
+              status: 'scored',
+              verdict: 'deny',
+              pBlock: 0.9,
+              reason: 'Data Exfiltration',
+              recorded: { answer: { status: 'deny' }, latencyMs: 412, model: 'jev-1.13.0' },
+            }),
+        },
+        {
+          name: 'jev-categorical',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'baseline',
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: true,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  invariant(result.kind === 'completed');
+
+  const run = await loadRun(result.runDir);
+
+  expect(send).not.toHaveBeenCalled();
+
+  expect(run.summary.notMeasured).toStrictEqual([
+    'stage jev-categorical: the baseline recording holds no answers for it',
+  ]);
+
+  expect(run.summary.config.recording).toBe('baseline');
+  expect(run.summary.config.dirtyTree).toBe(true);
+  expect(run.summary.config.models).toStrictEqual({ jev: 'jev-1.13.0' });
+
+  expect(run.records).toSatisfyAll(
+    (record: SampleRecord) =>
+      record.stage === 'jev' &&
+      record.latencyMs === 412 &&
+      record.requestHash === null &&
+      /^[0-9a-f]{64}$/.test(record.answerHash ?? ''),
+  );
+
+  expect(new Set(run.records.map((record) => record.answerHash)).size).toBe(1);
+});
+
+test('it refuses a recording the experiment does not define', async () => {
+  const ctx = await setupTest();
+
+  const run = runExperiment(
+    defineExperiment({
+      name: 'recorded-check',
+      description: 'A model stage with a recording.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'baseline', description: 'the baseline answers' }],
+      loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
+      stages: [],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'guidance',
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(run).rejects.toThrowWithMessage(
+    Error,
+    'The recorded-check experiment has no recording guidance. Known: baseline.',
+  );
+});
+
+test('it measures only the cases the experiment selects, keyed by their corpus', async () => {
+  const ctx = await setupTest();
+
+  const result = await runExperiment(
+    defineExperiment({
+      name: 'select-check',
+      description: 'A deterministic stage over two twins.',
+      corpora: ['containment'],
+      samples: 1,
+      selectCase: (_label, key) => key === 'containment/twin-01' || key === 'containment/twin-02',
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'containment',
+          sends: false,
+          run: (entry) =>
+            Promise.resolve({
+              status: 'scored',
+              verdict: 'allow',
+              pBlock: null,
+              reason: entry.case,
+            }),
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  invariant(result.kind === 'completed');
+
+  const run = await loadRun(result.runDir);
+
+  expect(run.records.map((record) => [record.caseKey, record.reason])).toIncludeSameMembers([
+    ['containment/twin-01', 'twin-01'],
+    ['containment/twin-02', 'twin-02'],
+  ]);
+});
+
+test('it refuses a run whose cases lack a required case', async () => {
+  const ctx = await setupTest();
+
+  const run = runExperiment(
+    defineExperiment({
+      name: 'required-check',
+      description: 'A deterministic stage that needs one twin.',
+      corpora: ['containment'],
+      samples: 1,
+      requiredCases: ['containment/twin-01'],
+      selectCase: (_label, key) => key === 'containment/twin-02',
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(run).rejects.toThrowWithMessage(
+    Error,
+    'The required-check cases lack the required [containment/twin-01].',
+  );
+});
+
+test('it reports each required case by key with every stage verdict', async () => {
+  const ctx = await setupTest();
+
+  const result = await runExperiment(
+    defineExperiment({
+      name: 'required-check',
+      description: 'A deterministic stage that needs one twin.',
+      corpora: ['containment'],
+      samples: 2,
+      requiredCases: ['containment/twin-01'],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'containment',
+          sends: false,
+          run: (_entry, context) => {
+            const outcome: StageOutcome =
+              context.sample === 0
+                ? { status: 'scored', verdict: 'deny', pBlock: null, reason: 'outside scope' }
+                : { status: 'skipped', reason: 'no sample' };
+
+            return Promise.resolve(outcome);
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 2,
+      live: false,
+      maxRequests: null,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  invariant(result.kind === 'completed');
+
+  expect(result.summary.requiredCases).toStrictEqual([
+    {
+      caseKey: 'containment/twin-01',
+      labels: { severity: 'safe', consent: 'asked', source: 'synthetic' },
+      stage: 'containment',
+      verdicts: ['deny', 'skipped'],
     },
   ]);
 });
@@ -347,13 +806,24 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
     defineExperiment({
       name: 'local-check',
       description: 'A deterministic stage.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 2,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [{ name: 'containment', sends: false, run: () => Promise.resolve(scored) }],
       measurements: [],
@@ -361,12 +831,22 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 2,
       live: false,
       maxRequests: null,
       resumeDir: null,
-      environment: { publicCommit: 'test', policy: 'policy', configuredRules: {}, send: null },
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
     },
@@ -386,13 +866,24 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
     defineExperiment({
       name: 'local-check',
       description: 'A deterministic stage.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 2,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [{ name: 'containment', sends: false, run }],
       measurements: [],
@@ -400,12 +891,22 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 2,
       live: false,
       maxRequests: null,
       resumeDir: first.runDir,
-      environment: { publicCommit: 'test', policy: 'policy', configuredRules: {}, send: null },
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
       now: () => new Date('2026-10-10T13:00:00.000Z'),
       print: () => {},
     },
@@ -424,6 +925,135 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
   );
 });
 
+test('it resumes a run whose last samples line is torn, says so, and runs that stage run again', async () => {
+  const ctx = await setupTest();
+
+  const scored: StageOutcome = { status: 'scored', verdict: 'deny', pBlock: null, reason: null };
+
+  const first = await runExperiment(
+    defineExperiment({
+      name: 'local-check',
+      description: 'A deterministic stage.',
+      corpora: ['containment'],
+      samples: 1,
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [{ name: 'containment', sends: false, run: () => Promise.resolve(scored) }],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  invariant(first.kind === 'completed');
+
+  const text = await readFile(join(first.runDir, 'samples.jsonl'), 'utf8');
+
+  const lines = text.split('\n').filter((line) => line !== '');
+
+  await writeFile(join(first.runDir, 'samples.jsonl'), `${lines.slice(0, 12).join('\n')}\n`);
+  await appendFile(join(first.runDir, 'samples.jsonl'), (lines[12] ?? '').slice(0, 20));
+
+  const run = mock(() => Promise.resolve(scored));
+  const printed: string[] = [];
+
+  await runExperiment(
+    defineExperiment({
+      name: 'local-check',
+      description: 'A deterministic stage.',
+      corpora: ['containment'],
+      samples: 1,
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [{ name: 'containment', sends: false, run }],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 1,
+      live: false,
+      maxRequests: null,
+      resumeDir: first.runDir,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T13:00:00.000Z'),
+      print: (line) => printed.push(line),
+    },
+  );
+
+  const reloaded = await loadRun(first.runDir);
+
+  expect(run).toHaveBeenCalledOnce();
+
+  expect(printed).toContain(
+    'Dropped a torn last line from samples.jsonl (20 characters); its stage run runs again.',
+  );
+
+  expect(reloaded.tornLine).toBeNull();
+  expect(reloaded.records).toHaveLength(13);
+});
+
 test('it refuses to resume a run with another seed', async () => {
   const ctx = await setupTest();
 
@@ -433,13 +1063,24 @@ test('it refuses to resume a run with another seed', async () => {
     defineExperiment({
       name: 'local-check',
       description: 'A deterministic stage.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [{ name: 'containment', sends: false, run: () => Promise.resolve(scored) }],
       measurements: [],
@@ -447,12 +1088,22 @@ test('it refuses to resume a run with another seed', async () => {
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 1,
       live: false,
       maxRequests: null,
       resumeDir: null,
-      environment: { publicCommit: 'test', policy: 'policy', configuredRules: {}, send: null },
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
     },
@@ -464,13 +1115,24 @@ test('it refuses to resume a run with another seed', async () => {
     defineExperiment({
       name: 'local-check',
       description: 'A deterministic stage.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [{ name: 'containment', sends: false, run: () => Promise.resolve(scored) }],
       measurements: [],
@@ -478,12 +1140,22 @@ test('it refuses to resume a run with another seed', async () => {
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 2,
       samples: 1,
       live: false,
       maxRequests: null,
       resumeDir: first.runDir,
-      environment: { publicCommit: 'test', policy: 'policy', configuredRules: {}, send: null },
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
     },
@@ -499,13 +1171,24 @@ test('it refuses to write a run with no results directory named', async () => {
     defineExperiment({
       name: 'local-check',
       description: 'A deterministic stage.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [
         {
@@ -519,12 +1202,22 @@ test('it refuses to write a run with no results directory named', async () => {
     {
       corporaDir: ctx.corporaDir,
       resultsDir: null,
+      recording: null,
       seed: 1,
       samples: 1,
       live: false,
       maxRequests: null,
       resumeDir: null,
-      environment: { publicCommit: 'test', policy: 'policy', configuredRules: {}, send: null },
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
     },
@@ -540,13 +1233,24 @@ test('it writes a run whose summary and samples the result schemas read back', a
     defineExperiment({
       name: 'local-check',
       description: 'A deterministic stage.',
-      corpus: 'containment',
-      inputs: [],
+      corpora: ['containment'],
       samples: 1,
-      loadCases: async (dir) => {
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
         const loaded = await loadCaseKeys(dir);
 
-        return new Map(loaded.keys.map((key) => [key, key]));
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
       },
       stages: [
         {
@@ -561,12 +1265,22 @@ test('it writes a run whose summary and samples the result schemas read back', a
     {
       corporaDir: ctx.corporaDir,
       resultsDir: ctx.resultsDir,
+      recording: null,
       seed: 1,
       samples: 1,
       live: false,
       maxRequests: null,
       resumeDir: null,
-      environment: { publicCommit: 'test', policy: 'policy', configuredRules: {}, send: null },
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: true,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
       print: () => {},
     },
@@ -580,14 +1294,17 @@ test('it writes a run whose summary and samples the result schemas read back', a
   expect(run.summary).toStrictEqual(result.summary);
 
   expect(run.summary.config).toStrictEqual({
-    schemaVersion: 1,
+    schemaVersion: 2,
     experiment: 'local-check',
     publicCommit: 'test',
+    dirtyTree: true,
     policyHash: expect.toBeString(),
+    judgePolicyHash: expect.toBeString(),
     configuredRulesHash: expect.toBeString(),
     corpusHash: expect.toBeString(),
     labelsHash: expect.toBeString(),
-    model: null,
+    recording: null,
+    models: {},
     seed: 1,
     samples: 1,
     maxRequests: null,

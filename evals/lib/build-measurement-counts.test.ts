@@ -28,11 +28,13 @@ test('it bounds zero events over distinct cases by the rule of three', () => {
       clopperPearson: { lower: 0, upper: 0.3085 },
       ruleOfThree: 0.3,
       clusteredStandardError: null,
+      designEffect: null,
+      effectiveTotal: null,
     },
   ]);
 });
 
-test('it clusters the error of a count over actions by case', () => {
+test('it widens the intervals of a count over actions to one effective action per wholly split case', () => {
   expect(
     buildMeasurementCounts([
       {
@@ -57,10 +59,49 @@ test('it clusters the error of a count over actions by case', () => {
       events: 2,
       total: 4,
       cases: 2,
-      wilson: { lower: 0.15, upper: 0.85 },
-      clopperPearson: { lower: 0.0676, upper: 0.9324 },
+      wilson: { lower: 0.0546, upper: 0.9454 },
+      clopperPearson: { lower: 0.0004, upper: 0.9996 },
       ruleOfThree: null,
       clusteredStandardError: 0.5,
+      designEffect: 4,
+      effectiveTotal: 1,
+    },
+  ]);
+});
+
+test('it keeps the intervals of a count over requests whose samples vary inside each case', () => {
+  expect(
+    buildMeasurementCounts([
+      {
+        measurement: 'infrastructure-failures',
+        stage: 'judge',
+        source: 'synthetic',
+        unit: 'requests',
+        observations: [
+          { caseKey: 'a', event: true },
+          { caseKey: 'a', event: false },
+          { caseKey: 'b', event: true },
+          { caseKey: 'b', event: false },
+          { caseKey: 'c', event: false },
+          { caseKey: 'c', event: false },
+        ],
+      },
+    ]),
+  ).toStrictEqual([
+    {
+      measurement: 'infrastructure-failures',
+      stage: 'judge',
+      source: 'synthetic',
+      unit: 'requests',
+      events: 2,
+      total: 6,
+      cases: 3,
+      wilson: { lower: 0.0968, upper: 0.7 },
+      clopperPearson: { lower: 0.0433, upper: 0.7772 },
+      ruleOfThree: null,
+      clusteredStandardError: 0.1667,
+      designEffect: 1,
+      effectiveTotal: 6,
     },
   ]);
 });

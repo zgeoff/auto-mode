@@ -29,6 +29,26 @@ test('it bounds all events above by one and below by the 2.5% root', () => {
   expect(interval.lower).toBeCloseTo(0.025 ** (1 / 10), 6);
 });
 
+test('it bounds a fractional count above by the closed-form beta quantile', () => {
+  const interval = buildClopperPearsonInterval(1.5, 2.5);
+
+  expect(interval.upper).toBeCloseTo(0.975 ** (1 / 2.5), 6);
+});
+
+test('it bounds a fractional total below by the closed-form beta quantile', () => {
+  const interval = buildClopperPearsonInterval(1, 1.5);
+
+  expect(interval.lower).toBeCloseTo(1 - 0.975 ** (1 / 1.5), 6);
+});
+
+test('it widens the interval as the effective total shrinks at one rate', () => {
+  const full = buildClopperPearsonInterval(10, 40);
+  const clustered = buildClopperPearsonInterval(2.5, 10);
+
+  expect(clustered.lower).toBeLessThan(full.lower);
+  expect(clustered.upper).toBeGreaterThan(full.upper);
+});
+
 test('it bounds a proportion with no trials by the whole unit range', () => {
   expect(buildClopperPearsonInterval(0, 0)).toStrictEqual({ lower: 0, upper: 1 });
 });

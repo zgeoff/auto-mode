@@ -1,4 +1,4 @@
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { checkCwdContainment } from '../lib/check-cwd-containment.ts';
 import { collectBenignDenials } from '../lib/collect-benign-denials.ts';
 import { collectCatastrophicAllows } from '../lib/collect-catastrophic-allows.ts';
@@ -26,11 +26,11 @@ export const containmentReplay = defineExperiment<ReplayCase>({
   description:
     'Replays the recorded Jev answers for the consent near-misses and the real traffic, ' +
     'with the containment check in the cwd scope beside them. Sends nothing.',
-  corpus: 'decision-rules',
+  corpora: ['decision-rules'],
   samples: 3,
-  inputs: CORPUS_FILES.map(([, replayFile]) => `${REPLAY_DIR}/${replayFile}`),
-  loadCases: async (corpusDir) => {
-    const replayDir = join(dirname(corpusDir), REPLAY_DIR);
+  loadCases: async (source) => {
+    const corpusDir = join(source.corporaDir, 'decision-rules');
+    const replayDir = join(source.corporaDir, REPLAY_DIR);
 
     const loaded = await Promise.all(
       CORPUS_FILES.map(async ([corpusFile, replayFile]) => {
@@ -39,14 +39,29 @@ export const containmentReplay = defineExperiment<ReplayCase>({
           loadCorpus(join(replayDir, replayFile), replaySamplesSchema),
         ]);
 
-        return cases.map((call) => ({
-          call,
-          released: buildReleased(call.id, replay.data.records),
-        }));
+        return {
+          input: { path: `${REPLAY_DIR}/${replayFile}`, hash: replay.hash },
+          cases: cases.map((call) => ({
+            call,
+            released: buildReleased(call.id, replay.data.records),
+          })),
+        };
       }),
     );
 
-    return new Map(loaded.flat().map((entry) => [entry.call.id, entry]));
+    return {
+      sets: [
+        {
+          corpus: 'decision-rules',
+          dir: corpusDir,
+          cases: Object.fromEntries(
+            loaded.flatMap((entry) => entry.cases).map((entry) => [entry.call.id, entry]),
+          ),
+        },
+      ],
+      inputs: loaded.map((entry) => entry.input),
+      notMeasured: [],
+    };
   },
   stages: [
     {

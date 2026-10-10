@@ -13,6 +13,7 @@ export function buildMockSampleRecord(overrides: Partial<SampleRecord> = {}): Sa
     reason: null,
     latencyMs: 0,
     requestHash: null,
+    answerHash: null,
     ...overrides,
   };
 }

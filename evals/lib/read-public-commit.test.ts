@@ -23,7 +23,7 @@ async function setupTest() {
 test('it reads the commit of a clean tree', async () => {
   const ctx = await setupTest();
 
-  expect(readPublicCommit(ctx.dir, true)).toBe(ctx.head);
+  expect(readPublicCommit(ctx.dir, true)).toStrictEqual({ commit: ctx.head, dirty: false });
 });
 
 test('it refuses a live run on a tree with uncommitted source', async () => {
@@ -37,12 +37,12 @@ test('it refuses a live run on a tree with uncommitted source', async () => {
   );
 });
 
-test('it reads the commit of a dirty tree for an offline run', async () => {
+test('it reads the commit of a dirty tree for an offline run and flags the tree dirty', async () => {
   const ctx = await setupTest();
 
   await writeFile(join(ctx.dir, 'src/index.ts'), 'export const changed = 1;\n');
 
-  expect(readPublicCommit(ctx.dir, false)).toBe(ctx.head);
+  expect(readPublicCommit(ctx.dir, false)).toStrictEqual({ commit: ctx.head, dirty: true });
 });
 
 test('it ignores a change outside the guarded paths', async () => {
@@ -50,5 +50,5 @@ test('it ignores a change outside the guarded paths', async () => {
 
   await writeFile(join(ctx.dir, 'notes.md'), 'scratch\n');
 
-  expect(readPublicCommit(ctx.dir, true)).toBe(ctx.head);
+  expect(readPublicCommit(ctx.dir, true)).toStrictEqual({ commit: ctx.head, dirty: false });
 });
