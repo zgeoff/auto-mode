@@ -65,6 +65,13 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # check-length.sh runs check-prose.sh over the same READMEs and docs/
+      - name: Doc length and prose
+        run: bash .claude/skills/docs-writing/scripts/check-length.sh
+
+      - name: Doc links
+        run: bash .claude/skills/docs-writing/scripts/check-links.sh
+
       - name: Module boundaries
         run: bun run check:imports
 
