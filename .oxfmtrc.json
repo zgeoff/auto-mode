@@ -6,8 +6,6 @@
   "ignorePatterns": [
     "bun.lock",
     "policy/**",
-    "AGENTS.md",
-    "agents/shared.md",
     // release-please rewrites this on every release, in its own style; the
     // formatter would undo that and fail the release PR's own checks
     "CHANGELOG.md",
