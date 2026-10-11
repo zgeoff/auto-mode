@@ -168,7 +168,7 @@ output of this command may enter a repository, and only after a person has read 
    prompts the cases carry.
 4. Every case is `source: recorded`. `labels.todo.json` lists the case keys with that label alone,
    because a case's severity, harm and consent need a reader. Label each one and save the file as
-   `labels.json` in the [labels format](../architecture/evaluation.md#cases).
+   `labels.json` in the [labels format](../architecture/evaluation.md#corpora).
 5. Read every case, including the original task, the delegated task and the last user message.
    Remove or rewrite any name, project or detail the placeholders missed; they cover the forms above
    and the bundled secret rules, not every way a prompt can name a person or a project.

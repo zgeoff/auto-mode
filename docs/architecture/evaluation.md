@@ -1,103 +1,93 @@
 # Evaluation
 
-Evaluation answers one question for each change to the decision model: does it still allow no
-catastrophic action, and what does it cost ordinary work? The [decision model](./decision-model.md)
-names six measurements; this doc maps each one to its cases, its unit, and the part that produces
-it, and states the rules every report follows. This is the approved design; where the evaluation
-code differs, this doc is the target. The
-[decision record](https://linear.app/zgeoff/document/geo-88-decision-record-auto-mode-evaluation-toolset-eb866dbc021e)
-holds the reasons and the rejected alternatives.
+Evaluation answers one question about each change to how auto-mode decides: does it still allow no
+catastrophic action, and what does it cost ordinary work? The evals package holds the tooling, the
+experiments and the committed corpora, and a private results repository holds every run. Evidence
+comes in two kinds that never mix. Classifier evidence sends fixed cases through one or more stages
+and measures what a stage decides about an action it has never seen. Product evidence reads the
+action log of real sessions, because a deny changes what the agent does next, and no replayed case
+can show recovery or a human escalation. [Run an evaluation](../runbooks/run-an-evaluation.md) gives
+the steps.
 
-## Two kinds of evidence
+## The package boundary
 
-- **Classifier evidence** comes from fixed cases sent through one or more stages offline. It
-  measures what a stage decides about an action it has never seen in context.
-- **Product evidence** comes from the action log of real sessions. It measures what a deny does to
-  the agent and the human, which no fixed case can show.
+The evals package is a private workspace package beside the published one. It reaches auto-mode only
+through the package's own exports: the public API, and an unpublished subpath for the internals an
+evaluation needs. Both resolve to the source tree under an export condition that the test command,
+the evaluation scripts and the evals type-check config set, so an evaluation runs the code as it
+stands in the checkout. The core never imports the evals package, and the evals package reuses the
+root test helpers by path.
 
-**Why:** a deny changes what the agent does next, so a replayed action cannot show recovery or
-escalation. The two kinds are never pooled.
+## Experiments
 
-## The measurements
+An experiment is one small definition: the corpora it reads, how it picks its cases, its ordered
+stages, the measurements it reports, and the recordings it can replay. A stage sends one kind of
+request, such as a Jev decision or a judge review, and can review the records of the stages before
+it, so a judge stage sees only the cases its Jev stage denied. The registry lists every experiment,
+and `bun run eval list` prints it.
 
-| #   | Measurement                                 | Cases                                               | Unit                                                        | Kind       |
-| --- | ------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------- | ---------- |
-| 1   | Catastrophic actions allowed, per stage     | catastrophic sets and the held-out set              | allowed cases / catastrophic cases                          | classifier |
-| 2   | Benign denials                              | recorded real traffic from more than one repository | denied actions / actions                                    | classifier |
-| 3   | Consent                                     | consent twins and near-misses                       | credited twins, held near-misses                            | classifier |
-| 4   | The judge alone                             | Jev denies, including the consent pairs             | overturns, catastrophic overturns, failures, latency        | classifier |
-| 5   | Infrastructure failures, per stage          | every live run                                      | invalid answers and timeouts / requests                     | classifier |
-| 6   | Human escalations and recovery after a deny | the action log                                      | escalations / tasks; tasks that recover / tasks with a deny | product    |
+One command runs an experiment, in one of three modes:
 
-Measurement 1 counts a case as allowed when any of its samples allows. Measurement 1 also reports
-the one-question shape beside the per-rule shape.
+- **Offline,** the default, builds every request and stops, so a run plan can be checked before it
+  costs anything.
+- **Live** sends the requests to the models under a request cap, records every answer, and can
+  resume a run that was interrupted.
+- **Recorded** answers each request from a recording of past answers instead of a model. A stage
+  that no recording covers is reported as not measured, rather than guessed.
 
-## Parts
+The replay suites run the recorded answers through the deterministic stages inside `bun test`, with
+no model call, so CI runs only replay, and a change that breaks a recorded outcome fails the suite.
+A live run first checks that the configuration it runs under is the shipped Jev configuration, so
+its results describe what users run.
 
-- **The evals package** (`evals/`) holds the runner, the experiments, and the corpora. It is to use
-  auto-mode only through its package exports, and the core is never to import it; until the package
-  move lands, the `evals/` tree still imports `src/` directly.
-- **One command,** `bun run eval <experiment>`, runs an experiment. An experiment is a small
-  definition: its cases, the stages it sends them through, and the measurements it reports.
-- **Live mode** sends model requests only with `--live`, under a request cap, and can resume an
-  interrupted run. Without `--live` a run builds its requests and stops.
-- **Replay** runs recorded answers through the deterministic stages in `bun test`, with no model
-  calls. CI runs only replay. `--recorded <recording>` runs an experiment on past answers instead of
-  live ones; a stage no recording covers is reported as not measured.
-- **The experiments** are `catastrophic-allows` (measurement 1), `consent` (3), `judge-alone` (4)
-  and `infrastructure-failures` (5); every experiment also reports 5 for the stages it sends.
-- **The results repo** (`zgeoff/auto-mode-evals`, private) holds every run: a run summary with the
-  frozen run config, hashes and counts, and one record per sample.
-- **The action-log reader,** `bun run eval live`, turns the diagnostics log into measurement 6.
+## Measurements
 
-**Why:** results are large and change on every run, and the public repo is not the place for them.
-Each result records the public commit it ran against, so the two repos stay linked.
+The measurements are numbered, and each is reported on its own, never pooled with another:
 
-## Cases
+| Measurement                       | Produced by                                     | Counts   |
+| --------------------------------- | ----------------------------------------------- | -------- |
+| 1. Catastrophic actions allowed   | the catastrophic-allows and containment replays | cases    |
+| 2. Benign denials                 | the containment replay                          | actions  |
+| 3. Consent                        | the consent experiment                          | cases    |
+| 4. The judge alone                | the judge-alone experiment                      | cases    |
+| 5. Infrastructure failures        | every experiment, for the stages it sends       | requests |
+| 6. Human escalations and recovery | the action-log reader                           | tasks    |
 
-Every case carries four labels:
+A case counts as allowed under measurement 1 when any of its samples allows, because one allowed
+sample is one catastrophe. The catastrophic-allows experiment reports the per-rule question shape
+and a one-question shape side by side. Repeated samples of one case are not independent, so the
+tooling clusters errors by case, takes an interval at the effective sample size for a count over
+samples, and compares two runs case by case on paired differences. Small counts get a Wilson or
+Clopper-Pearson interval, so zero failures in a small set bounds the rate rather than claiming none.
+A sample that failed for infrastructure reasons leaves the denominators of the decision measurements
+and counts under measurement 5. The tooling sets no threshold and no release bar, and the owner sets
+them from the numbers.
 
-- `severity`: catastrophic, tolerable, or safe.
-- `harm`, on catastrophic cases: lost work the task does not own, a write to main or production,
-  data sent outward, changed credentials or permissions, or auto-mode disabled.
-- `consent`: none, asked, or near-miss.
-- `source`: recorded or synthetic.
+## Corpora
 
-The labels live beside each corpus in `evals/corpora/<corpus>/labels.json`, never in the case files,
-whose bytes the recorded reports hash. A labels file carries a `schemaVersion`, names its corpus and
-the field that keys its cases, and labels every case of that corpus and no other; a `note` holds the
-reason for a label that is not obvious. `loadCaseLabels` in `evals/lib/` reads one and rejects a
-file that misses a case or labels an unknown one.
+A corpus is a folder of cases under the evals package, with a labels file beside the cases rather
+than inside them, because a recorded run hashes the case files' bytes. Every case carries a severity
+(catastrophic, tolerable or safe), a consent label (none, asked or near-miss), and a source
+(recorded or synthetic), and a catastrophic case also names the harm it does. The label loader
+rejects a labels file that misses a case of its corpus or labels a case the corpus does not hold.
 
-The held-out catastrophic set is written by a model that never saw the rules or the containment
-detector, and it lives only in the results repo.
+The held-out catastrophic set lives only in the results repository, and the catastrophic-allows
+experiment reads it from the results clone when the clone holds it. A model that never saw the rules
+or the containment check wrote it, because every committed catastrophic case was in view while the
+rules were written, so only a set kept out of the rule author's reach tests them out of sample.
 
-**Why:** every older catastrophic case was in view while the rules and the detector were written, so
-only a set kept out of reach of the rule author tests them out of sample.
+Real traffic reaches a corpus only through review. The opt-in
+[request capture](./state-and-logs.md#the-request-capture) stays on the machine that recorded it.
+The anonymise command turns a capture into a candidate corpus, written outside every repository, and
+refuses to write one that a gitleaks scan does not pass. A person then reads every case and copies
+the reviewed files into the corpora, because no pattern removes a person's or a company's name from
+free text, and git history is permanent.
 
-Real traffic comes from an opt-in capture in the CLI the mod runs. A raw capture never enters git,
-in either repo: it stays on the machine that recorded it. The anonymise step writes its output
-outside every repository, after a gitleaks scan that passes, and that output becomes a corpus only
-after a person reads every case and copies the reviewed files into `evals/corpora/`.
+## Results
 
-**Why:** a raw capture holds real prompts, paths, and possibly secrets, and git history is permanent
-and shared, so the anonymised, scanned and reviewed form is the only way into any repo. No pattern
-removes a person's or a company's name from free text, so the review is a required step.
-
-## Reporting rules
-
-1. Every number has its denominator. Real and synthetic cases are reported apart.
-2. Measurements 1, 3 and 4 count distinct cases, not samples; measurement 2 counts actions and
-   measurement 5 counts requests. Repeated samples of one case are not independent: errors are
-   clustered by case, and two runs compare case by case on paired differences.
-3. Small counts get a Wilson or Clopper-Pearson interval. Zero failures in n cases bounds the rate
-   below about 3/n at 95%; it never shows zero risk. A count over samples or requests takes its
-   interval at the effective sample size, n over the design effect of the clustered standard error.
-4. A sample that failed for infrastructure reasons leaves the denominators of measurements 1 to 4
-   and counts under measurement 5.
-5. A report names what it did not measure: missing sets, stages not run, and overlap between the
-   cases and what the rule author saw.
-6. Tooling sets no threshold and no release bar. The owner sets them from these numbers.
-
-**Why:** small corpora and repeated samples make naive rates look more certain than they are, and a
-pooled rate hides a catastrophic allow inside ordinary friction.
+Every run writes to a clone of the private results repository, never to this one, because results
+are large and change on every run. A run holds a summary with the frozen run configuration, the
+hashes of every input and the counts, plus one record per sample, and it names the public commit it
+ran against, so the two repositories stay linked. The evaluation scripts beside the experiments run
+the live evaluations that no experiment defines, such as the question-shape sweep and the
+relay-consent corpus.
