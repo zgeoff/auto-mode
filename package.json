@@ -79,7 +79,7 @@
     "@types/node": "26.5.1",
     "@zgeoff/bun-test-extended": "0.1.0",
     "@zgeoff/format-codemod": "0.1.0",
-    "@zgeoff/oxlint-config": "0.2.0",
+    "@zgeoff/oxlint-config": "0.2.1",
     "knip": "6.35.1",
     "lefthook": "2.1.12",
     "mitata": "1.0.34",
