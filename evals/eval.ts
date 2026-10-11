@@ -44,11 +44,21 @@ async function main(): Promise<void> {
 
       assertShippedJevConfig(config);
 
-      const key = await resolveApiKey(config.provider, { host });
+      // A run that replays Jev and sends only the judge needs no Jev credential,
+      // so the key resolves on the first Jev request.
+      let pendingKey: Promise<string | null> | null = null;
 
-      if (key === null) {
-        throw new Error('The configured evaluation credential is unavailable.');
-      }
+      const requireKey = async (): Promise<string> => {
+        pendingKey ??= resolveApiKey(config.provider, { host });
+
+        const key = await pendingKey;
+
+        if (key === null) {
+          throw new Error('The configured evaluation credential is unavailable.');
+        }
+
+        return key;
+      };
 
       const configured = config.judge ?? null;
 
@@ -64,15 +74,22 @@ async function main(): Promise<void> {
 
       return {
         ...base,
-        send: (request) => sendEvaluationDecision(config.provider, key, request),
-        sendWithChoices: (request, choices) =>
-          sendDecision<string>(
+        send: async (request) => {
+          const key = await requireKey();
+
+          return sendEvaluationDecision(config.provider, key, request);
+        },
+        sendWithChoices: async (request, choices) => {
+          const key = await requireKey();
+
+          return sendDecision<string>(
             config.provider,
             key,
             request,
             AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
             { choices },
-          ),
+          );
+        },
         sendJudge:
           judge === null || (judge.protocol !== 'claude-code' && judgeKey === null)
             ? null

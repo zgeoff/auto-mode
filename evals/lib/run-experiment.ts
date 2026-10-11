@@ -373,8 +373,20 @@ function requireRecording<Case>(
     );
   }
 
-  if (live && (found.liveStages ?? []).length === 0) {
+  const liveStages = found.liveStages ?? [];
+
+  if (live && liveStages.length === 0) {
     throw new Error('A run that replays a recording sends nothing; drop --live.');
+  }
+
+  const unsent = liveStages.filter(
+    (name) => !experiment.stages.some((stage) => stage.name === name && stage.sends),
+  );
+
+  if (unsent.length > 0) {
+    throw new Error(
+      `The ${recording} recording names live stages the ${experiment.name} experiment does not send: ${unsent.join(', ')}.`,
+    );
   }
 
   return found;

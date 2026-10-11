@@ -681,6 +681,58 @@ test('it refuses a live run against a recording that names no live stage', async
   );
 });
 
+test('it refuses a live run against a recording whose live stage the experiment does not send', async () => {
+  const ctx = await setupTest();
+
+  const run = runExperiment(
+    defineExperiment({
+      name: 'recorded-check',
+      description: 'A deterministic stage and a recording that names it and an unknown stage live.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [
+        { name: 'baseline', description: 'the baseline answers', liveStages: ['local', 'jduge'] },
+      ],
+      loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
+      stages: [
+        {
+          name: 'local',
+          sends: false,
+          run: () => Promise.resolve({ status: 'skipped', reason: 'unreachable' }),
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'baseline',
+      seed: 1,
+      samples: 1,
+      live: true,
+      maxRequests: 10,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(run).rejects.toThrowWithMessage(
+    Error,
+    'The baseline recording names live stages the recorded-check experiment does not send: local, jduge.',
+  );
+});
+
 test('it refuses a recording the experiment does not define', async () => {
   const ctx = await setupTest();
 
