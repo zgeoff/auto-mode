@@ -5,9 +5,11 @@ agent's calls are edits to the code it was asked to change, and the policy's rul
 catastrophic harm, which an ordinary edit there is not. Asking Jev about each one costs a model call
 per edit and risks a wrong deny. The bypass therefore allows an Edit, Write or NotebookEdit call
 whose target lies in a worktree the task owns, unless the target is a file whose change can disable
-a guard, or the new content holds a secret. Every case the bypass does not allow goes to Jev, never
-to a deny, so the bypass can only remove calls from what Jev sees. Shell writes always go to Jev,
-because the bypass judges a file the tool names and a shell command names none it can trust.
+a guard, or a secret scan finds a secret in the new content. The scan skips the file types
+Betterleaks never scans, so a secret in one of those passes. Every case the bypass does not allow
+goes to Jev, never to a deny, so the bypass can only remove calls from what Jev sees. Shell writes
+always go to Jev, because the bypass judges a file the tool names and a shell command names none it
+can trust.
 
 The bypass runs after the [containment check](./containment.md), so an edit whose target lies
 outside the task scope is already denied, and the bypass sees only edits that are inside the scope

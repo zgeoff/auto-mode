@@ -21,7 +21,8 @@ rule of its own in its tier ([Jev](../stages/jev.md#the-request)). A soft deny e
 specific instruction from the user, and a hard deny entry clears only by changing the configuration.
 
 Deny entries change the path. The local rules and the edit bypass decide without reading the user's
-rules, so when any deny entry exists, both stages stand aside and every call reaches Jev. A user who
+rules, so when any deny entry exists, both stages stand aside. The containment check still runs and
+denies a write it can resolve outside the task scope, and every other call reaches Jev. A user who
 writes a deny entry about reading a file therefore gets it enforced, at the cost of a Jev call for
 every read.
 

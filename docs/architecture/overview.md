@@ -43,8 +43,8 @@ flowchart TD
    sample cannot be asked until it allows ([the denial budget](./stages/denial-budget.md)).
 3. The local rules allow read-only tools and read-only shell commands on sight, and pass every other
    call on ([local rules](./stages/local-rules.md)).
-4. The containment check reads the call's write targets and denies any that lies outside the task
-   scope: the worktrees, branches and pull requests the task owns
+4. The containment check reads the write targets it can resolve from the call and denies any that
+   lies outside the task scope: the worktrees, branches and pull requests the task owns
    ([containment](./stages/containment.md), [the task scope](./evidence/task-scope.md)).
 5. The edit bypass allows a file edit inside a worktree the task owns, once a secret scan of the new
    content finds nothing ([the edit bypass](./stages/edit-bypass.md)).

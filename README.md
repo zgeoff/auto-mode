@@ -46,7 +46,7 @@ undo.
 - **Jev** judges the remaining calls against the shipped rules and your own
   ([Jev](./docs/architecture/stages/jev.md)).
 - **The judge**, on by default, reviews every Jev deny, and overturns it when your last message
-  asked for exactly this action ([the judge](./docs/architecture/stages/judge.md)).
+  asked the main agent for exactly this action ([the judge](./docs/architecture/stages/judge.md)).
 - **The denial budget** hands a call back to you when an agent keeps getting denied
   ([the denial budget](./docs/architecture/stages/denial-budget.md)).
 - **Your own rules** from your Claude settings join the policy as block rules

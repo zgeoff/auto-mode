@@ -2,11 +2,11 @@
 
 The task scope is the set of things a task owns: the worktrees it may write, the branches it may
 push, the pull requests it may change, and the checkout's own remotes. The
-[containment check](../stages/containment.md) denies any write outside it, the
-[edit bypass](../stages/edit-bypass.md) allows edits inside it, and Jev reads its summary as
-evidence. auto-mode builds the scope afresh for every call, as the union of the scope sources the
-configuration lists, and each source answers from the call's context alone. No source can hand a
-task the default branch, so a push to it is always a finding.
+[containment check](../stages/containment.md) denies any write outside it that it can resolve from
+the call, the [edit bypass](../stages/edit-bypass.md) allows edits inside it, and Jev reads its
+summary as evidence. auto-mode builds the scope afresh for every call, as the union of the scope
+sources the configuration lists, and each source answers from the call's context alone. No source
+can hand a task the default branch, so a push to it is always a finding.
 
 ## The scope sources
 
