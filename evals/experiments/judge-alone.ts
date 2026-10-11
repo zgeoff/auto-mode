@@ -26,13 +26,21 @@ const GEO_161_RUN = 'recorded/judge/geo-161-sonnet';
 
 const RECORDINGS: Readonly<Record<string, readonly RecordedStage[]>> = {
   ...buildSecondJudgeRecordings(),
-  'geo-161-sonnet': CORPORA.flatMap((corpus) =>
-    [JEV_STAGE, JUDGE_STAGE].map((stage) => ({
-      corpus,
-      stage,
-      source: { kind: 'run' as const, root: 'corpora' as const, path: GEO_161_RUN, stage, corpus },
-    })),
-  ),
+  'geo-161-sonnet': buildRunStages(GEO_161_RUN, [JEV_STAGE, JUDGE_STAGE]),
+  'geo-161-jev': buildRunStages(GEO_161_RUN, [JEV_STAGE]),
+};
+
+// A live run against this recording sends only the judge, so a judge or rule
+// change is measured on the GEO-161 Jev denies.
+const LIVE_STAGES: Readonly<Record<string, readonly string[]>> = {
+  'geo-161-jev': [JUDGE_STAGE],
+};
+
+const DESCRIPTIONS: Readonly<Record<string, string>> = {
+  'geo-161-sonnet':
+    'the GEO-161 live run: shipped Jev and the shipped judge on claude-sonnet-5-5 through claude -p; the results clone held no held-out set',
+  'geo-161-jev':
+    'the GEO-161 Jev answers alone; with --live the judge sends, so it reviews the same Jev denies',
 };
 
 export const judgeAlone = defineExperiment<MeasurementCase>({
@@ -47,9 +55,10 @@ export const judgeAlone = defineExperiment<MeasurementCase>({
   requiredCases: REQUIRED,
   recordings: Object.keys(RECORDINGS).map((name) => ({
     name,
-    description: name.startsWith('geo-161')
-      ? 'the GEO-161 live run: shipped Jev and the shipped judge on claude-sonnet-5-5 through claude -p; the results clone held no held-out set'
-      : `GEO-78 Jev ${name.split('-')[0] ?? ''} answers with the ${name.split('-').slice(1).join('-')} second judge's recorded replies from legacy/ in the results clone; that judge used the generative framework, not the shipped judge, and saw only the asks whose every answer chose allow`,
+    description:
+      DESCRIPTIONS[name] ??
+      `GEO-78 Jev ${name.split('-')[0] ?? ''} answers with the ${name.split('-').slice(1).join('-')} second judge's recorded replies from legacy/ in the results clone; that judge used the generative framework, not the shipped judge, and saw only the asks whose every answer chose allow`,
+    liveStages: LIVE_STAGES[name] ?? [],
   })),
   loadCases: (source) =>
     loadRecordedCases(source, { corpora: CORPORA, withHeldOut: true, recordings: RECORDINGS }),
@@ -68,3 +77,13 @@ export const judgeAlone = defineExperiment<MeasurementCase>({
     collectInfrastructureFailures,
   ],
 });
+
+function buildRunStages(path: string, stages: readonly string[]): readonly RecordedStage[] {
+  return CORPORA.flatMap((corpus) =>
+    stages.map((stage) => ({
+      corpus,
+      stage,
+      source: { kind: 'run' as const, root: 'corpora' as const, path, stage, corpus },
+    })),
+  );
+}

@@ -537,6 +537,150 @@ test('it replays a recording through the stages that can, names the stage that c
   expect(new Set(run.records.map((record) => record.answerHash)).size).toBe(1);
 });
 
+test('it replays the recorded stages and sends only the recording’s live stages in a live run', async () => {
+  const ctx = await setupTest();
+
+  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+
+  const result = await runExperiment(
+    defineExperiment({
+      name: 'recorded-live-check',
+      description: 'A recorded Jev stage and a live judge stage.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [{ path: 'corpora:recorded/jev-only.json', hash: 'abc' }],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: () =>
+            Promise.resolve({
+              status: 'scored',
+              verdict: 'deny',
+              pBlock: 0.9,
+              reason: 'deny: Data Exfiltration',
+              recorded: { answer: { status: 'deny' }, latencyMs: 412, model: 'jev-1.13.0' },
+            }),
+        },
+        {
+          name: 'judge',
+          sends: true,
+          run: async (_entry, context) => {
+            const reply = await context.sendJudge({ user: 'review' });
+
+            return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+          },
+          replay: () => Promise.reject(new Error('unreachable')),
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'jev-only',
+      seed: 1,
+      samples: 1,
+      live: true,
+      maxRequests: 1000,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  invariant(result.kind === 'completed');
+
+  const run = await loadRun(result.runDir);
+
+  const jev = run.records.filter((record) => record.stage === 'jev');
+  const judge = run.records.filter((record) => record.stage === 'judge');
+
+  expect(run.summary.notMeasured).toStrictEqual([]);
+  expect(run.summary.config.recording).toBe('jev-only');
+  expect(run.summary.config.live).toBe(true);
+  expect(judge).toHaveLength(jev.length);
+  expect(sendJudge).toHaveBeenCalledTimes(jev.length);
+  expect(jev).toSatisfyAll((record: SampleRecord) => record.requestHash === null);
+
+  expect(judge).toSatisfyAll(
+    (record: SampleRecord) =>
+      record.reason === 'confirm' && /^[0-9a-f]{64}$/.test(record.requestHash ?? ''),
+  );
+});
+
+test('it refuses a live run against a recording that names no live stage', async () => {
+  const ctx = await setupTest();
+
+  const run = runExperiment(
+    defineExperiment({
+      name: 'recorded-check',
+      description: 'A model stage with a recording.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'baseline', description: 'the baseline answers' }],
+      loadCases: () => Promise.resolve({ sets: [], inputs: [], notMeasured: [] }),
+      stages: [],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'baseline',
+      seed: 1,
+      samples: 1,
+      live: true,
+      maxRequests: 10,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge: null,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(run).rejects.toThrowWithMessage(
+    Error,
+    'A run that replays a recording sends nothing; drop --live.',
+  );
+});
+
 test('it refuses a recording the experiment does not define', async () => {
   const ctx = await setupTest();
 

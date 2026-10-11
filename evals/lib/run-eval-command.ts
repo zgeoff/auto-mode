@@ -28,7 +28,7 @@ export interface EvalCommandIO {
 
 const USAGE = `Usage:
   bun run eval list
-  bun run eval run <experiment> [--live --max-requests <n> | --recorded <recording>]
+  bun run eval run <experiment> [--live --max-requests <n>] [--recorded <recording>]
                    [--resume <run-dir>] [--seed <n>] [--samples <n>] [--results <dir>]
                    [--judge-model <model>]
   bun run eval compare <run-dir-a> <run-dir-b>
@@ -154,7 +154,10 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
 
   const recording = parsed.values.recorded ?? null;
 
-  if (live && recording !== null) {
+  const liveStages =
+    experiment.recordings.find((entry) => entry.name === recording)?.liveStages ?? [];
+
+  if (live && recording !== null && liveStages.length === 0) {
     throw new UsageError('--recorded replays answers and sends nothing; drop --live.');
   }
 
