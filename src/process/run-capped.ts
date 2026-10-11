@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 
 export interface CappedRunOptions {
-  readonly signal: AbortSignal;
+  readonly signal: Readonly<AbortSignal>;
   readonly maxOutputBytes: number;
   readonly input?: string | undefined;
   readonly cwd?: string | undefined;
