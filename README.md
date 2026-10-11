@@ -6,16 +6,11 @@
   </p>
 </div>
 
-**auto-mode** answers the permission prompts Claude Code would show, so an agent can work unattended
-and stop only at what matters. It is built for a model other than Claude driving Claude Code, which
-gets no judging of its own. A Claude Code mod hands each prompted call to auto-mode before the
-dialog appears: local rules settle reads and build cleanup, a containment check keeps writes inside
-the task's own worktrees and branches, and Jev judges the rest against a written policy. A denied
-agent gets a reason and carries on another way, and the user sees a prompt when the agent runs out
-of denials or when auto-mode cannot judge the call.
+**auto-mode** tries to mitigate the risk of unattended non-Claude agents inside Claude Code.
 
-To get a first session working, install the package, give auto-mode your TypeSafe API key, and start
-Claude Code with the mod.
+auto-mode runs as a Claude Code mod, and it's operational model is loosely modeled off Anthropic's
+native auto mode, but instead uses a fast decision-type model (ex. Jev) in conjunction with a
+traditional classifier-judge type model (ex. Haiku) to cover any shortcomings. 
 
 ## Install
 
@@ -29,11 +24,6 @@ claude --plugin-dir "$(npm root -g)/auto-mode/mods/auto-mode"
 Export your key as `TYPESAFE_API_KEY`, or point the configuration at a command that prints it.
 [Claude permission mod](./docs/guides/claude-mod.md) covers the mod and a trial session you can
 undo.
-
-## Supported harnesses
-
-- **Claude Code**, through the bundled mod. Codex and Muse Code ship their own auto mode, and a Muse
-  model reaches auto-mode through the mod inside Claude Code.
 
 ## Features
 
@@ -59,7 +49,7 @@ Read [the rules](./policy/rules.md) before you enable the mod.
 
 ## Library
 
-Other software calls the classifier directly:
+You can invoke auto-mode's core API's programatically:
 
 ```ts
 import { classifyAction, loadConfig, parseActionRequest } from 'auto-mode';
@@ -71,19 +61,13 @@ if (request !== null) {
 }
 ```
 
-Build every request with `parseActionRequest`, because the classifiers trust the request they
-receive and the parser enforces the rules the mod's requests follow.
-
 ## Configuration
 
-auto-mode reads one JSON file in your XDG config directory, and runs on its shipped defaults when
-the file is missing. The file chooses the classifier and the judge, the scope sources, the denial
-budget and the failure response, and turns on the opt-in request capture.
-[Configuration](./docs/guides/configuration.md) covers every field and the credentials.
+Read the [Configuration](./docs/guides/configuration.md) docs which cover every field and the credentials.
 
 ## Documentation
 
-[docs/](./docs/README.md) holds the architecture, the guides and the runbooks.
+[docs/](./docs/README.md) covers architecture & user guides.
 
 ## Licence
 
