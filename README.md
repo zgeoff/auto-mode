@@ -6,83 +6,60 @@
   </p>
 </div>
 
-**auto-mode** judges the tool calls that Claude Code would prompt for. It is a core library and a
-Claude Code mod. The mod returns allow, deny, or no verdict before the permission dialog appears.
-Local rules settle read-only actions and build cleanup; Jev evaluates the remaining actions against
-a written policy.
+**auto-mode** answers the permission prompts Claude Code would show, so an agent can work unattended
+and stop only at what matters. It is built for a model other than Claude driving Claude Code, which
+gets no judging of its own. A Claude Code mod hands each prompted call to auto-mode before the
+dialog appears: local rules settle reads and build cleanup, a containment check keeps writes inside
+the task's own worktrees and branches, and Jev judges the rest against a written policy. A denied
+agent gets a reason and carries on another way, and the user sees a prompt when the agent runs out
+of denials or when auto-mode cannot judge the call.
 
-The Jev request includes the policy, your configured environment and permissions, the complete
-proposed action, and the last direct user message. It excludes the rest of the session. Configure
-standing permissions upfront; earlier conversational grants and restrictions are unavailable to the
-classifier.
+To get a first session working, install the package, give auto-mode your TypeSafe API key, and start
+Claude Code with the mod.
 
 ## Install
+
+auto-mode needs node 24 or later, Claude Code, and a TypeSafe API key for Jev.
 
 ```sh
 npm i -g auto-mode
 claude --plugin-dir "$(npm root -g)/auto-mode/mods/auto-mode"
 ```
 
-The package ships the mod in `mods/auto-mode`. The mod runs the `auto-mode` executable on `PATH`;
-its `command` option takes another executable. [Claude permission mod](./docs/guides/claude-mod.md)
-covers the mod, its time limits, and a trial session.
+Export your key as `TYPESAFE_API_KEY`, or point the configuration at a command that prints it.
+[Claude permission mod](./docs/guides/claude-mod.md) covers the mod and a trial session you can
+undo.
 
-Create the classifier configuration:
+## Supported harnesses
 
-```json
-{
-  "classifiers": { "jev": { "apiKeyEnv": "TYPESAFE_API_KEY" } },
-  "decision": { "classifier": "jev" }
-}
-```
+- **Claude Code**, through the bundled mod. Codex and Muse Code ship their own auto mode, and a Muse
+  model reaches auto-mode through the mod inside Claude Code.
 
-Save it as `~/.config/auto-mode/config.json` and export your TypeSafe API key, or set the entry's
-`apiKeyCommand` to a command that prints it. [Configuration](./docs/guides/configuration.md) covers
-the registries and credentials.
+## Features
 
-## Standing permissions
+- **Local rules** allow read-only calls and build-output cleanup without a model call
+  ([local rules](./docs/architecture/stages/local-rules.md)).
+- **Containment** denies a write outside the task's own worktrees, branches and pull requests
+  ([containment](./docs/architecture/stages/containment.md)).
+- **The edit bypass** allows an in-scope file edit once a secret scan finds nothing
+  ([the edit bypass](./docs/architecture/stages/edit-bypass.md)).
+- **Jev** judges the remaining calls against the shipped rules and your own
+  ([Jev](./docs/architecture/stages/jev.md)).
+- **The judge**, on by default, reviews every Jev deny, and overturns it when your last message
+  asked the main agent for exactly this action ([the judge](./docs/architecture/stages/judge.md)).
+- **The denial budget** hands a call back to you when an agent keeps getting denied
+  ([the denial budget](./docs/architecture/stages/denial-budget.md)).
+- **Your own rules** from your Claude settings join the policy as block rules
+  ([settings and repository facts](./docs/architecture/evidence/settings-and-repository.md)).
+- **Action diagnostics** record how each call was decided, without the command or the prompt
+  ([action diagnostics](./docs/guides/diagnostics.md)).
 
-Jev imports explicit entries from `autoMode.environment`, `autoMode.allow`, `autoMode.soft_deny`,
-and `autoMode.hard_deny` in your user Claude settings. It imports no credential values or shell
-permission patterns. `$defaults` refers to auto-mode's shipped policy; it does not expand Claude's
-built-in classifier rules.
-
-Configured allows clear soft blocks. Hard blocks take priority over all allows and conversational
-consent. [False-positive clarification](./docs/guides/policy.md#false-positive-clarification) can
-clear Policy Tampering and Audit Tampering. The last direct user message can supply the exact action
-and target that a soft block needs; replies such as “go ahead” cannot supply an unseen proposal.
-
-Read [the policy](./policy/rules.md) before you enable the mod.
-[Writing a policy](./docs/guides/policy.md) covers the precedence and the limits of an action-only
-assessment.
-
-## Decisions and failures
-
-Jev evaluates each named rule with a typed choice between allow and block. auto-mode allows the
-action unless some rule's block probability reaches the threshold, 0.2 by default. Every denial
-names the rule with the highest block probability, the harm, and what clears it, and the agent
-continues on another path. The threshold is configurable and needs evaluation against your actions.
-
-A missing key, failed API call, malformed response, or oversized request follows
-`decision.onFailure`. The default `defer` writes no verdict and keeps the prompt; `deny` fails
-closed. Failures write a diagnostic to stderr. auto-mode never truncates a Jev action to make it
-fit.
-
-## Commands
-
-| Command                      | Effect                                    |
-| ---------------------------- | ----------------------------------------- |
-| `auto-mode run`              | Read a mod request and write a verdict    |
-| `auto-mode run --explain`    | Write decision details to stderr          |
-| `auto-mode run --local-only` | Skip the model tier                       |
-| `auto-mode run --jev-only`   | Require Jev with a 5-second API timeout   |
-| `auto-mode print-prompt`     | Print the selected provider's base policy |
-
-The mod evaluates only ask decisions and preserves existing allow and deny decisions. It runs the
-CLI as a bounded child process with `--jev-only`. The `spark`, `claude`, `glm`, and `messages`
-classifier kinds use the Messages API and serve library callers.
+Read [the rules](./policy/rules.md) before you enable the mod.
+[Writing a policy](./docs/guides/policy.md) covers how the rules clear and how to change them.
 
 ## Library
+
+Other software calls the classifier directly:
 
 ```ts
 import { classifyAction, loadConfig, parseActionRequest } from 'auto-mode';
@@ -94,20 +71,19 @@ if (request !== null) {
 }
 ```
 
-`classifyAction` runs both tiers and returns the verdict, a note, and diagnostics. A request carries
-the session identity, the action, and the task context; `parseActionRequest` builds one from the
-mod's JSON. Build every request with `parseActionRequest`: it drops a child agent's direct user
-message, and the classifiers trust the request they receive.
+Build every request with `parseActionRequest`, because the classifiers trust the request they
+receive and the parser enforces the rules the mod's requests follow.
+
+## Configuration
+
+auto-mode reads one JSON file in your XDG config directory, and runs on its shipped defaults when
+the file is missing. The file chooses the classifier and the judge, the scope sources, the denial
+budget and the failure response, and turns on the opt-in request capture.
+[Configuration](./docs/guides/configuration.md) covers every field and the credentials.
 
 ## Documentation
 
-- [Architecture](./docs/architecture/overview.md) covers the request, decision combination, and the
-  mod contract.
-- [Configuration](./docs/guides/configuration.md) covers every setting and the imported Claude
-  rules.
-- [Claude permission mod](./docs/guides/claude-mod.md) covers the request, the verdict, and the time
-  limits.
-- [Writing a policy](./docs/guides/policy.md) covers rule edits and evaluation.
+[docs/](./docs/README.md) holds the architecture, the guides and the runbooks.
 
 ## Licence
 
