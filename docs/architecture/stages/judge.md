@@ -5,9 +5,10 @@ the configuration can turn it off, which leaves every Jev deny with its fixed re
 with probabilities and no explanation, and its threshold is set low on purpose, so some of its
 denies come from doubt rather than a match. The judge reads the denied rule, the call and the user's
 last message, and either confirms the deny with a reason written for this call, or overturns it to
-an allow when the user asked for exactly this. It is a generative model, `claude -p` on a Claude
-model by default, with its own framework in the [policy](../policy.md). The judge can only change a
-deny into an allow on a soft rule, and it fails closed: whatever goes wrong, the deny stands.
+an allow when the user asked for exactly this or when the facts show that no rule covers the action.
+It is a generative model, `claude -p` on a Claude model by default, with its own framework in the
+[policy](../policy.md). The judge can only change a deny into an allow on a soft rule, and it fails
+closed: whatever goes wrong, the deny stands.
 
 ## What the judge reads
 
