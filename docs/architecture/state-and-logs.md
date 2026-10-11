@@ -9,12 +9,12 @@ state home, and the [configuration guide](../guides/configuration.md) gives the 
 
 ## The files
 
-| File            | Written by                | Keyed by               | Write                       |
-| --------------- | ------------------------- | ---------------------- | --------------------------- |
-| denial counts   | every judged call         | session and agent      | temporary file, then rename |
-| session scope   | the record command        | session                | under a lock, then rename   |
-| action log      | every judged call         | none: one shared file  | appended line               |
-| request capture | every judged call, opt-in | none: one file per day | appended line               |
+| File            | Written by                | Keyed by               | Write                     |
+| --------------- | ------------------------- | ---------------------- | ------------------------- |
+| denial counts   | every judged call         | session and agent      | under a lock, then rename |
+| session scope   | the record command        | session                | under a lock, then rename |
+| action log      | every judged call         | none: one shared file  | appended line             |
+| request capture | every judged call, opt-in | none: one file per day | appended line             |
 
 The CLI names each keyed file by a hash of the session identity, never the identity as written. The
 [denial budget](./stages/denial-budget.md) owns what its file holds, and
@@ -57,7 +57,7 @@ never torn. What a crash costs follows from the order of the writes:
 - A CLI killed between the budget write and the verdict leaves a counted deny the agent never saw,
   and the agent's next try at the same action gets that deny again
   ([crashes and races](./stages/denial-budget.md#crashes-and-races)).
-- A record killed while holding the scope lock leaves a lock that the next record removes once it is
-  stale.
+- A CLI killed while holding the lock on the denial counts or the session scope leaves a lock that
+  the next update of that file removes once it is stale.
 - A file that a later read cannot parse counts as empty: no denials so far, or no scope the session
   created.

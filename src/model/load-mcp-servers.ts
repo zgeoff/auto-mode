@@ -1,8 +1,9 @@
-import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import * as z from 'zod';
+import { resolveClaudeConfigPath } from '../config/resolve-claude-config-path.ts';
 import type { HostEnvironment } from '../config/types.ts';
 import { findCheckout } from '../scope/find-checkout.ts';
+import { loadJSONFile } from '../state/load-json-file.ts';
 import type { MCPServerFact } from './types.ts';
 
 // Each entry is read field by field, so a credential in `env`, `headers` or
@@ -30,14 +31,11 @@ export async function loadMCPServers(
   host: Readonly<HostEnvironment>,
   userSettings: unknown,
 ): Promise<MCPServerFact[]> {
-  const configDir = host.env['CLAUDE_CONFIG_DIR'];
-  const hasConfigDir = configDir !== undefined && configDir !== '';
-
-  const statePath = hasConfigDir
-    ? join(configDir, '.claude.json')
-    : join(host.home, '.claude.json');
-
-  const state = await readJSON(statePath, stateSchema);
+  const state = await loadJSONFile(
+    resolveClaudeConfigPath(host, '.claude.json'),
+    stateSchema,
+    null,
+  );
 
   const settings = approvalSchema.safeParse(userSettings).data;
 
@@ -50,7 +48,7 @@ export async function loadMCPServers(
   const projectDir = checkout?.worktree ?? directory;
   const project = state?.projects?.[projectDir];
 
-  const projectFile = await readJSON(join(projectDir, '.mcp.json'), projectFileSchema);
+  const projectFile = await loadJSONFile(join(projectDir, '.mcp.json'), projectFileSchema, null);
 
   // Only approvals kept outside the repository count, so a checkout cannot
   // approve the servers its own .mcp.json declares.
@@ -78,18 +76,6 @@ export async function loadMCPServers(
   return facts.filter(
     (server, index) => facts.findIndex((other) => other.name === server.name) === index,
   );
-}
-
-async function readJSON<T extends z.ZodType>(path: string, schema: T): Promise<z.infer<T> | null> {
-  try {
-    const text = await readFile(path, 'utf8');
-
-    const parsed = schema.safeParse(JSON.parse(text));
-
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
 }
 
 const MAX_NAME_LENGTH = 128;

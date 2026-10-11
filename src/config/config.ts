@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import * as z from 'zod';
 import type { DenialBudget } from '../budget/types.ts';
 import type { JudgeOverturns } from '../judge/types.ts';
+import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 import { readHostEnvironment } from './read-host-environment.ts';
@@ -79,10 +80,7 @@ export const DEFAULT_CONFIG: Config = {
 };
 
 export function resolveConfigPath(host: Readonly<HostEnvironment> = readHostEnvironment()): string {
-  const xdg = host.env['XDG_CONFIG_HOME'];
-  const base = xdg !== undefined && xdg !== '' ? xdg : join(host.home, '.config');
-
-  return join(base, 'auto-mode', 'config.json');
+  return join(resolveXDGDir(host, 'config'), 'config.json');
 }
 
 export async function loadConfig(

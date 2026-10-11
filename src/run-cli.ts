@@ -3,10 +3,11 @@ import { parseArgs } from 'node:util';
 import { buildRetryKey } from './budget/build-retry-key.ts';
 import { findRetryDeny } from './budget/find-retry-deny.ts';
 import { loadDenialState } from './budget/load-denial-state.ts';
+import type { DenialPlan } from './budget/plan-denial-budget.ts';
 import { planDenialBudget } from './budget/plan-denial-budget.ts';
 import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
 import type { DenialState } from './budget/types.ts';
-import { writeDenialState } from './budget/write-denial-state.ts';
+import { updateDenialState } from './budget/update-denial-state.ts';
 import { resolveCaptureDir } from './capture/resolve-capture-dir.ts';
 import type { CaptureOutcome } from './capture/try-write-request-capture.ts';
 import { tryWriteRequestCapture } from './capture/try-write-request-capture.ts';
@@ -24,7 +25,7 @@ import { toModRequest } from './request/to-mod-request.ts';
 import type { Verdict } from './request/types.ts';
 import { readPullRequest } from './scope/read-pull-request.ts';
 import { updateSessionScope } from './scope/update-session-scope.ts';
-import { resolveStateDir } from './state/resolve-state-dir.ts';
+import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
 
 interface CLIIO {
   readonly stdin: () => Promise<string>;
@@ -205,7 +206,7 @@ async function run(
     : null;
 
   try {
-    const statePath = resolveDenialStatePath(request, resolveStateDir(host));
+    const statePath = resolveDenialStatePath(request, resolveXDGDir(host, 'state'));
     const retryKey = buildRetryKey(request);
 
     const before = await loadDenialState(statePath);
@@ -228,20 +229,16 @@ async function run(
             status: 'deny',
           };
 
-    // Re-read after the classifier, which can take seconds, so a parallel call
-    // in the same session is less likely to lose its count.
-    const latest = retry === null ? await loadDenialState(statePath) : before;
-
-    const plan = planDenialBudget(
-      latest,
-      outcome.verdict,
-      retryKey,
-      config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
+    // The plan reads the counts again under the lock, after the classifier,
+    // which can take seconds, so a parallel call in the same session keeps its count.
+    const plan = await tryUpdateDenialBudget(io.stderr, statePath, (state) =>
+      planDenialBudget(
+        state,
+        outcome.verdict,
+        retryKey,
+        config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
+      ),
     );
-
-    if (plan.state !== latest) {
-      await tryWriteDenialState(io.stderr, statePath, plan.state);
-    }
 
     if (plan.verdict !== null) {
       printVerdict(io.stdout, plan.verdict);
@@ -300,15 +297,30 @@ function printWarnings(stderr: Readonly<OutputStream>, warnings: readonly string
   }
 }
 
-async function tryWriteDenialState(
+// A plan that changes no count, such as a defer's, takes no lock and writes
+// nothing. A lock or write failure keeps the verdict and plans from the read
+// taken before the lock, so this call's count can be lost but never doubled.
+async function tryUpdateDenialBudget(
   stderr: Readonly<OutputStream>,
   path: string,
-  state: Readonly<DenialState>,
-): Promise<void> {
+  plan: (state: Readonly<DenialState>) => DenialPlan,
+): Promise<DenialPlan> {
+  const unlocked = await loadDenialState(path);
+
+  const unlockedPlan = plan(unlocked);
+
+  if (unlockedPlan.state === unlocked) {
+    return unlockedPlan;
+  }
+
   try {
-    await writeDenialState(path, state);
+    const updated = await updateDenialState(path, (state) => plan(state).state);
+
+    return plan(updated.previous);
   } catch {
     stderr.write('auto-mode: denial counts unavailable\n');
+
+    return unlockedPlan;
   }
 }
 
@@ -353,7 +365,7 @@ async function runRecord(io: Readonly<CLIIO>): Promise<number> {
     if (sources.some((source) => source.kind === 'session')) {
       await updateSessionScope(request, {
         now: Date.now(),
-        stateDir: resolveStateDir(io.host),
+        stateDir: resolveXDGDir(io.host, 'state'),
         home: io.host.home,
         env: io.host.env,
         readPullRequest,

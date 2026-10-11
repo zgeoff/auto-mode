@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import * as z from 'zod';
+import { resolveClaudeConfigPath } from './resolve-claude-config-path.ts';
 import type { ClaudeRules, ClaudeSettings, HostEnvironment } from './types.ts';
 
 // The user's settings.json holds both the autoMode rules and the MCP approvals,
@@ -9,9 +9,7 @@ export async function loadClaudeSettings(
   path: string | null | undefined,
   host: Readonly<HostEnvironment>,
 ): Promise<ClaudeSettings> {
-  const configDir = host.env['CLAUDE_CONFIG_DIR'];
-  const base = configDir === undefined || configDir === '' ? join(host.home, '.claude') : configDir;
-  const userPath = join(base, 'settings.json');
+  const userPath = resolveClaudeConfigPath(host, 'settings.json');
 
   if (path === undefined) {
     const body = await readSettings(userPath);

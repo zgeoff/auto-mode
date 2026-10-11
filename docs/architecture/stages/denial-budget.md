@@ -52,11 +52,13 @@ got no verdict. The agent's next attempt at the same action is then a repeat, an
 remembered deny, even when the user approved the prompt in between, because the CLI never sees that
 answer. The CLI writes the file to a temporary name and renames it into place, so a crash mid-write
 leaves the old counts whole, never a torn file. A file that cannot be read or parsed counts as
-empty, and a file that cannot be written costs the counts, not the verdict: the CLI writes a note to
-stderr and still writes its verdict.
+empty, and a file that cannot be locked or written costs the counts, not the verdict: the CLI writes
+a note to stderr and still writes its verdict.
 
-The budget file has no lock. Claude Code can check two calls of one agent at once, and each CLI
-reads the counts, classifies, and writes the counts back, so the later write wins and a deny can go
-uncounted. The CLI reads the file again after the classifier returns, which can take seconds, so the
-window shrinks to the time between that read and the write. A lost count delays the budget's stop by
-one deny.
+Claude Code can check two calls of one agent at once, and each CLI reads the counts, classifies, and
+writes the counts back. The CLI therefore reads the counts again under a lock file beside the budget
+file once the classifier returns, plans the budget from that read, and writes the result before it
+releases the lock, so a parallel call waits for the lock instead of losing its count. The classifier
+runs outside the lock, because it can take seconds and the lock wait is bounded. A call that cannot
+take the lock in time plans from a read without the lock, and its count can be lost, which delays
+the budget's stop by one deny.

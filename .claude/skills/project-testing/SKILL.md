@@ -78,8 +78,9 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
 
 - The evaluation path takes `now` and `timeout` in `EvaluationOptions`; the defaults are `Date.now`
   and `AbortSignal.timeout`. The decision and Messages clients take a required `signal`.
-- `writeSessionScope` takes a `LockClock` (`{ now, wait }`). `buildStubLockClock` from
-  `test-utils/build-stub-lock-clock.ts` gives one that advances on each wait.
+- `updateJSONFile` and the state writers built on it take a `LockClock` (`{ now, wait }`).
+  `buildStubLockClock` from `test-utils/build-stub-lock-clock.ts` gives one that advances on each
+  wait.
 - The key-command reader stops its helper on the injected timer; `test-utils/run-stub-key-helper.ts`
   is a helper script that starts a child and reports both process IDs, and
   `test-utils/load-process-state.ts` reads a process's state from `/proc` (Linux only).

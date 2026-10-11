@@ -16,7 +16,7 @@ import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
-import { resolveStateDir } from './state/resolve-state-dir.ts';
+import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
 
 export type DecidingStage =
   | 'local'
@@ -182,7 +182,7 @@ async function tryLoadTaskScope(
 ): Promise<OwnedScope | null> {
   try {
     return await loadTaskScope(
-      { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveStateDir(host) },
+      { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveXDGDir(host, 'state') },
       config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
       host,
       stderr,

@@ -1,15 +1,17 @@
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-223 moves process spawning into one process helper
-import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import * as z from 'zod';
 import type { ProviderConfig } from '../config/config.ts';
 // oxlint-disable-next-line zgeoff/import-zones -- the judge shares the model stage's Messages client; no ticket yet
 import type { ModelRequest } from '../model/anthropic-client.ts';
+import { runCapped } from '../process/run-capped.ts';
 
 export interface ClaudeCodeReply {
   readonly text: string;
   readonly model: string;
 }
+
+// A judge reply is a verdict and a short reason; this much output is not one.
+const MAX_REPLY_BYTES = 1_048_576;
 
 // Runs one prompt through `claude -p` with no tools, settings, MCP servers or
 // session file, so the judge cannot act and no hook of the session runs in it.
@@ -19,7 +21,7 @@ export async function runClaudeCode(
   env: Readonly<Record<string, string | undefined>>,
   signal: Readonly<AbortSignal>,
 ): Promise<ClaudeCodeReply> {
-  const child = spawn(
+  const result = await runCapped(
     'claude',
     [
       '-p',
@@ -37,34 +39,23 @@ export async function runClaudeCode(
       'json',
     ],
     {
+      signal,
+      maxOutputBytes: MAX_REPLY_BYTES,
+      input: request.user,
       cwd: tmpdir(),
       env: buildChildEnv(env),
-      signal,
-      killSignal: 'SIGKILL',
-      stdio: ['pipe', 'pipe', 'ignore'],
     },
   );
 
-  const chunks: Buffer[] = [];
+  const body = CLAUDE_OUTPUT.safeParse(parseOutputJSON(result.stdout));
 
-  child.stdout.on('data', (chunk: Buffer) => {
-    chunks.push(chunk);
-  });
-
-  const closed = new Promise<number | null>((resolve, reject) => {
-    child.once('error', reject);
-    child.once('close', resolve);
-  });
-
-  child.stdin.on('error', () => {});
-  child.stdin.end(request.user);
-
-  const exitCode = await closed;
-
-  const body = CLAUDE_OUTPUT.safeParse(parseOutputJSON(Buffer.concat(chunks).toString('utf8')));
-
-  if (exitCode !== 0 || !body.success || body.data.is_error || body.data.result === undefined) {
-    throw new Error(`claude -p failed with exit code ${String(exitCode)}`);
+  if (
+    result.exitCode !== 0 ||
+    !body.success ||
+    body.data.is_error ||
+    body.data.result === undefined
+  ) {
+    throw new Error(`claude -p failed with exit code ${String(result.exitCode)}`);
   }
 
   return { text: body.data.result, model: provider.model };
