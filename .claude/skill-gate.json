@@ -1,6 +1,7 @@
 {
   "ignore": ["node_modules/", "dist/", "coverage/"],
   "gates": [
+    { "match": "**/*.{ts,tsx}", "skills": ["code-style"] },
     { "match": "**/*.test.ts", "skills": ["testing", "project-testing"] },
     { "match": "**/*.claude-check.ts", "skills": ["testing", "project-testing"] },
     { "match": "**/test-utils/**", "skills": ["testing", "project-testing"] },

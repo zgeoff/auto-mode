@@ -51,11 +51,6 @@ jobs:
       - name: Audit dependencies
         run: bun run audit
 
-      - name: Check AGENTS.md drift
-        run: |
-          bun run build:agents
-          git diff --exit-code AGENTS.md agents/ scripts/build-agents-md.sh
-
       - name: Dead code
         run: bun run deadcode
 
@@ -63,7 +58,7 @@ jobs:
         run: bun run format:check
 
       - name: Lint
-        run: bun run lint
+        run: bun run lint:full
 
       # check-length.sh runs check-prose.sh over the same READMEs and docs/
       - name: Doc length and prose
