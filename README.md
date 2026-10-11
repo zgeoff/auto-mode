@@ -8,9 +8,9 @@
 
 **auto-mode** tries to mitigate the risk of unattended non-Claude agents inside Claude Code.
 
-auto-mode runs as a Claude Code mod, and it's operational model is loosely modeled off Anthropic's
-native auto mode, but instead uses a fast decision-type model (ex. Jev) in conjunction with a
-traditional classifier-judge type model (ex. Haiku) to cover any shortcomings. 
+auto-mode runs as a Claude Code mod, and its operating model is loosely modelled on Anthropic's
+native auto mode. Instead of one model, it pairs a fast decision model (such as Jev) with a
+traditional classifier-judge model (such as Haiku) to cover the first one's shortcomings.
 
 ## Install
 
@@ -49,7 +49,7 @@ Read [the rules](./policy/rules.md) before you enable the mod.
 
 ## Library
 
-You can invoke auto-mode's core API's programatically:
+You can call auto-mode's core APIs from your own code:
 
 ```ts
 import { classifyAction, loadConfig, parseActionRequest } from 'auto-mode';
@@ -63,11 +63,12 @@ if (request !== null) {
 
 ## Configuration
 
-Read the [Configuration](./docs/guides/configuration.md) docs which cover every field and the credentials.
+Read the [configuration](./docs/guides/configuration.md) guide, which covers every field and the
+credentials.
 
 ## Documentation
 
-[docs/](./docs/README.md) covers architecture & user guides.
+[docs/](./docs/README.md) covers the architecture and the user guides.
 
 ## Licence
 
