@@ -11,7 +11,7 @@ export interface DirectUserMessage extends UserTask {
   readonly freshness?: 'stale' | undefined;
 }
 
-export interface DelegatedTask {
+interface DelegatedTask {
   readonly text: string;
   readonly origin: 'agent.spawn';
 }
