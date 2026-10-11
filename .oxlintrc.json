@@ -71,6 +71,8 @@
         },
         // the eval condition maps each export to source, which is what the zones judge
         "conditions": ["auto-mode-eval"],
+        // source imports name the .ts file, as rewriteRelativeImportExtensions expects
+        "extensions": [".ts"],
         "unzoned": [
           {
             "name": "zone-assignment",
