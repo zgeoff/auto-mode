@@ -1,7 +1,9 @@
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-223 moves process spawning into one process helper
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import * as z from 'zod';
 import type { ProviderConfig } from '../config/config.ts';
+// oxlint-disable-next-line zgeoff/import-zones -- the judge shares the model stage's Messages client; no ticket yet
 import type { ModelRequest } from '../model/anthropic-client.ts';
 
 export interface ClaudeCodeReply {

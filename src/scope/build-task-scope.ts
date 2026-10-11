@@ -1,4 +1,6 @@
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves OwnedScope and ScopeRemote to src/scope/types.ts
 import type { OwnedScope, ScopeRemote } from '../containment/collect-scope-findings.ts';
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the checkout readers into src/git/
 import { toRepositorySlug } from '../containment/to-repository-slug.ts';
 import { mergeScopeFacts } from './merge-scope-facts.ts';
 import type { ScopeFacts } from './types.ts';

@@ -1,5 +1,7 @@
 import { isAbsolute, join, matchesGlob, normalize } from 'node:path';
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the shell parsers into src/shell/
 import { splitCommandWords } from '../rules/split-command-words.ts';
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the shell parsers into src/shell/
 import { splitShellCommand } from '../rules/split-shell-command.ts';
 import { SCRATCH_PATHS } from './scratch-paths.ts';
 import { toRepositorySlug } from './to-repository-slug.ts';

@@ -3,6 +3,7 @@ import type { ProviderConfig } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
+// oxlint-disable-next-line zgeoff/import-zones -- the judge reads the model stage's DeniedRule type; no ticket yet
 import type { DeniedRule } from '../model/find-denied-rule.ts';
 import type { RepositoryContext } from '../model/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';

@@ -67,9 +67,6 @@ jobs:
       - name: Doc links
         run: bash .claude/skills/docs-writing/scripts/check-links.sh
 
-      - name: Module boundaries
-        run: bun run check:imports
-
       - name: Typecheck
         run: bun run typecheck
 

@@ -39,7 +39,148 @@
     "one-var": "off",
     "sort-vars": "off",
 
-    "zgeoff/function-verb": ["error", { "verbs": ["classify"], "exemptNames": ["main"] }]
+    "zgeoff/function-verb": ["error", { "verbs": ["classify"], "exemptNames": ["main"] }],
+
+    // the module boundaries: every file under src/ belongs to a zone, and a
+    // new src/ folder joins one here, in the same PR that adds it. A known
+    // violation carries a disable comment naming the ticket that removes it
+    "zgeoff/import-zones": [
+      "error",
+      {
+        "zones": {
+          "core": ["src/**"],
+          "mods": ["mods/**"],
+          "orchestrator": [
+            "src/classify-action.ts",
+            "src/cli.ts",
+            "src/eval/index.ts",
+            "src/index.ts",
+            "src/run-cli.ts"
+          ],
+          "request": ["src/request/**"],
+          "support": [
+            "src/{budget,capture,config,diagnostics,git,policy,process,scope,secrets,shell,state}/**"
+          ],
+          "stage": ["src/{bypass,containment,judge,model,rules}/**"],
+          "network": ["src/model/**"],
+          "process": ["src/process/**"],
+          // the request and verdict shapes the mod and the CLI share
+          "contract": ["mods/auto-mode/contract/**"],
+          "mod": ["mods/auto-mode/**"],
+          "tooling": ["{evals,scripts,test-utils,mocks,fixtures}/**"]
+        },
+        // the eval condition maps each export to source, which is what the zones judge
+        "conditions": ["auto-mode-eval"],
+        // source imports name the .ts file, as rewriteRelativeImportExtensions expects
+        "extensions": [".ts"],
+        "unzoned": [
+          {
+            "name": "zone-assignment",
+            "from": ["core", "mods"],
+            "zones": ["orchestrator", "request", "support", "stage", "contract", "mod"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"]
+          }
+        ],
+        "unresolved": [
+          {
+            "name": "unresolved",
+            "from": ["core", "mods"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"]
+          }
+        ],
+        // a test may reach across the other boundaries, never between src/ and the mod
+        "edges": [
+          {
+            "name": "src-mods-apart",
+            "from": ["core"],
+            "to": ["mods"],
+            "allow": ["contract"],
+            "reason": "src/ imports the mod"
+          },
+          {
+            "name": "src-mods-apart",
+            "from": ["mod"],
+            "to": ["core"],
+            "reason": "the mod ships as raw TypeScript and imports only itself"
+          },
+          {
+            "name": "mod",
+            "from": ["mod"],
+            "allow": ["mod", "core"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"],
+            "reason": "the mod imports only itself"
+          },
+          {
+            "name": "core-no-tooling",
+            "from": ["core"],
+            "to": ["tooling"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"],
+            "reason": "src/ imports eval, script or test code"
+          },
+          // contract, request, support and stages leave src/-to-mod and
+          // src/-to-tooling edges to the two entries above
+          {
+            "name": "contract",
+            "from": ["contract"],
+            "to": ["mod"],
+            "allow": ["contract"],
+            "allowTypeOnly": ["**/types.ts"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"],
+            "reason": "the contract has no dependencies"
+          },
+          {
+            "name": "request",
+            "from": ["request"],
+            "allow": ["request", "contract", "mods", "tooling"],
+            "allowTypeOnly": ["**/types.ts"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"]
+          },
+          {
+            "name": "support",
+            "from": ["support"],
+            "allow": ["support", "contract", "mods", "tooling"],
+            "allowTypeOnly": ["**/types.ts"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"]
+          },
+          {
+            "name": "stages",
+            "from": ["stage"],
+            "allow": ["support", "contract", "mods", "tooling"],
+            "allowWithin": "src/*",
+            "allowTypeOnly": ["**/types.ts"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"],
+            "reason": "a stage imports its own folder and the support modules"
+          }
+        ],
+        "modules": [
+          {
+            "name": "network",
+            "modules": ["node:http", "node:https", "node:http2"],
+            "from": ["core", "mods"],
+            "allow": ["network"],
+            "allowTypeOnly": true,
+            "ignore": ["**/*.{test,bench,claude-check}.ts"]
+          },
+          {
+            "name": "child-process",
+            "modules": ["node:child_process"],
+            "from": ["core", "mods"],
+            "allow": ["process"],
+            "allowTypeOnly": true,
+            "ignore": ["**/*.{test,bench,claude-check}.ts"]
+          }
+        ],
+        "globals": [
+          {
+            "name": "network",
+            "globals": ["fetch"],
+            "from": ["core"],
+            "allow": ["network"],
+            "ignore": ["**/*.{test,bench,claude-check}.ts"]
+          }
+        ]
+      }
+    ]
   },
   "ignorePatterns": [".claude/**", ".reviews/**", ".worktrees/**"]
 }

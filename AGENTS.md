@@ -108,12 +108,14 @@ also reuse the root `test-utils/` helpers by path, and those import `src/` direc
 install a workspace's dependency on the root package, so `prepare` links
 `evals/node_modules/auto-mode` to the root instead.
 
-`bun run check:imports` (`scripts/check-imports.ts`) enforces the module boundaries in CI and on
-pre-push. Every file under `src/` belongs to a zone: an orchestrator file, `request/`, a support
-module or a stage. A new `src/` folder joins a zone in that script, in the same PR that adds it.
-`scripts/check-imports-known.json` lists each import that breaks a zone today, grouped by the ticket
-that removes it. Any other forbidden import fails the check, and so does a listed import the code no
-longer has, so the list only shrinks. Never add an entry to make a new import pass.
+The `zgeoff/import-zones` lint rule enforces the module boundaries, in the editor and wherever lint
+runs; `.oxlintrc.json` holds its zones and boundaries. Every file under `src/` belongs to a zone: an
+orchestrator file, `request/`, a support module or a stage. A new `src/` folder joins a zone there,
+in the same PR that adds it. Each import that breaks a zone today carries an
+`oxlint-disable-next-line zgeoff/import-zones` comment naming the ticket that removes it.
+`lint:full` fails on a disable comment that no longer covers a report, so the exemptions only
+shrink. Never add one to make a new import pass. `e2e/import-zones.test.ts` checks that each
+boundary still fails a forbidden import.
 
 ## Runtime rules
 

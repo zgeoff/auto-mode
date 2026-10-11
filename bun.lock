@@ -13,12 +13,11 @@
         "@types/node": "26.5.1",
         "@zgeoff/bun-test-extended": "0.1.0",
         "@zgeoff/format-codemod": "0.1.0",
-        "@zgeoff/oxlint-config": "0.2.0",
+        "@zgeoff/oxlint-config": "0.2.1",
         "knip": "6.35.1",
         "lefthook": "2.1.12",
         "mitata": "1.0.34",
         "msw": "2.15.0",
-        "oxc-parser": "0.137.0",
         "oxfmt": "0.67.0",
         "oxlint": "1.82.0",
         "oxlint-tsgolint": "7.0.2001",
@@ -484,7 +483,7 @@
 
     "@zgeoff/format-codemod": ["@zgeoff/format-codemod@0.1.0", "", { "dependencies": { "oxc-parser": "0.137.0" }, "bin": { "format-codemod": "dist/cli.js" } }, "sha512-WVP6d3iuuaKuYrGIuHLkTxjI3W2IQzeAq6TtUiZiz+uw4f2AF2q4GgKQ6czpz/89qgZXauvhl1Pcef1/NZl4Rg=="],
 
-    "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.2.0", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.71.0" } }, "sha512-wdHEVoGxq447T3Pru4dJ8Up6DB/bhj19ew4XZ8r0kOkw5XmqDdxAAz+mkAwsjRVTMWyD4WJojm2oRYfvV8DlaA=="],
+    "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.2.1", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.71.0" } }, "sha512-QQ3HHCBLjtOZWwC+f494xuRMhjDT1pX2B9+Y8cF827ViG+3mUlUvguD0PlF7AuuVMZ5kin+aK9OurJWEhcRVTA=="],
 
     "acorn": ["acorn@8.18.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ=="],
 
