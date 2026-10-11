@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.16.0...auto-mode-v0.17.0) (2026-10-10)
+
+
+### Features
+
+* **geo-161:** review each jev deny with a judge that confirms or overturns it ([#119](https://github.com/zgeoff/auto-mode/issues/119)) ([abc83d1](https://github.com/zgeoff/auto-mode/commit/abc83d15069355ae959a870658ef604df120c72b))
+* **geo-219:** enforce module boundaries with a check:imports script ([#121](https://github.com/zgeoff/auto-mode/issues/121)) ([e8ca645](https://github.com/zgeoff/auto-mode/commit/e8ca64510c53e066bc3c18932bebd826aa628892))
+* **geo-336:** add opt-in request capture and an anonymise step ([#118](https://github.com/zgeoff/auto-mode/issues/118)) ([d5329d8](https://github.com/zgeoff/auto-mode/commit/d5329d8dbe74127367efffacde529dddb4f8ad4d))
+* **geo-339:** add the measurement experiments ([#114](https://github.com/zgeoff/auto-mode/issues/114)) ([efc9b52](https://github.com/zgeoff/auto-mode/commit/efc9b52ad91b3e1ee02255cc6f65e098dd675966))
+* **geo-340:** measure escalations and recovery from the action log ([#115](https://github.com/zgeoff/auto-mode/issues/115)) ([62316c0](https://github.com/zgeoff/auto-mode/commit/62316c0841c99a32c4559483cdc7afd021fca0f3))
+* **geo-90:** mark the earlier direct message stale after a relayed turn ([#120](https://github.com/zgeoff/auto-mode/issues/120)) ([9439005](https://github.com/zgeoff/auto-mode/commit/9439005d5b2bf550e7d9276de9b134732e1bfa51))
+
 ## [0.16.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.15.0...auto-mode-v0.16.0) (2026-10-10)
 
 
