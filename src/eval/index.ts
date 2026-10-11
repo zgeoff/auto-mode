@@ -22,4 +22,4 @@ export { pickScopeSourceReader } from '../scope/pick-scope-source-reader.ts';
 export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';
 export { updateSessionScope } from '../scope/update-session-scope.ts';
 export { findSecret } from '../secrets/find-secret.ts';
-export { resolveStateDir } from '../state/resolve-state-dir.ts';
+export { resolveXDGDir } from '../state/resolve-xdg-dir.ts';

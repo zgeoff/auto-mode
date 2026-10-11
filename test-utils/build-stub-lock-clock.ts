@@ -1,5 +1,5 @@
 import { mock } from 'bun:test';
-import type { LockClock } from '../src/scope/write-session-scope.ts';
+import type { LockClock } from '../src/state/types.ts';
 
 export interface StubLockClockOptions {
   readonly startAt: number;

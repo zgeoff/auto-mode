@@ -1,94 +1,33 @@
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-223 moves process spawning into one process helper
-import { spawn } from 'node:child_process';
+import { runCapped } from '../process/run-capped.ts';
 import { toTimerDelay } from './to-timer-delay.ts';
 import type { EvaluationOptions } from './types.ts';
 
-export function readApiKeyFromCommand(
+const KEY_COMMAND_TIMEOUT_MS = 5000;
+const MAX_KEY_OUTPUT_BYTES = 65_536;
+
+export async function readApiKeyFromCommand(
   command: string,
   options: EvaluationOptions = {},
 ): Promise<string | null> {
   const now = options.now ?? Date.now;
-  const remainingMs = options.deadlineAt === undefined ? 5000 : options.deadlineAt - now();
+
+  const remainingMs =
+    options.deadlineAt === undefined ? KEY_COMMAND_TIMEOUT_MS : options.deadlineAt - now();
 
   if (remainingMs <= 0 || options.signal?.aborted === true) {
-    return Promise.resolve(null);
+    return null;
   }
 
-  return new Promise((resolve) => {
-    const grouped = process.platform !== 'win32';
+  const timeout = options.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
+  const timer = timeout(toTimerDelay(Math.min(KEY_COMMAND_TIMEOUT_MS, remainingMs)));
 
-    const child = spawn('/bin/sh', ['-c', command], {
-      detached: grouped,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      ...(options.host === undefined
-        ? {}
-        : { env: { HOME: options.host.home, ...options.host.env } }),
-    });
-
-    let output = '';
-    let settled = false;
-    let stopped = false;
-
-    const setResult = (value: string | null): void => {
-      if (!settled) {
-        settled = true;
-
-        timer.removeEventListener('abort', stopChild);
-        options.signal?.removeEventListener('abort', stopChild);
-        resolve(value);
-      }
-    };
-
-    const stopChild = (): void => {
-      if (stopped) {
-        return;
-      }
-
-      stopped = true;
-
-      try {
-        if (grouped && child.pid !== undefined) {
-          process.kill(-child.pid, 'SIGKILL');
-        } else {
-          child.kill('SIGKILL');
-        }
-      } catch {
-        child.kill('SIGKILL');
-      }
-    };
-
-    const timeout = options.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
-    const timer = timeout(toTimerDelay(Math.min(5000, remainingMs)));
-
-    timer.addEventListener('abort', stopChild, { once: true });
-    options.signal?.addEventListener('abort', stopChild, { once: true });
-
-    if (timer.aborted) {
-      stopChild();
-    }
-
-    child.stdout.setEncoding('utf8');
-
-    child.stdout.on('data', (chunk: string) => {
-      if (stopped) {
-        return;
-      }
-
-      output += chunk;
-
-      if (output.length > 65_536) {
-        stopChild();
-      }
-    });
-
-    child.on('error', () => {
-      setResult(null);
-    });
-
-    child.on('close', (code) => {
-      const key = !stopped && code === 0 && output.trim() !== '' ? output.trim() : null;
-
-      setResult(key);
-    });
+  const result = await runCapped('/bin/sh', ['-c', command], {
+    signal: options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]),
+    maxOutputBytes: MAX_KEY_OUTPUT_BYTES,
+    env: options.host === undefined ? undefined : { HOME: options.host.home, ...options.host.env },
   });
+
+  const key = result.stdout.trim();
+
+  return !result.stopped && result.exitCode === 0 && key !== '' ? key : null;
 }

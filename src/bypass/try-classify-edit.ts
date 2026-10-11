@@ -7,7 +7,7 @@ import type { OwnedScope } from '../containment/collect-scope-findings.ts';
 import type { ActionRequest } from '../request/types.ts';
 import type { Checkout } from '../scope/find-checkout.ts';
 import { findCheckout } from '../scope/find-checkout.ts';
-import { resolveStateDir } from '../state/resolve-state-dir.ts';
+import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 import type { EditClassification } from './classify-edit.ts';
 import { getEditFields } from './get-edit-fields.ts';
 import { resolveEditTarget } from './resolve-edit-target.ts';
@@ -45,7 +45,7 @@ export async function tryClassifyEdit(
   }
 
   try {
-    const ownDirs = [dirname(resolveConfigPath(host)), resolveStateDir(host)];
+    const ownDirs = [dirname(resolveConfigPath(host)), resolveXDGDir(host, 'state')];
     const requested = resolve(request.cwd, path);
 
     const [target, worktrees, protectedDirs] = await Promise.all([

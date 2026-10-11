@@ -6,6 +6,7 @@ import { toRepositorySlug } from '../containment/to-repository-slug.ts';
 // oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the checkout readers into src/git/
 import { loadRepositoryContext } from '../model/load-repository-context.ts';
 import type { ScopeRecordRequest } from '../request/types.ts';
+import type { LockClock } from '../state/types.ts';
 import { collectPullRequestAddresses } from './collect-pull-request-addresses.ts';
 import { collectScopeEvents } from './collect-scope-events.ts';
 import { findCheckout } from './find-checkout.ts';
@@ -16,7 +17,6 @@ import type { PullRequestFacts } from './read-pull-request.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import type { ScopeEvent, SessionScope } from './types.ts';
 import { EMPTY_SESSION_SCOPE } from './types.ts';
-import type { LockClock } from './write-session-scope.ts';
 import { writeSessionScope } from './write-session-scope.ts';
 
 type ScopeEventVerifier = (

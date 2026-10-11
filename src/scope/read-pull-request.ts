@@ -1,5 +1,4 @@
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-223 moves process spawning into one process helper
-import { spawn } from 'node:child_process';
+import { runCapped } from '../process/run-capped.ts';
 
 export interface PullRequestFacts {
   readonly head: string;
@@ -12,9 +11,10 @@ interface ReadPullRequestOptions {
 }
 
 const LOOKUP_TIMEOUT_MS = 5000;
+const MAX_LOOKUP_OUTPUT_BYTES = 65_536;
 
 // `repository` is `host/owner/name`, which `gh --repo` accepts as written.
-export function readPullRequest(
+export async function readPullRequest(
   repository: string,
   number: number,
   options: Readonly<ReadPullRequestOptions> = {},
@@ -31,32 +31,19 @@ export function readPullRequest(
     'headRefName,createdAt',
   ];
 
-  return new Promise((resolve) => {
-    const child = spawn(file, [...prefix, ...args, '--jq', '[.headRefName, .createdAt] | @tsv'], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: options.timeoutMs ?? LOOKUP_TIMEOUT_MS,
-    });
+  const result = await runCapped(
+    file,
+    [...prefix, ...args, '--jq', '[.headRefName, .createdAt] | @tsv'],
+    {
+      signal: AbortSignal.timeout(options.timeoutMs ?? LOOKUP_TIMEOUT_MS),
+      maxOutputBytes: MAX_LOOKUP_OUTPUT_BYTES,
+    },
+  );
 
-    let output = '';
+  const [head = '', created = ''] = result.stdout.trim().split('\t');
+  const createdAt = Date.parse(created);
 
-    child.stdout.setEncoding('utf8');
-
-    child.stdout.on('data', (chunk: string) => {
-      output += chunk;
-    });
-
-    child.on('error', () => {
-      resolve(null);
-    });
-
-    child.on('close', (code) => {
-      const [head = '', created = ''] = output.trim().split('\t');
-      const createdAt = Date.parse(created);
-
-      const facts =
-        code === 0 && head !== '' && !Number.isNaN(createdAt) ? { head, createdAt } : null;
-
-      resolve(facts);
-    });
-  });
+  return result.exitCode === 0 && head !== '' && !Number.isNaN(createdAt)
+    ? { head, createdAt }
+    : null;
 }

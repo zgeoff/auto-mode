@@ -21,7 +21,7 @@ import { loadPolicy } from './policy/load-policy.ts';
 import { runCLI } from './run-cli.ts';
 import { loadSessionScope } from './scope/load-session-scope.ts';
 import { resolveSessionScopePath } from './scope/resolve-session-scope-path.ts';
-import { resolveStateDir } from './state/resolve-state-dir.ts';
+import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
 
 async function setupTest(): Promise<{
   readonly dir: string;
@@ -1243,7 +1243,7 @@ test('it records a finished Bash call without writing a verdict', async () => {
     stderr: '',
   });
 
-  const scopePath = resolveSessionScopePath(resolveStateDir(ctx.host), 'cli-session');
+  const scopePath = resolveSessionScopePath(resolveXDGDir(ctx.host, 'state'), 'cli-session');
 
   const scope = await loadSessionScope(scopePath);
 

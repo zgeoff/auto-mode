@@ -7,7 +7,7 @@ import type { HostEnvironment, OutputStream } from '../config/types.ts';
 import type { JudgeDiagnostics } from '../judge/types.ts';
 import type { DecisionDiagnostics } from '../model/types.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
-import { resolveStateDir } from '../state/resolve-state-dir.ts';
+import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 
 interface ActionDiagnostic {
   readonly invocationID: string;
@@ -33,7 +33,7 @@ export async function writeActionDiagnostic(
   warnings: Readonly<OutputStream>,
 ): Promise<void> {
   const path =
-    host.env['AUTO_MODE_DIAGNOSTICS_PATH'] ?? join(resolveStateDir(host), 'actions.jsonl');
+    host.env['AUTO_MODE_DIAGNOSTICS_PATH'] ?? join(resolveXDGDir(host, 'state'), 'actions.jsonl');
 
   if (path === '') {
     return;

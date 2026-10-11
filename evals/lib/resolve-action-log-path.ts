@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { resolveStateDir } from 'auto-mode/eval';
+import { resolveXDGDir } from 'auto-mode/eval';
 
 // The same resolution the CLI applies when it writes the log.
 export function resolveActionLogPath(
@@ -14,5 +14,5 @@ export function resolveActionLogPath(
     );
   }
 
-  return configured ?? join(resolveStateDir({ env, home }), 'actions.jsonl');
+  return configured ?? join(resolveXDGDir({ env, home }, 'state'), 'actions.jsonl');
 }

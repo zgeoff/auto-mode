@@ -81,14 +81,16 @@ presets; `budget/` counts denials per session; `containment/` denies a write out
 `bypass/` lets an in-scope file edit skip Jev; `judge/` reviews each Jev deny, confirming it with a
 written reason or overturning it, through `claude -p` or the Messages API; `secrets/` scans edit
 content with the bundled Betterleaks rule set, which `scripts/build-secret-rules.ts` generates;
-`capture/` appends each judged request to the opt-in capture, never inside a git work tree.
-`classify-action.ts` runs both tiers with the containment check and the edit bypass between them and
-the judge after Jev, and is the library entry point; `index.ts` is the public API; `eval/index.ts`
-is the unpublished `auto-mode/eval` subpath; `cli.ts` is the entrypoint the mod runs.
-`mods/auto-mode/` is the Claude Code mod; its `contract/` holds the request and verdict shapes, the
-message origins and the scope commands that the mod and the CLI share, with no dependencies, because
-the mod ships as raw TypeScript. `policy/` at the repo root holds the prompt itself. `fixtures/`
-holds mod requests recorded in a live Claude Code session.
+`capture/` appends each judged request to the opt-in capture, never inside a git work tree; `state/`
+resolves the XDG directories and reads and updates the state files, each update under a lock;
+`process/` runs every child process, capped in time and output, and alone imports
+`node:child_process`. `classify-action.ts` runs both tiers with the containment check and the edit
+bypass between them and the judge after Jev, and is the library entry point; `index.ts` is the
+public API; `eval/index.ts` is the unpublished `auto-mode/eval` subpath; `cli.ts` is the entrypoint
+the mod runs. `mods/auto-mode/` is the Claude Code mod; its `contract/` holds the request and
+verdict shapes, the message origins and the scope commands that the mod and the CLI share, with no
+dependencies, because the mod ships as raw TypeScript. `policy/` at the repo root holds the prompt
+itself. `fixtures/` holds mod requests recorded in a live Claude Code session.
 
 `evals/` holds the evaluation tooling: `eval.ts` is the `bun run eval` command, which plans, runs,
 resumes and compares one experiment, measures live use from the action log, and anonymises a request
