@@ -10,9 +10,9 @@ judging of its own; [the product README](../../README.md) covers what auto-mode 
 
 Every call the CLI judges passes through deterministic checks first, and only what they leave open
 reaches Jev, a classifier from TypeSafe that answers typed questions over its decision API. A second
-model, the judge, reviews every deny Jev gives. The denial budget sits after all of them and is the
-only path from a deny to a human: an agent that keeps getting denied is eventually handed back to
-the user.
+model, the judge, reviews every deny Jev gives, unless the configuration turns the judge off. The
+denial budget sits after all of them and is the only path from a deny to a human: an agent that
+keeps getting denied is eventually handed back to the user.
 
 ## The path of a prompted call
 
@@ -50,8 +50,9 @@ flowchart TD
    content finds nothing ([the edit bypass](./stages/edit-bypass.md)).
 6. Jev answers one question per block rule in the policy, and the CLI denies when any rule's block
    probability reaches the configured threshold ([Jev](./stages/jev.md)).
-7. The judge reads each Jev deny and confirms it with a written reason, or overturns it to an allow
-   when the user's last message asked for exactly this action ([the judge](./stages/judge.md)).
+7. The judge, when configured, reads each Jev deny and confirms it with a written reason, or
+   overturns it to an allow, by default only when the user's last message asked for exactly this
+   action ([the judge](./stages/judge.md)).
 8. The denial budget counts each deny. The deny that would pass the budget becomes no verdict, so
    that call reaches the user.
 
@@ -108,7 +109,7 @@ reads elsewhere belongs to someone else:
 
 ## Cross-cutting rules
 
-- **The CLI always exits zero.** The mod reads a non-zero exit as a broken CLI and keeps the prompt,
+- **A run always exits zero.** The mod reads a non-zero exit as a broken CLI and keeps the prompt,
   so the JSON on stdout alone decides the outcome, and a CLI that cannot start at all costs the user
   one prompt.
 - **No verdict is an answer.** It means auto-mode has no opinion, and the mod keeps the prompt. A

@@ -11,8 +11,8 @@ and stop only at what matters. It is built for a model other than Claude driving
 gets no judging of its own. A Claude Code mod hands each prompted call to auto-mode before the
 dialog appears: local rules settle reads and build cleanup, a containment check keeps writes inside
 the task's own worktrees and branches, and Jev judges the rest against a written policy. A denied
-agent gets a reason and carries on another way, and the user sees a prompt only when the agent runs
-out of denials.
+agent gets a reason and carries on another way, and the user sees a prompt when the agent runs out
+of denials or when auto-mode cannot judge the call.
 
 To get a first session working, install the package, give auto-mode your TypeSafe API key, and start
 Claude Code with the mod.
@@ -45,8 +45,8 @@ undo.
   ([the edit bypass](./docs/architecture/stages/edit-bypass.md)).
 - **Jev** judges the remaining calls against the shipped rules and your own
   ([Jev](./docs/architecture/stages/jev.md)).
-- **The judge** reviews every Jev deny, and overturns it when your last message asked for exactly
-  this action ([the judge](./docs/architecture/stages/judge.md)).
+- **The judge**, on by default, reviews every Jev deny, and overturns it when your last message
+  asked for exactly this action ([the judge](./docs/architecture/stages/judge.md)).
 - **The denial budget** hands a call back to you when an agent keeps getting denied
   ([the denial budget](./docs/architecture/stages/denial-budget.md)).
 - **Your own rules** from your Claude settings join the policy as block rules

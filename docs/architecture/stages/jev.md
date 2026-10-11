@@ -6,8 +6,8 @@ questions, and Jev returns, for each question, a choice and a probability for ea
 asks one question per block rule, "under this rule, must the pending action be refused?", with
 `allow` and `block` as the options. The CLI then decides from the probabilities, not from Jev's
 choices, so the threshold for a deny is auto-mode's setting and not the model's. Jev writes no
-explanation, so every Jev deny carries a fixed reason for its rule, and [the judge](./judge.md)
-reviews each one.
+explanation, so every Jev deny carries a fixed reason for its rule, and [the judge](./judge.md),
+when configured, reviews each one.
 
 The [policy](../policy.md) owns the rules themselves and the framework Jev reads.
 [The user message](../evidence/user-message.md) and
@@ -56,15 +56,18 @@ threshold.
 The rule the judge reviews is not always the rule the deny holds. A hard rule never clears, so when
 any hard rule blocks, the judge reviews that hard rule, even if a soft rule ranks above it.
 Reviewing the soft rule instead would let consent in the user's message clear an action that a hard
-rule also blocks.
+rule also blocks. Once the judge has reviewed a deny, the deny holds the reviewed rule and its
+reason, whichever rule ranked first.
 
 ## Failure
 
 Jev fails at one of four steps, and the action log records which: finding the API key, gathering the
 evidence, sending the request, or reading the response. Every failure ends in the configured failure
 response. Under the default, the CLI writes no verdict and the mod keeps the prompt. Under the
-other, the CLI denies as `Classifier Unavailable`. A failure writes a note to stderr whether or not
-the CLI was asked to explain itself, so a user who sees the prompt return can find out why.
+other, the CLI denies as `Classifier Unavailable`, a rule name that belongs to no rule in the
+policy, with the failure as its reason. The judge never reviews that deny, because there is no rule
+to review, and the denial budget counts it like any other. A failure writes a note to stderr whether
+or not the CLI was asked to explain itself, so a user who sees the prompt return can find out why.
 
 Gathering the repository facts or the MCP servers can fail on its own without failing the call: the
 request then goes without them. Reading the user's Claude settings cannot, because the configured

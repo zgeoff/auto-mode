@@ -13,11 +13,11 @@ containment deny counts the same as a Jev deny.
 
 ## Two counts and a remembered deny
 
-The budget keeps three things per session and subagent: the consecutive count of denies, the session
-count, and the last deny with the key of the action it denied. Each subagent keeps its own, because
-a subagent's run of denies says nothing about the parent's. They live in one file per session and
-agent in the state directory, so they survive a reload of the mod and a resumed session, which keeps
-the same session identity.
+The budget keeps three things for each agent of a session, the main agent and every subagent alike:
+the consecutive count of denies, the session count, which counts that agent's denies across the
+whole session, and the last deny with the key of the action it denied. They live in one file per
+session and agent in the state directory, so they survive a reload of the mod and a resumed session,
+which keeps the same session identity.
 
 | Verdict          | Consecutive count | Session count | Remembered deny | The CLI writes         |
 | ---------------- | ----------------- | ------------- | --------------- | ---------------------- |
@@ -49,10 +49,11 @@ classifiers see the action again.
 The CLI writes the budget file before it writes the verdict to stdout. A CLI killed between the two
 leaves a counted deny that the agent never received, and the user sees the prompt, because the mod
 got no verdict. The agent's next attempt at the same action is then a repeat, and gets the
-remembered deny. The CLI writes the file to a temporary name and renames it into place, so a crash
-mid-write leaves the old counts whole, never a torn file. A file that cannot be read or parsed
-counts as empty, and a file that cannot be written costs the counts, not the verdict: the CLI writes
-a note to stderr and still writes its verdict.
+remembered deny, even when the user approved the prompt in between, because the CLI never sees that
+answer. The CLI writes the file to a temporary name and renames it into place, so a crash mid-write
+leaves the old counts whole, never a torn file. A file that cannot be read or parsed counts as
+empty, and a file that cannot be written costs the counts, not the verdict: the CLI writes a note to
+stderr and still writes its verdict.
 
 The budget file has no lock. Claude Code can check two calls of one agent at once, and each CLI
 reads the counts, classifies, and writes the counts back, so the later write wins and a deny can go

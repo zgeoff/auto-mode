@@ -26,7 +26,9 @@ runs in a subshell, so a pipe anywhere in the command leaves the directory unkno
 Each finding has one of five kinds, and the deny reason holds the kind and the target:
 
 - **Path:** the file tools' targets, output redirections, the programs that delete, move, copy or
-  edit files in place, and git commands that change a working tree outside the scope.
+  edit files in place, and git commands such as `commit`, `reset` or `checkout` run in a directory
+  outside the scope. Creating a worktree or a branch is never a finding, so a task can make its own,
+  and the [session scope](../evidence/task-scope.md#what-the-session-created) records it.
 - **Branch:** a branch the task does not own that a call deletes or pushes, and every `--all` or
   `--mirror` push.
 - **Remote target:** a push to a remote that is not the checkout's own, pull request and issue
@@ -48,9 +50,11 @@ calls, so a record the agent sends is a claim on scope the agent did not make
 ## What counts as in scope
 
 A path is in scope when it lies in a worktree the task owns, in a path glob the configuration lists,
-or in the scratch space every task owns. A worktree nested in another, as `.worktrees/<name>` sits
-inside the main checkout, belongs to its own task. Being inside the parent checkout therefore never
-puts a nested worktree in the parent's scope.
+or in the scratch space every task owns. A worktree under the `.worktrees` folder of another, as
+`.worktrees/<name>` sits inside the main checkout, belongs to its own task, so being inside the
+parent checkout never puts it in the parent's scope. Any other checkout nested inside an owned
+worktree counts as part of that worktree here, and the
+[edit bypass](./edit-bypass.md#which-target-counts) sends an edit into it to Jev.
 
 A branch is in scope when the task scope lists it, and the default branch never is. A push with no
 branch named pushes the current branch, which is known only for the call's own directory, so a push

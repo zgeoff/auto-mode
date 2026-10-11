@@ -21,8 +21,8 @@ line in the list:
   the call's current directory, matched by the directory's name.
 
 A call the lists do not cover passes on, and so does any tool other than Bash that is not on the
-read-only list. The allow holds the exception that matched, `Read-only actions` or
-`Regenerable output`, and the action log records it.
+read-only list. The CLI's explain note holds the exception that matched, `Read-only actions` or
+`Regenerable output`, and the action log records the local stage as the one that decided.
 
 ## What they refuse to read
 

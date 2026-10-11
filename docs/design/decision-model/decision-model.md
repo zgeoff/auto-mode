@@ -39,6 +39,6 @@ repository, so a task can never own a branch the forge protects, whatever its na
 
 Measurement 2 counts benign denials per action, and the design takes it from a replay of recorded
 real traffic from more than one repository, through every stage. The containment replay produces it
-for the containment stage alone, so the design's measurement for Jev and the judge on real traffic
-is unbuilt. Jev's threshold, the denial budget defaults and any release bar are set from the
-measurements once each one exists.
+for the containment stage and for recorded Jev answers, so the judge's share of benign denials on
+real traffic is unbuilt. Jev's threshold, the denial budget defaults and any release bar are set
+from the measurements once each one exists.
