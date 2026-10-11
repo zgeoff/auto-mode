@@ -47,6 +47,12 @@ export function runCapped(
 
       options.signal.removeEventListener('abort', stopChild);
 
+      // A process that left the group can hold the pipe open, and an open pipe
+      // keeps this process alive.
+      if (stopped) {
+        child.stdout?.destroy();
+      }
+
       resolve({
         exitCode,
         stdout: stopped || failedToStart ? '' : Buffer.concat(chunks).toString('utf8'),
@@ -73,7 +79,6 @@ export function runCapped(
       }
 
       if (exited !== undefined) {
-        child.stdout?.destroy();
         setResult(exited, false);
       }
     };
