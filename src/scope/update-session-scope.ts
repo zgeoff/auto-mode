@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
 import { toRepositorySlug } from '../containment/to-repository-slug.ts';
 import { loadRepositoryContext } from '../model/load-repository-context.ts';
+import type { ScopeRecordRequest } from '../request/types.ts';
 import { collectPullRequestAddresses } from './collect-pull-request-addresses.ts';
 import { collectScopeEvents } from './collect-scope-events.ts';
 import { findCheckout } from './find-checkout.ts';
@@ -15,14 +16,6 @@ import type { ScopeEvent, SessionScope } from './types.ts';
 import { EMPTY_SESSION_SCOPE } from './types.ts';
 import type { LockClock } from './write-session-scope.ts';
 import { writeSessionScope } from './write-session-scope.ts';
-
-export interface ScopeRecordRequest {
-  readonly sessionID: string;
-  readonly cwd: string;
-  readonly startedAt: number;
-  readonly command: string;
-  readonly resultText: string;
-}
 
 type ScopeEventVerifier = (
   event: Readonly<ScopeEvent>,

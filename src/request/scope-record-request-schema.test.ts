@@ -1,5 +1,7 @@
-import { expect, test } from 'bun:test';
+import { expect, expectTypeOf, test } from 'bun:test';
 import invariant from 'tiny-invariant';
+import type * as z from 'zod';
+import type { ModScopeRecord } from '../../mods/auto-mode/contract/types.ts';
 import { scopeRecordRequestSchema } from './scope-record-request-schema.ts';
 
 test('it accepts a record request from the mod', () => {
@@ -46,4 +48,9 @@ test('it rejects a record request without a start time', () => {
   invariant(result.error, 'the schema rejects the payload');
 
   expect(result.error.issues).toPartiallyContain({ path: ['startedAt'] });
+});
+
+test('it accepts exactly the scope record shape the mod builds', () => {
+  expectTypeOf<ModScopeRecord>().toExtend<z.input<typeof scopeRecordRequestSchema>>();
+  expectTypeOf<z.input<typeof scopeRecordRequestSchema>>().toExtend<ModScopeRecord>();
 });

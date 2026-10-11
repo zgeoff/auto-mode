@@ -1,116 +1,94 @@
 {
-  "GEO-220": [
-    {
-      "rule": "stages",
-      "file": "src/judge/classify-with-judge.ts",
-      "message": "stage imports request: src/judge/classify-with-judge.ts → src/request/find-current-direct-user-message.ts"
-    },
-    {
-      "rule": "stages",
-      "file": "src/model/classify-with-jev.ts",
-      "message": "stage imports request: src/model/classify-with-jev.ts → src/request/find-current-direct-user-message.ts"
-    },
-    {
-      "rule": "stages",
-      "file": "src/model/classify-with-model.ts",
-      "message": "stage imports request: src/model/classify-with-model.ts → src/request/find-current-direct-user-message.ts"
-    },
-    {
-      "rule": "request",
-      "file": "src/request/parse-scope-record-request.ts",
-      "message": "request imports support: src/request/parse-scope-record-request.ts → src/scope/update-session-scope.ts"
-    }
-  ],
   "GEO-221": [
     {
       "rule": "stages",
       "file": "src/bypass/try-classify-edit.ts",
-      "message": "stage imports stage: src/bypass/try-classify-edit.ts → src/containment/collect-scope-findings.ts"
+      "message": "stage imports stage: src/bypass/try-classify-edit.ts \u2192 src/containment/collect-scope-findings.ts"
     },
     {
       "rule": "support",
       "file": "src/capture/try-write-request-capture.ts",
-      "message": "support imports orchestrator: src/capture/try-write-request-capture.ts → src/classify-action.ts"
+      "message": "support imports orchestrator: src/capture/try-write-request-capture.ts \u2192 src/classify-action.ts"
     },
     {
       "rule": "support",
       "file": "src/config/read-host-environment.ts",
-      "message": "support imports stage: src/config/read-host-environment.ts → src/containment/scratch-paths.ts"
+      "message": "support imports stage: src/config/read-host-environment.ts \u2192 src/containment/scratch-paths.ts"
     },
     {
       "rule": "stages",
       "file": "src/containment/collect-scope-findings.ts",
-      "message": "stage imports stage: src/containment/collect-scope-findings.ts → src/rules/split-command-words.ts"
+      "message": "stage imports stage: src/containment/collect-scope-findings.ts \u2192 src/rules/split-command-words.ts"
     },
     {
       "rule": "stages",
       "file": "src/containment/collect-scope-findings.ts",
-      "message": "stage imports stage: src/containment/collect-scope-findings.ts → src/rules/split-shell-command.ts"
+      "message": "stage imports stage: src/containment/collect-scope-findings.ts \u2192 src/rules/split-shell-command.ts"
     },
     {
       "rule": "support",
       "file": "src/diagnostics/write-action-diagnostic.ts",
-      "message": "support imports orchestrator: src/diagnostics/write-action-diagnostic.ts → src/classify-action.ts"
+      "message": "support imports orchestrator: src/diagnostics/write-action-diagnostic.ts \u2192 src/classify-action.ts"
     },
     {
       "rule": "stages",
       "file": "src/model/build-task-scope-summary.ts",
-      "message": "stage imports stage: src/model/build-task-scope-summary.ts → src/containment/collect-scope-findings.ts"
+      "message": "stage imports stage: src/model/build-task-scope-summary.ts \u2192 src/containment/collect-scope-findings.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/build-atc-scope-facts.ts",
-      "message": "support imports stage: src/scope/build-atc-scope-facts.ts → src/containment/to-repository-slug.ts"
+      "message": "support imports stage: src/scope/build-atc-scope-facts.ts \u2192 src/containment/to-repository-slug.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/build-task-scope.ts",
-      "message": "support imports stage: src/scope/build-task-scope.ts → src/containment/collect-scope-findings.ts"
+      "message": "support imports stage: src/scope/build-task-scope.ts \u2192 src/containment/collect-scope-findings.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/build-task-scope.ts",
-      "message": "support imports stage: src/scope/build-task-scope.ts → src/containment/to-repository-slug.ts"
+      "message": "support imports stage: src/scope/build-task-scope.ts \u2192 src/containment/to-repository-slug.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/collect-pull-request-addresses.ts",
-      "message": "support imports stage: src/scope/collect-pull-request-addresses.ts → src/containment/to-repository-slug.ts"
+      "message": "support imports stage: src/scope/collect-pull-request-addresses.ts \u2192 src/containment/to-repository-slug.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/collect-scope-events.ts",
-      "message": "support imports stage: src/scope/collect-scope-events.ts → src/rules/split-command-words.ts"
+      "message": "support imports stage: src/scope/collect-scope-events.ts \u2192 src/rules/split-command-words.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/collect-scope-events.ts",
-      "message": "support imports stage: src/scope/collect-scope-events.ts → src/rules/split-shell-command.ts"
+      "message": "support imports stage: src/scope/collect-scope-events.ts \u2192 src/rules/split-shell-command.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/load-checkout-remotes.ts",
-      "message": "support imports stage: src/scope/load-checkout-remotes.ts → src/containment/collect-scope-findings.ts"
+      "message": "support imports stage: src/scope/load-checkout-remotes.ts \u2192 src/containment/collect-scope-findings.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/load-task-scope.ts",
-      "message": "support imports stage: src/scope/load-task-scope.ts → src/containment/collect-scope-findings.ts"
+      "message": "support imports stage: src/scope/load-task-scope.ts \u2192 src/containment/collect-scope-findings.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/load-task-scope.ts",
-      "message": "support imports stage: src/scope/load-task-scope.ts → src/model/load-repository-context.ts"
+      "message": "support imports stage: src/scope/load-task-scope.ts \u2192 src/model/load-repository-context.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/update-session-scope.ts",
-      "message": "support imports stage: src/scope/update-session-scope.ts → src/containment/to-repository-slug.ts"
+      "message": "support imports stage: src/scope/update-session-scope.ts \u2192 src/containment/to-repository-slug.ts"
     },
     {
       "rule": "support",
       "file": "src/scope/update-session-scope.ts",
-      "message": "support imports stage: src/scope/update-session-scope.ts → src/model/load-repository-context.ts"
+      "message": "support imports stage: src/scope/update-session-scope.ts \u2192 src/model/load-repository-context.ts"
     }
   ],
   "GEO-223": [
@@ -134,27 +112,27 @@
     {
       "rule": "stages",
       "file": "src/judge/classify-with-judge.ts",
-      "message": "stage imports stage: src/judge/classify-with-judge.ts → src/model/find-denied-rule.ts"
+      "message": "stage imports stage: src/judge/classify-with-judge.ts \u2192 src/model/find-denied-rule.ts"
     },
     {
       "rule": "stages",
       "file": "src/judge/run-claude-code.ts",
-      "message": "stage imports stage: src/judge/run-claude-code.ts → src/model/anthropic-client.ts"
+      "message": "stage imports stage: src/judge/run-claude-code.ts \u2192 src/model/anthropic-client.ts"
     },
     {
       "rule": "stages",
       "file": "src/judge/send-judge-message.ts",
-      "message": "stage imports stage: src/judge/send-judge-message.ts → src/model/anthropic-client.ts"
+      "message": "stage imports stage: src/judge/send-judge-message.ts \u2192 src/model/anthropic-client.ts"
     },
     {
       "rule": "stages",
       "file": "src/judge/send-judge-message.ts",
-      "message": "stage imports stage: src/judge/send-judge-message.ts → src/model/anthropic-client.ts"
+      "message": "stage imports stage: src/judge/send-judge-message.ts \u2192 src/model/anthropic-client.ts"
     },
     {
       "rule": "stages",
       "file": "src/model/classify-with-model.ts",
-      "message": "stage imports stage: src/model/classify-with-model.ts → src/judge/classify-with-judge.ts"
+      "message": "stage imports stage: src/model/classify-with-model.ts \u2192 src/judge/classify-with-judge.ts"
     }
   ]
 }

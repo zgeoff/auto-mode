@@ -96,7 +96,8 @@ if (request !== null) {
 
 `classifyAction` runs both tiers and returns the verdict, a note, and diagnostics. A request carries
 the session identity, the action, and the task context; `parseActionRequest` builds one from the
-mod's JSON.
+mod's JSON. Build every request with `parseActionRequest`: it drops a child agent's direct user
+message, and the classifiers trust the request they receive.
 
 ## Documentation
 

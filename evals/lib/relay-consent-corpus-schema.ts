@@ -1,4 +1,4 @@
-import { repositoryContextSchema } from 'auto-mode/eval';
+import { MESSAGE_ORIGINS, repositoryContextSchema } from 'auto-mode/eval';
 import * as z from 'zod';
 
 const messageSchema = z.enum(['consent', 'otherConsent', 'refusal', 'unrelated']);
@@ -30,7 +30,7 @@ export const relayConsentCorpusSchema = z
     threshold: z.literal(RELAY_CONSENT_THRESHOLD),
     repeats: z.literal(10),
     seed: z.number().int(),
-    messageOrigin: z.enum(['composer', 'bridge', 'sdk']),
+    messageOrigin: z.enum(MESSAGE_ORIGINS),
     markGuidance: z.string().min(1),
     cells: z.object({
       risky: z.array(cellSchema).length(11),

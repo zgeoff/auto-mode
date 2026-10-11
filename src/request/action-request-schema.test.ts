@@ -1,6 +1,7 @@
-import { expect, test } from 'bun:test';
+import { expect, expectTypeOf, test } from 'bun:test';
 import invariant from 'tiny-invariant';
 import type * as z from 'zod';
+import type { ModRequest } from '../../mods/auto-mode/contract/types.ts';
 import { actionRequestSchema } from './action-request-schema.ts';
 
 test('it accepts a complete mod request', () => {
@@ -200,4 +201,9 @@ test.each([
   invariant(result.error, 'the schema rejects the payload');
 
   expect(result.error.issues).toPartiallyContain(issue);
+});
+
+test('it accepts exactly the request shape the mod builds', () => {
+  expectTypeOf<ModRequest>().toExtend<z.input<typeof actionRequestSchema>>();
+  expectTypeOf<z.input<typeof actionRequestSchema>>().toExtend<ModRequest>();
 });

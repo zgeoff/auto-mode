@@ -1,4 +1,5 @@
 import { isAbsolute, join, normalize } from 'node:path';
+import { SCOPE_COMMANDS } from '../../mods/auto-mode/contract/scope-commands.ts';
 import { splitCommandWords } from '../rules/split-command-words.ts';
 import { splitShellCommand } from '../rules/split-shell-command.ts';
 import type { ScopeEvent } from './types.ts';
@@ -20,7 +21,11 @@ export function collectScopeEvents(command: string, cwd: string, home: string): 
       directory = hasPipe ? null : resolvePath(directory, args[0] ?? home, home);
     } else if (name === 'git' && directory !== null) {
       events.push(...collectGitEvents(args, directory, home));
-    } else if (name === 'gh' && directory !== null && args[0] === 'pr' && args[1] === 'create') {
+    } else if (
+      name === 'gh' &&
+      directory !== null &&
+      findScopeCommand(SCOPE_COMMANDS.gh, args) !== null
+    ) {
       events.push({
         kind: 'pull-request',
         directory,
@@ -31,13 +36,6 @@ export function collectScopeEvents(command: string, cwd: string, home: string): 
 
   return events;
 }
-
-const BRANCH_CREATE_OPTIONS = new Set(['-b', '-B', '-c', '-C', '--create', '--force-create']);
-
-// `git branch` names a branch to create only when no option turns it into a
-// listing, a rename, a copy, a deletion, or an upstream change.
-const BRANCH_OTHER_OPTIONS =
-  /^-(?:d|D|m|M|c|C|l|a|r|v|vv|u)$|^--(?:delete|move|copy|list|all|remotes|verbose|show-current|contains|no-contains|merged|no-merged|points-at|format|sort|set-upstream-to|unset-upstream|edit-description)/u;
 
 function collectGitEvents(args: readonly string[], cwd: string, home: string): ScopeEvent[] {
   let directory: string | null = cwd;
@@ -51,33 +49,53 @@ function collectGitEvents(args: readonly string[], cwd: string, home: string): S
     index += args[index] === '-C' || args[index] === '-c' ? 2 : 1;
   }
 
-  const subcommand = args[index];
-  const rest = args.slice(index + 1);
+  const found = findScopeCommand(SCOPE_COMMANDS.git, args.slice(index));
 
-  if (directory === null) {
+  if (directory === null || found === null) {
     return [];
   }
 
-  if (subcommand === 'worktree' && rest[0] === 'add') {
-    const path = findWorktreePath(rest.slice(1));
-    const resolved = path === null ? null : resolvePath(directory, path, home);
+  return GIT_EVENT_COLLECTORS[found.command](found.rest, directory, home);
+}
 
-    return resolved === null ? [] : [{ kind: 'worktree', path: resolved }];
+interface FoundScopeCommand<C extends string> {
+  readonly command: C;
+  readonly rest: readonly string[];
+}
+
+function findScopeCommand<C extends string>(
+  commands: readonly C[],
+  args: readonly string[],
+): FoundScopeCommand<C> | null {
+  for (const command of commands) {
+    const words = command.split(' ');
+
+    if (words.every((word, index) => args[index] === word)) {
+      return { command, rest: args.slice(words.length) };
+    }
   }
 
-  if (subcommand === 'checkout' || subcommand === 'switch') {
-    const name = findOptionValue(rest, [...BRANCH_CREATE_OPTIONS]);
+  return null;
+}
 
-    return name === null ? [] : [{ kind: 'branch', name, directory }];
-  }
+type GitEventCollector = (rest: readonly string[], directory: string, home: string) => ScopeEvent[];
 
-  if (subcommand === 'branch' && !rest.some((word) => BRANCH_OTHER_OPTIONS.test(word))) {
-    const name = rest.find((word) => !word.startsWith('-'));
+const GIT_EVENT_COLLECTORS: Record<(typeof SCOPE_COMMANDS.git)[number], GitEventCollector> = {
+  'worktree add': collectWorktreeEvents,
+  checkout: collectSwitchEvents,
+  switch: collectSwitchEvents,
+  branch: collectBranchEvents,
+};
 
-    return name === undefined || isUnresolved(name) ? [] : [{ kind: 'branch', name, directory }];
-  }
+function collectWorktreeEvents(
+  rest: readonly string[],
+  directory: string,
+  home: string,
+): ScopeEvent[] {
+  const path = findWorktreePath(rest);
+  const resolved = path === null ? null : resolvePath(directory, path, home);
 
-  return [];
+  return resolved === null ? [] : [{ kind: 'worktree', path: resolved }];
 }
 
 const WORKTREE_VALUE_OPTIONS = new Set(['-b', '-B', '--reason']);
@@ -94,6 +112,29 @@ function findWorktreePath(args: readonly string[]): string | null {
   }
 
   return null;
+}
+
+const BRANCH_CREATE_OPTIONS = new Set(['-b', '-B', '-c', '-C', '--create', '--force-create']);
+
+// `git branch` names a branch to create only when no option turns it into a
+// listing, a rename, a copy, a deletion, or an upstream change.
+const BRANCH_OTHER_OPTIONS =
+  /^-(?:d|D|m|M|c|C|l|a|r|v|vv|u)$|^--(?:delete|move|copy|list|all|remotes|verbose|show-current|contains|no-contains|merged|no-merged|points-at|format|sort|set-upstream-to|unset-upstream|edit-description)/u;
+
+function collectSwitchEvents(rest: readonly string[], directory: string): ScopeEvent[] {
+  const name = findOptionValue(rest, [...BRANCH_CREATE_OPTIONS]);
+
+  return name === null ? [] : [{ kind: 'branch', name, directory }];
+}
+
+function collectBranchEvents(rest: readonly string[], directory: string): ScopeEvent[] {
+  if (rest.some((word) => BRANCH_OTHER_OPTIONS.test(word))) {
+    return [];
+  }
+
+  const name = rest.find((word) => !word.startsWith('-'));
+
+  return name === undefined || isUnresolved(name) ? [] : [{ kind: 'branch', name, directory }];
 }
 
 function findOptionValue(args: readonly string[], options: readonly string[]): string | null {

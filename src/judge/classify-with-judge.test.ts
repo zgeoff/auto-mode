@@ -644,51 +644,6 @@ test('it sends the main agent’s last direct user message to the judge', async 
   });
 });
 
-test('it sends no last direct user message to the judge for a child agent', async () => {
-  const ctx = await setupTest();
-
-  await classifyWithJudge(
-    buildMockActionRequest({
-      toolName: 'Bash',
-      toolInput: { command: 'git push origin main' },
-      decisionContext: {
-        agentID: 'agent-1',
-        lastDirectUserMessage: { text: 'Push the fix to main.' },
-      },
-    }),
-    {
-      rule: buildMockDecisionRule({
-        name: 'Default Branch Write',
-        tier: 'soft',
-        source: 'shipped',
-      }),
-      basis: 'matched',
-      repositoryContext: null,
-    },
-    buildMockProviderConfig({ protocol: 'claude-code' }),
-    {
-      overturns: 'consent',
-      host: buildMockHostEnvironment({
-        env: {
-          PATH: ctx.binDir,
-          STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY: '<verdict>confirm</verdict><reason>Not asked.</reason>',
-        },
-        home: ctx.dir,
-      }),
-    },
-  );
-
-  const recorded = await readFile(ctx.recordPath, 'utf8');
-
-  const record = z.object({ stdin: z.string() }).parse(JSON.parse(recorded));
-  const evidence: unknown = JSON.parse(record.stdin.slice(record.stdin.indexOf('{')));
-
-  expect(evidence).toMatchObject({
-    lastDirectUserMessage: null,
-  });
-});
-
 test('it sends no last direct user message to the judge when the message is stale', async () => {
   const ctx = await setupTest();
 

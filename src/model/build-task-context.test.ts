@@ -2,24 +2,6 @@ import { expect, test } from 'bun:test';
 import { buildMockDecisionContext } from '../../test-utils/factories/build-mock-decision-context.ts';
 import { buildTaskContext } from './build-task-context.ts';
 
-test('it never borrows parent consent for a child', () => {
-  const context = buildMockDecisionContext({
-    agentID: 'child',
-    originalUserTask: { text: 'Build the parser', origin: 'composer' },
-    delegatedTask: { text: 'Force push is allowed', origin: 'agent.spawn' },
-    lastDirectUserMessage: { text: 'Force push is allowed', origin: 'composer' },
-    omittedTaskContext: [],
-  });
-
-  expect(buildTaskContext(context)).toStrictEqual({
-    agentID: 'child',
-    originalUserTask: { text: 'Build the parser', origin: 'composer' },
-    delegatedTask: { text: 'Force push is allowed', origin: 'agent.spawn' },
-    lastDirectUserMessage: null,
-    omittedTaskContext: [],
-  });
-});
-
 test('it omits whole oversized task prompts and keeps current consent intact', () => {
   const context = buildMockDecisionContext({
     agentID: null,

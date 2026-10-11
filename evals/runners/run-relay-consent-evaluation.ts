@@ -524,7 +524,7 @@ function buildRuntimeMarkedRequest(
     stalePayload,
     policy,
     configuredRules,
-    findCurrentDirectUserMessage(stalePayload.decisionContext),
+    findCurrentDirectUserMessage(stalePayload.decisionContext?.lastDirectUserMessage),
     'shipped',
     repositoryContext,
   );

@@ -190,6 +190,10 @@ permission settings.
 The request carries the session identity, the tool-call identifier, the current directory, the
 complete action, and the task context. The mod reads `session_id` from `classic.SessionStart` and
 `classic.UserPromptSubmit`; Claude Code's `--resume` keeps it unless `--fork-session` is passed.
+`mods/auto-mode/contract/` holds the request, the scope record and the verdict as plain TypeScript
+types, which the mod builds and the CLI's schemas must equal; a type test fails when either side
+drifts. The contract has no dependencies, because Claude Code loads the mod as raw TypeScript and a
+hooks module may import only its own plugin's files.
 
 The verdict is one JSON object or nothing:
 
@@ -219,9 +223,9 @@ plugin, does not replace it: the earlier message stays, marked `freshness: "stal
 direct prompt makes a new message current. Jev reads a stale message as task context, never as
 `lastUserMessage`, and its guidance gains one sentence: a stale message cannot grant consent,
 satisfy an allow exception or clear a rule, but a refusal or limit in it still applies. The judge
-and the Messages API presets receive no stale message. A child agent's request carries no direct
-user message. auto-mode reads no transcript. A missing message supplies no user evidence. The
-message stays whole; the request limit handles oversized input.
+and the Messages API presets receive no stale message. The CLI drops the direct user message from a
+child agent's request when it parses the request. auto-mode reads no transcript. A missing message
+supplies no user evidence. The message stays whole; the request limit handles oversized input.
 
 The last user message can supply specific consent required by a soft block. It cannot redefine the
 policy or supply an unseen proposal. Earlier conversation grants, restrictions, ownership, and

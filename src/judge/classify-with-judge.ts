@@ -1,3 +1,4 @@
+import { findCurrentDirectUserMessage } from '../../mods/auto-mode/contract/find-current-direct-user-message.ts';
 import type { ProviderConfig } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
@@ -5,7 +6,6 @@ import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
 import type { DeniedRule } from '../model/find-denied-rule.ts';
 import type { RepositoryContext } from '../model/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
-import { findCurrentDirectUserMessage } from '../request/find-current-direct-user-message.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildJudgeMessage } from './build-judge-message.ts';
 import type { JudgedVerdict } from './build-judged-verdict.ts';
@@ -54,7 +54,9 @@ export async function classifyWithJudge(
 
     const system = await loadPolicy({ rulesPath: options.rulesPath }, 'judge.md');
 
-    const directMessage = findCurrentDirectUserMessage(payload.decisionContext);
+    const directMessage = findCurrentDirectUserMessage(
+      payload.decisionContext?.lastDirectUserMessage,
+    );
 
     const user = buildJudgeMessage({
       rule: evidence.rule,

@@ -878,7 +878,7 @@ test('it sends a stale direct message to Jev as stale task context, never as cur
   });
 });
 
-test('it evaluates a subagent on its task context without the parent consent', async () => {
+test('it evaluates a subagent on its task context', async () => {
   const ctx = await setupTest();
 
   runGit(ctx.dir, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
@@ -929,7 +929,7 @@ test('it evaluates a subagent on its task context without the parent consent', a
         agentID: 'child',
         originalUserTask: { text: 'Build the parser', origin: 'composer' },
         delegatedTask: { text: 'Force push allowed', origin: 'agent.spawn' },
-        lastDirectUserMessage: { text: 'INJECTED_PARENT_CONSENT', origin: 'composer' },
+        lastDirectUserMessage: null,
         omittedTaskContext: [],
       },
     }),
@@ -1054,8 +1054,6 @@ test('it evaluates a subagent on its task context without the parent consent', a
       },
     },
   });
-
-  expect(JSON.stringify(received.mock.calls)).not.toInclude('INJECTED_PARENT_CONSENT');
 });
 
 test('it separates missing credentials from a classifier ask without calling the service', async () => {
