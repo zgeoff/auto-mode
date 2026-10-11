@@ -4,10 +4,12 @@ auto-mode is a permission classifier: a core library and a Claude Code mod. When
 about to prompt for a tool call, the mod runs the CLI, hands it the pending call on stdin, and reads
 allow, deny, or nothing on stdout. Its target is a model that is not Claude driving Claude Code.
 
-`docs/architecture/overview.md` is the authoritative account of how the pieces fit: the two tiers,
-the mod contract, permission evidence, and the failure modes. `docs/architecture/decision-model.md`
-is the approved design for what each stage decides. Read both in full before changing the request
-path, the policy, or the mod — grep locates code, it does not teach the invariants.
+`docs/architecture/overview.md` is the authoritative account of how the pieces fit: the path of a
+prompted call, the topology, the state auto-mode keeps, and the rules that hold across every stage.
+It links one doc per stage and per kind of evidence. Read the overview and the docs for the parts
+you touch in full before changing the request path, the policy, or the mod — grep locates code, it
+does not teach the invariants. `docs/design/decision-model/` holds the approved parts of the
+decision model that the code does not implement.
 
 ## Required reading
 
