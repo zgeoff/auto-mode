@@ -58,6 +58,10 @@ async function setupTest(files: Readonly<Record<string, string>>): Promise<{
         join(root, 'node_modules', '.bin', 'oxlint'),
         '-c',
         '.oxlintrc.json',
+
+        // under GITHUB_ACTIONS oxlint would print annotations instead
+        '--format',
+        'default',
         '--report-unused-disable-directives-severity',
         'error',
         target,
