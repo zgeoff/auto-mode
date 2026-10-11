@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.18.0...auto-mode-v0.19.0) (2026-10-11)
+
+
+### Features
+
+* **geo-407:** let any judge overturn clear a soft rule by default ([#131](https://github.com/zgeoff/auto-mode/issues/131)) ([930aa40](https://github.com/zgeoff/auto-mode/commit/930aa40b7feef90f8c6dfc92ab59ca20264f296e))
+
 ## [0.18.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.17.0...auto-mode-v0.18.0) (2026-10-11)
 
 
