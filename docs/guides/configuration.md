@@ -23,7 +23,7 @@ leaves the action without a verdict and writes a diagnostic.
   "decision": {
     "classifier": "jev",
     "judge": "claude-code",
-    "judgeOverturns": "consent",
+    "judgeOverturns": "any",
     "blockThreshold": 0.2,
     "onFailure": "defer",
     "denialBudget": { "consecutive": 3, "perSession": 20 }
@@ -145,7 +145,7 @@ default branch is unknown. `/tmp` is scratch space that every task owns.
 | ---------------- | ------------- | ----------------------------------------------------------------- |
 | `classifier`     | `jev`         | The classifiers id that judges each escalated action              |
 | `judge`          | `claude-code` | The classifiers id that reviews each Jev deny; `null` for none    |
-| `judgeOverturns` | `consent`     | Which judge overturns of a soft rule allow: `consent` or `any`    |
+| `judgeOverturns` | `any`         | Which judge overturns of a soft rule allow: `any` or `consent`    |
 | `blockThreshold` | `0.2`         | Deny when some rule's block probability reaches this value        |
 | `onFailure`      | `defer`       | Keep the manual approval, or deny, when the classifier fails      |
 | `denialBudget`   | 3, 20         | Denials allowed in a row and per session before the user is asked |
@@ -166,8 +166,8 @@ answers confirm or overturn with a short reason.
   by the judge's reason, cut to 600 characters, then the instruction every deny ends with.
 - The judge overturns a soft rule on one of two bases. `consent`: the last direct user message asks
   for this operation on this target. `misread`: the facts show that no rule covers the action. A
-  consent overturn allows the action. A misread overturn allows it only when `judgeOverturns` is
-  `any`; under the default `consent` it keeps the deny with its fixed reason.
+  consent overturn allows the action. A misread overturn allows it under the default `any`, and
+  keeps the deny with its fixed reason when `judgeOverturns` is `consent`.
 - A hard rule and a configured hard deny entry never clear. The judge writes their reason only, and
   an overturn of one keeps the deny with its fixed reason.
 - A missing key, a timeout, a failed call or an unreadable reply keeps the deny with its fixed

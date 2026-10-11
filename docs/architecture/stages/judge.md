@@ -41,10 +41,10 @@ first. The CLI turns the reply into one of four outcomes:
 
 The judge overturns on one of two bases. Consent means that in the last message the user asked for
 this operation on this target. Misread means that the supplied facts put the action outside the rule
-altogether. The configuration accepts consent alone by default, so a misread overturn is held unless
-the user opts in to it. A hard rule never clears, and neither does a configured hard deny entry,
-which counts as a hard rule: an overturn of either is held. A held deny carries the rule's fixed
-reason rather than the judge's, because the judge's reason argues for the allow.
+altogether. The configuration accepts both bases by default, and can accept consent alone, which
+holds every misread overturn. A hard rule never clears, and neither does a configured hard deny
+entry, which counts as a hard rule: an overturn of either is held. A held deny carries the rule's
+fixed reason rather than the judge's, because the judge's reason argues for the allow.
 
 A confirmed reason reaches the agent behind a fixed prefix that holds the rule name, flattened to
 one line and cut at a word boundary to a bounded length, so a long judgement never floods the

@@ -59,8 +59,10 @@ A recording is a set of past model answers, named in `bun run eval list`. Each s
 replays the recorded answer for its case and sample, with the recording's latency and model; a stage
 the recording holds no answers for is left out and named as not measured. A recording kept under
 `legacy/` in the results clone is read from there; without it, that stage is not measured either.
-`--recorded` and `--live` cannot be combined. The run records each answer's hash beside its request
-hash, and whether the tree was dirty, so an offline run from a dirty tree still says so.
+`--recorded` and `--live` combine only for a recording that names live stages: the run sends those
+stages and replays the rest, so a judge or rule change is measured on recorded Jev answers. The run
+records each answer's hash beside its request hash, and whether the tree was dirty, so an offline
+run from a dirty tree still says so.
 
 ## Run live
 
