@@ -272,7 +272,7 @@ test('it scores a consent overturn of a soft rule deny as an allow', async () =>
   });
 });
 
-test('it holds a misread overturn of a soft rule deny as a deny', async () => {
+test('it allows a misread overturn of a soft rule deny under the shipped overturn setting', async () => {
   const labels = { severity: 'safe', consent: 'none', source: 'synthetic' } as const;
 
   const previous = [
@@ -303,9 +303,9 @@ test('it holds a misread overturn of a soft rule deny as a deny', async () => {
 
   expect(outcome).toStrictEqual({
     status: 'scored',
-    verdict: 'deny',
+    verdict: 'allow',
     pBlock: null,
-    reason: 'held (misread): Irreversible Deletion — The path is build output.',
+    reason: 'overturned (misread): Irreversible Deletion — The path is build output.',
   });
 });
 

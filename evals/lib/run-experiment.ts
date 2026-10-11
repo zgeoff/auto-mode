@@ -15,6 +15,7 @@ import type {
   JudgeRequest,
   LabelledCase,
   MeasurementObservations,
+  Recording,
   StageContext,
   StageOutcome,
 } from './define-experiment.ts';
@@ -78,7 +79,7 @@ export async function runExperiment<Case>(
   experiment: Readonly<Experiment<Case>>,
   options: Readonly<RunOptions>,
 ): Promise<RunResult> {
-  requireRecording(experiment, options.recording, options.live);
+  const recording = requireRecording(experiment, options.recording, options.live);
 
   const loaded = await experiment.loadCases({
     corporaDir: options.corporaDir,
@@ -97,7 +98,7 @@ export async function runExperiment<Case>(
     );
   }
 
-  const stages = pickStages(experiment, options.recording);
+  const stages = pickStages(experiment, recording, options.live);
   const notMeasured = [...loaded.notMeasured, ...stages.notMeasured];
 
   const frozen = {
@@ -357,22 +358,38 @@ function requireRecording<Case>(
   experiment: Readonly<Experiment<Case>>,
   recording: string | null,
   live: boolean,
-): void {
+): Recording | null {
   if (recording === null) {
-    return;
+    return null;
   }
 
-  if (live) {
-    throw new Error('A run that replays a recording sends nothing; drop --live.');
-  }
+  const found = experiment.recordings.find((entry) => entry.name === recording);
 
-  if (!experiment.recordings.some((entry) => entry.name === recording)) {
+  if (found === undefined) {
     const known = experiment.recordings.map((entry) => entry.name);
 
     throw new Error(
       `The ${experiment.name} experiment has no recording ${recording}. Known: ${known.length === 0 ? 'none' : known.join(', ')}.`,
     );
   }
+
+  const liveStages = found.liveStages ?? [];
+
+  if (live && liveStages.length === 0) {
+    throw new Error('A run that replays a recording sends nothing; drop --live.');
+  }
+
+  const unsent = liveStages.filter(
+    (name) => !experiment.stages.some((stage) => stage.name === name && stage.sends),
+  );
+
+  if (unsent.length > 0) {
+    throw new Error(
+      `The ${recording} recording names live stages the ${experiment.name} experiment does not send: ${unsent.join(', ')}.`,
+    );
+  }
+
+  return found;
 }
 
 // A case is boxed, so a case type that admits undefined still reads as present.
@@ -436,7 +453,8 @@ async function loadSelectedCases<Case>(
 type ActiveStage<Case> = Experiment<Case>['stages'][number];
 
 // A recorded run replays each stage that can, runs each stage that sends
-// nothing, and names each stage that would have to send as not measured.
+// nothing, and names each stage that would have to send as not measured. A live
+// run sends the recording's live stages instead of replaying them.
 interface PickedStages<Case> {
   readonly active: readonly ActiveStage<Case>[];
   readonly dropped: readonly string[];
@@ -445,7 +463,8 @@ interface PickedStages<Case> {
 
 function pickStages<Case>(
   experiment: Readonly<Experiment<Case>>,
-  recording: string | null,
+  recording: Recording | null,
+  live: boolean,
 ): PickedStages<Case> {
   if (recording === null) {
     return { active: experiment.stages, dropped: [], notMeasured: [] };
@@ -454,13 +473,19 @@ function pickStages<Case>(
   const active: ActiveStage<Case>[] = [];
   const dropped: string[] = [];
   const notMeasured: string[] = [];
+  const liveStages = live ? (recording.liveStages ?? []) : [];
 
   for (const stage of experiment.stages) {
-    if (stage.replay !== undefined) {
+    if (liveStages.includes(stage.name)) {
+      active.push(stage);
+    } else if (stage.replay !== undefined) {
       active.push({ ...stage, sends: false, run: stage.replay });
     } else if (stage.sends) {
       dropped.push(stage.name);
-      notMeasured.push(`stage ${stage.name}: the ${recording} recording holds no answers for it`);
+
+      notMeasured.push(
+        `stage ${stage.name}: the ${recording.name} recording holds no answers for it`,
+      );
     } else {
       active.push(stage);
     }

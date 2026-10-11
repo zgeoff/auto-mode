@@ -533,7 +533,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
   expect(outcome.diagnostics?.status).toBe('deny');
 });
 
-test('it keeps a soft-rule Jev deny the judge overturns as a misread under the default overturn setting', async () => {
+test('it allows an action whose soft-rule Jev deny the judge overturns as a misread under the default overturn setting', async () => {
   const ctx = await setupTest();
 
   decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
@@ -547,6 +547,45 @@ test('it keeps a soft-rule Jev deny the judge overturns as a misread under the d
     buildMockConfig({
       provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
       judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>misread</basis><reason>main is the task branch.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    decidingStage: 'judge',
+    status: 'allow',
+    judge: { status: 'overturned', overturnBasis: 'misread' },
+  });
+});
+
+test('it keeps a soft-rule Jev deny the judge overturns as a misread when only a consent overturn may clear it', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      judgeOverturns: 'consent',
       claudeSettingsPath: null,
     }),
     {
@@ -572,45 +611,6 @@ test('it keeps a soft-rule Jev deny the judge overturns as a misread under the d
     decidingStage: 'judge',
     status: 'deny',
     judge: { status: 'held', overturnBasis: 'misread' },
-  });
-});
-
-test('it allows an action whose soft-rule Jev deny the judge overturns as a misread when any overturn may clear it', async () => {
-  const ctx = await setupTest();
-
-  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
-
-  const outcome = await classifyAction(
-    buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
-      toolName: 'Bash',
-      toolInput: { command: 'make release' },
-    }),
-    buildMockConfig({
-      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
-      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
-      judgeOverturns: 'any',
-      claudeSettingsPath: null,
-    }),
-    {
-      host: buildMockHostEnvironment({
-        env: {
-          TYPESAFE_API_KEY: 'test-key',
-          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>misread</basis><reason>main is the task branch.</reason>',
-        },
-        home: ctx.dir,
-        scratchPaths: [],
-      }),
-    },
-  );
-
-  expect(outcome).toMatchObject({
-    verdict: { kind: 'allow' },
-    decidingStage: 'judge',
-    status: 'allow',
-    judge: { status: 'overturned', overturnBasis: 'misread' },
   });
 });
 

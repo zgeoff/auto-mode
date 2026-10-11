@@ -114,9 +114,12 @@ export interface LoadedCases<Case> {
   readonly notMeasured: readonly string[];
 }
 
-interface Recording {
+// A recording with live stages lets a live run send those stages and replay the
+// rest, so a new stage is measured on the same upstream answers.
+export interface Recording {
   readonly name: string;
   readonly description: string;
+  readonly liveStages?: readonly string[];
 }
 
 export interface Experiment<Case> {

@@ -40,7 +40,7 @@ test('#loadConfig falls back to the shipped defaults when there is no config fil
       maxTokens: 3000,
       timeoutMs: 120_000,
     },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     onFailure: 'defer',
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
@@ -88,7 +88,7 @@ test('#loadConfig reads the config file under the home config directory when no 
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -184,7 +184,7 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -233,7 +233,7 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -289,7 +289,7 @@ test('#loadConfig resolves the decision classifier and judge from the registry b
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -329,10 +329,10 @@ test('#loadConfig turns the judge off when the file sets it to null', async () =
   expect(config.judge).toBeNull();
 });
 
-test('#loadConfig lets any judge overturn clear a soft rule when the file sets judgeOverturns to any', async () => {
+test('#loadConfig lets any judge overturn clear a soft rule when the file sets no judgeOverturns', async () => {
   const ctx = await setupTest();
 
-  await writeFile(ctx.configFile, JSON.stringify({ decision: { judgeOverturns: 'any' } }));
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'jev' } }));
 
   const config = await loadConfig(
     ctx.configFile,
@@ -340,6 +340,19 @@ test('#loadConfig lets any judge overturn clear a soft rule when the file sets j
   );
 
   expect(config.judgeOverturns).toBe('any');
+});
+
+test('#loadConfig lets only a consent overturn clear a soft rule when the file sets judgeOverturns to consent', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { judgeOverturns: 'consent' } }));
+
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
+
+  expect(config.judgeOverturns).toBe('consent');
 });
 
 test('#loadConfig refuses a judgeOverturns value other than consent or any', async () => {
@@ -416,7 +429,7 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -479,7 +492,7 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [
       `${ctx.configFile}: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, claude-code, spark, claude, glm, messages`,
       `${ctx.configFile}: classifiers.stray dropped: Unrecognized key: "maxToken"`,
@@ -616,7 +629,7 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
     claudeSettingsPath: '/claude/settings.json',
     blockThreshold: 0.3,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -698,7 +711,7 @@ test('#loadConfig disables the Claude rule import when the policy sets the setti
     claudeSettingsPath: null,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -786,7 +799,7 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
     claudeSettingsPath: null,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 5, perSession: 40 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -829,7 +842,7 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -872,7 +885,7 @@ test('#loadConfig runs the cwd, session, and atc sources when the file has no sc
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [],
   });
 });
@@ -920,7 +933,7 @@ test('#loadConfig warns about a registry without the cwd source and a glob over 
     claudeSettingsPath: undefined,
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     warnings: [
       `${ctx.configFile}: scopeSources has no cwd entry, so the task owns only what the other sources name`,
       `${ctx.configFile}: scopeSources glob /repo/.worktrees/** covers worktrees that other tasks own`,
@@ -947,7 +960,7 @@ test('#DEFAULT_CONFIG ships Jev judged by claude-code, deferring on failure, wit
       maxTokens: 3000,
       timeoutMs: 120_000,
     },
-    judgeOverturns: 'consent',
+    judgeOverturns: 'any',
     onFailure: 'defer',
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },

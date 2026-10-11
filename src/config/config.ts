@@ -66,7 +66,7 @@ export const DEFAULT_SCOPE_SOURCES: Readonly<Record<string, ScopeSource>> = {
 };
 
 export const DEFAULT_BLOCK_THRESHOLD = 0.2;
-export const DEFAULT_JUDGE_OVERTURNS: JudgeOverturns = 'consent';
+export const DEFAULT_JUDGE_OVERTURNS: JudgeOverturns = 'any';
 
 export const DEFAULT_CONFIG: Config = {
   provider: DEFAULT_PROVIDER,

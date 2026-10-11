@@ -51,8 +51,8 @@ flowchart TD
 6. Jev answers one question per block rule in the policy, and the CLI denies when any rule's block
    probability reaches the configured threshold ([Jev](./stages/jev.md)).
 7. The judge, when configured, reads each Jev deny and confirms it with a written reason, or
-   overturns it to an allow, by default only when the user's last message asked for exactly this
-   action ([the judge](./stages/judge.md)).
+   overturns it to an allow when the user's last message asked for exactly this action or when no
+   rule covers the action ([the judge](./stages/judge.md)).
 8. The denial budget counts each deny. The deny that would pass the budget becomes no verdict, so
    that call reaches the user.
 
