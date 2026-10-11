@@ -65,6 +65,11 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Docs
+        run: |
+          bash .claude/skills/docs-writing/scripts/check-length.sh
+          bash .claude/skills/docs-writing/scripts/check-links.sh
+
       - name: Module boundaries
         run: bun run check:imports
 

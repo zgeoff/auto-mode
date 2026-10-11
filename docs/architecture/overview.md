@@ -92,7 +92,7 @@ go to Jev even inside the scope, on the path as written or as resolved: `.git`, 
 env and credential files, and auto-mode's own configuration and state. The written content must pass
 a secret scan with the Betterleaks v1.9.0 rule set, compiled to a bundled JSON file; an Edit is
 scanned as the 12 lines around each replacement in the file it produces. Any match sends the edit to
-Jev, and so does content over 256 KiB or an Edit whose text is not in its file. The scan never
+Jev, and so does content over the scan's size limit or an Edit whose text is not in its file. The scan never
 validates a secret against its provider. When the user's Claude settings carry deny entries, the
 bypass is off, because only Jev reads those entries.
 [The bypass evidence](../evaluations/edit-bypass.md) records the port and its cost.
@@ -243,7 +243,6 @@ are needed and absent; it does not deny over every possible unseen event.
   is never consulted for it.
 - **A model call can time out.** The default is to write nothing, report the failure on stderr, and
   keep the prompt. `onFailure: "deny"` fails closed instead.
-- **The mod's time limit bounds the model calls.** The child process has 10 minutes, Jev 5 seconds
-  and the judge its configured timeout, 120 seconds by default; a slower Jev call keeps the prompt,
-  and a slower judge keeps the deny. [Time limits](../guides/claude-mod.md#time-limits) has the
-  detail.
+- **The mod's time limit bounds the model calls.** The child process, the Jev call and the judge each
+  have a time limit, and the judge's is configurable. A slower Jev call keeps the prompt, and a
+  slower judge keeps the deny. [Time limits](../guides/claude-mod.md#time-limits) has the values.
