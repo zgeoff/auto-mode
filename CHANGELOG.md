@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.17.0...auto-mode-v0.18.0) (2026-10-11)
+
+
+### Features
+
+* **geo-220:** share one dependency-free contract with the mod ([#122](https://github.com/zgeoff/auto-mode/issues/122)) ([3dd9690](https://github.com/zgeoff/auto-mode/commit/3dd96903b0e939477cea9db9459be4a516aa09c9))
+
 ## [0.17.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.16.0...auto-mode-v0.17.0) (2026-10-10)
 
 
