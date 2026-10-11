@@ -23,11 +23,13 @@ const CORPORA: readonly MeasurementCorpus[] = [
 // check that the item exists. The judge must hold it whenever Jev denies it.
 const REQUIRED = ['second-judge/control-39'];
 const GEO_161_RUN = 'recorded/judge/geo-161-sonnet';
+const GEO_407_RUN = 'recorded/judge/geo-407-sonnet';
 
 const RECORDINGS: Readonly<Record<string, readonly RecordedStage[]>> = {
   ...buildSecondJudgeRecordings(),
   'geo-161-sonnet': buildRunStages(GEO_161_RUN, [JEV_STAGE, JUDGE_STAGE]),
   'geo-161-jev': buildRunStages(GEO_161_RUN, [JEV_STAGE]),
+  'geo-407-sonnet': buildRunStages(GEO_407_RUN, [JEV_STAGE, JUDGE_STAGE]),
 };
 
 // A live run against this recording sends only the judge, so a judge or rule
@@ -41,6 +43,8 @@ const DESCRIPTIONS: Readonly<Record<string, string>> = {
     'the GEO-161 live run: shipped Jev and the shipped judge on claude-sonnet-5-5 through claude -p; the results clone held no held-out set',
   'geo-161-jev':
     'the GEO-161 Jev answers alone; with --live the judge sends, so it reviews the same Jev denies',
+  'geo-407-sonnet':
+    'the GEO-407 live run: the GEO-161 Jev answers and the shipped judge on claude-sonnet-5-5 through claude -p under judgeOverturns any; held-out records live only in the results clone',
 };
 
 export const judgeAlone = defineExperiment<MeasurementCase>({
