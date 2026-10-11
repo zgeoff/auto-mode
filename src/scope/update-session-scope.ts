@@ -1,7 +1,9 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the checkout readers into src/git/
 import { toRepositorySlug } from '../containment/to-repository-slug.ts';
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the checkout readers into src/git/
 import { loadRepositoryContext } from '../model/load-repository-context.ts';
 import type { ScopeRecordRequest } from '../request/types.ts';
 import { collectPullRequestAddresses } from './collect-pull-request-addresses.ts';

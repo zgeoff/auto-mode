@@ -1,3 +1,4 @@
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-223 moves process spawning into one process helper
 import { spawn } from 'node:child_process';
 
 export interface PullRequestFacts {

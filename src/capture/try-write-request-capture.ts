@@ -1,6 +1,7 @@
 import { constants } from 'node:fs';
 import { chmod, mkdir, open, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves DecidingStage to src/types.ts
 import type { DecidingStage } from '../classify-action.ts';
 import type { Verdict } from '../request/types.ts';
 import { findEnclosingWorkTree } from './find-enclosing-work-tree.ts';

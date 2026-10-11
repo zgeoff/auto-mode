@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves OwnedScope and ScopeRemote to src/scope/types.ts
 import type { ScopeRemote } from '../containment/collect-scope-findings.ts';
 
 export async function loadCheckoutRemotes(commonDir: string): Promise<ScopeRemote[]> {

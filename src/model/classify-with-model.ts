@@ -5,6 +5,7 @@ import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { readHostEnvironment } from '../config/read-host-environment.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions } from '../config/types.ts';
+// oxlint-disable-next-line zgeoff/import-zones -- the model stage hands JudgeEvidence to the judge; no ticket yet
 import type { JudgeEvidence } from '../judge/classify-with-judge.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
