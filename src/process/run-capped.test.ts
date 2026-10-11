@@ -1,6 +1,6 @@
 import { expect, onTestFinished, test } from 'bun:test';
 import { once } from 'node:events';
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -105,6 +105,46 @@ test('it stops a child at once when the signal has already aborted', () => {
       maxOutputBytes: 1024,
     }),
   ).resolves.toStrictEqual({ exitCode: null, stdout: '', stopped: true, failedToStart: false });
+});
+
+test('it settles at the abort when the child has exited and a process outside its group holds stdout', async () => {
+  const ctx = await setupTest();
+
+  const pidPath = join(ctx.dir, 'pids');
+
+  const controller = new AbortController();
+
+  const result = runCapped(
+    '/bin/sh',
+    ['-c', `setsid sleep 30 & echo "{\\"child\\":$$,\\"escaped\\":$!}" > "${pidPath}"`],
+    { signal: controller.signal, maxOutputBytes: 1024 },
+  );
+
+  const report = await waitFor(
+    () => readFile(pidPath, 'utf8').catch(() => ''),
+    (written) => written.endsWith('}\n'),
+  );
+
+  const pids = z.object({ child: z.number(), escaped: z.number() }).parse(JSON.parse(report));
+
+  onTestFinished(() => {
+    process.kill(pids.escaped, 'SIGKILL');
+  });
+
+  // The abort comes after the child is reaped, so only the escaped process holds stdout.
+  await waitFor(
+    () => loadProcessState(pids.child),
+    (state) => state === null,
+  );
+
+  controller.abort();
+
+  expect(result).resolves.toStrictEqual({
+    exitCode: 0,
+    stdout: '',
+    stopped: true,
+    failedToStart: false,
+  });
 });
 
 test('it reports a child that cannot start', async () => {

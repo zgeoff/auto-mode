@@ -36,6 +36,7 @@ export function runCapped(
     let size = 0;
     let settled = false;
     let stopped = false;
+    let exited: number | null | undefined;
 
     const setResult = (exitCode: number | null, failedToStart: boolean): void => {
       if (settled) {
@@ -70,6 +71,11 @@ export function runCapped(
       } catch {
         child.kill('SIGKILL');
       }
+
+      if (exited !== undefined) {
+        child.stdout?.destroy();
+        setResult(exited, false);
+      }
     };
 
     options.signal.addEventListener('abort', stopChild, { once: true });
@@ -100,8 +106,10 @@ export function runCapped(
     });
 
     // A grandchild that left the group can hold stdout open after the kill, so
-    // a stopped run settles when the child exits, not when stdout closes.
+    // a stopped run settles once the child has exited, not when stdout closes.
     child.on('exit', (code) => {
+      exited = code;
+
       if (stopped) {
         setResult(code, false);
       }

@@ -2069,3 +2069,63 @@ test('it keeps the verdict and exit code when the capture write fails', async ()
     stderr: 'auto-mode: capture unavailable\n',
   });
 });
+
+test('it keeps the verdict and exit code when the denial counts cannot be updated', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+  await writeFile(join(ctx.dir, 'auto-mode', 'denials'), 'a file where the directory goes\n');
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Read',
+    toolInput: { file_path: join(ctx.repo, 'file.ts') },
+  });
+
+  const exitCode = await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '{"decision":"allow"}',
+    stderr: 'auto-mode: denial counts unavailable\n',
+  });
+});
+
+test('it leaves the denial counts untouched when it writes no verdict', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.dir, 'auto-mode'));
+
+  await writeFile(
+    join(ctx.dir, 'auto-mode', 'config.json'),
+    JSON.stringify({
+      classifiers: { jev: { baseURL: 'https://decision.test' } },
+      decision: { classifier: 'jev', judge: null, onFailure: 'defer' },
+    }),
+  );
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'make deploy' },
+  });
+
+  await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  const entries = await readdir(join(ctx.dir, 'auto-mode'));
+
+  expect(ctx.stdout.read()).toBe('');
+  expect(entries).toStrictEqual(['config.json']);
+});
