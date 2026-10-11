@@ -78,7 +78,7 @@ export function runCapped(
       stopChild();
     }
 
-    child.stdout.on('data', (chunk: Buffer) => {
+    child.stdout?.on('data', (chunk: Buffer) => {
       if (stopped) {
         return;
       }
