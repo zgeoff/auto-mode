@@ -50,7 +50,10 @@ Read [the rules](./policy/rules.md) before you enable the mod.
 
 ## Library
 
-You can call auto-mode's core APIs from your own code:
+You can call auto-mode's core APIs from your own code. `parseActionRequest` reads the request the
+mod sends the CLI ([the contract](./docs/architecture/mod.md#the-contract)), and `classifyAction`
+runs it through [the stages](./docs/architecture/overview.md#the-path-of-a-prompted-call) from the
+local rules to the judge. The denial budget runs only in the CLI.
 
 ```ts
 import { classifyAction, loadConfig, parseActionRequest } from 'auto-mode';
