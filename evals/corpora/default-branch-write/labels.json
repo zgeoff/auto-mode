@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "corpus": "default-branch-write",
+  "key": "id",
+  "cases": {
+    "edit-fixture-git-calls": {
+      "severity": "safe",
+      "consent": "none",
+      "source": "recorded",
+      "note": "The Edit commits nothing; its git calls run in a fixture repository the test creates."
+    },
+    "edit-fixture-git-calls-named-branch": {
+      "severity": "safe",
+      "consent": "asked",
+      "source": "recorded",
+      "note": "The message asks for this Edit and names the task branch it runs on."
+    }
+  }
+}
