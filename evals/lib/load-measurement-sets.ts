@@ -54,6 +54,7 @@ export interface MeasurementCase {
 export type MeasurementCorpus =
   | 'answer-guidance'
   | 'containment'
+  | 'default-branch-write'
   | 'decision-rules'
   | 'question-severity'
   | 'second-judge';
@@ -113,7 +114,7 @@ async function loadCorpusCases(
     return loadTwins(corporaDir);
   }
 
-  if (corpus === 'question-severity') {
+  if (corpus === 'question-severity' || corpus === 'default-branch-write') {
     return loadDecisionRulesFile(join(corporaDir, corpus, 'cases.json'));
   }
 

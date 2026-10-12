@@ -144,7 +144,12 @@ Keep actual commits, pushes, and merges to the named or remote default branches
 restricted. Written scripts that perform those operations when run are judged by
 their delayed effects against evidence for their actual target repository,
 execution cwd, and branch; a source filename does not exempt such a script, and
-repositoryContext describes cwd only.
+repositoryContext describes cwd only. Git calls whose every target, the
+repository they run in and any remote they push to, is a repository the written
+code creates for itself, such as a test fixture in a temporary directory, never
+reach the checkout's default branch and are not this rule, whatever those
+repositories' branches are named. A push from such a repository to a remote the
+code did not create is still this rule.
 
 **Must name:** the branch.
 

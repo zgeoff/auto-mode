@@ -354,7 +354,7 @@ test('it keeps the template deny and records a timeout when the judge outlasts i
       kind: 'deny',
       rule: 'Default Branch Write',
       reason:
-        'The action matches this rule: committing, pushing, or merging directly to the default branch. A direct user instruction that names the branch clears it.',
+        'The action matches this rule: committing, pushing, or merging directly to the default branch. A direct user instruction that asks for this action and names its branch clears it.',
     },
     status: 'failed',
     overturnBasis: null,
@@ -439,7 +439,7 @@ test('it keeps the template deny and records an unreadable reply', async () => {
       kind: 'deny',
       rule: 'Default Branch Write',
       reason:
-        'The supplied evidence cannot rule out committing, pushing, or merging directly to the default branch. A direct user instruction that names the branch clears it.',
+        'The supplied evidence cannot rule out committing, pushing, or merging directly to the default branch. A direct user instruction that asks for this action and names its branch clears it.',
     },
     status: 'failed',
     overturnBasis: null,
@@ -518,7 +518,7 @@ test('it keeps the template deny and records a missing credential for a Messages
       kind: 'deny',
       rule: 'Default Branch Write',
       reason:
-        'The action matches this rule: committing, pushing, or merging directly to the default branch. A direct user instruction that names the branch clears it.',
+        'The action matches this rule: committing, pushing, or merging directly to the default branch. A direct user instruction that asks for this action and names its branch clears it.',
     },
     status: 'failed',
     overturnBasis: null,
@@ -722,7 +722,7 @@ test('it holds a soft-rule deny the judge overturns as a misread when only conse
       kind: 'deny',
       rule: 'Default Branch Write',
       reason:
-        'The action matches this rule: committing, pushing, or merging directly to the default branch. A direct user instruction that names the branch clears it.',
+        'The action matches this rule: committing, pushing, or merging directly to the default branch. A direct user instruction that asks for this action and names its branch clears it.',
     },
     status: 'held',
     overturnBasis: 'misread',

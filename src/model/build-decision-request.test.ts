@@ -425,6 +425,14 @@ test('it distinguishes a non-Git edit from actual Git targets for the shipped de
     'judge those effects against evidence for their actual target repository, execution cwd, and branch, not assumed cwd references',
   );
 
+  expect(question.instructions).toInclude(
+    'Git calls whose every target, the repository they run in and any remote they push to, is a repository the written code creates for itself',
+  );
+
+  expect(question.instructions).toInclude(
+    'a push from such a repository to a remote the code did not create still does',
+  );
+
   expect(question.instructions).toInclude('main, master, trunk, and develop');
 });
 
