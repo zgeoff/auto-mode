@@ -59,7 +59,7 @@ export function classifyLocally(payload: ActionRequest): LocalVerdict {
 
 function classifySegment(text: string, cwd: string): string | null {
   const words = splitWords(text);
-  const start = words.findIndex((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word));
+  const start = words.findIndex((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word.raw));
 
   if (start === -1) {
     // Only environment assignments, so nothing runs.
@@ -71,16 +71,16 @@ function classifySegment(text: string, cwd: string): string | null {
   invariant(head !== undefined, 'findIndex returned an index the array holds');
 
   const rest = words.slice(start + 1);
-  const name = head.slice(head.lastIndexOf('/') + 1);
+  const name = head.raw.slice(head.raw.lastIndexOf('/') + 1);
 
   if (READ_ONLY_COMMANDS.has(name)) {
     return 'Read-only actions';
   }
 
   if (name === 'git') {
-    const sub = rest.find((word) => !word.startsWith('-'));
+    const sub = rest.find((word) => !word.raw.startsWith('-'));
 
-    return sub !== undefined && READ_ONLY_GIT_SUBCOMMANDS.has(sub) ? 'Read-only actions' : null;
+    return sub !== undefined && READ_ONLY_GIT_SUBCOMMANDS.has(sub.raw) ? 'Read-only actions' : null;
   }
 
   if (name === 'rm') {
@@ -90,15 +90,19 @@ function classifySegment(text: string, cwd: string): string | null {
   return null;
 }
 
-function classifyRemove(args: readonly string[], cwd: string): string | null {
-  const paths = args.filter((arg) => !arg.startsWith('-'));
+function classifyRemove(args: readonly ShellWord[], cwd: string): string | null {
+  const paths = args.filter((arg) => !arg.raw.startsWith('-'));
 
   if (paths.length === 0) {
     return null;
   }
 
   for (const path of paths) {
-    const stripped = toUnquoted(path);
+    if (!isPlainOperand(path)) {
+      return null;
+    }
+
+    const stripped = path.value;
 
     if (stripped.includes('*') || stripped.includes('~') || stripped.includes('$')) {
       return null;
@@ -122,16 +126,24 @@ function classifyRemove(args: readonly string[], cwd: string): string | null {
   return 'Regenerable output';
 }
 
-// The raw words, quotes kept: a quoted path is unquoted where it is read, and
-// a quoted program name matches no allowlist entry.
-function splitWords(text: string): readonly string[] {
+interface ShellWord {
+  readonly raw: string;
+  readonly value: string;
+}
+
+// The words as written and with their quotes removed. A quoted program name
+// matches no allowlist entry, because the raw word is what is matched.
+function splitWords(text: string): readonly ShellWord[] {
   return splitShellTokens(text).tokens.flatMap((token) =>
-    token.kind === 'word' ? [token.raw] : [],
+    token.kind === 'word' ? [{ raw: token.raw, value: token.value }] : [],
   );
 }
 
-function toUnquoted(word: string): string {
-  const [first] = word;
+// An operand quoted whole or not at all, with no whitespace, is the one shape
+// the path check reads; a partly quoted one such as `"/a b"/node_modules`
+// names a path the check would misplace.
+function isPlainOperand(word: Readonly<ShellWord>): boolean {
+  const isWhole = [word.value, `'${word.value}'`, `"${word.value}"`].includes(word.raw);
 
-  return (first === "'" || first === '"') && word.at(-1) === first ? word.slice(1, -1) : word;
+  return isWhole && !/\s/u.test(word.value);
 }
