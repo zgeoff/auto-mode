@@ -1,14 +1,12 @@
 import { resolve } from 'node:path';
 import type { ScopeSource } from '../config/config.ts';
 import type { HostEnvironment, OutputStream } from '../config/types.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves OwnedScope and ScopeRemote to src/scope/types.ts
-import type { OwnedScope } from '../containment/collect-scope-findings.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the checkout readers into src/git/
-import { loadRepositoryContext } from '../model/load-repository-context.ts';
+import { findCheckout } from '../git/find-checkout.ts';
+import { loadCheckoutRemotes } from '../git/load-checkout-remotes.ts';
+import { loadRepositoryContext } from '../git/load-repository-context.ts';
 import { buildTaskScope } from './build-task-scope.ts';
-import { findCheckout } from './find-checkout.ts';
-import { loadCheckoutRemotes } from './load-checkout-remotes.ts';
 import { pickScopeSourceReader } from './pick-scope-source-reader.ts';
+import type { OwnedScope } from './types.ts';
 
 export interface TaskScopeRequest {
   readonly sessionID: string;

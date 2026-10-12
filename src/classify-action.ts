@@ -5,7 +5,6 @@ import { loadClaudeSettings } from './config/load-claude-settings.ts';
 import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
-import type { OwnedScope } from './containment/collect-scope-findings.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
@@ -16,16 +15,9 @@ import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
+import type { OwnedScope } from './scope/types.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
-
-export type DecidingStage =
-  | 'local'
-  | 'containment'
-  | 'bypass'
-  | 'jev'
-  | 'judge'
-  | 'messages'
-  | 'retry';
+import type { DecidingStage } from './types.ts';
 
 export interface ActionOutcome {
   readonly verdict: Verdict | null;

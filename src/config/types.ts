@@ -1,4 +1,4 @@
-import type { TaskScopeSummary } from '../model/types.ts';
+import type { TaskScopeSummary } from '../types.ts';
 
 export interface OutputStream {
   readonly write: (text: string) => unknown;

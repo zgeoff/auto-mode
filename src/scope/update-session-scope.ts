@@ -1,18 +1,16 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the checkout readers into src/git/
-import { toRepositorySlug } from '../containment/to-repository-slug.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the checkout readers into src/git/
-import { loadRepositoryContext } from '../model/load-repository-context.ts';
+import { findCheckout } from '../git/find-checkout.ts';
+import { loadCheckoutRemotes } from '../git/load-checkout-remotes.ts';
+import { loadRepositoryContext } from '../git/load-repository-context.ts';
+import { readBranchCreatedAt } from '../git/read-branch-created-at.ts';
+import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import type { ScopeRecordRequest } from '../request/types.ts';
 import type { LockClock } from '../state/types.ts';
 import { collectPullRequestAddresses } from './collect-pull-request-addresses.ts';
 import { collectScopeEvents } from './collect-scope-events.ts';
-import { findCheckout } from './find-checkout.ts';
-import { loadCheckoutRemotes } from './load-checkout-remotes.ts';
 import { mergeSessionScope } from './merge-session-scope.ts';
-import { readBranchCreatedAt } from './read-branch-created-at.ts';
 import type { PullRequestFacts } from './read-pull-request.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import type { ScopeEvent, SessionScope } from './types.ts';

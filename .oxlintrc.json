@@ -59,10 +59,11 @@
           ],
           "request": ["src/request/**"],
           "support": [
-            "src/{budget,capture,config,diagnostics,git,policy,process,scope,secrets,shell,state}/**"
+            "src/{budget,capture,config,diagnostics,git,messages,policy,process,scope,secrets,shell,state}/**",
+            "src/types.ts"
           ],
           "stage": ["src/{bypass,containment,judge,model,rules}/**"],
-          "network": ["src/model/**"],
+          "network": ["src/{messages,model}/**"],
           "process": ["src/process/**"],
           // the request and verdict shapes the mod and the CLI share
           "contract": ["mods/auto-mode/contract/**"],

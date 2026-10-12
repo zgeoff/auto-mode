@@ -1,4 +1,4 @@
-import type { Checkout } from '../src/scope/find-checkout.ts';
+import type { Checkout } from '../src/git/find-checkout.ts';
 
 export interface StubCheckoutFinder {
   readonly findCheckout: (path: string) => Promise<Checkout | null>;

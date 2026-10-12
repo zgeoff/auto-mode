@@ -1,12 +1,6 @@
 import type { ClaudeRules } from '../config/types.ts';
 import type { DecisionContext } from '../request/types.ts';
-
-export interface DecisionRule {
-  readonly name: string;
-  readonly tier: 'hard' | 'soft';
-  readonly source: 'shipped' | 'replacement' | 'configured';
-  readonly text: string;
-}
+import type { DecisionRule, MCPServerFact, RepositoryContext } from '../types.ts';
 
 export type DecisionChoice = 'allow' | 'block';
 
@@ -41,32 +35,6 @@ export interface DecisionInput<Choice extends string = DecisionChoice> {
 
 export interface DecisionRequest extends DecisionInput {
   readonly rules: Readonly<Record<string, DecisionRule>>;
-}
-
-export interface RepositoryContext {
-  readonly cwd: string;
-  readonly branch: string | null;
-  readonly defaultBranch: string | null;
-  readonly remotes?: readonly RepositoryRemote[] | undefined;
-  readonly taskScope?: TaskScopeSummary | undefined;
-}
-
-export interface MCPServerFact {
-  readonly name: string;
-  readonly scope: 'user' | 'local' | 'project';
-  readonly transport: 'stdio' | 'http' | 'sse' | 'ws';
-  readonly host: string | null;
-}
-
-interface RepositoryRemote {
-  readonly name: string;
-  readonly url: string;
-}
-
-export interface TaskScopeSummary {
-  readonly worktrees: readonly string[];
-  readonly branches: readonly string[];
-  readonly pullRequests: readonly { readonly repository: string; readonly number: number }[];
 }
 
 export interface DecisionAnswer<Choice extends string = DecisionChoice> {

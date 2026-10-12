@@ -1,6 +1,7 @@
 import { isAbsolute, normalize, relative } from 'node:path';
 import invariant from 'tiny-invariant';
 import type { ActionRequest } from '../request/types.ts';
+import { splitShellCommand } from '../shell/split-shell-command.ts';
 import {
   READ_ONLY_COMMANDS,
   READ_ONLY_GIT_SUBCOMMANDS,
@@ -8,7 +9,6 @@ import {
   REGENERABLE_DIRS,
   SHELL_TOOLS,
 } from './local-allowlists.ts';
-import { splitShellCommand } from './split-shell-command.ts';
 
 export type LocalVerdict =
   | { readonly kind: 'allow'; readonly exception: string }

@@ -1,11 +1,6 @@
-import type { DenyBasis } from '../policy/build-deny-reason.ts';
+import type { DeniedRule } from '../types.ts';
 import { collectBlockingRules } from './collect-blocking-rules.ts';
-import type { DecisionRequest, DecisionResult, DecisionRule } from './types.ts';
-
-export interface DeniedRule {
-  readonly rule: DecisionRule;
-  readonly basis: DenyBasis;
-}
+import type { DecisionRequest, DecisionResult } from './types.ts';
 
 export function findDeniedRule(
   request: DecisionRequest,

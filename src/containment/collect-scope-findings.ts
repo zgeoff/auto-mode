@@ -1,30 +1,9 @@
 import { isAbsolute, join, matchesGlob, normalize } from 'node:path';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the shell parsers into src/shell/
-import { splitCommandWords } from '../rules/split-command-words.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the shell parsers into src/shell/
-import { splitShellCommand } from '../rules/split-shell-command.ts';
-import { SCRATCH_PATHS } from './scratch-paths.ts';
-import { toRepositorySlug } from './to-repository-slug.ts';
-
-export interface ScopeRemote {
-  readonly name: string;
-  readonly url: string;
-}
-
-interface OwnedPullRequest {
-  readonly number: number;
-  readonly repository: string;
-}
-
-export interface OwnedScope {
-  readonly home: string;
-  readonly worktrees: readonly string[];
-  readonly branches: readonly string[];
-  readonly currentBranch: string | null;
-  readonly remotes: readonly ScopeRemote[];
-  readonly pullRequests: readonly OwnedPullRequest[];
-  readonly pathGlobs: readonly string[];
-}
+import { SCRATCH_PATHS } from '../config/scratch-paths.ts';
+import { toRepositorySlug } from '../git/to-repository-slug.ts';
+import type { OwnedScope } from '../scope/types.ts';
+import { splitCommandWords } from '../shell/split-command-words.ts';
+import { splitShellCommand } from '../shell/split-shell-command.ts';
 
 export interface ScopeFinding {
   readonly kind: 'path' | 'branch' | 'remote-write' | 'credential' | 'prune';

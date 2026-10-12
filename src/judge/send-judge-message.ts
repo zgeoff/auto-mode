@@ -1,8 +1,6 @@
 import type { ProviderConfig } from '../config/config.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- the judge shares the model stage's Messages client; no ticket yet
-import { sendMessage } from '../model/anthropic-client.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- the judge shares the model stage's Messages client; no ticket yet
-import type { ModelRequest } from '../model/anthropic-client.ts';
+import { sendMessage } from '../messages/anthropic-client.ts';
+import type { ModelRequest } from '../messages/anthropic-client.ts';
 import { runClaudeCode } from './run-claude-code.ts';
 
 export interface JudgeTransport {

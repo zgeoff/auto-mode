@@ -1,8 +1,8 @@
 import { readFile, stat } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
-import { loadCheckoutRemotes } from '../scope/load-checkout-remotes.ts';
-import type { RepositoryContext } from './types.ts';
+import type { RepositoryContext } from '../types.ts';
+import { loadCheckoutRemotes } from './load-checkout-remotes.ts';
 
 export async function loadRepositoryContext(
   cwd: string,

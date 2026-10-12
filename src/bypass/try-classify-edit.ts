@@ -2,11 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { resolveConfigPath } from '../config/config.ts';
 import type { HostEnvironment } from '../config/types.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves OwnedScope and ScopeRemote to src/scope/types.ts
-import type { OwnedScope } from '../containment/collect-scope-findings.ts';
+import type { Checkout } from '../git/find-checkout.ts';
+import { findCheckout } from '../git/find-checkout.ts';
 import type { ActionRequest } from '../request/types.ts';
-import type { Checkout } from '../scope/find-checkout.ts';
-import { findCheckout } from '../scope/find-checkout.ts';
+import type { OwnedScope } from '../scope/types.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 import type { EditClassification } from './classify-edit.ts';
 import { getEditFields } from './get-edit-fields.ts';

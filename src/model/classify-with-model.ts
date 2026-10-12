@@ -5,17 +5,16 @@ import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { readHostEnvironment } from '../config/read-host-environment.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions } from '../config/types.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- the model stage hands JudgeEvidence to the judge; no ticket yet
-import type { JudgeEvidence } from '../judge/classify-with-judge.ts';
+import { loadMCPServers } from '../git/load-mcp-servers.ts';
+import { loadRepositoryEvidence } from '../git/load-repository-evidence.ts';
+import { sendMessage } from '../messages/anthropic-client.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
-import { sendMessage } from './anthropic-client.ts';
+import type { JudgeEvidence } from '../types.ts';
 import { buildUserMessage } from './build-request.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
-import { loadMCPServers } from './load-mcp-servers.ts';
-import { loadRepositoryEvidence } from './load-repository-evidence.ts';
 import { parseModelVerdict } from './parse-verdict.ts';
 import type { DecisionDiagnostics } from './types.ts';
 

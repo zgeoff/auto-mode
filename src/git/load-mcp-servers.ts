@@ -2,9 +2,9 @@ import { join, resolve } from 'node:path';
 import * as z from 'zod';
 import { resolveClaudeConfigPath } from '../config/resolve-claude-config-path.ts';
 import type { HostEnvironment } from '../config/types.ts';
-import { findCheckout } from '../scope/find-checkout.ts';
 import { loadJSONFile } from '../state/load-json-file.ts';
-import type { MCPServerFact } from './types.ts';
+import type { MCPServerFact } from '../types.ts';
+import { findCheckout } from './find-checkout.ts';
 
 // Each entry is read field by field, so a credential in `env`, `headers` or
 // `args` is never parsed into the result.

@@ -4,6 +4,8 @@ import { DEFAULT_BLOCK_THRESHOLD, resolveApiKey } from '../config/config.ts';
 import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
+import { loadMCPServers } from '../git/load-mcp-servers.ts';
+import { loadRepositoryEvidence } from '../git/load-repository-evidence.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
@@ -13,8 +15,6 @@ import { collectDecisionContributors } from './collect-decision-contributors.ts'
 import { DecisionRequestError } from './decision-request-error.ts';
 import { findReviewedRule } from './find-reviewed-rule.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
-import { loadMCPServers } from './load-mcp-servers.ts';
-import { loadRepositoryEvidence } from './load-repository-evidence.ts';
 import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 import { sendDecision } from './send-decision.ts';
 import type { DecisionDiagnostics } from './types.ts';

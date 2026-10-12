@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { DecisionRule } from '../../src/model/types.ts';
+import type { DecisionRule } from '../../src/types.ts';
 
 export function buildMockDecisionRule(overrides: Partial<DecisionRule> = {}): DecisionRule {
   return {

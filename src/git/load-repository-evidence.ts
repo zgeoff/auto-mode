@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
+import type { RepositoryContext, TaskScopeSummary } from '../types.ts';
 import { loadRepositoryContext } from './load-repository-context.ts';
-import type { RepositoryContext, TaskScopeSummary } from './types.ts';
 
 export async function loadRepositoryEvidence(
   cwd: string,

@@ -1,8 +1,6 @@
 import { match } from 'ts-pattern';
-import type { DecisionRule } from '../model/types.ts';
+import type { DecisionRule, DenyBasis } from '../types.ts';
 import { DENY_REASONS } from './deny-reasons.ts';
-
-export type DenyBasis = 'matched' | 'unresolved';
 
 export function buildDenyReason(
   rule: Pick<DecisionRule, 'name' | 'tier' | 'source'>,

@@ -4,7 +4,7 @@ import type {
   MessagesErrorBody,
   MessagesRequest,
   MessagesResponse,
-} from '../src/model/anthropic-client.ts';
+} from '../src/messages/anthropic-client.ts';
 import { messagesReplies } from './messages-replies.ts';
 
 interface ResolverInfo {

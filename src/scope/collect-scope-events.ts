@@ -1,9 +1,7 @@
 import { isAbsolute, join, normalize } from 'node:path';
 import { SCOPE_COMMANDS } from '../../mods/auto-mode/contract/scope-commands.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the shell parsers into src/shell/
-import { splitCommandWords } from '../rules/split-command-words.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the shell parsers into src/shell/
-import { splitShellCommand } from '../rules/split-shell-command.ts';
+import { splitCommandWords } from '../shell/split-command-words.ts';
+import { splitShellCommand } from '../shell/split-shell-command.ts';
 import type { ScopeEvent } from './types.ts';
 
 // Reads only the command text. An event is a claim the command may have made

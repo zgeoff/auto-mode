@@ -1,8 +1,8 @@
 import type { ScopeSource } from '../config/config.ts';
 import type { HostEnvironment } from '../config/types.ts';
+import type { Checkout } from '../git/find-checkout.ts';
+import { findCheckout } from '../git/find-checkout.ts';
 import { buildAtcScopeFacts } from './build-atc-scope-facts.ts';
-import type { Checkout } from './find-checkout.ts';
-import { findCheckout } from './find-checkout.ts';
 import { loadAtcSessionRecord } from './load-atc-session-record.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
