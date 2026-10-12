@@ -80,7 +80,7 @@ test('it denies when a block probability equals the threshold', () => {
     kind: 'deny',
     rule: 'Default Branch Write',
     reason:
-      'The supplied evidence cannot rule out committing, pushing, or merging directly to the default branch. A direct user instruction that names the branch clears it.',
+      'The supplied evidence cannot rule out committing, pushing, or merging directly to the default branch. A direct user instruction that asks for this action and names its branch clears it.',
   });
 });
 
@@ -166,7 +166,7 @@ test('it names the rule with the highest block probability over an earlier hard 
     kind: 'deny',
     rule: 'Default Branch Write',
     reason:
-      'The action matches this rule: committing, pushing, or merging directly to the default branch. A direct user instruction that names the branch clears it.',
+      'The action matches this rule: committing, pushing, or merging directly to the default branch. A direct user instruction that asks for this action and names its branch clears it.',
   });
 });
 

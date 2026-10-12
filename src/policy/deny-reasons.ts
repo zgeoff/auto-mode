@@ -51,7 +51,7 @@ export const DENY_REASONS: Readonly<Record<string, DenyReason>> = {
   'Default Branch Write': {
     tier: 'soft',
     harm: 'committing, pushing, or merging directly to the default branch',
-    clears: 'A direct user instruction that names the branch clears it.',
+    clears: 'A direct user instruction that asks for this action and names its branch clears it.',
   },
   'Publish and Release': {
     tier: 'soft',
