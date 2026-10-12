@@ -1,4 +1,5 @@
-import type { DecisionAnswer, DecisionRequest, DecisionResult, DecisionRule } from './types.ts';
+import type { DecisionRule } from '../types.ts';
+import type { DecisionAnswer, DecisionRequest, DecisionResult } from './types.ts';
 
 interface BlockingRule {
   readonly id: string;

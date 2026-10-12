@@ -1,63 +1,41 @@
-import { isAbsolute, join, normalize } from 'node:path';
 import { SCOPE_COMMANDS } from '../../mods/auto-mode/contract/scope-commands.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the shell parsers into src/shell/
-import { splitCommandWords } from '../rules/split-command-words.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the shell parsers into src/shell/
-import { splitShellCommand } from '../rules/split-shell-command.ts';
+import { collectShellCommands } from '../shell/collect-shell-commands.ts';
+import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
+import { resolveShellPath } from '../shell/resolve-shell-path.ts';
+import { splitGitCommand } from '../shell/split-git-command.ts';
 import type { ScopeEvent } from './types.ts';
 
 // Reads only the command text. An event is a claim the command may have made
 // something; the caller confirms each one against the checkout before the
 // session's scope takes it.
 export function collectScopeEvents(command: string, cwd: string, home: string): ScopeEvent[] {
-  const events: ScopeEvent[] = [];
-  const hasPipe = /(?<!\|)\|(?!\|)/u.test(command);
-  let directory: string | null = cwd;
+  return collectShellCommands(command, cwd, home).flatMap((entry) => {
+    const [name, ...args] = entry.words;
+    const directory = entry.directory;
 
-  for (const segment of splitShellCommand(command).segments) {
-    const [name, ...args] = splitCommandWords(segment.text);
-
-    if (name === 'cd') {
-      // A `cd` inside a pipeline runs in a subshell, and the segments do not
-      // keep their separators, so a pipe leaves the directory unknown.
-      directory = hasPipe ? null : resolvePath(directory, args[0] ?? home, home);
-    } else if (name === 'git' && directory !== null) {
-      events.push(...collectGitEvents(args, directory, home));
-    } else if (
-      name === 'gh' &&
-      directory !== null &&
-      findScopeCommand(SCOPE_COMMANDS.gh, args) !== null
-    ) {
-      events.push({
-        kind: 'pull-request',
-        directory,
-        head: findOptionValue(args, ['--head', '-H']),
-      });
+    if (directory === null) {
+      return [];
     }
-  }
 
-  return events;
+    if (name === 'git') {
+      return collectGitEvents(args, directory, home);
+    }
+
+    return name === 'gh' && findScopeCommand(SCOPE_COMMANDS.gh, args) !== null
+      ? [{ kind: 'pull-request', directory, head: findOptionValue(args, ['--head', '-H']) }]
+      : [];
+  });
 }
 
 function collectGitEvents(args: readonly string[], cwd: string, home: string): ScopeEvent[] {
-  let directory: string | null = cwd;
-  let index = 0;
+  const git = splitGitCommand(args, cwd, home);
+  const found = findScopeCommand(SCOPE_COMMANDS.git, git.args);
 
-  while (index < args.length && args[index]?.startsWith('-') === true) {
-    if (args[index] === '-C') {
-      directory = resolvePath(directory, args[index + 1] ?? '', home);
-    }
-
-    index += args[index] === '-C' || args[index] === '-c' ? 2 : 1;
-  }
-
-  const found = findScopeCommand(SCOPE_COMMANDS.git, args.slice(index));
-
-  if (directory === null || found === null) {
+  if (git.directory === null || found === null) {
     return [];
   }
 
-  return GIT_EVENT_COLLECTORS[found.command](found.rest, directory, home);
+  return GIT_EVENT_COLLECTORS[found.command](found.rest, git.directory, home);
 }
 
 interface FoundScopeCommand<C extends string> {
@@ -95,7 +73,7 @@ function collectWorktreeEvents(
   home: string,
 ): ScopeEvent[] {
   const path = findWorktreePath(rest);
-  const resolved = path === null ? null : resolvePath(directory, path, home);
+  const resolved = path === null ? null : resolveShellPath(directory, path, home);
 
   return resolved === null ? [] : [{ kind: 'worktree', path: resolved }];
 }
@@ -136,33 +114,12 @@ function collectBranchEvents(rest: readonly string[], directory: string): ScopeE
 
   const name = rest.find((word) => !word.startsWith('-'));
 
-  return name === undefined || isUnresolved(name) ? [] : [{ kind: 'branch', name, directory }];
+  return name === undefined || isUnresolvedWord(name) ? [] : [{ kind: 'branch', name, directory }];
 }
 
 function findOptionValue(args: readonly string[], options: readonly string[]): string | null {
   const index = args.findIndex((word) => options.includes(word));
   const value = index === -1 ? undefined : args[index + 1];
 
-  return value === undefined || isUnresolved(value) ? null : value;
-}
-
-function isUnresolved(word: string): boolean {
-  return /[$`]/u.test(word);
-}
-
-function resolvePath(directory: string | null, path: string, home: string): string | null {
-  const expanded = path.replace(/^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u, home);
-
-  if (isUnresolved(expanded) || expanded.startsWith('~') || expanded === '') {
-    return null;
-  }
-
-  if (!isAbsolute(expanded) && directory === null) {
-    return null;
-  }
-
-  const absolute =
-    isAbsolute(expanded) || directory === null ? expanded : join(directory, expanded);
-
-  return normalize(absolute).replace(/(?<=.)\/$/u, '');
+  return value === undefined || isUnresolvedWord(value) ? null : value;
 }

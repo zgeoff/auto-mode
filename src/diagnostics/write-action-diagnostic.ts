@@ -1,13 +1,12 @@
 import { createHash } from 'node:crypto';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves DecidingStage to src/types.ts
-import type { DecidingStage } from '../classify-action.ts';
 import type { HostEnvironment, OutputStream } from '../config/types.ts';
 import type { JudgeDiagnostics } from '../judge/types.ts';
 import type { DecisionDiagnostics } from '../model/types.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
+import type { DecidingStage } from '../types.ts';
 
 interface ActionDiagnostic {
   readonly invocationID: string;

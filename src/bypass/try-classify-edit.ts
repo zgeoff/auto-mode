@@ -2,11 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { resolveConfigPath } from '../config/config.ts';
 import type { HostEnvironment } from '../config/types.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves OwnedScope and ScopeRemote to src/scope/types.ts
-import type { OwnedScope } from '../containment/collect-scope-findings.ts';
+import { findCheckout } from '../git/find-checkout.ts';
+import type { CheckoutFinder } from '../git/types.ts';
 import type { ActionRequest } from '../request/types.ts';
-import type { Checkout } from '../scope/find-checkout.ts';
-import { findCheckout } from '../scope/find-checkout.ts';
+import type { OwnedScope } from '../scope/types.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 import type { EditClassification } from './classify-edit.ts';
 import { getEditFields } from './get-edit-fields.ts';
@@ -14,10 +13,7 @@ import { resolveEditTarget } from './resolve-edit-target.ts';
 
 export interface EditFileReader {
   readonly resolveEditTarget: (path: string) => Promise<string | null>;
-  readonly findCheckout: (
-    directory: string,
-    env: HostEnvironment['env'],
-  ) => Promise<Checkout | null>;
+  readonly findCheckout: CheckoutFinder;
   readonly readFile: (path: string) => Promise<string>;
 }
 
@@ -35,8 +31,9 @@ export async function tryClassifyEdit(
   request: Readonly<ActionRequest>,
   scope: Readonly<OwnedScope>,
   host: Readonly<HostEnvironment>,
-  files: Readonly<EditFileReader> = DISK_EDIT_FILE_READER,
+  reader: Readonly<Partial<EditFileReader>> = {},
 ): Promise<EditClassification | null> {
+  const files = { ...DISK_EDIT_FILE_READER, ...reader };
   const fields = getEditFields(request.toolName);
   const path = fields === null ? undefined : request.toolInput[fields.path];
 

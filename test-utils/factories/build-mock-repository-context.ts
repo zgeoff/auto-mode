@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { RepositoryContext } from '../../src/model/types.ts';
+import type { RepositoryContext } from '../../src/types.ts';
 import { buildMockTaskScopeSummary } from './build-mock-task-scope-summary.ts';
 
 interface RepositoryContextOverrides extends Partial<Omit<RepositoryContext, 'taskScope'>> {

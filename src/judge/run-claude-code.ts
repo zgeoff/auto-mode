@@ -1,8 +1,7 @@
 import { tmpdir } from 'node:os';
 import * as z from 'zod';
 import type { ProviderConfig } from '../config/config.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- the judge shares the model stage's Messages client; no ticket yet
-import type { ModelRequest } from '../model/anthropic-client.ts';
+import type { ModelRequest } from '../messages/anthropic-client.ts';
 import { runCapped } from '../process/run-capped.ts';
 
 export interface ClaudeCodeReply {

@@ -6,7 +6,11 @@ test('it places a listed path in the checkout of its own git directory', async (
 
   const checkout = await finder.findCheckout('/w/app');
 
-  expect(checkout).toStrictEqual({ worktree: '/w/app', commonDir: '/w/app.git' });
+  expect(checkout).toStrictEqual({
+    worktree: '/w/app',
+    gitDir: '/w/app.git',
+    commonDir: '/w/app.git',
+  });
 });
 
 test('it places an unlisted path in no checkout without a fallback', async () => {
@@ -22,5 +26,9 @@ test('it places an unlisted path in the fallback git directory', async () => {
 
   const checkout = await finder.findCheckout('/w/other');
 
-  expect(checkout).toStrictEqual({ worktree: '/w/other', commonDir: '/replay/repository.git' });
+  expect(checkout).toStrictEqual({
+    worktree: '/w/other',
+    gitDir: '/replay/repository.git',
+    commonDir: '/replay/repository.git',
+  });
 });

@@ -12,7 +12,7 @@ import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { runGit } from '../../test-utils/run-git.ts';
-import type { MessagesErrorBody } from './anthropic-client.ts';
+import type { MessagesErrorBody } from '../messages/anthropic-client.ts';
 import { classifyWithModel } from './classify-with-model.ts';
 
 async function setupTest() {

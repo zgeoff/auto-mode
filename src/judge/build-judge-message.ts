@@ -1,5 +1,4 @@
-import type { DecisionRule, RepositoryContext } from '../model/types.ts';
-import type { DenyBasis } from '../policy/build-deny-reason.ts';
+import type { DecisionRule, DenyBasis, RepositoryContext } from '../types.ts';
 
 export interface JudgeInput {
   readonly rule: DecisionRule;

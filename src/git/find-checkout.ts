@@ -1,40 +1,35 @@
 import { readFile, stat } from 'node:fs/promises';
-import { dirname, join, parse, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
-
-export interface Checkout {
-  readonly worktree: string;
-  readonly commonDir: string;
-}
+import { findGitEntry } from './find-git-entry.ts';
+import type { Checkout } from './types.ts';
 
 const GIT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
 
 export async function findCheckout(
   start: string,
   env: HostEnvironment['env'],
-  stopDir: string = parse(start).root,
+  stopDir?: string,
 ): Promise<Checkout | null> {
   if (GIT_OVERRIDES.some((name) => env[name] !== undefined)) {
     return null;
   }
 
-  for (let directory = start; ; directory = dirname(directory)) {
-    const gitPath = join(directory, '.git');
+  const entry = await findGitEntry(start, stopDir);
 
-    const info = await stat(gitPath).catch(() => null);
+  const info = entry === null ? null : await stat(entry.gitPath).catch(() => null);
 
-    if (info !== null) {
-      const gitDir = info.isDirectory() ? gitPath : await findLinkedGitDir(directory, gitPath);
-
-      return gitDir === null
-        ? null
-        : { worktree: directory, commonDir: await findCommonDir(gitDir) };
-    }
-
-    if (dirname(directory) === directory || directory === stopDir) {
-      return null;
-    }
+  if (entry === null || info === null) {
+    return null;
   }
+
+  const gitDir = info.isDirectory()
+    ? entry.gitPath
+    : await findLinkedGitDir(entry.directory, entry.gitPath);
+
+  return gitDir === null
+    ? null
+    : { worktree: entry.directory, gitDir, commonDir: await findCommonDir(gitDir) };
 }
 
 async function findLinkedGitDir(directory: string, gitPath: string): Promise<string | null> {

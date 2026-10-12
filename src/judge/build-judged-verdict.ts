@@ -1,7 +1,6 @@
-import type { DecisionRule } from '../model/types.ts';
-import type { DenyBasis } from '../policy/build-deny-reason.ts';
 import { buildDenyReason } from '../policy/build-deny-reason.ts';
 import type { Verdict } from '../request/types.ts';
+import type { DecisionRule, DenyBasis } from '../types.ts';
 import type { JudgeOverturns, JudgeReply, JudgeStatus, OverturnBasis } from './types.ts';
 
 export interface JudgedVerdict {

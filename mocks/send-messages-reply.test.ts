@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { sendMessage } from '../src/model/anthropic-client.ts';
+import { sendMessage } from '../src/messages/anthropic-client.ts';
 import { buildMockMessagesResponse } from '../test-utils/factories/build-mock-messages-response.ts';
 import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
 import { MESSAGES_URL } from './handlers.ts';

@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { OwnedScope } from '../../src/containment/collect-scope-findings.ts';
+import type { OwnedScope } from '../../src/scope/types.ts';
 
 // Every list grants the task ownership of a target, so each starts empty and a
 // test grants what its scenario needs.

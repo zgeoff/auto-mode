@@ -20,7 +20,7 @@ export const EMPTY_SCOPE_FACTS: ScopeFacts = {
   pathGlobs: [],
 };
 
-interface ScopeSourceContext {
+export interface ScopeSourceContext {
   readonly env: HostEnvironment['env'];
   readonly sessionID: string;
   readonly cwd: string;
@@ -54,3 +54,23 @@ export interface SessionScope {
 }
 
 export const EMPTY_SESSION_SCOPE: SessionScope = { worktrees: [], branches: [], pullRequests: [] };
+
+export interface ScopeRemote {
+  readonly name: string;
+  readonly url: string;
+}
+
+interface OwnedPullRequest {
+  readonly number: number;
+  readonly repository: string;
+}
+
+export interface OwnedScope {
+  readonly home: string;
+  readonly worktrees: readonly string[];
+  readonly branches: readonly string[];
+  readonly currentBranch: string | null;
+  readonly remotes: readonly ScopeRemote[];
+  readonly pullRequests: readonly OwnedPullRequest[];
+  readonly pathGlobs: readonly string[];
+}

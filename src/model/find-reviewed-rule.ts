@@ -1,5 +1,5 @@
+import type { DeniedRule } from '../types.ts';
 import { collectBlockingRules } from './collect-blocking-rules.ts';
-import type { DeniedRule } from './find-denied-rule.ts';
 import type { DecisionRequest, DecisionResult } from './types.ts';
 
 // A hard rule never clears, so the judge reviews one whenever it blocks:

@@ -88,6 +88,16 @@ test.each([
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
 
+test('it escalates a removal whose partly quoted operand names an absolute path outside the tree', () => {
+  const payload = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/repo/task',
+    toolInput: { command: 'rm -rf "/repo/other dir"/node_modules' },
+  });
+
+  expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
+});
+
 // A substitution, a redirection, or an unbalanced quote can hide an effect the
 // command text does not show.
 test.each([

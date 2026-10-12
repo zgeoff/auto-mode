@@ -1,5 +1,5 @@
 import type { ActionRequest } from '../request/types.ts';
-import type { MCPServerFact, RepositoryContext } from './types.ts';
+import type { MCPServerFact, RepositoryContext } from '../types.ts';
 
 const MAX_INPUT_CHARS = 4000;
 

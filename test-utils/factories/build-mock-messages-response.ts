@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { MessagesResponse } from '../../src/model/anthropic-client.ts';
+import type { MessagesResponse } from '../../src/messages/anthropic-client.ts';
 
 interface MessagesResponseOverrides extends Partial<Omit<MessagesResponse, 'usage'>> {
   readonly usage?: Partial<MessagesResponse['usage']>;

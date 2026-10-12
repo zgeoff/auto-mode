@@ -40,7 +40,11 @@ test('it places every directory in the one checkout given', async () => {
 
   const checkout = await reader.findCheckout('/elsewhere', {});
 
-  expect(checkout).toStrictEqual({ worktree: '/w/app', commonDir: '/w/app/.git' });
+  expect(checkout).toStrictEqual({
+    worktree: '/w/app',
+    gitDir: '/w/app/.git',
+    commonDir: '/w/app/.git',
+  });
 });
 
 test('it places no directory in a checkout when none is given', async () => {

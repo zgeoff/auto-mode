@@ -16,6 +16,7 @@ import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-deci
 import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import { classifyAction } from './classify-action.ts';
+import { findCheckout } from './git/find-checkout.ts';
 
 async function setupTest(): Promise<{
   readonly dir: string;
@@ -1035,4 +1036,66 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
     note: 'Write needs the model tier, which this run skipped',
     status: 'skipped',
   });
+});
+
+// Containment, the scope sources, Jev's repository evidence and its MCP
+// project lookup each read the checkout; the action walks up to `.git` once.
+test('it walks up to the checkout once for an action that reaches Jev', async () => {
+  const ctx = await setupTest();
+
+  const walk = mock(findCheckout);
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make deploy' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+      findCheckout: walk,
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+  expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.dir, 'repo'), expect.any(Object));
+});
+
+test('it walks up to the checkout once for an edit the bypass sends on to Jev', async () => {
+  const ctx = await setupTest();
+
+  const walk = mock(findCheckout);
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: join(ctx.dir, 'repo', '.env'), content: 'PORT=3000' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+      findCheckout: walk,
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+  expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.dir, 'repo'), expect.any(Object));
 });

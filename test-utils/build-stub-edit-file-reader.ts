@@ -12,7 +12,13 @@ export interface StubEditFiles {
 // the checkout error, and an unlisted file fails to read as node's missing file does.
 export function buildStubEditFileReader(stub: Readonly<StubEditFiles>): EditFileReader {
   const checkout =
-    stub.checkout === null ? null : { worktree: stub.checkout, commonDir: `${stub.checkout}/.git` };
+    stub.checkout === null
+      ? null
+      : {
+          worktree: stub.checkout,
+          gitDir: `${stub.checkout}/.git`,
+          commonDir: `${stub.checkout}/.git`,
+        };
 
   return {
     resolveEditTarget: (path) => Promise.resolve(stub.links?.[path] ?? path),

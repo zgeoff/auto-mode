@@ -1,5 +1,4 @@
-// oxlint-disable-next-line zgeoff/import-zones -- GEO-221 moves the checkout readers into src/git/
-import { toRepositorySlug } from '../containment/to-repository-slug.ts';
+import { toRepositorySlug } from '../git/to-repository-slug.ts';
 
 export interface PullRequestAddress {
   readonly repository: string;

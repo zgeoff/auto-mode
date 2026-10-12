@@ -1,6 +1,7 @@
 import type { ActionRequest } from '../request/types.ts';
+import type { OwnedScope } from '../scope/types.ts';
 import { collectScopeFindings } from './collect-scope-findings.ts';
-import type { OwnedScope, ScopeFinding } from './collect-scope-findings.ts';
+import type { ScopeFinding } from './collect-scope-findings.ts';
 
 export interface ContainmentDeny {
   readonly rule: string;

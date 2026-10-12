@@ -2,9 +2,10 @@ import { join, resolve } from 'node:path';
 import * as z from 'zod';
 import { resolveClaudeConfigPath } from '../config/resolve-claude-config-path.ts';
 import type { HostEnvironment } from '../config/types.ts';
-import { findCheckout } from '../scope/find-checkout.ts';
 import { loadJSONFile } from '../state/load-json-file.ts';
-import type { MCPServerFact } from './types.ts';
+import type { MCPServerFact } from '../types.ts';
+import { findCheckout } from './find-checkout.ts';
+import type { CheckoutFacts } from './types.ts';
 
 // Each entry is read field by field, so a credential in `env`, `headers` or
 // `args` is never parsed into the result.
@@ -30,6 +31,7 @@ export async function loadMCPServers(
   cwd: string,
   host: Readonly<HostEnvironment>,
   userSettings: unknown,
+  checkoutFacts?: Readonly<CheckoutFacts>,
 ): Promise<MCPServerFact[]> {
   const state = await loadJSONFile(
     resolveClaudeConfigPath(host, '.claude.json'),
@@ -43,7 +45,8 @@ export async function loadMCPServers(
   // nested checkout never takes its parent's entry.
   const directory = resolve(cwd);
 
-  const checkout = await findCheckout(directory, host.env);
+  const checkout =
+    checkoutFacts === undefined ? await findCheckout(directory, host.env) : checkoutFacts.checkout;
 
   const projectDir = checkout?.worktree ?? directory;
   const project = state?.projects?.[projectDir];

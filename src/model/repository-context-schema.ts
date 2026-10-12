@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import type { RepositoryContext } from './types.ts';
+import type { RepositoryContext } from '../types.ts';
 
 export const repositoryContextSchema = z.object({
   cwd: z.string(),

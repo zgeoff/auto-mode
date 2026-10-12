@@ -3,11 +3,9 @@ import type { ProviderConfig } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
-// oxlint-disable-next-line zgeoff/import-zones -- the judge reads the model stage's DeniedRule type; no ticket yet
-import type { DeniedRule } from '../model/find-denied-rule.ts';
-import type { RepositoryContext } from '../model/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
+import type { JudgeEvidence } from '../types.ts';
 import { buildJudgeMessage } from './build-judge-message.ts';
 import type { JudgedVerdict } from './build-judged-verdict.ts';
 import { buildJudgedVerdict } from './build-judged-verdict.ts';
@@ -17,10 +15,6 @@ import type { JudgeDiagnostics, JudgeFailure, JudgeOverturns } from './types.ts'
 
 export interface JudgeOutcome extends JudgedVerdict {
   readonly diagnostics: JudgeDiagnostics;
-}
-
-export interface JudgeEvidence extends DeniedRule {
-  readonly repositoryContext: RepositoryContext | null;
 }
 
 export interface JudgeOptions extends EvaluationOptions {
