@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.19.1...auto-mode-v0.19.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* **geo-475:** stop default-branch denies on fixture edits ([#143](https://github.com/zgeoff/auto-mode/issues/143)) ([8047f82](https://github.com/zgeoff/auto-mode/commit/8047f82a070db37936891c5bb0e8fe8b7858dffb))
+
 ## [0.19.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.19.0...auto-mode-v0.19.1) (2026-10-12)
 
 
