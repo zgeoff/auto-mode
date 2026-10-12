@@ -26,11 +26,13 @@ export async function recordScope(
     return EMPTY_SESSION_SCOPE;
   }
 
-  return await updateSessionScope(request, {
+  const recorded = await updateSessionScope(request, {
     now: options.now ?? Date.now(),
     stateDir: resolveXDGDir(host, 'state'),
     home: host.home,
     env: host.env,
     readPullRequest,
   });
+
+  return recorded;
 }
