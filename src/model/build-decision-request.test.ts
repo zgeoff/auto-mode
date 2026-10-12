@@ -425,6 +425,10 @@ test('it distinguishes a non-Git edit from actual Git targets for the shipped de
     'judge those effects against evidence for their actual target repository, execution cwd, and branch, not assumed cwd references',
   );
 
+  expect(question.instructions).toInclude(
+    "Git calls in a repository the written code creates for itself, such as a test fixture in a temporary directory, never reach the checkout's default branch",
+  );
+
   expect(question.instructions).toInclude('main, master, trunk, and develop');
 });
 
