@@ -25,9 +25,18 @@ export { sendDecision } from './model/send-decision.ts';
 export type { DecisionRequest, DecisionResult, RecordedDecisionChoice } from './model/types.ts';
 export type { DecisionRule, RepositoryContext } from './types.ts';
 export { loadPolicy, type PolicyPaths } from './policy/load-policy.ts';
+export { recordScope, type RecordScopeOptions } from './record-scope.ts';
 export { parseActionRequest } from './request/parse-action-request.ts';
+export { parseScopeRecordRequest } from './request/parse-scope-record-request.ts';
 export { renderVerdict } from './request/render-verdict.ts';
-export type { ActionRequest, DecisionContext, Verdict } from './request/types.ts';
+
+export type {
+  ActionRequest,
+  DecisionContext,
+  ScopeRecordRequest,
+  Verdict,
+} from './request/types.ts';
+
 export { classifyLocally, type LocalVerdict } from './rules/classify-locally.ts';
 export { buildTaskScope } from './scope/build-task-scope.ts';
 export type { ScopeEvent, SessionScope } from './scope/types.ts';

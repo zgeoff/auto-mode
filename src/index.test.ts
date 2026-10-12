@@ -19,6 +19,8 @@ test('it exports the documented public API', () => {
     loadPolicy: expect.toBeFunction(),
     parseActionRequest: expect.toBeFunction(),
     parseModelVerdict: expect.toBeFunction(),
+    parseScopeRecordRequest: expect.toBeFunction(),
+    recordScope: expect.toBeFunction(),
     renderVerdict: expect.toBeFunction(),
     resolveApiKey: expect.toBeFunction(),
     resolveConfigPath: expect.toBeFunction(),

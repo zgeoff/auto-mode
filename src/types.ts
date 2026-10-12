@@ -5,7 +5,8 @@ export type DecidingStage =
   | 'jev'
   | 'judge'
   | 'messages'
-  | 'retry';
+  | 'retry'
+  | 'budget';
 
 export interface DecisionRule {
   readonly name: string;

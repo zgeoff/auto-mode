@@ -1,31 +1,19 @@
-import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
-import { buildRetryKey } from './budget/build-retry-key.ts';
-import { findRetryDeny } from './budget/find-retry-deny.ts';
-import { loadDenialState } from './budget/load-denial-state.ts';
-import type { DenialPlan } from './budget/plan-denial-budget.ts';
-import { planDenialBudget } from './budget/plan-denial-budget.ts';
-import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
-import type { DenialState } from './budget/types.ts';
-import { updateDenialState } from './budget/update-denial-state.ts';
 import { resolveCaptureDir } from './capture/resolve-capture-dir.ts';
 import type { CaptureOutcome } from './capture/try-write-request-capture.ts';
 import { tryWriteRequestCapture } from './capture/try-write-request-capture.ts';
-import type { ActionOutcome } from './classify-action.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
-import { DEFAULT_DENIAL_BUDGET, DEFAULT_SCOPE_SOURCES, loadConfig } from './config/config.ts';
+import { loadConfig } from './config/config.ts';
 import type { HostEnvironment, OutputStream } from './config/types.ts';
-import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { loadPolicy } from './policy/load-policy.ts';
+import { recordScope } from './record-scope.ts';
 import { parseActionRequest } from './request/parse-action-request.ts';
 import { parseScopeRecordRequest } from './request/parse-scope-record-request.ts';
 import { renderVerdict } from './request/render-verdict.ts';
 import { toModRequest } from './request/to-mod-request.ts';
 import type { Verdict } from './request/types.ts';
-import { readPullRequest } from './scope/read-pull-request.ts';
-import { updateSessionScope } from './scope/update-session-scope.ts';
-import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
+import { writeActionFailure } from './write-action-failure.ts';
 
 interface CLIIO {
   readonly stdin: () => Promise<string>;
@@ -52,19 +40,13 @@ Options:
 `;
 
 export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Promise<number> {
-  const args = parseArgs({
-    args: [...argv],
-    allowPositionals: true,
-    options: {
-      classifier: { type: 'string' },
-      rules: { type: 'string' },
-      explain: { type: 'boolean' },
-      'local-only': { type: 'boolean' },
-      'jev-only': { type: 'boolean' },
-      'evaluation-deadline': { type: 'string' },
-      help: { type: 'boolean', short: 'h' },
-    },
-  });
+  const args = tryParseCLIArgs(argv);
+
+  if (args instanceof Error) {
+    io.stderr.write(`auto-mode: ${args.message}\n\n${USAGE}`);
+
+    return 2;
+  }
 
   const [command] = args.positionals;
 
@@ -119,6 +101,28 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
   return 2;
 }
 
+// parseArgs throws on an unknown option or a missing value, and a usage error
+// is the caller's to fix, so it exits 2 with the usage instead of a stack trace.
+function tryParseCLIArgs(argv: readonly string[]) {
+  try {
+    return parseArgs({
+      args: [...argv],
+      allowPositionals: true,
+      options: {
+        classifier: { type: 'string' },
+        rules: { type: 'string' },
+        explain: { type: 'boolean' },
+        'local-only': { type: 'boolean' },
+        'jev-only': { type: 'boolean' },
+        'evaluation-deadline': { type: 'string' },
+        help: { type: 'boolean', short: 'h' },
+      },
+    });
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+}
+
 async function run(
   io: Readonly<CLIIO>,
   explain: boolean,
@@ -147,21 +151,12 @@ async function run(
   }
 
   const host = io.host;
-  const invocationID = randomUUID();
-
-  await writeActionDiagnostic(request, { invocationID, status: 'started' }, host, io.stderr);
-
   let loaded;
 
   try {
     loaded = await loadConfig(undefined, host);
   } catch {
-    await writeActionDiagnostic(
-      request,
-      { invocationID, status: 'failure', verdict: 'defer' },
-      host,
-      io.stderr,
-    );
+    await writeActionFailure(request, host, io.stderr);
 
     return printNote(io.stderr, true, 'configuration unreadable; no verdict');
   }
@@ -171,12 +166,7 @@ async function run(
   const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
 
   if (config === null) {
-    await writeActionDiagnostic(
-      request,
-      { invocationID, status: 'failure', verdict: 'defer' },
-      host,
-      io.stderr,
-    );
+    await writeActionFailure(request, host, io.stderr);
 
     return printNote(io.stderr, true, 'Jev-only evaluation requires system-one; no verdict');
   }
@@ -187,12 +177,7 @@ async function run(
     deadlineAt !== undefined &&
     (!jevOnly || !Number.isSafeInteger(deadlineAt) || deadlineAt <= 0)
   ) {
-    await writeActionDiagnostic(
-      request,
-      { invocationID, status: 'failure', verdict: 'defer' },
-      host,
-      io.stderr,
-    );
+    await writeActionFailure(request, host, io.stderr);
 
     return printNote(io.stderr, true, 'invalid Jev evaluation deadline; no verdict');
   }
@@ -206,78 +191,34 @@ async function run(
     : null;
 
   try {
-    const statePath = resolveDenialStatePath(request, resolveXDGDir(host, 'state'));
-    const retryKey = buildRetryKey(request);
-
-    const before = await loadDenialState(statePath);
-
-    const retry = findRetryDeny(before, retryKey);
-
-    const outcome: ActionOutcome =
-      retry === null
-        ? await classifyAction(request, config, {
-            localOnly,
-            deadlineAt,
-            signal: controller.signal,
-            host,
-            stderr: io.stderr,
-          })
-        : {
-            verdict: retry,
-            decidingStage: 'retry',
-            note: 'retry of the action just denied; denied again',
-            status: 'deny',
-          };
-
-    // The plan reads the counts again under the lock, after the classifier,
-    // which can take seconds, so a parallel call in the same session keeps its count.
-    const plan = await tryUpdateDenialBudget(io.stderr, statePath, (state) =>
-      planDenialBudget(
-        state,
-        outcome.verdict,
-        retryKey,
-        config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
-      ),
-    );
-
-    if (plan.verdict !== null) {
-      printVerdict(io.stdout, plan.verdict);
-    }
-
-    await writeActionDiagnostic(
-      request,
-      {
-        invocationID,
-        status: outcome.status,
-        verdict: plan.verdict?.kind ?? 'defer',
-        decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
-        denials: { consecutive: plan.state.consecutive, session: plan.state.session },
-        escalation: plan.escalation,
-        ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
-        ...(outcome.judge === undefined ? {} : { judge: outcome.judge }),
-      },
+    const outcome = await classifyAction(request, config, {
+      localOnly,
+      deadlineAt,
+      signal: controller.signal,
       host,
-      io.stderr,
-    );
+      stderr: io.stderr,
+      budget: true,
+      actionLog: true,
+    });
+
+    if (outcome.verdict !== null) {
+      printVerdict(io.stdout, outcome.verdict);
+    }
 
     if (config.capture?.enabled === true) {
       const captured = await tryWriteRequestCapture(resolveCaptureDir(config.capture, host), {
         schemaVersion: 1,
         time: new Date().toISOString(),
         request: toModRequest(request),
-        verdict: plan.verdict,
-        decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
-        escalation: plan.escalation,
+        verdict: outcome.verdict,
+        decidingStage: outcome.decidingStage,
+        escalation: outcome.escalation ?? false,
       });
 
       printCaptureNote(io.stderr, captured);
     }
 
-    const note = plan.escalation
-      ? 'denial budget exhausted; the user decides this action'
-      : outcome.note;
-
-    return printNote(io.stderr, explain || outcome.unavailable === true, note);
+    return printNote(io.stderr, explain || outcome.unavailable === true, outcome.note);
   } finally {
     unsubscribe?.();
   }
@@ -294,33 +235,6 @@ function printNote(stderr: Readonly<OutputStream>, explain: boolean, message: st
 function printWarnings(stderr: Readonly<OutputStream>, warnings: readonly string[] = []): void {
   for (const warning of warnings) {
     stderr.write(`auto-mode: ${warning}\n`);
-  }
-}
-
-// A plan that changes no count, such as a defer's, takes no lock and writes
-// nothing. A lock or write failure keeps the verdict and plans from the read
-// taken before the lock, so this call's count can be lost but never doubled.
-async function tryUpdateDenialBudget(
-  stderr: Readonly<OutputStream>,
-  path: string,
-  plan: (state: Readonly<DenialState>) => DenialPlan,
-): Promise<DenialPlan> {
-  const unlocked = await loadDenialState(path);
-
-  const unlockedPlan = plan(unlocked);
-
-  if (unlockedPlan.state === unlocked) {
-    return unlockedPlan;
-  }
-
-  try {
-    const updated = await updateDenialState(path, (state) => plan(state).state);
-
-    return plan(updated.previous);
-  } catch {
-    stderr.write('auto-mode: denial counts unavailable\n');
-
-    return unlockedPlan;
   }
 }
 
@@ -360,17 +274,7 @@ async function runRecord(io: Readonly<CLIIO>): Promise<number> {
   try {
     const config = await loadConfig(undefined, io.host);
 
-    const sources = Object.values(config.scopeSources ?? DEFAULT_SCOPE_SOURCES);
-
-    if (sources.some((source) => source.kind === 'session')) {
-      await updateSessionScope(request, {
-        now: Date.now(),
-        stateDir: resolveXDGDir(io.host, 'state'),
-        home: io.host.home,
-        env: io.host.env,
-        readPullRequest,
-      });
-    }
+    await recordScope(request, config, { host: io.host });
   } catch {
     io.stderr.write('auto-mode: session scope unavailable\n');
   }

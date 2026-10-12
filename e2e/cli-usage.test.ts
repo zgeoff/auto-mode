@@ -123,3 +123,45 @@ Options:
 `,
   });
 });
+
+test.each([
+  [
+    'an unknown flag',
+    ['run', '--frobnicate'],
+    `Unknown option '--frobnicate'. To specify a positional argument starting with a '-', place it at the end of the command after '--', as in '-- "--frobnicate"`,
+  ],
+  [
+    'an evaluation deadline with no value',
+    ['run', '--jev-only', '--evaluation-deadline'],
+    `Option '--evaluation-deadline <value>' argument missing`,
+  ],
+])('it exits 2 under node with usage and no stack trace on %s', async (_label, argv, message) => {
+  const ctx = await setupTest();
+  const result = await Bun.$`${ctx.node} ${ctx.cli} ${argv}`.env(ctx.env).quiet().nothrow();
+
+  expect({
+    exitCode: result.exitCode,
+    stdout: result.stdout.toString(),
+    stderr: result.stderr.toString(),
+  }).toStrictEqual({
+    exitCode: 2,
+    stdout: '',
+    stderr: `auto-mode: ${message}
+
+auto-mode — a permission classifier for the auto-mode Claude Code mod
+
+Usage:
+  auto-mode run              Read an action request on stdin, write a verdict on stdout
+  auto-mode print-prompt     Print the system prompt the classifier receives
+  auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+
+Options:
+  --classifier <path>   Use this framework file instead of the shipped one
+  --rules <path>        Use this rule list instead of the shipped one
+  --explain             With run: also write the reasoning to stderr
+  --local-only          With run: skip the model tier
+  --jev-only            With run: require Jev and cap its API timeout at 5 seconds
+  --evaluation-deadline <unix-ms>  With --jev-only: share the helper and API deadline
+`,
+  });
+});

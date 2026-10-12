@@ -10,7 +10,7 @@ export interface CaptureRecord {
   readonly time: string;
   readonly request: unknown;
   readonly verdict: Verdict | null;
-  readonly decidingStage: DecidingStage | 'budget';
+  readonly decidingStage: DecidingStage;
   readonly escalation: boolean;
 }
 
