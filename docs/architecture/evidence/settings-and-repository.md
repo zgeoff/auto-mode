@@ -35,9 +35,11 @@ user's deny entries would drop a restriction the user wrote.
 For every call, auto-mode reads the facts of the git checkout that holds the call's directory: its
 current branch, its default branch, and its configured remotes. It reads them from the files under
 the checkout's git directory, never by running git, so the read costs no process and runs no hook.
-Linked worktrees resolve through their own git metadata to the shared repository. The default branch
-comes from the local `origin/HEAD` reference, which can be stale, and auto-mode never refreshes it
-from the remote.
+auto-mode walks up from the call's directory to the checkout once per call, and the same read gives
+the task scope its current branch and remotes, Jev its repository facts, and the MCP server list its
+project, so no two stages can disagree about which checkout holds the call. Linked worktrees resolve
+through their own git metadata to the shared repository. The default branch comes from the local
+`origin/HEAD` reference, which can be stale, and auto-mode never refreshes it from the remote.
 
 A remote URL can hold a token as its user info, so the loader sends only the host and path of each
 remote, and leaves out a URL it cannot parse rather than sending what the URL might hold. When the
