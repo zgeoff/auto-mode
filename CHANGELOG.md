@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.19.0...auto-mode-v0.19.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **geo-223:** lock both state files and cap every spawn in one helper ([#135](https://github.com/zgeoff/auto-mode/issues/135)) ([374b2d3](https://github.com/zgeoff/auto-mode/commit/374b2d3ef171643758409c881956e220511575d2))
+
 ## [0.19.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.18.0...auto-mode-v0.19.0) (2026-10-11)
 
 
