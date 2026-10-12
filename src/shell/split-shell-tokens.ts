@@ -1,7 +1,7 @@
 // A word keeps its raw text beside its value with the quotes removed. A
 // backslash keeps the character after it out of every operator, and both stay
 // in the value. Offsets index the scanned text, end exclusive.
-export type ShellToken =
+type ShellToken =
   | {
       readonly kind: 'word';
       readonly value: string;

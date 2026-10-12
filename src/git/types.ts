@@ -12,7 +12,7 @@ export type CheckoutFinder = (
   env: HostEnvironment['env'],
 ) => Promise<Checkout | null>;
 
-export interface CheckoutHead {
+interface CheckoutHead {
   readonly branch: string | null;
   readonly defaultBranch: string | null;
 }
