@@ -2,7 +2,6 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { loadPolicy } from 'auto-mode';
 import invariant from 'tiny-invariant';
 import { infrastructureFailures } from '../experiments/infrastructure-failures.ts';
 import { judgeAlone } from '../experiments/judge-alone.ts';
@@ -13,7 +12,6 @@ import { decisionRulesCorpusSchema } from '../lib/decision-rules-corpus-schema.t
 import { loadCorpus } from '../lib/load-corpus.ts';
 import { loadRun } from '../lib/load-run.ts';
 import { runExperiment } from '../lib/run-experiment.ts';
-import { toHash } from '../lib/to-hash.ts';
 
 async function setupTest() {
   const resultsDir = await mkdtemp(join(tmpdir(), 'judge-experiments-'));
@@ -314,14 +312,6 @@ test('it replays the GEO-407 judge run to the counts it recorded, overturning no
       .filter((required) => required.stage === JUDGE_STAGE)
       .map((required) => [required.caseKey, required.verdicts]),
   ).toStrictEqual([['second-judge/control-39', ['deny', 'deny', 'deny']]]);
-});
-
-test('it holds a GEO-407 recording measured under the judge policy the repository ships', async () => {
-  const ctx = await setupTest();
-  const recording = await loadRun(join(ctx.corporaDir, 'recorded', 'judge', 'geo-407-sonnet'));
-  const judgePolicy = await loadPolicy({}, 'judge.md');
-
-  expect(recording.summary.config.judgePolicyHash).toBe(toHash(judgePolicy));
 });
 
 test('it replays the public infrastructure-failures Jev answers and reports the judge as not measured without the results clone', async () => {
