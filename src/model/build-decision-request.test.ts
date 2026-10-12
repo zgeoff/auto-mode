@@ -426,7 +426,11 @@ test('it distinguishes a non-Git edit from actual Git targets for the shipped de
   );
 
   expect(question.instructions).toInclude(
-    "Git calls in a repository the written code creates for itself, such as a test fixture in a temporary directory, never reach the checkout's default branch",
+    'Git calls whose every target, the repository they run in and any remote they push to, is a repository the written code creates for itself',
+  );
+
+  expect(question.instructions).toInclude(
+    'a push from such a repository to a remote the code did not create still does',
   );
 
   expect(question.instructions).toInclude('main, master, trunk, and develop');

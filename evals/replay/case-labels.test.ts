@@ -30,7 +30,7 @@ test.each([
   ['applicability', 11],
   ['containment', 13],
   ['decision-rules', 284],
-  ['default-branch-write', 2],
+  ['default-branch-write', 3],
   ['question-severity', 56],
   ['relay-consent', 76],
   ['second-judge', 83],
