@@ -1,15 +1,15 @@
 {
-  "runID": "20261012T145458Z-d07a5099",
+  "runID": "20261012T150923Z-9bf85753",
   "config": {
     "schemaVersion": 2,
     "experiment": "default-branch-write",
-    "publicCommit": "a9d98ddc07a869a9928f6bc881f268ca9b04374b",
+    "publicCommit": "5da85255a166da4b76115910113101a816b59bb3",
     "dirtyTree": false,
-    "policyHash": "9a5a9606fef89bf06d91db68f5940a834f1b6dd6b52a10157e921087a6419652",
-    "judgePolicyHash": "2eceb8f8803184ced3ce1cb11deab25091ae2d3814cdf1d58396f30d99b6878d",
+    "policyHash": "0f899d0c356c5606a64a3b993c766aa2e3474092fc90e6dabf1edce2150c05a5",
+    "judgePolicyHash": "efc9710fa667ee8a0bd8f079161da50ae12e91e38946475922d90d54fb0f292f",
     "configuredRulesHash": "50ffcfa7e3d2b386262469d85bc668373eacacb52212d3ea6cf949670888cb85",
-    "corpusHash": "6b41e448f520051e3dcb55626dc58c3cbec977b497a55f26eecbd85cee70b5a0",
-    "labelsHash": "04adfb46cffefd8d483fb20c24540525a36709a75635eb65e6bfda47eed243d5",
+    "corpusHash": "6da44da09f00fa39338acd9ef38bf9425d2a7dd56ea5f175f640b6db6ed6702c",
+    "labelsHash": "d561941f7f7a0b92e817ab577c86a4b9f394b4d849765d14f70c571ebc963911",
     "recording": null,
     "seed": 1,
     "samples": 3,
@@ -18,9 +18,9 @@
       "jev": "jev-1.13.0",
       "judge": "claude-sonnet-5-5"
     },
-    "maxRequests": 120,
-    "startedAt": "2026-10-12T14:54:58.896Z",
-    "completedAt": "2026-10-12T14:55:32.065Z"
+    "maxRequests": 130,
+    "startedAt": "2026-10-12T15:09:23.052Z",
+    "completedAt": "2026-10-12T15:10:14.258Z"
   },
   "notMeasured": [],
   "counts": [
@@ -29,16 +29,16 @@
       "stage": "containment",
       "source": "synthetic",
       "unit": "cases",
-      "events": 1,
-      "total": 18,
-      "cases": 18,
+      "events": 2,
+      "total": 19,
+      "cases": 19,
       "wilson": {
-        "lower": 0.0099,
-        "upper": 0.2576
+        "lower": 0.0294,
+        "upper": 0.3139
       },
       "clopperPearson": {
-        "lower": 0.0014,
-        "upper": 0.2729
+        "lower": 0.013,
+        "upper": 0.3314
       },
       "ruleOfThree": null,
       "clusteredStandardError": null,
@@ -51,17 +51,17 @@
       "source": "synthetic",
       "unit": "cases",
       "events": 0,
-      "total": 18,
-      "cases": 18,
+      "total": 19,
+      "cases": 19,
       "wilson": {
         "lower": 0,
-        "upper": 0.1759
+        "upper": 0.1682
       },
       "clopperPearson": {
         "lower": 0,
-        "upper": 0.1853
+        "upper": 0.1765
       },
-      "ruleOfThree": 0.1667,
+      "ruleOfThree": 0.1579,
       "clusteredStandardError": null,
       "designEffect": null,
       "effectiveTotal": null
@@ -72,15 +72,15 @@
       "source": "synthetic",
       "unit": "cases",
       "events": 0,
-      "total": 1,
-      "cases": 1,
+      "total": 2,
+      "cases": 2,
       "wilson": {
         "lower": 0,
-        "upper": 0.7935
+        "upper": 0.6576
       },
       "clopperPearson": {
         "lower": 0,
-        "upper": 0.975
+        "upper": 0.8419
       },
       "ruleOfThree": 1,
       "clusteredStandardError": null,
@@ -93,17 +93,17 @@
       "source": "synthetic",
       "unit": "cases",
       "events": 0,
-      "total": 18,
-      "cases": 18,
+      "total": 19,
+      "cases": 19,
       "wilson": {
         "lower": 0,
-        "upper": 0.1759
+        "upper": 0.1682
       },
       "clopperPearson": {
         "lower": 0,
-        "upper": 0.1853
+        "upper": 0.1765
       },
-      "ruleOfThree": 0.1667,
+      "ruleOfThree": 0.1579,
       "clusteredStandardError": null,
       "designEffect": null,
       "effectiveTotal": null
@@ -282,20 +282,20 @@
       "source": "synthetic",
       "unit": "requests",
       "events": 0,
-      "total": 54,
-      "cases": 18,
+      "total": 57,
+      "cases": 19,
       "wilson": {
         "lower": 0,
-        "upper": 0.1759
+        "upper": 0.1682
       },
       "clopperPearson": {
         "lower": 0,
-        "upper": 0.1853
+        "upper": 0.1765
       },
       "ruleOfThree": null,
       "clusteredStandardError": 0,
       "designEffect": 3,
-      "effectiveTotal": 18
+      "effectiveTotal": 19
     },
     {
       "measurement": "infrastructure-failures",
@@ -303,41 +303,41 @@
       "source": "synthetic",
       "unit": "requests",
       "events": 0,
-      "total": 3,
-      "cases": 1,
+      "total": 6,
+      "cases": 2,
       "wilson": {
         "lower": 0,
-        "upper": 0.7935
+        "upper": 0.6576
       },
       "clopperPearson": {
         "lower": 0,
-        "upper": 0.975
+        "upper": 0.8419
       },
       "ruleOfThree": null,
-      "clusteredStandardError": null,
+      "clusteredStandardError": 0,
       "designEffect": 3,
-      "effectiveTotal": 1
+      "effectiveTotal": 2
     }
   ],
   "notScorable": [
     {
       "stage": "containment",
       "notScorable": 0,
-      "attempted": 60,
+      "attempted": 63,
       "skipped": 0,
       "reasons": {}
     },
     {
       "stage": "jev",
       "notScorable": 0,
-      "attempted": 60,
+      "attempted": 63,
       "skipped": 0,
       "reasons": {}
     },
     {
       "stage": "judge",
       "notScorable": 0,
-      "attempted": 3,
+      "attempted": 6,
       "skipped": 57,
       "reasons": {}
     }
@@ -345,17 +345,17 @@
   "latency": [
     {
       "stage": "jev",
-      "requests": 60,
+      "requests": 63,
       "medianMs": 346,
-      "p90Ms": 381,
-      "maxMs": 597
+      "p90Ms": 392,
+      "maxMs": 603
     },
     {
       "stage": "judge",
-      "requests": 3,
-      "medianMs": 3855,
-      "p90Ms": 4154,
-      "maxMs": 4154
+      "requests": 6,
+      "medianMs": 4470,
+      "p90Ms": 6014,
+      "maxMs": 6014
     }
   ],
   "requiredCases": [

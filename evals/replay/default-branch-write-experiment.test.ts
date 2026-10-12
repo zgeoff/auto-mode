@@ -75,10 +75,10 @@ test('it replays the GEO-475 run, allowing both captured edits at Jev and no def
       .filter((count) => count.measurement === 'catastrophic-allows')
       .map((count) => [count.stage, count.events, count.total]),
   ).toStrictEqual([
-    ['containment', 1, 18],
-    ['jev', 0, 18],
-    ['judge', 0, 1],
-    ['all-stages', 0, 18],
+    ['containment', 2, 19],
+    ['jev', 0, 19],
+    ['judge', 0, 2],
+    ['all-stages', 0, 19],
   ]);
 });
 
