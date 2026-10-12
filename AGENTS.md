@@ -88,13 +88,15 @@ rule set, which `scripts/build-secret-rules.ts` generates; `capture/` appends ea
 the opt-in capture, never inside a git work tree; `state/` resolves the XDG directories and reads
 and updates the state files, each update under a lock; `process/` runs every child process, capped
 in time and output, and alone imports `node:child_process`. `classify-action.ts` runs both tiers
-with the containment check and the edit bypass between them and the judge after Jev, and is the
-library entry point; `index.ts` is the public API; `eval/index.ts` is the unpublished
-`auto-mode/eval` subpath; `cli.ts` is the entrypoint the mod runs. `mods/auto-mode/` is the Claude
-Code mod; its `contract/` holds the request and verdict shapes, the message origins and the scope
-commands that the mod and the CLI share, with no dependencies, because the mod ships as raw
-TypeScript. `policy/` at the repo root holds the prompt itself. `fixtures/` holds mod requests
-recorded in a live Claude Code session.
+with the containment check and the edit bypass between them and the judge after Jev, applies the
+denial budget and writes the action log when its caller asks, and is the library entry point;
+`record-scope.ts` adds what a finished Bash call created to the session scope;
+`write-action-failure.ts` logs a run that fails before the classifier starts; `index.ts` is the
+public API; `eval/index.ts` is the unpublished `auto-mode/eval` subpath; `cli.ts` is the entrypoint
+the mod runs. `mods/auto-mode/` is the Claude Code mod; its `contract/` holds the request and
+verdict shapes, the message origins and the scope commands that the mod and the CLI share, with no
+dependencies, because the mod ships as raw TypeScript. `policy/` at the repo root holds the prompt
+itself. `fixtures/` holds mod requests recorded in a live Claude Code session.
 
 `evals/` holds the evaluation tooling: `eval.ts` is the `bun run eval` command, which plans, runs,
 resumes and compares one experiment, measures live use from the action log, and anonymises a request
@@ -128,8 +130,10 @@ boundary still fails a forbidden import.
 - Bun for development, node for the artifact. `bun test`, never vitest. The published `dist/` runs
   under node 24 on a machine that may have no bun, so a CI step runs the built CLI under real node
   against each fixture.
-- The CLI always exits 0. The mod reads a non-zero exit as a failure, and the JSON on stdout is what
-  decides the outcome.
+- `run` and `record`, the two commands the mod runs, always exit 0. The mod reads a non-zero exit as
+  a failure, and the JSON on stdout is what decides the outcome. A usage error, such as an unknown
+  command or option, exits 2 with the usage on stderr, because no mod call reaches it and a caller
+  by hand needs to see the mistake.
 - Writing nothing is a verdict, not a failure: it means auto-mode has no opinion and the mod keeps
   the prompt Claude Code was about to show. A body that is not a mod request, a body that is not
   JSON, a failed model call under `onFailure: "defer"`, and the action that exceeds the denial

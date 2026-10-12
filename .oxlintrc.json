@@ -39,7 +39,7 @@
     "one-var": "off",
     "sort-vars": "off",
 
-    "zgeoff/function-verb": ["error", { "verbs": ["classify"], "exemptNames": ["main"] }],
+    "zgeoff/function-verb": ["error", { "verbs": ["classify", "record"], "exemptNames": ["main"] }],
 
     // the module boundaries: every file under src/ belongs to a zone, and a
     // new src/ folder joins one here, in the same PR that adds it. A known
@@ -55,7 +55,9 @@
             "src/cli.ts",
             "src/eval/index.ts",
             "src/index.ts",
-            "src/run-cli.ts"
+            "src/record-scope.ts",
+            "src/run-cli.ts",
+            "src/write-action-failure.ts"
           ],
           "request": ["src/request/**"],
           "support": [

@@ -136,6 +136,8 @@ Project additions to the shared taxonomy, declared in `.oxlintrc.json`:
 - `classify` — decide which category a value falls into, from a closed set the caller knows
   (`classifyLocally`, `classifySegment`). Distinct from `check`, which reports findings rather than
   returning a category.
+- `record` — add what a finished action created to the state a later action reads (`recordScope`).
+  Distinct from `write`, which persists a value the caller already holds.
 
 `main` is exempt.
 

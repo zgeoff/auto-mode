@@ -18,7 +18,7 @@ interface ActionDiagnostic {
     | 'skipped'
     | DecisionDiagnostics['status'];
   readonly verdict?: Verdict['kind'] | 'defer';
-  readonly decidingStage?: DecidingStage | 'budget';
+  readonly decidingStage?: DecidingStage;
   readonly denials?: { readonly consecutive: number; readonly session: number };
   readonly escalation?: boolean;
   readonly diagnostics?: DecisionDiagnostics;

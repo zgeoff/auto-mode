@@ -1,10 +1,24 @@
+import { randomUUID } from 'node:crypto';
+import { buildRetryKey } from './budget/build-retry-key.ts';
+import { findRetryDeny } from './budget/find-retry-deny.ts';
+import { loadDenialState } from './budget/load-denial-state.ts';
+import type { DenialPlan } from './budget/plan-denial-budget.ts';
+import { planDenialBudget } from './budget/plan-denial-budget.ts';
+import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
+import type { DenialState } from './budget/types.ts';
+import { updateDenialState } from './budget/update-denial-state.ts';
 import { tryClassifyEdit } from './bypass/try-classify-edit.ts';
 import type { Config } from './config/config.ts';
-import { DEFAULT_JUDGE_OVERTURNS, DEFAULT_SCOPE_SOURCES } from './config/config.ts';
+import {
+  DEFAULT_DENIAL_BUDGET,
+  DEFAULT_JUDGE_OVERTURNS,
+  DEFAULT_SCOPE_SOURCES,
+} from './config/config.ts';
 import { loadClaudeSettings } from './config/load-claude-settings.ts';
 import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
+import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { findCheckout } from './git/find-checkout.ts';
 import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
 import type { Checkout, CheckoutFacts, CheckoutFinder } from './git/types.ts';
@@ -30,10 +44,14 @@ export interface ActionOutcome {
   readonly unavailable?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
   readonly judge?: JudgeDiagnostics;
+  readonly denials?: { readonly consecutive: number; readonly session: number };
+  readonly escalation?: boolean;
 }
 
 export interface ClassifyOptions extends EvaluationOptions {
   readonly localOnly?: boolean;
+  readonly budget?: boolean;
+  readonly actionLog?: boolean;
   readonly stderr?: Readonly<OutputStream> | undefined;
   readonly findCheckout?: CheckoutFinder | undefined;
 }
@@ -44,6 +62,88 @@ export async function classifyAction(
   options: ClassifyOptions = {},
 ): Promise<ActionOutcome> {
   const host = options.host ?? readHostEnvironment();
+  const stderr = options.stderr ?? process.stderr;
+  const invocationID = randomUUID();
+
+  if (options.actionLog === true) {
+    await writeActionDiagnostic(request, { invocationID, status: 'started' }, host, stderr);
+  }
+
+  const outcome =
+    options.budget === true
+      ? await classifyWithBudget(request, config, { ...options, host, stderr })
+      : await classifyStages(request, config, { ...options, host, stderr });
+
+  if (options.actionLog === true) {
+    await writeActionDiagnostic(
+      request,
+      {
+        invocationID,
+        status: outcome.status,
+        verdict: outcome.verdict?.kind ?? 'defer',
+        decidingStage: outcome.decidingStage,
+        ...(outcome.denials === undefined ? {} : { denials: outcome.denials }),
+        ...(outcome.escalation === undefined ? {} : { escalation: outcome.escalation }),
+        ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
+        ...(outcome.judge === undefined ? {} : { judge: outcome.judge }),
+      },
+      host,
+      stderr,
+    );
+  }
+
+  return outcome;
+}
+
+async function classifyWithBudget(
+  request: ActionRequest,
+  config: Config,
+  options: ClassifyOptions & Readonly<{ host: HostEnvironment; stderr: OutputStream }>,
+): Promise<ActionOutcome> {
+  const statePath = resolveDenialStatePath(request, resolveXDGDir(options.host, 'state'));
+  const retryKey = buildRetryKey(request);
+
+  const before = await loadDenialState(statePath);
+
+  const retry = findRetryDeny(before, retryKey);
+
+  const outcome: ActionOutcome =
+    retry === null
+      ? await classifyStages(request, config, options)
+      : {
+          verdict: retry,
+          decidingStage: 'retry',
+          note: 'retry of the action just denied; denied again',
+          status: 'deny',
+        };
+
+  // The plan reads the counts again under the lock, after the classifier,
+  // which can take seconds, so a parallel call in the same session keeps its count.
+  const plan = await tryUpdateDenialBudget(options.stderr, statePath, (state) =>
+    planDenialBudget(
+      state,
+      outcome.verdict,
+      retryKey,
+      config.denialBudget ?? DEFAULT_DENIAL_BUDGET,
+    ),
+  );
+
+  return {
+    ...outcome,
+    verdict: plan.verdict,
+    decidingStage: plan.escalation ? 'budget' : outcome.decidingStage,
+    note: plan.escalation ? 'denial budget exhausted; the user decides this action' : outcome.note,
+    denials: { consecutive: plan.state.consecutive, session: plan.state.session },
+    escalation: plan.escalation,
+  };
+}
+
+async function classifyStages(
+  request: ActionRequest,
+  config: Config,
+  options: ClassifyOptions & Readonly<{ host: HostEnvironment; stderr: OutputStream }>,
+): Promise<ActionOutcome> {
+  const host = options.host;
   let claudeSettings = options.claudeSettings;
 
   if (config.provider.protocol === 'system-one' && claudeSettings === undefined) {
@@ -92,7 +192,7 @@ export async function classifyAction(
     { sessionID: request.sessionID, cwd: request.cwd, checkout, findCheckout: findActionCheckout },
     config,
     host,
-    options.stderr ?? process.stderr,
+    options.stderr,
   );
 
   const containment = scope === null ? null : checkContainment(request, scope, host.scratchPaths);
@@ -253,5 +353,32 @@ async function tryReadDenialGuidance(): Promise<string | null> {
     return await readDenialGuidance();
   } catch {
     return null;
+  }
+}
+
+// A plan that changes no count, such as a defer's, takes no lock and writes
+// nothing. A lock or write failure keeps the verdict and plans from the read
+// taken before the lock, so this call's count can be lost but never doubled.
+async function tryUpdateDenialBudget(
+  stderr: Readonly<OutputStream>,
+  path: string,
+  plan: (state: Readonly<DenialState>) => DenialPlan,
+): Promise<DenialPlan> {
+  const unlocked = await loadDenialState(path);
+
+  const unlockedPlan = plan(unlocked);
+
+  if (unlockedPlan.state === unlocked) {
+    return unlockedPlan;
+  }
+
+  try {
+    const updated = await updateDenialState(path, (state) => plan(state).state);
+
+    return plan(updated.previous);
+  } catch {
+    stderr.write('auto-mode: denial counts unavailable\n');
+
+    return unlockedPlan;
   }
 }

@@ -10,6 +10,7 @@ import { decisionAnswers } from '../mocks/decision-answers.ts';
 import { DECISION_URL } from '../mocks/handlers.ts';
 import { server } from '../mocks/node.ts';
 import { sendDecisionReply } from '../mocks/send-decision-reply.ts';
+import { buildStubOutput } from '../test-utils/build-stub-output.ts';
 import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
@@ -1068,6 +1069,118 @@ test('it walks up to the checkout once for an action that reaches Jev', async ()
 
   expect(outcome.decidingStage).toBe('jev');
   expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.dir, 'repo'), expect.any(Object));
+});
+
+test('it leaves the action to the user once the denial budget is spent', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+
+  const config = buildMockConfig({
+    provider: { protocol: 'system-one' },
+    judge: null,
+    onFailure: 'deny',
+    claudeSettingsPath: join(ctx.dir, 'settings.json'),
+    denialBudget: { consecutive: 1, perSession: 20 },
+  });
+
+  const host = buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] });
+
+  await classifyAction(
+    buildMockActionRequest({
+      sessionID: 'budget-session',
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'git push a' },
+    }),
+    config,
+    { host, stderr: buildStubOutput(), budget: true },
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      sessionID: 'budget-session',
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'git push b' },
+    }),
+    config,
+    { host, stderr: buildStubOutput(), budget: true },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    decidingStage: 'budget',
+    note: 'denial budget exhausted; the user decides this action',
+    status: 'failure',
+    unavailable: true,
+    denials: { consecutive: 0, session: 0 },
+    escalation: true,
+  });
+});
+
+test('it writes a started and a final action-log record when asked', async () => {
+  const ctx = await setupTest();
+
+  await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Read',
+      toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts') },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.dir, 'actions.jsonl') },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+      stderr: buildStubOutput(),
+      actionLog: true,
+    },
+  );
+
+  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+
+  expect(
+    log
+      .trim()
+      .split('\n')
+      .map((line): unknown => JSON.parse(line)),
+  ).toStrictEqual([
+    {
+      schemaVersion: 4,
+      time: expect.toBeString(),
+      invocationID: expect.toBeString(),
+      sessionHash: expect.toBeString(),
+      actionHash: expect.toBeString(),
+      status: 'started',
+      verdict: null,
+      decidingStage: null,
+      denials: null,
+      escalation: false,
+      diagnostics: null,
+      judge: null,
+    },
+    {
+      schemaVersion: 4,
+      time: expect.toBeString(),
+      invocationID: expect.toBeString(),
+      sessionHash: expect.toBeString(),
+      actionHash: expect.toBeString(),
+      status: 'allow',
+      verdict: 'allow',
+      decidingStage: 'local',
+      denials: null,
+      escalation: false,
+      diagnostics: null,
+      judge: null,
+    },
+  ]);
 });
 
 test('it walks up to the checkout once for an edit the bypass sends on to Jev', async () => {
