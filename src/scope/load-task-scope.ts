@@ -1,9 +1,8 @@
 import { resolve } from 'node:path';
 import type { ScopeSource } from '../config/config.ts';
 import type { HostEnvironment, OutputStream } from '../config/types.ts';
-import { findCheckout } from '../git/find-checkout.ts';
-import { loadCheckoutRemotes } from '../git/load-checkout-remotes.ts';
-import { loadRepositoryContext } from '../git/load-repository-context.ts';
+import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
+import type { CheckoutFacts, CheckoutFinder } from '../git/types.ts';
 import { buildTaskScope } from './build-task-scope.ts';
 import { pickScopeSourceReader } from './pick-scope-source-reader.ts';
 import type { OwnedScope } from './types.ts';
@@ -12,6 +11,8 @@ export interface TaskScopeRequest {
   readonly sessionID: string;
   readonly cwd: string;
   readonly stateDir: string;
+  readonly checkout?: CheckoutFacts | undefined;
+  readonly findCheckout?: CheckoutFinder | undefined;
 }
 
 // The union of every configured source. The checkout supplies the facts no
@@ -24,12 +25,11 @@ export async function loadTaskScope(
 ): Promise<OwnedScope> {
   const cwd = resolve(request.cwd);
 
-  const [checkout, context] = await Promise.all([
-    findCheckout(cwd, host.env),
-    loadRepositoryContext(cwd, host.env),
-  ]);
+  const facts = await (request.checkout ??
+    loadCheckoutFacts(cwd, host.env, { findCheckout: request.findCheckout }));
 
-  const branch = context?.branch ?? null;
+  const checkout = facts.checkout;
+  const branch = facts.head?.branch ?? null;
 
   const sourceContext = {
     env: host.env,
@@ -44,16 +44,17 @@ export async function loadTaskScope(
     stderr,
   };
 
-  const [remotes, ...facts] = await Promise.all([
-    checkout === null ? [] : loadCheckoutRemotes(checkout.commonDir),
-    ...Object.values(sources).map((source) => pickScopeSourceReader(source)(sourceContext)),
-  ]);
+  const sourceFacts = await Promise.all(
+    Object.values(sources).map((source) =>
+      pickScopeSourceReader(source, request.findCheckout)(sourceContext),
+    ),
+  );
 
   return buildTaskScope({
     home: host.home,
     currentBranch: branch,
-    defaultBranch: context?.defaultBranch ?? null,
-    remotes,
-    facts,
+    defaultBranch: facts.head?.defaultBranch ?? null,
+    remotes: facts.remotes,
+    facts: sourceFacts,
   });
 }

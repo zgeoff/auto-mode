@@ -1,15 +1,14 @@
+import { match } from 'ts-pattern';
 import type { ScopeSource } from '../config/config.ts';
 import type { HostEnvironment } from '../config/types.ts';
-import type { Checkout } from '../git/find-checkout.ts';
 import { findCheckout } from '../git/find-checkout.ts';
+import type { CheckoutFinder } from '../git/types.ts';
 import { buildAtcScopeFacts } from './build-atc-scope-facts.ts';
 import { loadAtcSessionRecord } from './load-atc-session-record.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
-import type { ScopeFacts, ScopeSourceReader } from './types.ts';
+import type { ScopeFacts, ScopeSourceContext, ScopeSourceReader } from './types.ts';
 import { EMPTY_SCOPE_FACTS } from './types.ts';
-
-type CheckoutFinder = (path: string, env: HostEnvironment['env']) => Promise<Checkout | null>;
 
 // Each source answers from the action's context alone and never throws: a
 // source with nothing to say contributes no facts.
@@ -17,18 +16,19 @@ export function pickScopeSourceReader(
   source: Readonly<ScopeSource>,
   findSourceCheckout: CheckoutFinder = findCheckout,
 ): ScopeSourceReader {
-  if (source.kind === 'cwd') {
-    return (context) =>
-      Promise.resolve(
-        buildFacts({
-          worktrees: [context.worktree],
-          branches: context.branch === null ? [] : [context.branch],
-        }),
-      );
-  }
-
-  if (source.kind === 'session') {
-    return async (context) => {
+  return match(source.kind)
+    .returnType<ScopeSourceReader>()
+    .with(
+      'cwd',
+      () => (context) =>
+        Promise.resolve(
+          buildFacts({
+            worktrees: [context.worktree],
+            branches: context.branch === null ? [] : [context.branch],
+          }),
+        ),
+    )
+    .with('session', () => async (context) => {
       const scope = await loadSessionScope(
         resolveSessionScopePath(context.stateDir, context.sessionID),
       );
@@ -40,43 +40,44 @@ export function pickScopeSourceReader(
           .map((branch) => branch.name),
         pullRequests: scope.pullRequests,
       });
-    };
+    })
+    .with('globs', () => () => Promise.resolve(buildFacts({ pathGlobs: source.paths ?? [] })))
+    .with('atc', () => (context) => readAtcScopeFacts(context, findSourceCheckout))
+    .exhaustive();
+}
+
+async function readAtcScopeFacts(
+  context: Readonly<ScopeSourceContext>,
+  findSourceCheckout: CheckoutFinder,
+): Promise<ScopeFacts> {
+  const loaded = await loadAtcSessionRecord(context.atcRecordPath, context.atcSessionID);
+
+  if (loaded.kind === 'malformed') {
+    context.stderr.write(`auto-mode: ${loaded.diagnostic}\n`);
   }
 
-  if (source.kind === 'globs') {
-    return () => Promise.resolve(buildFacts({ pathGlobs: source.paths ?? [] }));
+  if (loaded.kind !== 'record') {
+    return EMPTY_SCOPE_FACTS;
   }
 
-  return async (context) => {
-    const loaded = await loadAtcSessionRecord(context.atcRecordPath, context.atcSessionID);
+  const scope = loaded.record.scope;
 
-    if (loaded.kind === 'malformed') {
-      context.stderr.write(`auto-mode: ${loaded.diagnostic}\n`);
-    }
+  const paths = new Set([
+    scope.workspace.path,
+    ...scope.worktrees.map((worktree) => worktree.path),
+    ...scope.branches.map((branch) => branch.repo ?? scope.workspace.path),
+  ]);
 
-    if (loaded.kind !== 'record') {
-      return EMPTY_SCOPE_FACTS;
-    }
+  const entries = await Promise.all(
+    [...paths].map((path) => findCommonDirEntry(path, context.env, findSourceCheckout)),
+  );
 
-    const scope = loaded.record.scope;
+  const commonDirs = new Map(entries);
 
-    const paths = new Set([
-      scope.workspace.path,
-      ...scope.worktrees.map((worktree) => worktree.path),
-      ...scope.branches.map((branch) => branch.repo ?? scope.workspace.path),
-    ]);
-
-    const entries = await Promise.all(
-      [...paths].map((path) => findCommonDirEntry(path, context.env, findSourceCheckout)),
-    );
-
-    const commonDirs = new Map(entries);
-
-    return buildAtcScopeFacts(
-      loaded.record,
-      (path) => context.commonDir !== null && commonDirs.get(path) === context.commonDir,
-    );
-  };
+  return buildAtcScopeFacts(
+    loaded.record,
+    (path) => context.commonDir !== null && commonDirs.get(path) === context.commonDir,
+  );
 }
 
 async function findCommonDirEntry(

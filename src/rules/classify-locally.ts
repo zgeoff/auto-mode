@@ -2,6 +2,7 @@ import { isAbsolute, normalize, relative } from 'node:path';
 import invariant from 'tiny-invariant';
 import type { ActionRequest } from '../request/types.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
+import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import {
   READ_ONLY_COMMANDS,
   READ_ONLY_GIT_SUBCOMMANDS,
@@ -121,8 +122,12 @@ function classifyRemove(args: readonly string[], cwd: string): string | null {
   return 'Regenerable output';
 }
 
+// The raw words, quotes kept: a quoted path is unquoted where it is read, and
+// a quoted program name matches no allowlist entry.
 function splitWords(text: string): readonly string[] {
-  return text.split(/\s+/).filter((word) => word !== '');
+  return splitShellTokens(text).tokens.flatMap((token) =>
+    token.kind === 'word' ? [token.raw] : [],
+  );
 }
 
 function toUnquoted(word: string): string {

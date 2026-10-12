@@ -1,3 +1,5 @@
+import { splitShellTokens } from './split-shell-tokens.ts';
+
 export interface ShellSegment {
   readonly text: string;
 }
@@ -6,82 +8,30 @@ export function splitShellCommand(command: string): {
   readonly segments: readonly ShellSegment[];
   readonly hasUnparsedConstruct: boolean;
 } {
+  const scanned = splitShellTokens(command);
   const segments: ShellSegment[] = [];
-  let current = '';
-  let quote: "'" | '"' | null = null;
-  let unparsed = false;
-  let i = 0;
+  let start: number | null = null;
+  let end = 0;
 
-  const collectSegment = (): void => {
-    const text = current.trim();
-
-    if (text !== '') {
-      segments.push({ text });
-    }
-
-    current = '';
-  };
-
-  while (i < command.length) {
-    const ch = command.charAt(i);
-
-    if (quote !== null) {
-      // A double-quoted string still expands `$(…)` and backticks, so a
-      // substitution inside one is as opaque as a bare one.
-      if (quote === '"' && (command.startsWith('$(', i) || ch === '`')) {
-        unparsed = true;
+  for (const token of [...scanned.tokens, null]) {
+    if (token === null || token.kind === 'separator') {
+      if (start !== null) {
+        segments.push({ text: command.slice(start, end) });
       }
 
-      if (ch === quote) {
-        quote = null;
-      }
-
-      current += ch;
-      i += 1;
-      continue;
+      start = null;
+    } else {
+      start ??= token.start;
+      end = token.end;
     }
-
-    if (ch === "'" || ch === '"') {
-      quote = ch;
-      current += ch;
-      i += 1;
-      continue;
-    }
-
-    if (ch === '\\') {
-      current += command.slice(i, i + 2);
-      i += 2;
-      continue;
-    }
-
-    // Substitution, process substitution, and redirection can each hide an
-    // effect the segment text does not show.
-    if (command.startsWith('$(', i) || ch === '`' || command.startsWith('<(', i) || ch === '>') {
-      unparsed = true;
-      current += ch;
-      i += 1;
-      continue;
-    }
-
-    if (command.startsWith('&&', i) || command.startsWith('||', i)) {
-      collectSegment();
-
-      i += 2;
-      continue;
-    }
-
-    if (ch === ';' || ch === '|' || ch === '\n' || ch === '&') {
-      collectSegment();
-
-      i += 1;
-      continue;
-    }
-
-    current += ch;
-    i += 1;
   }
 
-  collectSegment();
+  // Substitution, process substitution, and output redirection can each hide
+  // an effect the segment text does not show.
+  const hasUnparsedConstruct =
+    scanned.hasSubstitution ||
+    scanned.isUnterminated ||
+    scanned.tokens.some((token) => token.kind === 'redirect' && token.operator.includes('>'));
 
-  return { segments, hasUnparsedConstruct: unparsed || quote !== null };
+  return { segments, hasUnparsedConstruct };
 }

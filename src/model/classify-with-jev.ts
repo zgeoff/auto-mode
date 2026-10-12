@@ -3,14 +3,15 @@ import type { Config } from '../config/config.ts';
 import { DEFAULT_BLOCK_THRESHOLD, resolveApiKey } from '../config/config.ts';
 import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
-import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
+import type { HostEnvironment } from '../config/types.ts';
+import { buildRepositoryEvidence } from '../git/build-repository-evidence.ts';
+import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { loadMCPServers } from '../git/load-mcp-servers.ts';
-import { loadRepositoryEvidence } from '../git/load-repository-evidence.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
-import type { ModelOutcome } from './classify-with-model.ts';
+import type { ModelOptions, ModelOutcome } from './classify-with-model.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import { findReviewedRule } from './find-reviewed-rule.ts';
@@ -22,7 +23,7 @@ import type { DecisionDiagnostics } from './types.ts';
 export async function classifyWithJev(
   payload: ActionRequest,
   config: Config,
-  options: Readonly<EvaluationOptions & { readonly host: Readonly<HostEnvironment> }>,
+  options: Readonly<ModelOptions & { readonly host: Readonly<HostEnvironment> }>,
 ): Promise<ModelOutcome> {
   const start = performance.now();
   const now = options.now ?? Date.now;
@@ -58,13 +59,20 @@ export async function classifyWithJev(
     const settings = await (options.claudeSettings ??
       loadClaudeSettings(config.claudeSettingsPath, options.host));
 
-    const [policy, repositoryContext, mcpServers] = await Promise.all([
+    const checkout = await (options.checkout ??
+      loadCheckoutFacts(payload.cwd, options.host.env).catch(() => null));
+
+    const repositoryContext =
+      checkout === null ? null : buildRepositoryEvidence(checkout, options.taskScope);
+
+    const [policy, mcpServers] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
       ),
-      loadRepositoryEvidence(payload.cwd, options.taskScope, options.host.env).catch(() => null),
-      loadMCPServers(payload.cwd, options.host, settings.userSettings).catch(() => []),
+      loadMCPServers(payload.cwd, options.host, settings.userSettings, checkout ?? undefined).catch(
+        () => [],
+      ),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';

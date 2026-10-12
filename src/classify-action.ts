@@ -5,6 +5,9 @@ import { loadClaudeSettings } from './config/load-claude-settings.ts';
 import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
+import { findCheckout } from './git/find-checkout.ts';
+import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
+import type { Checkout, CheckoutFacts, CheckoutFinder } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
@@ -32,6 +35,7 @@ export interface ActionOutcome {
 export interface ClassifyOptions extends EvaluationOptions {
   readonly localOnly?: boolean;
   readonly stderr?: Readonly<OutputStream> | undefined;
+  readonly findCheckout?: CheckoutFinder | undefined;
 }
 
 export async function classifyAction(
@@ -76,7 +80,20 @@ export async function classifyAction(
     return buildLocalAllow(local.exception);
   }
 
-  const scope = await tryLoadTaskScope(request, config, host, options.stderr ?? process.stderr);
+  // Every stage reads the checkout through one finder, which walks up from a
+  // directory once per action.
+  const findActionCheckout = makeOnceCheckoutFinder(options.findCheckout ?? findCheckout);
+
+  const checkout = await loadCheckoutFacts(request.cwd, host.env, {
+    findCheckout: findActionCheckout,
+  }).catch(() => null);
+
+  const scope = await tryLoadTaskScope(
+    { sessionID: request.sessionID, cwd: request.cwd, checkout, findCheckout: findActionCheckout },
+    config,
+    host,
+    options.stderr ?? process.stderr,
+  );
 
   const containment = scope === null ? null : checkContainment(request, scope, host.scratchPaths);
 
@@ -97,7 +114,9 @@ export async function classifyAction(
 
   // A configured deny entry is the user's own rule, and only Jev reads it.
   const edit =
-    hasConfiguredDenies || scope === null ? null : await tryClassifyEdit(request, scope, host);
+    hasConfiguredDenies || scope === null
+      ? null
+      : await tryClassifyEdit(request, scope, host, { findCheckout: findActionCheckout });
 
   if (edit?.kind === 'bypass') {
     return {
@@ -120,7 +139,13 @@ export async function classifyAction(
   const taskScope = scope === null ? undefined : buildTaskScopeSummary(scope);
 
   const [outcome, guidance] = await Promise.all([
-    classifyWithModel(request, config, { ...options, taskScope, host, claudeSettings }),
+    classifyWithModel(request, config, {
+      ...options,
+      taskScope,
+      host,
+      claudeSettings,
+      checkout: checkout ?? undefined,
+    }),
     tryReadDenialGuidance(),
   ]);
 
@@ -167,14 +192,23 @@ const READ_ONLY_EXCEPTION = 'Read-only actions';
 // A scope that cannot be read leaves the action to the classifier, the same as
 // a target the containment check cannot resolve.
 async function tryLoadTaskScope(
-  request: Readonly<ActionRequest>,
+  request: Readonly<{
+    sessionID: string;
+    cwd: string;
+    checkout: CheckoutFacts | null;
+    findCheckout: CheckoutFinder;
+  }>,
   config: Readonly<Config>,
   host: Readonly<HostEnvironment>,
   stderr: Readonly<OutputStream>,
 ): Promise<OwnedScope | null> {
   try {
     return await loadTaskScope(
-      { sessionID: request.sessionID, cwd: request.cwd, stateDir: resolveXDGDir(host, 'state') },
+      {
+        ...request,
+        checkout: request.checkout ?? undefined,
+        stateDir: resolveXDGDir(host, 'state'),
+      },
       config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
       host,
       stderr,
@@ -182,6 +216,18 @@ async function tryLoadTaskScope(
   } catch {
     return null;
   }
+}
+
+function makeOnceCheckoutFinder(find: CheckoutFinder): CheckoutFinder {
+  const found = new Map<string, Promise<Checkout | null>>();
+
+  return (start, env) => {
+    const cached = found.get(start) ?? find(start, env);
+
+    found.set(start, cached);
+
+    return cached;
+  };
 }
 
 function buildLocalAllow(exception: string): ActionOutcome {

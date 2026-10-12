@@ -5,8 +5,10 @@ import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { readHostEnvironment } from '../config/read-host-environment.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
 import type { EvaluationOptions } from '../config/types.ts';
+import { buildRepositoryEvidence } from '../git/build-repository-evidence.ts';
+import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { loadMCPServers } from '../git/load-mcp-servers.ts';
-import { loadRepositoryEvidence } from '../git/load-repository-evidence.ts';
+import type { CheckoutFacts } from '../git/types.ts';
 import { sendMessage } from '../messages/anthropic-client.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
@@ -28,10 +30,15 @@ export interface ModelOutcome {
   readonly review?: JudgeEvidence;
 }
 
+// The checkout facts the caller already read; without them the model reads its own.
+export interface ModelOptions extends EvaluationOptions {
+  readonly checkout?: CheckoutFacts | undefined;
+}
+
 export async function classifyWithModel(
   payload: ActionRequest,
   config: Config,
-  options: EvaluationOptions = {},
+  options: ModelOptions = {},
 ): Promise<ModelOutcome> {
   const host = options.host ?? readHostEnvironment();
 
@@ -69,10 +76,18 @@ export async function classifyWithModel(
   // MCP approvals, and a broken rules file must not fail the call.
   const settings = await (options.claudeSettings ?? loadClaudeSettings(null, host));
 
-  const [repositoryContext, mcpServers] = await Promise.all([
-    loadRepositoryEvidence(payload.cwd, options.taskScope, host.env).catch(() => null),
-    loadMCPServers(payload.cwd, host, settings.userSettings).catch(() => []),
-  ]);
+  const checkout = await (options.checkout ??
+    loadCheckoutFacts(payload.cwd, host.env).catch(() => null));
+
+  const repositoryContext =
+    checkout === null ? null : buildRepositoryEvidence(checkout, options.taskScope);
+
+  const mcpServers = await loadMCPServers(
+    payload.cwd,
+    host,
+    settings.userSettings,
+    checkout ?? undefined,
+  ).catch(() => []);
 
   const user = buildUserMessage(
     payload,

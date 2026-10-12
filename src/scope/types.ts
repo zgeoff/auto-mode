@@ -20,7 +20,7 @@ export const EMPTY_SCOPE_FACTS: ScopeFacts = {
   pathGlobs: [],
 };
 
-interface ScopeSourceContext {
+export interface ScopeSourceContext {
   readonly env: HostEnvironment['env'];
   readonly sessionID: string;
   readonly cwd: string;

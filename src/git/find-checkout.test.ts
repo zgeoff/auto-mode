@@ -24,6 +24,7 @@ test('it finds the checkout whose .git directory sits in the start directory', a
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.dir, 'app'),
+    gitDir: join(ctx.dir, 'app', '.git'),
     commonDir: join(ctx.dir, 'app', '.git'),
   });
 });
@@ -39,6 +40,7 @@ test('it walks up from a subdirectory to the checkout that holds it', async () =
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.dir, 'app'),
+    gitDir: join(ctx.dir, 'app', '.git'),
     commonDir: join(ctx.dir, 'app', '.git'),
   });
 });
@@ -53,6 +55,7 @@ test('it finds the nearest checkout when one repository sits inside another', as
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.dir, 'app', 'vendor', 'lib'),
+    gitDir: join(ctx.dir, 'app', 'vendor', 'lib', '.git'),
     commonDir: join(ctx.dir, 'app', 'vendor', 'lib', '.git'),
   });
 });
@@ -68,6 +71,7 @@ test('it finds a linked worktree and the git directory it shares with the main c
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.dir, 'app', '.worktrees', 'a'),
+    gitDir: join(ctx.dir, 'app', '.git', 'worktrees', 'a'),
     commonDir: join(ctx.dir, 'app', '.git'),
   });
 });
@@ -83,6 +87,7 @@ test('it takes the git directory a relative .git link names as the shared one wh
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.dir, 'lib'),
+    gitDir: join(ctx.dir, 'modules', 'lib'),
     commonDir: join(ctx.dir, 'modules', 'lib'),
   });
 });
@@ -127,6 +132,7 @@ test('it finds a checkout in the stop directory itself', async () => {
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.dir, 'app'),
+    gitDir: join(ctx.dir, 'app', '.git'),
     commonDir: join(ctx.dir, 'app', '.git'),
   });
 });

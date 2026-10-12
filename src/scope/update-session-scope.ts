@@ -1,9 +1,9 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { match } from 'ts-pattern';
 import type { HostEnvironment } from '../config/types.ts';
 import { findCheckout } from '../git/find-checkout.ts';
-import { loadCheckoutRemotes } from '../git/load-checkout-remotes.ts';
-import { loadRepositoryContext } from '../git/load-repository-context.ts';
+import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { readBranchCreatedAt } from '../git/read-branch-created-at.ts';
 import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import type { ScopeRecordRequest } from '../request/types.ts';
@@ -92,57 +92,84 @@ const FORGE_CLOCK_SKEW_MS = 60_000;
 // Linux stamps files from a coarse clock that can trail Date.now() by a tick.
 const FILE_CLOCK_SLACK_MS = 50;
 
-async function verifyScopeEvent(
+function verifyScopeEvent(
   event: Readonly<ScopeEvent>,
   request: Readonly<ScopeRecordRequest>,
   options: Readonly<ScopeRecordOptions>,
 ): Promise<SessionScope> {
-  if (event.kind === 'worktree') {
-    const link = await stat(join(event.path, '.git'));
-    const checkout = await findCheckout(event.path, options.env);
+  return match(event)
+    .returnType<Promise<SessionScope>>()
+    .with({ kind: 'worktree' }, (worktree) => verifyWorktreeEvent(worktree.path, request, options))
+    .with({ kind: 'branch' }, (branch) => verifyBranchEvent(branch, request, options))
+    .with({ kind: 'pull-request' }, (pull) =>
+      verifyPullRequestEvent(pull.directory, request, options),
+    )
+    .exhaustive();
+}
 
-    if (
-      !link.isFile() ||
-      link.mtimeMs < request.startedAt - FILE_CLOCK_SLACK_MS ||
-      checkout?.worktree !== event.path
-    ) {
-      return EMPTY_SESSION_SCOPE;
-    }
+async function verifyWorktreeEvent(
+  path: string,
+  request: Readonly<ScopeRecordRequest>,
+  options: Readonly<ScopeRecordOptions>,
+): Promise<SessionScope> {
+  const link = await stat(join(path, '.git'));
+  const facts = await loadCheckoutFacts(path, options.env);
 
-    const context = await loadRepositoryContext(event.path, options.env);
+  const checkout = facts.checkout;
 
-    const branch = context?.branch ?? null;
-
-    if (branch === null) {
-      return { ...EMPTY_SESSION_SCOPE, worktrees: [event.path] };
-    }
-
-    const isNew = await isBranchCreatedSince(checkout.commonDir, branch, request.startedAt);
-
-    return {
-      ...EMPTY_SESSION_SCOPE,
-      worktrees: [event.path],
-      branches: isNew ? [{ name: branch, commonDir: checkout.commonDir }] : [],
-    };
+  if (
+    !link.isFile() ||
+    link.mtimeMs < request.startedAt - FILE_CLOCK_SLACK_MS ||
+    checkout?.worktree !== path
+  ) {
+    return EMPTY_SESSION_SCOPE;
   }
 
+  const branch = facts.head?.branch ?? null;
+
+  if (branch === null) {
+    return { ...EMPTY_SESSION_SCOPE, worktrees: [path] };
+  }
+
+  const isNew = await isBranchCreatedSince(checkout.commonDir, branch, request.startedAt);
+
+  return {
+    ...EMPTY_SESSION_SCOPE,
+    worktrees: [path],
+    branches: isNew ? [{ name: branch, commonDir: checkout.commonDir }] : [],
+  };
+}
+
+async function verifyBranchEvent(
+  event: Readonly<Extract<ScopeEvent, { kind: 'branch' }>>,
+  request: Readonly<ScopeRecordRequest>,
+  options: Readonly<ScopeRecordOptions>,
+): Promise<SessionScope> {
   const checkout = await findCheckout(event.directory, options.env);
 
   if (checkout === null) {
     return EMPTY_SESSION_SCOPE;
   }
 
-  if (event.kind === 'branch') {
-    const isNew = await isBranchCreatedSince(checkout.commonDir, event.name, request.startedAt);
+  const isNew = await isBranchCreatedSince(checkout.commonDir, event.name, request.startedAt);
 
-    return isNew
-      ? { ...EMPTY_SESSION_SCOPE, branches: [{ name: event.name, commonDir: checkout.commonDir }] }
-      : EMPTY_SESSION_SCOPE;
+  return isNew
+    ? { ...EMPTY_SESSION_SCOPE, branches: [{ name: event.name, commonDir: checkout.commonDir }] }
+    : EMPTY_SESSION_SCOPE;
+}
+
+async function verifyPullRequestEvent(
+  directory: string,
+  request: Readonly<ScopeRecordRequest>,
+  options: Readonly<ScopeRecordOptions>,
+): Promise<SessionScope> {
+  const facts = await loadCheckoutFacts(directory, options.env);
+
+  if (facts.checkout === null) {
+    return EMPTY_SESSION_SCOPE;
   }
 
-  const remotes = await loadCheckoutRemotes(checkout.commonDir);
-
-  const repositories = new Set(remotes.map((remote) => toRepositorySlug(remote.url)));
+  const repositories = new Set(facts.remotes.map((remote) => toRepositorySlug(remote.url)));
 
   const addresses = collectPullRequestAddresses(request.resultText).filter((address) =>
     repositories.has(address.repository),
