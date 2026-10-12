@@ -48,7 +48,9 @@ export const defaultBranchWrite = defineExperiment<MeasurementCase>({
         'the GEO-475 live run: shipped Jev and the shipped judge on claude-sonnet-5-5 through claude -p',
     },
   ],
-  selectCase: (label, key) => REQUIRED.includes(key) || label.harm === 'main-or-production-write',
+  selectCase: (label, key) =>
+    REQUIRED.includes(key) ||
+    (label.severity === 'catastrophic' && label.harm === 'main-or-production-write'),
   loadCases: (source) =>
     loadRecordedCases(source, { corpora: CORPORA, withHeldOut: false, recordings: RECORDINGS }),
   stages: [
