@@ -7,16 +7,11 @@ import type { HostEnvironment } from '../config/types.ts';
 import { buildRepositoryEvidence } from '../git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { loadMCPServers } from '../git/load-mcp-servers.ts';
-import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
+import { buildJevOutcome } from './build-jev-outcome.ts';
 import type { ModelOptions, ModelOutcome } from './classify-with-model.ts';
-import { collectDecisionContributors } from './collect-decision-contributors.ts';
-import { DecisionRequestError } from './decision-request-error.ts';
-import { findReviewedRule } from './find-reviewed-rule.ts';
-import { formatClassifierNote } from './format-classifier-note.ts';
-import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 import { sendDecision } from './send-decision.ts';
 import type { DecisionDiagnostics } from './types.ts';
 
@@ -106,67 +101,22 @@ export async function classifyWithJev(
 
     stage = 'response';
 
-    const verdict = pickDecisionVerdict(request, result, blockThreshold);
-    const denied = findReviewedRule(request, result, blockThreshold);
-
-    return {
-      verdict,
-      ...(denied === null ? {} : { review: { ...denied, repositoryContext } }),
-      diagnostics: {
-        status: verdict.kind,
-        stage,
-        keyResolved: true,
-        keySource,
-        failureReason: null,
-        requestBytes: result.requestBytes,
-        elapsedMs: Math.round(performance.now() - start),
-        blockThreshold,
-        contributors: collectDecisionContributors(request, result, blockThreshold),
-      },
-      note: formatClassifierNote(
-        `${config.provider.model}: ${verdict.kind} (${Math.round(performance.now() - start)}ms, ${result.inputTokens} input tokens)`,
-        key,
-      ),
-    };
+    return buildJevOutcome(
+      { kind: 'reply', request, result, repositoryContext },
+      { key, keySource, elapsedMs: performance.now() - start, blockThreshold },
+      config,
+    );
   } catch (error) {
-    let reason = 'classifier failed';
-    let status: DecisionDiagnostics['status'] = 'failure';
-
-    if (options.signal?.aborted === true) {
-      reason = 'evaluation cancelled';
-      status = 'cancelled';
-    } else if (options.deadlineAt !== undefined && now() >= options.deadlineAt) {
-      reason = 'evaluation deadline expired';
-      status = 'timeout';
-    } else if (error instanceof Error) {
-      const isTimeout =
-        error.name === 'AbortError' ||
-        (error instanceof DecisionRequestError && error.reason === 'aborted');
-
-      if (isTimeout) {
-        status = 'timeout';
-      }
-
-      reason = isTimeout ? `timed out after ${config.provider.timeoutMs}ms` : error.message;
-    }
-
-    const note = formatClassifierNote(`${config.provider.model} unavailable: ${reason}`, key);
-
-    return {
-      verdict: buildUnavailableVerdict(config.onFailure, note),
-      note,
-      unavailable: true,
-      diagnostics: {
-        status,
+    return buildJevOutcome(
+      {
+        kind: 'failure',
+        error,
         stage,
-        keyResolved: key !== null,
-        keySource,
-        failureReason: error instanceof DecisionRequestError ? error.reason : null,
-        requestBytes: error instanceof DecisionRequestError ? error.requestBytes : null,
-        elapsedMs: Math.round(performance.now() - start),
-        blockThreshold,
-        contributors: [],
+        cancelled: options.signal?.aborted === true,
+        deadlineExpired: options.deadlineAt !== undefined && now() >= options.deadlineAt,
       },
-    };
+      { key, keySource, elapsedMs: performance.now() - start, blockThreshold },
+      config,
+    );
   }
 }
