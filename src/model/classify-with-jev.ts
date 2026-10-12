@@ -60,7 +60,9 @@ export async function classifyWithJev(
       loadClaudeSettings(config.claudeSettingsPath, options.host));
 
     const checkout = await (options.checkout ??
-      loadCheckoutFacts(payload.cwd, options.host.env).catch(() => null));
+      loadCheckoutFacts(payload.cwd, options.host.env, {
+        findCheckout: options.findCheckout,
+      }).catch(() => null));
 
     const repositoryContext =
       checkout === null ? null : buildRepositoryEvidence(checkout, options.taskScope);

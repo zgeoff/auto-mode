@@ -145,6 +145,7 @@ export async function classifyAction(
       host,
       claudeSettings,
       checkout: checkout ?? undefined,
+      findCheckout: findActionCheckout,
     }),
     tryReadDenialGuidance(),
   ]);

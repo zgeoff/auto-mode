@@ -1,20 +1,12 @@
-import { lstat, realpath } from 'node:fs/promises';
+import { realpath } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import { findGitEntry } from '../git/find-git-entry.ts';
 
 export async function findEnclosingWorkTree(path: string): Promise<string | null> {
   const real = await resolveExistingPrefix(resolve(path));
+  const entry = await findGitEntry(real);
 
-  for (let directory = real; ; directory = dirname(directory)) {
-    const enclosed = await hasGitEntry(directory);
-
-    if (enclosed) {
-      return directory;
-    }
-
-    if (dirname(directory) === directory) {
-      return null;
-    }
-  }
+  return entry === null ? null : entry.directory;
 }
 
 async function resolveExistingPrefix(path: string): Promise<string> {
@@ -32,19 +24,5 @@ async function resolveExistingPrefix(path: string): Promise<string> {
     }
 
     missing.push(basename(current));
-  }
-}
-
-const ABSENT_CODES = new Set(['ENOENT', 'ENOTDIR']);
-
-async function hasGitEntry(directory: string): Promise<boolean> {
-  try {
-    await lstat(join(directory, '.git'));
-
-    return true;
-  } catch (error) {
-    // An unreadable entry counts as present, so a refusal to write inside a
-    // work tree fails safe.
-    return !(error instanceof Error && 'code' in error && ABSENT_CODES.has(String(error.code)));
   }
 }

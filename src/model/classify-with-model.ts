@@ -8,7 +8,7 @@ import type { EvaluationOptions } from '../config/types.ts';
 import { buildRepositoryEvidence } from '../git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { loadMCPServers } from '../git/load-mcp-servers.ts';
-import type { CheckoutFacts } from '../git/types.ts';
+import type { CheckoutFacts, CheckoutFinder } from '../git/types.ts';
 import { sendMessage } from '../messages/anthropic-client.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
@@ -30,9 +30,9 @@ export interface ModelOutcome {
   readonly review?: JudgeEvidence;
 }
 
-// The checkout facts the caller already read; without them the model reads its own.
 export interface ModelOptions extends EvaluationOptions {
   readonly checkout?: CheckoutFacts | undefined;
+  readonly findCheckout?: CheckoutFinder | undefined;
 }
 
 export async function classifyWithModel(
@@ -77,7 +77,9 @@ export async function classifyWithModel(
   const settings = await (options.claudeSettings ?? loadClaudeSettings(null, host));
 
   const checkout = await (options.checkout ??
-    loadCheckoutFacts(payload.cwd, host.env).catch(() => null));
+    loadCheckoutFacts(payload.cwd, host.env, { findCheckout: options.findCheckout }).catch(
+      () => null,
+    ));
 
   const repositoryContext =
     checkout === null ? null : buildRepositoryEvidence(checkout, options.taskScope);
