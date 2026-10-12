@@ -13,7 +13,6 @@ const CORPORA: readonly MeasurementCorpus[] = [
   'default-branch-write',
   'decision-rules',
   'second-judge',
-  'question-severity',
 ];
 
 // GEO-475's two captured Edits, which Jev denied under Default Branch Write.
