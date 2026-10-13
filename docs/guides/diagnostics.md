@@ -12,9 +12,10 @@ The records exclude commands, paths, prompts, configuration contents, credential
 responses, and exception text. Configured and replacement rules use question identifiers; only
 shipped rules retain their public names. Session, agent and action identifiers use the first 16
 hexadecimal characters of SHA-256. Hash a recorded tool-call identifier to find its `actionHash`.
-`agentHash` hashes the session identifier and the subagent identifier joined by a NUL character, the
-key the denial counts use, so each subagent gets its own value and the main agent, which has no
-subagent identifier, gets one apart from all of them.
+For a subagent, `agentHash` hashes the session identifier and the subagent identifier joined by a
+NUL character, so each subagent gets its own value. The main agent has no subagent identifier, and
+its `agentHash` equals its `sessionHash`, the key an earlier record holds, so a session that spans
+the change of version keeps one key for its main agent.
 
 For Jev, `diagnostics.status` distinguishes `allow`, `deny`, `failure`, `timeout`, and `cancelled`.
 `stage` identifies credential resolution, evidence preparation, the request, or a validated

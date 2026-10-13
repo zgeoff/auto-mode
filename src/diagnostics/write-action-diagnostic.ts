@@ -38,12 +38,18 @@ export async function writeActionDiagnostic(
     return;
   }
 
+  const agentID = payload.decisionContext?.agentID ?? null;
+
+  // The main agent keys on the session alone, as a record before version 5
+  // does, so a session that spans the upgrade stays one agent.
+  const agentKey = agentID === null ? payload.sessionID : `${payload.sessionID}\0${agentID}`;
+
   const record = {
     schemaVersion: 5,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
     sessionHash: toHash(payload.sessionID),
-    agentHash: toHash(`${payload.sessionID}\0${payload.decisionContext?.agentID ?? ''}`),
+    agentHash: toHash(agentKey),
     actionHash: payload.toolUseID === undefined ? null : toHash(payload.toolUseID),
     status: entry.status,
     verdict: entry.verdict ?? null,

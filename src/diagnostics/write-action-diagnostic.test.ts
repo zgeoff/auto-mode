@@ -54,8 +54,8 @@ test('it appends private correlated records without action, task, credential, or
 
   const text = await readFile(path, 'utf8');
 
-  // Each hash is the first 16 hex digits of `printf <id> | sha256sum`; the
-  // agent's id is the session id and the agent id joined by a NUL.
+  // Each hash is the first 16 hex digits of `printf <id> | sha256sum`; the main
+  // agent's hash is its session's.
   expect(
     text
       .trim()
@@ -67,7 +67,7 @@ test('it appends private correlated records without action, task, credential, or
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
-      agentHash: '5945296ed529b81d',
+      agentHash: 'ad9ef8a88622d2c9',
       actionHash: 'f5d171dc69611257',
       status: 'started',
       verdict: null,
@@ -82,7 +82,7 @@ test('it appends private correlated records without action, task, credential, or
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
-      agentHash: '5945296ed529b81d',
+      agentHash: 'ad9ef8a88622d2c9',
       actionHash: 'f5d171dc69611257',
       status: 'deny',
       verdict: 'deny',
@@ -124,7 +124,7 @@ test('it records a subagent under an agent hash apart from its parent session', 
   const text = await readFile(path, 'utf8');
 
   // Each hash is the first 16 hex digits of a sha256sum: of `printf s` for the
-  // session, `printf 's\0'` for the parent and `printf 's\0worker'` for the subagent.
+  // session and its main agent, and of `printf 's\0worker'` for the subagent.
   expect(
     text
       .trim()
@@ -133,7 +133,7 @@ test('it records a subagent under an agent hash apart from its parent session', 
         z.object({ sessionHash: z.string(), agentHash: z.string() }).parse(JSON.parse(line)),
       ),
   ).toStrictEqual([
-    { sessionHash: '043a718774c572bd', agentHash: '28a3d6d537e5d509' },
+    { sessionHash: '043a718774c572bd', agentHash: '043a718774c572bd' },
     { sessionHash: '043a718774c572bd', agentHash: 'e281a6ae093eb49a' },
   ]);
 });
@@ -205,14 +205,13 @@ test('it records the judge diagnostics of an overturned deny', async () => {
 
   const text = await readFile(path, 'utf8');
 
-  // Each hash is the first 16 hex digits of a sha256sum: of `printf s` for the
-  // session and of `printf 's\0'` for the agent.
+  // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
     schemaVersion: 5,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
-    agentHash: '28a3d6d537e5d509',
+    agentHash: '043a718774c572bd',
     actionHash: null,
     status: 'allow',
     verdict: 'allow',
@@ -246,14 +245,13 @@ test('it records no action hash for a request without a tool use id', async () =
 
   const text = await readFile(path, 'utf8');
 
-  // Each hash is the first 16 hex digits of a sha256sum: of `printf s` for the
-  // session and of `printf 's\0'` for the agent.
+  // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
     schemaVersion: 5,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
-    agentHash: '28a3d6d537e5d509',
+    agentHash: '043a718774c572bd',
     actionHash: null,
     status: 'started',
     verdict: null,
@@ -324,14 +322,13 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
 
   const text = await readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8');
 
-  // Each hash is the first 16 hex digits of a sha256sum: of `printf s` for the
-  // session and of `printf 's\0'` for the agent.
+  // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
     schemaVersion: 5,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
-    agentHash: '28a3d6d537e5d509',
+    agentHash: '043a718774c572bd',
     actionHash: expect.toBeString(),
     status: 'started',
     verdict: null,

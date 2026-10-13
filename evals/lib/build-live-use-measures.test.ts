@@ -440,6 +440,36 @@ test('it counts escalations, recovery and denials for each agent apart from its 
   ]);
 });
 
+test('it keeps a main agent whose session spans the agent hash as one task', () => {
+  const summary = buildLiveUseMeasures([
+    buildMockActionLogRecord({
+      schemaVersion: 4,
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      time: '2026-10-01T10:00:00.000Z',
+      status: 'deny',
+      verdict: 'deny',
+    }),
+    buildMockActionLogRecord({
+      schemaVersion: 5,
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: 'aaaaaaaaaaaaaaaa',
+      time: '2026-10-01T10:00:01.000Z',
+      verdict: 'allow',
+    }),
+  ]);
+
+  expect(summary.taskOutcomes).toStrictEqual([
+    {
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: null,
+      actions: 2,
+      denials: 1,
+      escalations: 0,
+      recovered: true,
+    },
+  ]);
+});
+
 test('it clusters the denials of each agent apart from its parent session', () => {
   const summary = buildLiveUseMeasures([
     buildMockActionLogRecord({
