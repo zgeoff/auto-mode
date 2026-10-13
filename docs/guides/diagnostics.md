@@ -4,14 +4,18 @@ Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/act
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
 an empty string to disable the file. A failed diagnostic write does not change the verdict. Records
-carry `schemaVersion` 4. A version 3 record lacks the `judge` field and the `judge` stage, a version
-2 record also lacks the three budget fields below, and a version 1 record in an older file also
-carries `harness` and `event`.
+carry `schemaVersion` 5. A version 4 record lacks the `agentHash` field, a version 3 record also
+lacks the `judge` field and the `judge` stage, a version 2 record also lacks the three budget fields
+below, and a version 1 record in an older file also carries `harness` and `event`.
 
 The records exclude commands, paths, prompts, configuration contents, credentials, provider
 responses, and exception text. Configured and replacement rules use question identifiers; only
-shipped rules retain their public names. Session and action identifiers use the first 16 hexadecimal
-characters of SHA-256. Hash a recorded tool-call identifier to find its `actionHash`.
+shipped rules retain their public names. Session, agent and action identifiers use the first 16
+hexadecimal characters of SHA-256. Hash a recorded tool-call identifier to find its `actionHash`.
+For a subagent, `agentHash` hashes the session identifier and the subagent identifier joined by a
+NUL character, so each subagent gets its own value. The main agent has no subagent identifier, and
+its `agentHash` equals its `sessionHash`, the key an earlier record holds, so a session that spans
+the change of version keeps one key for its main agent.
 
 For Jev, `diagnostics.status` distinguishes `allow`, `deny`, `failure`, `timeout`, and `cancelled`.
 `stage` identifies credential resolution, evidence preparation, the request, or a validated
@@ -37,7 +41,7 @@ or a held overturn, and `null` otherwise. `failureReason` names the step that fa
 shipped rule's name, or the rule's source for a configured or replacement rule; `tier`, `model` and
 `elapsedMs` complete the record. The judge's reason text is not recorded.
 
-Each final record also measures the task, so escalations can be counted per session:
+Each final record also measures the task, so escalations can be counted per agent:
 
 | Field           | Values                                                                                        |
 | --------------- | --------------------------------------------------------------------------------------------- |

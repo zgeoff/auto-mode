@@ -61,6 +61,42 @@ test('it reads a version 4 record the judge decided beside a version 3 record', 
   expect(log.skippedVersions).toStrictEqual({});
 });
 
+test('it reads a version 5 record with its agent hash beside version 3 and 4 records without one', async () => {
+  const ctx = await setupTest();
+
+  const oldest = buildMockActionLogRecord({ schemaVersion: 3 });
+  const earlier = buildMockActionLogRecord({ schemaVersion: 4, judge: null });
+
+  const current = buildMockActionLogRecord({
+    schemaVersion: 5,
+    agentHash: '5945296ed529b81d',
+    judge: null,
+  });
+
+  await writeFile(
+    ctx.path,
+    `${JSON.stringify(oldest)}\n${JSON.stringify(earlier)}\n${JSON.stringify(current)}\n`,
+  );
+
+  const log = await loadActionLog(ctx.path, null);
+
+  expect(log.records).toStrictEqual([oldest, earlier, current]);
+  expect(log.skippedVersions).toStrictEqual({});
+});
+
+test('it fails on a version 5 record without an agent hash, naming the field', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    ctx.path,
+    `${JSON.stringify(buildMockActionLogRecord({ schemaVersion: 5, judge: null }))}\n`,
+  );
+
+  expect(loadActionLog(ctx.path, null)).rejects.toThrow(
+    'Record 1 of the action log is not a valid version 5 record: agentHash.',
+  );
+});
+
 test('it counts and skips the records of other schema versions', async () => {
   const ctx = await setupTest();
 

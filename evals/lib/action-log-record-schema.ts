@@ -2,15 +2,16 @@ import * as z from 'zod';
 
 const hashSchema = z.string().regex(/^[0-9a-f]{16}$/);
 
-// A version 3 or 4 record of the diagnostics log; version 4 adds the judge
-// stage and its field. The diagnostics and judge fields pass unchecked: no
-// measurement reads them and no result keeps them.
+// A version 3, 4 or 5 record of the diagnostics log; version 4 adds the judge
+// stage and its field, and version 5 the agent hash. The diagnostics and judge
+// fields pass unchecked: no measurement reads them and no result keeps them.
 export const actionLogRecordSchema = z
   .strictObject({
-    schemaVersion: z.union([z.literal(3), z.literal(4)]),
+    schemaVersion: z.union([z.literal(3), z.literal(4), z.literal(5)]),
     time: z.iso.datetime(),
     invocationID: z.string().min(1),
     sessionHash: hashSchema,
+    agentHash: hashSchema.optional(),
     actionHash: hashSchema.nullable(),
     status: z.enum([
       'started',
@@ -36,6 +37,15 @@ export const actionLogRecordSchema = z
     escalation: z.boolean(),
     diagnostics: z.unknown(),
     judge: z.unknown().optional(),
+  })
+  .superRefine((record, context) => {
+    if ((record.schemaVersion === 5) !== (record.agentHash !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['agentHash'],
+        message: 'A version 5 record holds the agent hash, and an earlier version does not.',
+      });
+    }
   })
   .readonly();
 

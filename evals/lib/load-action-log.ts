@@ -39,7 +39,7 @@ export async function loadActionLog(path: string, since: string | null): Promise
 
     const version = getSchemaVersion(value);
 
-    if (version !== '3' && version !== '4') {
+    if (version !== '3' && version !== '4' && version !== '5') {
       skippedVersions[version] = (skippedVersions[version] ?? 0) + 1;
       continue;
     }

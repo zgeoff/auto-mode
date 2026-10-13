@@ -27,10 +27,10 @@ died midway shows as a start with no end. The end line holds the verdict, the de
 denial counts, whether the call spent the budget, and each model stage's own diagnostics: Jev's
 status, the step where it failed, the request size, its latency and every rule that reached the
 threshold, and the judge's outcome and latency. It holds no tool input and no message text, and it
-keys a call by a hash of its session and tool-call identifiers, so the log records how auto-mode
-decided without holding the work it decided about. [Action diagnostics](../guides/diagnostics.md)
-lists the fields, and the evaluation tooling turns the log into its live-use measurement
-([evaluation](./evaluation.md)).
+keys a call by hashes of its session, agent and tool-call identifiers, so the log records how
+auto-mode decided without holding the work it decided about.
+[Action diagnostics](../guides/diagnostics.md) lists the fields, and the evaluation tooling turns
+the log into its live-use measurement ([evaluation](./evaluation.md)).
 
 Two processes can append to the log at once without a lock, because each appends one whole line. A
 failed append writes a warning to stderr and never changes the verdict.

@@ -63,9 +63,88 @@ test('it accepts a version 4 record the judge decided, with its judge diagnostic
   expect(actionLogRecordSchema.safeParse(payload).data).toStrictEqual(payload);
 });
 
-test('it rejects a schema version other than 3 or 4', () => {
+test('it accepts a version 5 record with its agent hash', () => {
+  const payload = {
+    schemaVersion: 5,
+    time: '2026-10-01T10:00:03.000Z',
+    invocationID: 'invocation-3',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+  } as const;
+
+  expect(actionLogRecordSchema.safeParse(payload).data).toStrictEqual(payload);
+});
+
+test('it rejects a version 5 record without an agent hash', () => {
   const result = actionLogRecordSchema.safeParse({
     schemaVersion: 5,
+    time: '2026-10-01T10:00:03.000Z',
+    invocationID: 'invocation-3',
+    sessionHash: 'ad9ef8a88622d2c9',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['agentHash'] });
+});
+
+test('it rejects an agent hash on a version 4 record', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 4,
+    time: '2026-10-01T10:00:02.000Z',
+    invocationID: 'invocation-2',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['agentHash'] });
+});
+
+test('it rejects an agent identifier that is not a 16-digit hash', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 5,
+    time: '2026-10-01T10:00:03.000Z',
+    invocationID: 'invocation-3',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: 'raw-agent-id',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['agentHash'] });
+});
+
+test('it rejects a schema version other than 3, 4 or 5', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 6,
     time: '2026-10-01T10:00:00.000Z',
     invocationID: 'invocation-1',
     sessionHash: 'ad9ef8a88622d2c9',
