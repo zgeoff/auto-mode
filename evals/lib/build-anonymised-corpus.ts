@@ -434,10 +434,12 @@ const HEREDOC = /^<<(?<strip>-?)[ \t]*(?<word>[^\s<>;&|()]+)/;
 function collectSubstitutions(
   text: string,
   start: number,
-  closer: ')' | '`' | null,
+  closer: ')' | '}' | null,
 ): SubstitutionScan {
   const bodies: string[] = [];
   const heredocs: Heredoc[] = [];
+  const isExpansion = closer === '}';
+  const opener = isExpansion ? '{' : '(';
   let isDoubleQuoted = false;
   let depth = 0;
   let index = start;
@@ -450,8 +452,14 @@ function collectSubstitutions(
       continue;
     }
 
-    if (char === '`' && closer === '`') {
-      return { bodies, end: index };
+    // A `${…}` opens its own quoting, so a quote inside it closes no outer quote.
+    if (text.startsWith('${', index)) {
+      const expansion = collectSubstitutions(text, index + 2, '}');
+
+      bodies.push(...expansion.bodies);
+
+      index = expansion.end === -1 ? index + 1 : expansion.end + 1;
+      continue;
     }
 
     if (char === '`' || text.startsWith('$(', index)) {
@@ -482,8 +490,10 @@ function collectSubstitutions(
     if (char === '"') {
       isDoubleQuoted = !isDoubleQuoted;
     } else if (!isDoubleQuoted) {
-      if (char === "'") {
-        const end = findSingleQuoteEnd(text, index, text[index - 1] === '$');
+      if (isExpansion) {
+        // Quotes, comments and heredocs do not apply inside an expansion.
+      } else if (char === "'") {
+        const end = findSingleQuoteEnd(text, index, isANSIQuote(text, index));
 
         index = end === -1 ? index : end;
       } else if (char === '#' && isWordStart(text, index, start)) {
@@ -500,10 +510,12 @@ function collectSubstitutions(
 
           index += match[0].length - 1;
         }
-      } else if (char === '(') {
+      }
+
+      if (char === opener) {
         depth += 1;
-      } else if (char === ')') {
-        if (closer === ')' && depth === 0) {
+      } else if (char === closer) {
+        if (depth === 0) {
           return { bodies, end: index };
         }
 
@@ -520,10 +532,30 @@ function collectSubstitutions(
 function findSubstitution(text: string, index: number): { body: string; end: number } | null {
   const isBacktick = text[index] === '`';
   const bodyStart = index + (isBacktick ? 1 : 2);
-  const closer = isBacktick ? '`' : ')';
-  const nested = collectSubstitutions(text, bodyStart, closer);
 
-  return nested.end === -1 ? null : { body: text.slice(bodyStart, nested.end), end: nested.end };
+  const end = isBacktick
+    ? findBacktickEnd(text, bodyStart)
+    : collectSubstitutions(text, bodyStart, ')').end;
+
+  return end === -1 ? null : { body: text.slice(bodyStart, end), end };
+}
+
+// The shell ends a backtick body at the first unescaped backtick, before it reads any quote.
+function findBacktickEnd(text: string, start: number): number {
+  for (let index = start; index < text.length; index += 1) {
+    if (text[index] === '\\') {
+      index += 1;
+    } else if (text[index] === '`') {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+// An escaped `\$` or the `$$` parameter before a quote does not start `$'…'`.
+function isANSIQuote(text: string, index: number): boolean {
+  return text[index - 1] === '$' && !/[\\$]/.test(text[index - 2] ?? '');
 }
 
 // `$'…'` lets a backslash escape the closing quote; a plain single quote does not.
@@ -540,7 +572,7 @@ function findSingleQuoteEnd(text: string, start: number, allowsEscapes: boolean)
 }
 
 function isWordStart(text: string, index: number, start: number): boolean {
-  return index === start || /[\s;&|()<>`]/.test(text[index - 1] ?? '');
+  return index === start || /[\s;&|(<>]/.test(text[index - 1] ?? '');
 }
 
 // Any quoted character in the word quotes the whole delimiter and turns

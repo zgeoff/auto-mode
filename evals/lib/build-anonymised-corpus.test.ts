@@ -389,6 +389,22 @@ test.each([
     String.raw`echo $'it\'s' $(git push origin feat-login)`,
     /^echo \$'it\\'s' \$\(git push origin branch-[0-9a-f]{8}\)$/,
   ],
+  [
+    'ref=$(git rev-parse HEAD)#L1 && echo $(git push origin feat-login)',
+    /^ref=\$\(git rev-parse HEAD\)#L1 && echo \$\(git push origin branch-[0-9a-f]{8}\)$/,
+  ],
+  [
+    `echo "\${x:-"it's"}" $(git push origin feat-login) 'y'`,
+    /^echo "\$\{x:-"it's"\}" \$\(git push origin branch-[0-9a-f]{8}\) 'y'$/,
+  ],
+  [
+    "echo `echo it's` $(git push origin feat-login) 'x'",
+    /^echo `echo it's` \$\(git push origin branch-[0-9a-f]{8}\) 'x'$/,
+  ],
+  [
+    String.raw`echo \$'a\' $(git push origin feat-login) 'b'`,
+    /^echo \\\$'a\\' \$\(git push origin branch-[0-9a-f]{8}\) 'b'$/,
+  ],
 ])('it replaces the branch that %j pushes', (command, expected) => {
   const corpus = buildAnonymisedCorpus(
     [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
