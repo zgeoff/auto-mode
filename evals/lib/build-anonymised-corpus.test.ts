@@ -363,6 +363,52 @@ test.each([
   ],
   ['sudo -u bob git push origin feat-login', /^sudo -u bob git push origin branch-[0-9a-f]{8}$/],
   ['out=$(git push origin feat-login 2>&1)', /^out=\$\(git push origin branch-[0-9a-f]{8} 2>&1\)$/],
+  ['echo "$(git push origin feat-login)"', /^echo "\$\(git push origin branch-[0-9a-f]{8}\)"$/],
+  [
+    `echo "it's $(git push origin feat-login)"`,
+    /^echo "it's \$\(git push origin branch-[0-9a-f]{8}\)"$/,
+  ],
+  [
+    "out=$(echo ')'; git push origin feat-login)",
+    /^out=\$\(echo '\)'; git push origin branch-[0-9a-f]{8}\)$/,
+  ],
+  ['echo `git push origin feat-login`', /^echo `git push origin branch-[0-9a-f]{8}`$/],
+  [
+    `git commit -m "$(cat <<'EOF'\nDon't break the build\nEOF\n)" && echo "$(git push origin feat-login)"`,
+    /^git commit -m "\$\(cat <<'EOF'\nDon't break the build\nEOF\n\)" && echo "\$\(git push origin branch-[0-9a-f]{8}\)"$/,
+  ],
+  [
+    `# don't force\necho $(git push origin feat-login) # it's done`,
+    /^# don't force\necho \$\(git push origin branch-[0-9a-f]{8}\) # it's done$/,
+  ],
+  [
+    `cat <<EOF\nit's $(git push origin feat-login)\nEOF`,
+    /^cat <<EOF\nit's \$\(git push origin branch-[0-9a-f]{8}\)\nEOF$/,
+  ],
+  [
+    String.raw`echo $'it\'s' $(git push origin feat-login)`,
+    /^echo \$'it\\'s' \$\(git push origin branch-[0-9a-f]{8}\)$/,
+  ],
+  [
+    `(echo ok)# 'not a quote\necho "$(git push origin feat-login)"\necho 'end'`,
+    /^\(echo ok\)# 'not a quote\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/,
+  ],
+  [
+    'ref=$(git rev-parse HEAD)#L1 && echo $(git push origin feat-login)',
+    /^ref=\$\(git rev-parse HEAD\)#L1 && echo \$\(git push origin branch-[0-9a-f]{8}\)$/,
+  ],
+  [
+    `echo "\${x:-"it's"}" $(git push origin feat-login) 'y'`,
+    /^echo "\$\{x:-"it's"\}" \$\(git push origin branch-[0-9a-f]{8}\) 'y'$/,
+  ],
+  [
+    "echo `echo it's` $(git push origin feat-login) 'x'",
+    /^echo `echo it's` \$\(git push origin branch-[0-9a-f]{8}\) 'x'$/,
+  ],
+  [
+    String.raw`echo \$'a\' $(git push origin feat-login) 'b'`,
+    /^echo \\\$'a\\' \$\(git push origin branch-[0-9a-f]{8}\) 'b'$/,
+  ],
 ])('it replaces the branch that %j pushes', (command, expected) => {
   const corpus = buildAnonymisedCorpus(
     [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
@@ -372,6 +418,29 @@ test.each([
   expect(corpus.cases[0]?.request).toStrictEqual({
     command: expect.toSatisfy((value: string) => expected.test(value)),
   });
+});
+
+test.each([
+  "echo '$(git push origin commit)'",
+  "echo '`git push origin commit`'",
+  String.raw`echo \$(git push origin commit)`,
+  String.raw`echo "\$(git push origin commit)"`,
+  'echo "\\`git push origin commit\\`"',
+  "cat <<'EOF'\n$(git push origin commit)\nEOF",
+])('it keeps commit in a case whose command %j runs no push', (command) => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: { command, text: 'push the commit to main' },
+      },
+    ],
+    'salt',
+  );
+
+  expect(corpus.cases[0]?.request).toStrictEqual({ command, text: 'push the commit to main' });
 });
 
 test('it replaces the branch of a git push that follows global options', () => {
