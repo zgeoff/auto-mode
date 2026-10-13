@@ -208,6 +208,7 @@ test('it measures a log of two tasks', () => {
       "taskOutcomes": [
         {
           "actions": 2,
+          "agentHash": null,
           "denials": 1,
           "escalations": 0,
           "recovered": true,
@@ -215,6 +216,7 @@ test('it measures a log of two tasks', () => {
         },
         {
           "actions": 2,
+          "agentHash": null,
           "denials": 1,
           "escalations": 1,
           "recovered": false,
@@ -281,6 +283,7 @@ test('it counts a task as recovered when an allow follows its first deny before 
   expect(summary.taskOutcomes).toStrictEqual([
     {
       sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: null,
       actions: 3,
       denials: 2,
       escalations: 0,
@@ -362,17 +365,104 @@ test('it leaves a task with no deny out of the recovery denominator', () => {
   });
 });
 
-test('it counts a subagent with the session that spawned it, as the record holds no agent identity', () => {
+test('it counts a subagent with the session that spawned it when the records predate the agent hash', () => {
   const summary = buildLiveUseMeasures([
-    buildMockActionLogRecord({ sessionHash: 'aaaaaaaaaaaaaaaa', invocationID: 'main' }),
     buildMockActionLogRecord({
+      schemaVersion: 4,
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      invocationID: 'main',
+    }),
+    buildMockActionLogRecord({
+      schemaVersion: 4,
       sessionHash: 'aaaaaaaaaaaaaaaa',
       invocationID: 'subagent',
       escalation: true,
     }),
   ]);
 
-  expect(summary.tasks).toBe(1);
+  expect(summary.taskOutcomes).toStrictEqual([
+    {
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: null,
+      actions: 2,
+      denials: 0,
+      escalations: 1,
+      recovered: null,
+    },
+  ]);
+});
+
+test('it counts escalations, recovery and denials for each agent apart from its parent session', () => {
+  const summary = buildLiveUseMeasures([
+    buildMockActionLogRecord({
+      schemaVersion: 5,
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: '1111111111111111',
+      time: '2026-10-01T10:00:00.000Z',
+      status: 'deny',
+      verdict: 'deny',
+    }),
+    buildMockActionLogRecord({
+      schemaVersion: 5,
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: '2222222222222222',
+      time: '2026-10-01T10:00:01.000Z',
+      verdict: 'defer',
+      decidingStage: 'budget',
+      escalation: true,
+    }),
+    buildMockActionLogRecord({
+      schemaVersion: 5,
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: '1111111111111111',
+      time: '2026-10-01T10:00:02.000Z',
+      verdict: 'allow',
+    }),
+  ]);
+
+  expect(summary.taskOutcomes).toStrictEqual([
+    {
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: '1111111111111111',
+      actions: 2,
+      denials: 1,
+      escalations: 0,
+      recovered: true,
+    },
+    {
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: '2222222222222222',
+      actions: 1,
+      denials: 0,
+      escalations: 1,
+      recovered: null,
+    },
+  ]);
+});
+
+test('it clusters the denials of each agent apart from its parent session', () => {
+  const summary = buildLiveUseMeasures([
+    buildMockActionLogRecord({
+      schemaVersion: 5,
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: '1111111111111111',
+      status: 'deny',
+      verdict: 'deny',
+    }),
+    buildMockActionLogRecord({
+      schemaVersion: 5,
+      sessionHash: 'aaaaaaaaaaaaaaaa',
+      agentHash: '2222222222222222',
+    }),
+  ]);
+
+  expect(summary.counts).toPartiallyContain({
+    measurement: 'denials per action',
+    stage: 'all',
+    events: 1,
+    total: 2,
+    cases: 2,
+  });
 });
 
 test('it counts denials per action for each deciding stage over every action', () => {

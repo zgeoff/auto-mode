@@ -39,10 +39,11 @@ export async function writeActionDiagnostic(
   }
 
   const record = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
     sessionHash: toHash(payload.sessionID),
+    agentHash: toHash(`${payload.sessionID}\0${payload.decisionContext?.agentID ?? ''}`),
     actionHash: payload.toolUseID === undefined ? null : toHash(payload.toolUseID),
     status: entry.status,
     verdict: entry.verdict ?? null,

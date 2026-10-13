@@ -54,7 +54,8 @@ test('it appends private correlated records without action, task, credential, or
 
   const text = await readFile(path, 'utf8');
 
-  // Each hash is the first 16 hex digits of `printf <id> | sha256sum`.
+  // Each hash is the first 16 hex digits of `printf <id> | sha256sum`; the
+  // agent's id is the session id and the agent id joined by a NUL.
   expect(
     text
       .trim()
@@ -62,10 +63,11 @@ test('it appends private correlated records without action, task, credential, or
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
+      agentHash: '5945296ed529b81d',
       actionHash: 'f5d171dc69611257',
       status: 'started',
       verdict: null,
@@ -76,10 +78,11 @@ test('it appends private correlated records without action, task, credential, or
       judge: null,
     },
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
+      agentHash: '5945296ed529b81d',
       actionHash: 'f5d171dc69611257',
       status: 'deny',
       verdict: 'deny',
@@ -92,6 +95,47 @@ test('it appends private correlated records without action, task, credential, or
   ]);
 
   expect(text).not.toInclude('private-');
+});
+
+test('it records a subagent under an agent hash apart from its parent session', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.dir, 'actions.jsonl');
+
+  const host = buildMockHostEnvironment({
+    env: { AUTO_MODE_DIAGNOSTICS_PATH: path },
+    home: ctx.dir,
+  });
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({ sessionID: 's', decisionContext: { agentID: null } }),
+    { invocationID: 'parent', status: 'started' },
+    host,
+    { write: mock() },
+  );
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({ sessionID: 's', decisionContext: { agentID: 'worker' } }),
+    { invocationID: 'worker', status: 'started' },
+    host,
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  // Each hash is the first 16 hex digits of a sha256sum: of `printf s` for the
+  // session, `printf 's\0'` for the parent and `printf 's\0worker'` for the subagent.
+  expect(
+    text
+      .trim()
+      .split('\n')
+      .map((line) =>
+        z.object({ sessionHash: z.string(), agentHash: z.string() }).parse(JSON.parse(line)),
+      ),
+  ).toStrictEqual([
+    { sessionHash: '043a718774c572bd', agentHash: '28a3d6d537e5d509' },
+    { sessionHash: '043a718774c572bd', agentHash: 'e281a6ae093eb49a' },
+  ]);
 });
 
 test('it stamps a record with the time it was written', async () => {
@@ -161,12 +205,14 @@ test('it records the judge diagnostics of an overturned deny', async () => {
 
   const text = await readFile(path, 'utf8');
 
-  // The session hash is the first 16 hex digits of `printf s | sha256sum`.
+  // Each hash is the first 16 hex digits of a sha256sum: of `printf s` for the
+  // session and of `printf 's\0'` for the agent.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
+    agentHash: '28a3d6d537e5d509',
     actionHash: null,
     status: 'allow',
     verdict: 'allow',
@@ -200,12 +246,14 @@ test('it records no action hash for a request without a tool use id', async () =
 
   const text = await readFile(path, 'utf8');
 
-  // The session hash is the first 16 hex digits of `printf s | sha256sum`.
+  // Each hash is the first 16 hex digits of a sha256sum: of `printf s` for the
+  // session and of `printf 's\0'` for the agent.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
+    agentHash: '28a3d6d537e5d509',
     actionHash: null,
     status: 'started',
     verdict: null,
@@ -276,12 +324,14 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
 
   const text = await readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8');
 
-  // The session hash is the first 16 hex digits of `printf s | sha256sum`.
+  // Each hash is the first 16 hex digits of a sha256sum: of `printf s` for the
+  // session and of `printf 's\0'` for the agent.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
+    agentHash: '28a3d6d537e5d509',
     actionHash: expect.toBeString(),
     status: 'started',
     verdict: null,

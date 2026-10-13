@@ -481,12 +481,83 @@ test('it measures the action log the state directory holds and prints the measur
       `Wrote ${join(ctx.resultsDir, 'runs/live-use', runID ?? '')}`,
       'records: 1 (0 started, 1 final, 0 incomplete) from 2 lines; 0 before --since; skipped none',
       'Dropped a torn last line (19 characters).',
-      'tasks: 1, from 2026-10-01T10:00:00.000Z to 2026-10-01T10:00:00.000Z',
+      'tasks: 1 (0 agents, 1 whole sessions from records without an agent hash), from 2026-10-01T10:00:00.000Z to 2026-10-01T10:00:00.000Z',
       'escalations per task: 0/1 (mean 0, standard error n/a)',
       'tasks with an escalation / all / recorded: 0/1 cases (1 cases; Wilson 0–0.7935)',
       'tasks that recover after a deny / all / recorded: 0/1 cases (1 cases; Wilson 0–0.7935)',
       'denials per action / all / recorded: 1/1 actions (1 cases, design effect 1, effective n 1; Wilson 0.2065–1)',
       'denials per action / jev / recorded: 1/1 actions (1 cases, design effect 1, effective n 1; Wilson 0.2065–1)',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('it prints the live measures per agent, apart from the parent session', async () => {
+  const ctx = await setupTest();
+
+  const logPath = join(ctx.resultsDir, 'actions.jsonl');
+
+  await writeFile(
+    logPath,
+    [
+      buildMockActionLogRecord({
+        schemaVersion: 5,
+        time: '2026-10-01T10:00:00.000Z',
+        sessionHash: 'aaaaaaaaaaaaaaaa',
+        agentHash: '1111111111111111',
+        status: 'deny',
+        verdict: 'deny',
+        decidingStage: 'jev',
+        judge: null,
+      }),
+      buildMockActionLogRecord({
+        schemaVersion: 5,
+        time: '2026-10-01T10:00:01.000Z',
+        sessionHash: 'aaaaaaaaaaaaaaaa',
+        agentHash: '2222222222222222',
+        verdict: 'defer',
+        decidingStage: 'budget',
+        escalation: true,
+        judge: null,
+      }),
+      buildMockActionLogRecord({
+        schemaVersion: 5,
+        time: '2026-10-01T10:00:02.000Z',
+        sessionHash: 'aaaaaaaaaaaaaaaa',
+        agentHash: '1111111111111111',
+        verdict: 'allow',
+        judge: null,
+      }),
+    ]
+      .map((record) => `${JSON.stringify(record)}\n`)
+      .join(''),
+  );
+
+  const code = await runEvalCommand(['live', '--log', logPath, '--results', ctx.resultsDir], {
+    stdout: ctx.stdout.write,
+    stderr: ctx.stderr.write,
+    env: {},
+    home: '/nonexistent',
+    repoRoot: ctx.repoRoot,
+    experiments: [],
+    prepareRun: () => Promise.reject(new Error('unreachable')),
+    now: () => new Date('2026-10-10T12:00:00.000Z'),
+  });
+
+  const [runID] = await readdir(join(ctx.resultsDir, 'runs/live-use'));
+
+  expect(code).toBe(0);
+
+  expect(ctx.stdout.read()).toBe(
+    [
+      `Wrote ${join(ctx.resultsDir, 'runs/live-use', runID ?? '')}`,
+      'records: 3 (0 started, 3 final, 0 incomplete) from 3 lines; 0 before --since; skipped none',
+      'tasks: 2 (2 agents, 0 whole sessions from records without an agent hash), from 2026-10-01T10:00:00.000Z to 2026-10-01T10:00:02.000Z',
+      'escalations per task: 1/2 (mean 0.5, standard error 0.5)',
+      'tasks with an escalation / all / recorded: 1/2 cases (2 cases; Wilson 0.0945–0.9055)',
+      'tasks that recover after a deny / all / recorded: 1/1 cases (1 cases; Wilson 0.2065–1)',
+      'denials per action / all / recorded: 1/3 actions (2 cases, design effect 1, effective n 3; Wilson 0.0615–0.7923)',
+      'denials per action / jev / recorded: 1/3 actions (2 cases, design effect 1, effective n 3; Wilson 0.0615–0.7923)',
       '',
     ].join('\n'),
   );

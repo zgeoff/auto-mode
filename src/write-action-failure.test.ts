@@ -36,10 +36,11 @@ test('it writes a started record and a deferred failure under one invocation', a
 
   expect(records).toStrictEqual([
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
+      agentHash: expect.toBeString(),
       actionHash: expect.toBeString(),
       status: 'started',
       verdict: null,
@@ -50,10 +51,11 @@ test('it writes a started record and a deferred failure under one invocation', a
       judge: null,
     },
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
+      agentHash: expect.toBeString(),
       actionHash: expect.toBeString(),
       status: 'failure',
       verdict: 'defer',

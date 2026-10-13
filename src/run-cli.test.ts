@@ -530,12 +530,13 @@ test('it exits successfully on malformed classifier configuration without echoin
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       time: expect.toSatisfy(
         (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
       ),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
+      agentHash: expect.toBeString(),
       actionHash: expect.toBeString(),
       status: 'started',
       verdict: null,
@@ -546,12 +547,13 @@ test('it exits successfully on malformed classifier configuration without echoin
       judge: null,
     },
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       time: expect.toSatisfy(
         (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
       ),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
+      agentHash: expect.toBeString(),
       actionHash: expect.toBeString(),
       status: 'failure',
       verdict: 'defer',
@@ -631,12 +633,13 @@ test('it counts down to one denial left on the second denial in a row', async ()
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
+    agentHash: expect.toBeString(),
     actionHash: expect.toBeString(),
     status: 'failure',
     verdict: 'deny',
@@ -717,12 +720,13 @@ test('it warns on the third denial in a row that it is the last before the user 
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
+    agentHash: expect.toBeString(),
     actionHash: expect.toBeString(),
     status: 'failure',
     verdict: 'deny',
@@ -799,12 +803,13 @@ test('it leaves the fourth action in a row to the user after three denials', asy
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
+    agentHash: expect.toBeString(),
     actionHash: expect.toBeString(),
     status: 'failure',
     verdict: 'defer',
@@ -904,12 +909,13 @@ test('it starts the denial count over after the user decides an action', async (
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
+    agentHash: expect.toBeString(),
     actionHash: expect.toBeString(),
     status: 'failure',
     verdict: 'deny',
@@ -989,12 +995,13 @@ test('it denies a retry of the action just denied without asking the classifier'
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
+    agentHash: expect.toBeString(),
     actionHash: expect.toBeString(),
     status: 'deny',
     verdict: 'deny',
@@ -1110,12 +1117,13 @@ test('it keeps the denial count across runs for a resumed session', async () => 
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
+    agentHash: expect.toBeString(),
     actionHash: expect.toBeString(),
     status: 'failure',
     verdict: 'defer',
@@ -1463,12 +1471,13 @@ test('it allows an action that Jev clears', async () => {
   });
 
   expect(JSON.parse(last)).toStrictEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     time: expect.toSatisfy(
       (time: string) => Date.parse(time) >= runStartedAt && Date.parse(time) <= runFinishedAt,
     ),
     invocationID: expect.toBeString(),
     sessionHash: expect.toBeString(),
+    agentHash: expect.toBeString(),
     actionHash: expect.toBeString(),
     status: 'allow',
     verdict: 'allow',
@@ -1620,7 +1629,7 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
   });
 
   expect(JSON.parse(last)).toMatchObject({
-    schemaVersion: 4,
+    schemaVersion: 5,
     status: 'allow',
     verdict: 'allow',
     decidingStage: 'judge',

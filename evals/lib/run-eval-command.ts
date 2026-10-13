@@ -345,8 +345,10 @@ async function runLiveCommand(
     io.stdout(`Dropped a torn last line (${log.tornLineCharacters} characters).\n`);
   }
 
+  const sessionTasks = measures.taskOutcomes.filter((task) => task.agentHash === null).length;
+
   io.stdout(
-    `tasks: ${measures.tasks}, from ${measures.firstAt ?? '-'} to ${measures.lastAt ?? '-'}\n`,
+    `tasks: ${measures.tasks} (${measures.tasks - sessionTasks} agents, ${sessionTasks} whole sessions from records without an agent hash), from ${measures.firstAt ?? '-'} to ${measures.lastAt ?? '-'}\n`,
   );
 
   const perTask = measures.escalationsPerTask;

@@ -1153,10 +1153,11 @@ test('it writes a started and a final action-log record when asked', async () =>
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
+      agentHash: expect.toBeString(),
       actionHash: expect.toBeString(),
       status: 'started',
       verdict: null,
@@ -1167,10 +1168,11 @@ test('it writes a started and a final action-log record when asked', async () =>
       judge: null,
     },
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
+      agentHash: expect.toBeString(),
       actionHash: expect.toBeString(),
       status: 'allow',
       verdict: 'allow',

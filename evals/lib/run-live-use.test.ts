@@ -50,7 +50,7 @@ test('it writes the summary under runs/live-use with the run config and the log 
       publicCommit: 'abc123',
       dirtyTree: true,
       logHash: createHash('sha256').update(text).digest('hex'),
-      recordSchemaVersion: 3,
+      recordSchemaVersion: 5,
       since: '2026-09-01T00:00:00.000Z',
       startedAt: '2026-10-10T12:00:00.000Z',
     },

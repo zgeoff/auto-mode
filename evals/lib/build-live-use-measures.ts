@@ -6,6 +6,7 @@ import type { MeasurementCount } from './run-summary-schema.ts';
 
 interface TaskOutcome {
   readonly sessionHash: string;
+  readonly agentHash: string | null;
   readonly actions: number;
   readonly denials: number;
   readonly escalations: number;
@@ -32,8 +33,9 @@ export interface LiveUseMeasures {
 
 const ALL_STAGES = 'all';
 
-// A task is one session: the record holds the hashed session identifier and no
-// agent identifier, so a subagent's actions count with the session that spawned it.
+// A task is one agent's actions, so a subagent counts apart from the session that
+// spawned it. A record before version 5 holds no agent hash, so its task is the
+// whole session, subagents included.
 export function buildLiveUseMeasures(records: readonly ActionLogRecord[]): LiveUseMeasures {
   const finals = records
     .map((record, index) => ({ record, index }))
@@ -51,17 +53,23 @@ export function buildLiveUseMeasures(records: readonly ActionLogRecord[]): LiveU
   const tasks = new Map<string, ActionLogRecord[]>();
 
   for (const record of finals) {
-    tasks.set(record.sessionHash, [...(tasks.get(record.sessionHash) ?? []), record]);
+    const key = getTaskKey(record);
+
+    tasks.set(key, [...(tasks.get(key) ?? []), record]);
   }
 
   const taskOutcomes = [...tasks.entries()]
-    .map(([sessionHash, actions]) => buildTaskOutcome(sessionHash, actions))
-    .toSorted((left, right) => left.sessionHash.localeCompare(right.sessionHash));
+    .map(([key, actions]) => buildTaskOutcome(key, actions))
+    .toSorted(
+      (left, right) =>
+        left.sessionHash.localeCompare(right.sessionHash) ||
+        (left.agentHash ?? '').localeCompare(right.agentHash ?? ''),
+    );
 
   const times = records.map((record) => record.time).toSorted();
 
   const perTask = buildClusteredStandardError(
-    taskOutcomes.map((task) => ({ cluster: task.sessionHash, value: task.escalations })),
+    taskOutcomes.map((task) => ({ cluster: getTaskKey(task), value: task.escalations })),
   );
 
   return {
@@ -85,7 +93,7 @@ export function buildLiveUseMeasures(records: readonly ActionLogRecord[]): LiveU
         source: 'recorded',
         unit: 'cases',
         observations: taskOutcomes.map((task) => ({
-          caseKey: task.sessionHash,
+          caseKey: getTaskKey(task),
           event: task.escalations > 0,
         })),
       },
@@ -96,7 +104,7 @@ export function buildLiveUseMeasures(records: readonly ActionLogRecord[]): LiveU
         unit: 'cases',
         observations: taskOutcomes
           .filter((task) => task.recovered !== null)
-          .map((task) => ({ caseKey: task.sessionHash, event: task.recovered === true })),
+          .map((task) => ({ caseKey: getTaskKey(task), event: task.recovered === true })),
       },
       ...buildDenialGroups(finals),
     ]),
@@ -104,7 +112,21 @@ export function buildLiveUseMeasures(records: readonly ActionLogRecord[]): LiveU
   };
 }
 
-function buildTaskOutcome(sessionHash: string, actions: readonly ActionLogRecord[]): TaskOutcome {
+type TaskKeySource =
+  | Pick<ActionLogRecord, 'sessionHash' | 'agentHash'>
+  | Pick<TaskOutcome, 'sessionHash' | 'agentHash'>;
+
+function getTaskKey(source: TaskKeySource): string {
+  return source.agentHash ?? source.sessionHash;
+}
+
+function buildTaskOutcome(key: string, actions: readonly ActionLogRecord[]): TaskOutcome {
+  const [first] = actions;
+
+  if (first === undefined) {
+    throw new Error(`Task ${key} has no actions.`);
+  }
+
   const firstDeny = actions.findIndex((record) => record.verdict === 'deny');
 
   const next =
@@ -115,7 +137,8 @@ function buildTaskOutcome(sessionHash: string, actions: readonly ActionLogRecord
           .find((record) => record.escalation || record.verdict === 'allow');
 
   return {
-    sessionHash,
+    sessionHash: first.sessionHash,
+    agentHash: first.agentHash ?? null,
     actions: actions.length,
     denials: actions.filter((record) => record.verdict === 'deny').length,
     escalations: actions.filter((record) => record.escalation).length,
@@ -140,7 +163,7 @@ function buildDenialGroups(finals: readonly ActionLogRecord[]): MeasurementObser
     source: 'recorded',
     unit: 'actions',
     observations: finals.map((record) => ({
-      caseKey: record.sessionHash,
+      caseKey: getTaskKey(record),
       event:
         record.verdict === 'deny' &&
         (stage === ALL_STAGES || (record.decidingStage ?? 'none') === stage),

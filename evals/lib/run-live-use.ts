@@ -21,7 +21,7 @@ interface LiveUseConfig {
   readonly publicCommit: string;
   readonly dirtyTree: boolean;
   readonly logHash: string;
-  readonly recordSchemaVersion: 3;
+  readonly recordSchemaVersion: 5;
   readonly since: string | null;
   readonly startedAt: string;
 }
@@ -55,7 +55,7 @@ export async function runLiveUse(options: Readonly<LiveUseOptions>): Promise<Liv
     publicCommit: options.publicCommit,
     dirtyTree: options.dirtyTree,
     logHash: log.logHash,
-    recordSchemaVersion: 3 as const,
+    recordSchemaVersion: 5 as const,
     since: options.since,
   };
 
