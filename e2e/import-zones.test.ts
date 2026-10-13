@@ -157,6 +157,13 @@ test.each([
     'export const find = 1;\n',
   ],
   [
+    'stages',
+    'src/judge/send-judge-message.ts',
+    "import { sendDecision } from '../model/send-decision.ts';\n",
+    'src/model/send-decision.ts',
+    'export const sendDecision = 1;\n',
+  ],
+  [
     'child-process',
     'src/rules/classify.ts',
     "import { spawn } from 'node:child_process';\n",
@@ -178,6 +185,13 @@ test.each([
     "import { config } from '../config/config.ts';\n",
     'src/config/config.ts',
     'export const config = 1;\n',
+  ],
+  [
+    'a judge file that imports the Messages client',
+    'src/judge/send-judge-message.ts',
+    "import { sendMessage } from '../messages/anthropic-client.ts';\n",
+    'src/messages/anthropic-client.ts',
+    'export const sendMessage = 1;\n',
   ],
   [
     'a stage that imports its own folder',
