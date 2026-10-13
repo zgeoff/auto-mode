@@ -16,8 +16,6 @@ import type { JudgeVerdict } from './parse-judge-verdict.ts';
 export const JUDGE_STAGE = 'judge';
 
 export interface JudgeStageOptions {
-  readonly scope: 'jev-denies' | 'every-sample';
-
   // The recorded judges reviewed the asks of the shipped reading, so a stage
   // reviewing another reading's denies has no recording to replay.
   readonly replaysRecording: boolean;
@@ -33,15 +31,12 @@ const REASON_TEXT_MAX_CHARS = 400;
 // containment deny stays final. It reads the shipped judge's request, reply
 // parser and verdict; an unreadable reply is not scorable, never an allow.
 export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<MeasurementCase> {
-  const scope = options.scope;
-
   const stage: Stage<MeasurementCase> = {
     name: JUDGE_STAGE,
     sends: true,
-    ...(scope === 'jev-denies' ? { reviews: JEV_STAGE } : {}),
+    reviews: JEV_STAGE,
     run: async (entry, context) => {
-      const skipped =
-        scope === 'jev-denies' ? findSkip(context, options.reviewsEveryJevDeny === true) : null;
+      const skipped = findSkip(context, options.reviewsEveryJevDeny === true);
 
       if (skipped !== null) {
         return skipped;
@@ -87,7 +82,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
   };
 
   return options.replaysRecording
-    ? { ...stage, replay: buildJudgeReplay(scope, options.reviewsEveryJevDeny === true) }
+    ? { ...stage, replay: buildJudgeReplay(options.reviewsEveryJevDeny === true) }
     : stage;
 }
 
@@ -131,12 +126,10 @@ function findJevDeny(
 }
 
 function buildJudgeReplay(
-  scope: JudgeStageOptions['scope'],
   reviewsEveryJevDeny: boolean,
 ): NonNullable<Stage<MeasurementCase>['replay']> {
   return (entry, context) => {
-    const skipped =
-      scope === 'jev-denies' ? findRecordedSkip(entry.case, context, reviewsEveryJevDeny) : null;
+    const skipped = findRecordedSkip(entry.case, context, reviewsEveryJevDeny);
 
     if (skipped !== null) {
       return Promise.resolve(skipped);

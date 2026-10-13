@@ -28,7 +28,7 @@ then one line for each recording it can replay.
 | `catastrophic-allows`     | 1: catastrophic cases allowed per stage and by harm, both Jev shapes      |
 | `consent`                 | 3: twins credited and near-misses held, with GEO-78 control-11 and -39    |
 | `judge-alone`             | 4: the judge on Jev denies: overturns, catastrophic overturns, failures   |
-| `infrastructure-failures` | 5: failed and unreadable requests per stage, the judge on every sample    |
+| `infrastructure-failures` | 5: failed and unreadable requests per stage, the judge on each Jev deny   |
 | `containment-replay`      | 1 and 2 for the containment check over the recorded Jev answers           |
 | `default-branch-write`    | 1 and 3 for default-branch writes, with two captured fixture edits by key |
 

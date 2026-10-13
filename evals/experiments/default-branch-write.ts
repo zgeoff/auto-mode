@@ -56,7 +56,7 @@ export const defaultBranchWrite = defineExperiment<MeasurementCase>({
   stages: [
     buildContainmentStage(),
     buildJevStage('shipped'),
-    buildJudgeStage({ scope: 'jev-denies', replaysRecording: true }),
+    buildJudgeStage({ replaysRecording: true }),
   ],
   measurements: [
     (records) => collectCatastrophicAllows(records, [JUDGE_STAGE], [], [CONTAINMENT_STAGE]),
