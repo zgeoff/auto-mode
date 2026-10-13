@@ -422,8 +422,8 @@ test.each([
     /^echo a \\\n# don't\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/,
   ],
   [
-    'echo foo\\\n#$(git push origin feat-login)',
-    /^echo foo\\\n#\$\(git push origin branch-[0-9a-f]{8}\)$/,
+    'cat <<\\\nEOF\n$(git push origin feat-login)\nEOF',
+    /^cat <<\\\nEOF\n\$\(git push origin branch-[0-9a-f]{8}\)\nEOF$/,
   ],
   [
     "echo a\\\\\n# don't\necho \"$(git push origin feat-login)\"\necho 'end'",

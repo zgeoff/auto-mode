@@ -398,12 +398,16 @@ function collectCommands(value: unknown, key: string | null): string[] {
   return [];
 }
 
+// A space keeps both halves of a branch name split by `\<newline>` for the rewriter,
+// and after an escaped `\\` the newline stays.
+const LINE_CONTINUATION = /(?<!\\)(?<escapes>(?:\\\\)*)\\\n/g;
+
 // A substitution runs its own command, so its text is read on its own, and a
 // grouping bracket that the shell layer keeps on a word would stick to a branch name.
 function collectCommandBranches(command: string): Identifier[] {
-  const text = command.replaceAll('\\\n', ' ');
+  const text = command.replaceAll(LINE_CONTINUATION, '$<escapes> ');
 
-  const substituted = collectSubstitutions(command, 0, null).bodies.flatMap((body) =>
+  const substituted = collectSubstitutions(text, 0, null).bodies.flatMap((body) =>
     collectCommandBranches(body),
   );
 
@@ -577,7 +581,8 @@ function findSingleQuoteEnd(text: string, start: number, allowsEscapes: boolean)
 }
 
 // A `)` that closes a subshell ends a word, but one that closes a substitution
-// leaves the word open, so `$(…)#L1` holds no comment.
+// leaves the word open, so `$(…)#L1` holds no comment. An escaped separator
+// belongs to the word, so `foo\ #` holds no comment either.
 function isWordStart(
   text: string,
   index: number,
@@ -585,21 +590,13 @@ function isWordStart(
   substitutionEnd: number,
   escapedIndex: number,
 ): boolean {
-  const boundary = getWordBoundary(text, index, escapedIndex);
-  const previous = text[boundary - 1] ?? '';
+  const previous = text[index - 1] ?? '';
 
   return (
-    boundary <= start ||
-    (boundary - 1 !== escapedIndex &&
-      (/[\s;&|(<>]/.test(previous) || (previous === ')' && boundary - 1 !== substitutionEnd)))
+    index === start ||
+    (index - 1 !== escapedIndex &&
+      (/[\s;&|(<>]/.test(previous) || (previous === ')' && index - 1 !== substitutionEnd)))
   );
-}
-
-// The shell drops a `\<newline>` before it splits words, so the character before
-// the backslash decides. Only the last pair is known to be an escape, so
-// `foo\<newline>\<newline>#` still reads as a comment.
-function getWordBoundary(text: string, index: number, escapedIndex: number): number {
-  return index - 1 === escapedIndex && text[index - 1] === '\n' ? index - 2 : index;
 }
 
 // Any quoted character in the word quotes the whole delimiter and turns
