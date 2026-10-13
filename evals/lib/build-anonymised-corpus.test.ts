@@ -357,6 +357,10 @@ test.each([
   ['(cd x && git push origin feat-login)', /^\(cd x && git push origin branch-[0-9a-f]{8}\)$/],
   ['{ git push origin feat-login; }', /^\{ git push origin branch-[0-9a-f]{8}; \}$/],
   ['/usr/bin/git push origin feat-login', /^\/usr\/bin\/git push origin branch-[0-9a-f]{8}$/],
+  [
+    '/bin/bash -c "git push origin feat-login"',
+    /^\/bin\/bash -c "git push origin branch-[0-9a-f]{8}"$/,
+  ],
   ['sudo -u bob git push origin feat-login', /^sudo -u bob git push origin branch-[0-9a-f]{8}$/],
   ['out=$(git push origin feat-login 2>&1)', /^out=\$\(git push origin branch-[0-9a-f]{8} 2>&1\)$/],
 ])('it replaces the branch that %j pushes', (command, expected) => {

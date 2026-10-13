@@ -462,7 +462,7 @@ function collectSegmentBranches(words: readonly string[]): Identifier[] {
   const [program = '', ...args] = words;
   const script = args.findIndex((arg) => /^-\w*c\w*$/.test(arg));
 
-  if (SHELLS.has(program) && script !== -1) {
+  if (SHELLS.has(basename(program)) && script !== -1) {
     return collectCommandBranches(args[script + 1] ?? '');
   }
 
