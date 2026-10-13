@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { basename } from 'node:path';
-import { findSecret } from 'auto-mode/eval';
+import { findSecret, splitCommandWords, splitGitCommand, splitShellCommand } from 'auto-mode/eval';
 
 export interface CapturedAction {
   readonly cwd: string;
@@ -202,12 +202,6 @@ const BRANCH_PATTERNS = [
   /\.worktrees\/(?<branch>[^/\s"']+)/g,
 ];
 
-// Only a git command at the start of a command reads as a push, and its
-// arguments end with the line, so prose such as "push the commit" keeps its
-// words: every name collected here is replaced wherever it appears.
-const GIT_PUSH =
-  /(?:^|[;&|(`{]|\$\()[ \t]*(?:\w+=[^\s;&|]*[ \t]+)*git(?:[ \t]+-[^\s;&|]+(?:[ \t]+[^-\s;&|][^\s;&|]*)?)*[ \t]+push\b(?<args>(?:[ \t]+[^\s;&|<>()`'"#]+)*)/gm;
-
 const SHARED_USERS = new Set(['git', 'x-access-token', 'oauth2', 'token']);
 
 // Names that carry the shape of an action rather than who ran it; replacing
@@ -276,6 +270,7 @@ function collectActionIdentifiers(action: Readonly<CapturedAction>): Identifier[
     ...(isHome ? [] : [{ value: basename(root), kind: 'repo' as const }]),
     ...collectStrings(action.request).flatMap((text) => collectTextIdentifiers(text)),
     ...collectStrings(action.verdict).flatMap((text) => collectTextIdentifiers(text)),
+    ...collectCommands(action.request, null).flatMap((command) => collectCommandBranches(command)),
   ];
 }
 
@@ -338,9 +333,6 @@ function collectTextIdentifiers(text: string): Identifier[] {
         kind: 'branch' as const,
       })),
     ),
-    ...collectGroups(text, GIT_PUSH).flatMap((groups) =>
-      collectPushedBranches(groups['args'] ?? ''),
-    ),
   ];
 }
 
@@ -383,21 +375,85 @@ function collectRemoteIdentifiers(user: string | undefined, host: string): Ident
     : [{ value: user, kind: 'user' }, hostIdentifier];
 }
 
-// The first argument after the flags names the remote; every later one is a
-// refspec whose sides name branches.
-function collectPushedBranches(args: string): Identifier[] {
-  const [, ...refspecs] = args
-    .trim()
-    .split(/\s+/)
-    .filter((arg) => !arg.startsWith('-'));
+function toBranchName(ref: string): string {
+  return ref.replace(/^\+/, '').replace(/^refs\/heads\//, '');
+}
+
+// Prose and file content mention `git push` and the words after it, and every
+// name collected here is replaced wherever it appears, so only a shell
+// command, the value of a `command` field, names the branches it pushes.
+function collectCommands(value: unknown, key: string | null): string[] {
+  if (typeof value === 'string') {
+    return key === 'command' ? [value] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item: unknown) => collectCommands(item, null));
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.entries(value).flatMap(([field, item]) => collectCommands(item, field));
+  }
+
+  return [];
+}
+
+function collectCommandBranches(command: string): Identifier[] {
+  return splitShellCommand(command.replaceAll('\\\n', ' ')).segments.flatMap((segment) =>
+    collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
+  );
+}
+
+const COMMAND_PREFIXES = new Set([
+  '!',
+  'if',
+  'then',
+  'else',
+  'elif',
+  'while',
+  'until',
+  'do',
+  'time',
+  'exec',
+  'nohup',
+  'xargs',
+  'sudo',
+  'command',
+]);
+
+function toProgramWords(words: readonly string[]): readonly string[] {
+  const index = words.findIndex((word) => !COMMAND_PREFIXES.has(word) && !/^\w+=/.test(word));
+
+  return index === -1 ? [] : words.slice(index);
+}
+
+const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash']);
+
+function collectSegmentBranches(words: readonly string[]): Identifier[] {
+  const [program = '', ...args] = words;
+  const script = args.findIndex((arg) => /^-\w*c\w*$/.test(arg));
+
+  if (SHELLS.has(program) && script !== -1) {
+    return collectCommandBranches(args[script + 1] ?? '');
+  }
+
+  if (program !== 'git') {
+    return [];
+  }
+
+  const [subcommand, ...rest] = splitGitCommand(args, null, '').args;
+
+  return subcommand === 'push' ? collectPushedBranches(rest) : [];
+}
+
+// The first operand names the remote; every later one is a refspec whose
+// sides name branches.
+function collectPushedBranches(args: readonly string[]): Identifier[] {
+  const [, ...refspecs] = args.filter((arg) => !arg.startsWith('-'));
 
   return refspecs.flatMap((refspec) =>
     refspec.split(':').map((side) => ({ value: toBranchName(side), kind: 'branch' as const })),
   );
-}
-
-function toBranchName(ref: string): string {
-  return ref.replace(/^\+/, '').replace(/^refs\/heads\//, '');
 }
 
 type Rewriter = (text: string) => string;

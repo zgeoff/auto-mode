@@ -315,26 +315,48 @@ test('it keeps commit and push in prose and still replaces a name', () => {
   });
 });
 
-test('it reads the branches of a git push only to the end of its line', () => {
+test('it keeps the words after a git push in file content', () => {
   const corpus = buildAnonymisedCorpus(
     [
       {
         cwd: '/tmp',
         decidingStage: 'jev',
         verdict: null,
-        request: { content: 'git push origin release-candidate\necho pushed the commit' },
+        request: {
+          command: 'git status',
+          content: 'Notes:\ngit push the commit to your fork\n(git push triggers the pipeline)',
+        },
       },
     ],
     'salt',
   );
 
-  const request: unknown = corpus.cases[0]?.request;
-
-  expect(request).toStrictEqual({
-    content: expect.toSatisfy((value: string) =>
-      /^git push origin branch-[0-9a-f]{8}\necho pushed the commit$/.test(value),
-    ),
+  expect(corpus.cases[0]?.request).toStrictEqual({
+    command: 'git status',
+    content: 'Notes:\ngit push the commit to your fork\n(git push triggers the pipeline)',
   });
+});
+
+test.each([
+  ['sudo git push origin feat-login', /^sudo git push origin branch-[0-9a-f]{8}$/],
+  [
+    'if true; then git push origin feat-login; fi',
+    /^if true; then git push origin branch-[0-9a-f]{8}; fi$/,
+  ],
+  ['bash -c "git push origin feat-login"', /^bash -c "git push origin branch-[0-9a-f]{8}"$/],
+  ['git push origin "feat-login"', /^git push origin "branch-[0-9a-f]{8}"$/],
+  [
+    'GIT_SSH_COMMAND="ssh -i k" git push origin feat-login',
+    /^GIT_SSH_COMMAND="ssh -i k" git push origin branch-[0-9a-f]{8}$/,
+  ],
+  ['git push \\\n  origin feat-login', /^git push \\\n {2}origin branch-[0-9a-f]{8}$/],
+])('it replaces the branch that %j pushes', (command, expected) => {
+  const corpus = buildAnonymisedCorpus(
+    [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
+    'salt',
+  );
+
+  expect(corpus.cases[0]?.request).toStrictEqual({ command: expect.stringMatching(expected) });
 });
 
 test('it replaces the branch of a git push that follows global options', () => {
