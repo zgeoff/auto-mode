@@ -398,10 +398,14 @@ function collectCommands(value: unknown, key: string | null): string[] {
   return [];
 }
 
+// A space keeps both halves of a branch name split by `\<newline>` for the rewriter,
+// and after an escaped `\\` the newline stays.
+const LINE_CONTINUATION = /(?<!\\)(?<escapes>(?:\\\\)*)\\\n/g;
+
 // A substitution runs its own command, so its text is read on its own, and a
 // grouping bracket that the shell layer keeps on a word would stick to a branch name.
 function collectCommandBranches(command: string): Identifier[] {
-  const text = command.replaceAll('\\\n', ' ');
+  const text = command.replaceAll(LINE_CONTINUATION, '$<escapes> ');
 
   const substituted = collectSubstitutions(text, 0, null).bodies.flatMap((body) =>
     collectCommandBranches(body),
@@ -443,12 +447,14 @@ function collectSubstitutions(
   let isDoubleQuoted = false;
   let depth = 0;
   let substitutionEnd = -1;
+  let escapedIndex = -1;
   let index = start;
 
   while (index < text.length) {
     const char = text[index] ?? '';
 
     if (char === '\\') {
+      escapedIndex = index + 1;
       index += 2;
       continue;
     }
@@ -499,7 +505,7 @@ function collectSubstitutions(
         const end = findSingleQuoteEnd(text, index, isANSIQuote(text, index));
 
         index = end === -1 ? index : end;
-      } else if (char === '#' && isWordStart(text, index, start, substitutionEnd)) {
+      } else if (char === '#' && isWordStart(text, index, start, substitutionEnd, escapedIndex)) {
         const newline = text.indexOf('\n', index);
 
         index = (newline === -1 ? text.length : newline) - 1;
@@ -575,14 +581,21 @@ function findSingleQuoteEnd(text: string, start: number, allowsEscapes: boolean)
 }
 
 // A `)` that closes a subshell ends a word, but one that closes a substitution
-// leaves the word open, so `$(…)#L1` holds no comment.
-function isWordStart(text: string, index: number, start: number, substitutionEnd: number): boolean {
+// leaves the word open, so `$(…)#L1` holds no comment. An escaped separator
+// belongs to the word, so `foo\ #` holds no comment either.
+function isWordStart(
+  text: string,
+  index: number,
+  start: number,
+  substitutionEnd: number,
+  escapedIndex: number,
+): boolean {
   const previous = text[index - 1] ?? '';
 
   return (
     index === start ||
-    /[\s;&|(<>]/.test(previous) ||
-    (previous === ')' && index - 1 !== substitutionEnd)
+    (index - 1 !== escapedIndex &&
+      (/[\s;&|(<>]/.test(previous) || (previous === ')' && index - 1 !== substitutionEnd)))
   );
 }
 

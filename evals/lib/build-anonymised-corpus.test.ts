@@ -409,6 +409,27 @@ test.each([
     String.raw`echo \$'a\' $(git push origin feat-login) 'b'`,
     /^echo \\\$'a\\' \$\(git push origin branch-[0-9a-f]{8}\) 'b'$/,
   ],
+  [
+    String.raw`echo foo\ #$(git push origin feat-login)`,
+    /^echo foo\\ #\$\(git push origin branch-[0-9a-f]{8}\)$/,
+  ],
+  [
+    String.raw`echo foo\;#$(git push origin feat-login)`,
+    /^echo foo\\;#\$\(git push origin branch-[0-9a-f]{8}\)$/,
+  ],
+  [
+    "echo a \\\n# don't\necho \"$(git push origin feat-login)\"\necho 'end'",
+    /^echo a \\\n# don't\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/,
+  ],
+  [
+    'cat <<\\\nEOF\n$(git push origin feat-login)\nEOF',
+    /^cat <<\\\nEOF\n\$\(git push origin branch-[0-9a-f]{8}\)\nEOF$/,
+  ],
+  [
+    "echo a\\\\\n# don't\necho \"$(git push origin feat-login)\"\necho 'end'",
+    /^echo a\\\\\n# don't\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/,
+  ],
+  ['git push origin feat-\\\nlogin', /^git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}$/],
 ])('it replaces the branch that %j pushes', (command, expected) => {
   const corpus = buildAnonymisedCorpus(
     [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
