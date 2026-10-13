@@ -289,6 +289,113 @@ test('it replaces a branch name and keeps the default branch', () => {
   });
 });
 
+test('it keeps commit and push in prose and still replaces a name', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: {
+          file: '/home/robin/notes.md',
+          text: 'robin asks: push the commit to main, then push the tag',
+        },
+      },
+    ],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+
+  expect(request).toStrictEqual({
+    file: expect.toSatisfy((value: string) => /^\/home\/user-[0-9a-f]{8}\/notes\.md$/.test(value)),
+    text: expect.toSatisfy((value: string) =>
+      /^user-[0-9a-f]{8} asks: push the commit to main, then push the tag$/.test(value),
+    ),
+  });
+});
+
+test('it keeps the words after a git push in file content', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: {
+          command: 'git status',
+          content: 'Notes:\ngit push the commit to your fork\n(git push triggers the pipeline)',
+        },
+      },
+    ],
+    'salt',
+  );
+
+  expect(corpus.cases[0]?.request).toStrictEqual({
+    command: 'git status',
+    content: 'Notes:\ngit push the commit to your fork\n(git push triggers the pipeline)',
+  });
+});
+
+test.each([
+  ['sudo git push origin feat-login', /^sudo git push origin branch-[0-9a-f]{8}$/],
+  [
+    'if true; then git push origin feat-login; fi',
+    /^if true; then git push origin branch-[0-9a-f]{8}; fi$/,
+  ],
+  ['bash -c "git push origin feat-login"', /^bash -c "git push origin branch-[0-9a-f]{8}"$/],
+  ['git push origin "feat-login"', /^git push origin "branch-[0-9a-f]{8}"$/],
+  [
+    'GIT_SSH_COMMAND="ssh -i k" git push origin feat-login',
+    /^GIT_SSH_COMMAND="ssh -i k" git push origin branch-[0-9a-f]{8}$/,
+  ],
+  ['git push \\\n  origin feat-login', /^git push \\\n {2}origin branch-[0-9a-f]{8}$/],
+  [
+    'git push origin feat-login # retry the push',
+    /^git push origin branch-[0-9a-f]{8} # retry the push$/,
+  ],
+  ['(cd x && git push origin feat-login)', /^\(cd x && git push origin branch-[0-9a-f]{8}\)$/],
+  ['{ git push origin feat-login; }', /^\{ git push origin branch-[0-9a-f]{8}; \}$/],
+  ['/usr/bin/git push origin feat-login', /^\/usr\/bin\/git push origin branch-[0-9a-f]{8}$/],
+  [
+    '/bin/bash -c "git push origin feat-login"',
+    /^\/bin\/bash -c "git push origin branch-[0-9a-f]{8}"$/,
+  ],
+  ['sudo -u bob git push origin feat-login', /^sudo -u bob git push origin branch-[0-9a-f]{8}$/],
+  ['out=$(git push origin feat-login 2>&1)', /^out=\$\(git push origin branch-[0-9a-f]{8} 2>&1\)$/],
+])('it replaces the branch that %j pushes', (command, expected) => {
+  const corpus = buildAnonymisedCorpus(
+    [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
+    'salt',
+  );
+
+  expect(corpus.cases[0]?.request).toStrictEqual({
+    command: expect.toSatisfy((value: string) => expected.test(value)),
+  });
+});
+
+test('it replaces the branch of a git push that follows global options', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: { command: 'cd /tmp && git -C harbor --no-pager push origin fix-login' },
+      },
+    ],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+
+  expect(request).toStrictEqual({
+    command: expect.toSatisfy((value: string) =>
+      /^cd \/tmp && git -C harbor --no-pager push origin branch-[0-9a-f]{8}$/.test(value),
+    ),
+  });
+});
+
 test('it replaces tokens it recognises by shape, by assignment and by auth scheme', () => {
   // Joined at run time so this file's own text matches no gitleaks rule.
   const githubToken = ['ghp', 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'].join('_');

@@ -157,9 +157,11 @@ output of this command may enter a repository, and only after a person has read 
    `user-3f9a01c2`: user names from Unix and Windows home paths; URL hosts, users, first two path
    names and query values; bare IP addresses; dotted host names after `ssh`, `scp`, `rsync`, `curl`
    and similar commands or with a known suffix such as `.com` or `.internal`; emails; repository
-   owners and names; branch names; session and tool-use identifiers; and tokens, including values
-   after `--password`, `-p`, `--token`, `--secret`, `--api-key` and `--auth`. One run maps a value
-   to one placeholder; the key comes from a random salt that is never written, so two runs cannot be
+   owners and names; the branch names that a git command creates, renames or deletes, that a
+   `git push` in the recorded shell command pushes, that a `--head` or `--base` flag names, or that
+   a `.worktrees/` path holds; session and tool-use identifiers; and tokens, including values after
+   `--password`, `-p`, `--token`, `--secret`, `--api-key` and `--auth`. One run maps a value to one
+   placeholder; the key comes from a random salt that is never written, so two runs cannot be
    joined. The tool, the command structure and the path structure stay as recorded, and so do
    `main`, file names, loopback addresses and `localhost`.
 2. The command writes `cases.json` and `labels.todo.json` to a private temp directory and scans it

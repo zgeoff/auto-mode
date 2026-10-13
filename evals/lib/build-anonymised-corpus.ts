@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { basename } from 'node:path';
-import { findSecret } from 'auto-mode/eval';
+import { findSecret, splitCommandWords, splitGitCommand, splitShellCommand } from 'auto-mode/eval';
 
 export interface CapturedAction {
   readonly cwd: string;
@@ -202,8 +202,6 @@ const BRANCH_PATTERNS = [
   /\.worktrees\/(?<branch>[^/\s"']+)/g,
 ];
 
-const GIT_PUSH = /\bpush\b(?<args>(?:\s+[^\s;&|]+)*)/g;
-
 const SHARED_USERS = new Set(['git', 'x-access-token', 'oauth2', 'token']);
 
 // Names that carry the shape of an action rather than who ran it; replacing
@@ -272,6 +270,7 @@ function collectActionIdentifiers(action: Readonly<CapturedAction>): Identifier[
     ...(isHome ? [] : [{ value: basename(root), kind: 'repo' as const }]),
     ...collectStrings(action.request).flatMap((text) => collectTextIdentifiers(text)),
     ...collectStrings(action.verdict).flatMap((text) => collectTextIdentifiers(text)),
+    ...collectCommands(action.request, null).flatMap((command) => collectCommandBranches(command)),
   ];
 }
 
@@ -334,9 +333,6 @@ function collectTextIdentifiers(text: string): Identifier[] {
         kind: 'branch' as const,
       })),
     ),
-    ...collectGroups(text, GIT_PUSH).flatMap((groups) =>
-      collectPushedBranches(groups['args'] ?? ''),
-    ),
   ];
 }
 
@@ -379,21 +375,114 @@ function collectRemoteIdentifiers(user: string | undefined, host: string): Ident
     : [{ value: user, kind: 'user' }, hostIdentifier];
 }
 
-// The first argument after the flags names the remote; every later one is a
-// refspec whose sides name branches.
-function collectPushedBranches(args: string): Identifier[] {
-  const [, ...refspecs] = args
-    .trim()
-    .split(/\s+/)
-    .filter((arg) => !arg.startsWith('-'));
+function toBranchName(ref: string): string {
+  return ref.replace(/^\+/, '').replace(/^refs\/heads\//, '');
+}
+
+// Prose and file content mention `git push` and the words after it, and every
+// name collected here is replaced wherever it appears, so only a shell
+// command, the value of a `command` field, names the branches it pushes.
+function collectCommands(value: unknown, key: string | null): string[] {
+  if (typeof value === 'string') {
+    return key === 'command' ? [value] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item: unknown) => collectCommands(item, null));
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.entries(value).flatMap(([field, item]) => collectCommands(item, field));
+  }
+
+  return [];
+}
+
+const SUBSTITUTION = /\$\((?<dollar>[^()]*)\)|`(?<tick>[^`]*)`/g;
+
+// A substitution runs its own command, so its text is read on its own, and a
+// grouping bracket that the shell layer keeps on a word would stick to a branch name.
+function collectCommandBranches(command: string): Identifier[] {
+  const text = command.replaceAll('\\\n', ' ');
+
+  const substituted = [...text.matchAll(SUBSTITUTION)].flatMap((match) =>
+    collectCommandBranches(match.groups?.['dollar'] ?? match.groups?.['tick'] ?? ''),
+  );
+
+  return [
+    ...substituted,
+    ...splitShellCommand(text.replaceAll(/[(){}]/g, ' ')).segments.flatMap((segment) =>
+      collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
+    ),
+  ];
+}
+
+const COMMAND_PREFIXES = new Set([
+  '!',
+  'if',
+  'then',
+  'else',
+  'elif',
+  'while',
+  'until',
+  'do',
+  'time',
+  'exec',
+  'nohup',
+  'xargs',
+  'sudo',
+  'command',
+]);
+
+const VALUED_PREFIX_OPTIONS = new Set(['-u', '-g', '-n', '-I']);
+
+// A comment ends the command, and a wrapper's options come before the program.
+function toProgramWords(words: readonly string[]): readonly string[] {
+  const comment = words.findIndex((word) => word.startsWith('#'));
+  const command = comment === -1 ? words : words.slice(0, comment);
+  let index = 0;
+
+  while (index < command.length) {
+    const word = command[index] ?? '';
+    const isPrefixOption = word.startsWith('-');
+
+    if (!COMMAND_PREFIXES.has(word) && !/^\w+=/.test(word) && !isPrefixOption) {
+      break;
+    }
+
+    index += isPrefixOption && VALUED_PREFIX_OPTIONS.has(word) ? 2 : 1;
+  }
+
+  return command.slice(index);
+}
+
+const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash']);
+
+function collectSegmentBranches(words: readonly string[]): Identifier[] {
+  const [program = '', ...args] = words;
+  const script = args.findIndex((arg) => /^-\w*c\w*$/.test(arg));
+
+  if (SHELLS.has(basename(program)) && script !== -1) {
+    return collectCommandBranches(args[script + 1] ?? '');
+  }
+
+  if (basename(program) !== 'git') {
+    return [];
+  }
+
+  const [subcommand, ...rest] = splitGitCommand(args, null, '').args;
+
+  return subcommand === 'push' ? collectPushedBranches(rest) : [];
+}
+
+// The first operand names the remote; every later one is a refspec whose
+// sides name branches.
+function collectPushedBranches(args: readonly string[]): Identifier[] {
+  const [, ...refspecs] = args.filter((arg) => !arg.startsWith('-'));
 
   return refspecs.flatMap((refspec) =>
     refspec.split(':').map((side) => ({ value: toBranchName(side), kind: 'branch' as const })),
   );
-}
-
-function toBranchName(ref: string): string {
-  return ref.replace(/^\+/, '').replace(/^refs\/heads\//, '');
 }
 
 type Rewriter = (text: string) => string;
