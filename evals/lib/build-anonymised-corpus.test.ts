@@ -289,6 +289,76 @@ test('it replaces a branch name and keeps the default branch', () => {
   });
 });
 
+test('it keeps commit and push in prose and still replaces a name', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: {
+          file: '/home/robin/notes.md',
+          text: 'robin asks: push the commit to main, then push the tag',
+        },
+      },
+    ],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+
+  expect(request).toStrictEqual({
+    file: expect.toSatisfy((value: string) => /^\/home\/user-[0-9a-f]{8}\/notes\.md$/.test(value)),
+    text: expect.toSatisfy((value: string) =>
+      /^user-[0-9a-f]{8} asks: push the commit to main, then push the tag$/.test(value),
+    ),
+  });
+});
+
+test('it reads the branches of a git push only to the end of its line', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: { content: 'git push origin release-candidate\necho pushed the commit' },
+      },
+    ],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+
+  expect(request).toStrictEqual({
+    content: expect.toSatisfy((value: string) =>
+      /^git push origin branch-[0-9a-f]{8}\necho pushed the commit$/.test(value),
+    ),
+  });
+});
+
+test('it replaces the branch of a git push that follows global options', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: { command: 'cd /tmp && git -C harbor --no-pager push origin fix-login' },
+      },
+    ],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+
+  expect(request).toStrictEqual({
+    command: expect.toSatisfy((value: string) =>
+      /^cd \/tmp && git -C harbor --no-pager push origin branch-[0-9a-f]{8}$/.test(value),
+    ),
+  });
+});
+
 test('it replaces tokens it recognises by shape, by assignment and by auth scheme', () => {
   // Joined at run time so this file's own text matches no gitleaks rule.
   const githubToken = ['ghp', 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'].join('_');

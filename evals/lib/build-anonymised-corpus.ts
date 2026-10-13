@@ -202,7 +202,11 @@ const BRANCH_PATTERNS = [
   /\.worktrees\/(?<branch>[^/\s"']+)/g,
 ];
 
-const GIT_PUSH = /\bpush\b(?<args>(?:\s+[^\s;&|]+)*)/g;
+// Only a git command at the start of a command reads as a push, and its
+// arguments end with the line, so prose such as "push the commit" keeps its
+// words: every name collected here is replaced wherever it appears.
+const GIT_PUSH =
+  /(?:^|[;&|(`{]|\$\()[ \t]*(?:\w+=[^\s;&|]*[ \t]+)*git(?:[ \t]+-[^\s;&|]+(?:[ \t]+[^-\s;&|][^\s;&|]*)?)*[ \t]+push\b(?<args>(?:[ \t]+[^\s;&|<>()`'"#]+)*)/gm;
 
 const SHARED_USERS = new Set(['git', 'x-access-token', 'oauth2', 'token']);
 
