@@ -390,6 +390,10 @@ test.each([
     /^echo \$'it\\'s' \$\(git push origin branch-[0-9a-f]{8}\)$/,
   ],
   [
+    `(echo ok)# 'not a quote\necho "$(git push origin feat-login)"\necho 'end'`,
+    /^\(echo ok\)# 'not a quote\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/,
+  ],
+  [
     'ref=$(git rev-parse HEAD)#L1 && echo $(git push origin feat-login)',
     /^ref=\$\(git rev-parse HEAD\)#L1 && echo \$\(git push origin branch-[0-9a-f]{8}\)$/,
   ],

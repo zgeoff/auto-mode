@@ -442,6 +442,7 @@ function collectSubstitutions(
   const opener = isExpansion ? '{' : '(';
   let isDoubleQuoted = false;
   let depth = 0;
+  let substitutionEnd = -1;
   let index = start;
 
   while (index < text.length) {
@@ -467,6 +468,8 @@ function collectSubstitutions(
 
       if (substitution !== null) {
         bodies.push(substitution.body);
+
+        substitutionEnd = substitution.end;
       }
 
       index = substitution === null ? index + 1 : substitution.end + 1;
@@ -496,7 +499,7 @@ function collectSubstitutions(
         const end = findSingleQuoteEnd(text, index, isANSIQuote(text, index));
 
         index = end === -1 ? index : end;
-      } else if (char === '#' && isWordStart(text, index, start)) {
+      } else if (char === '#' && isWordStart(text, index, start, substitutionEnd)) {
         const newline = text.indexOf('\n', index);
 
         index = (newline === -1 ? text.length : newline) - 1;
@@ -571,8 +574,16 @@ function findSingleQuoteEnd(text: string, start: number, allowsEscapes: boolean)
   return -1;
 }
 
-function isWordStart(text: string, index: number, start: number): boolean {
-  return index === start || /[\s;&|(<>]/.test(text[index - 1] ?? '');
+// A `)` that closes a subshell ends a word, but one that closes a substitution
+// leaves the word open, so `$(…)#L1` holds no comment.
+function isWordStart(text: string, index: number, start: number, substitutionEnd: number): boolean {
+  const previous = text[index - 1] ?? '';
+
+  return (
+    index === start ||
+    /[\s;&|(<>]/.test(previous) ||
+    (previous === ')' && index - 1 !== substitutionEnd)
+  );
 }
 
 // Any quoted character in the word quotes the whole delimiter and turns
