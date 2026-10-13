@@ -78,7 +78,7 @@ export const consent = defineExperiment<MeasurementCase>({
   stages: [
     buildContainmentStage(),
     buildJevStage('release-all-allow'),
-    buildJudgeStage({ scope: 'jev-denies', replaysRecording: false }),
+    buildJudgeStage({ replaysRecording: false }),
   ],
   measurements: [
     (records) => collectConsentOutcomes(records, [JUDGE_STAGE]),

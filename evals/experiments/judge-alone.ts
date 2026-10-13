@@ -72,7 +72,7 @@ export const judgeAlone = defineExperiment<MeasurementCase>({
   stages: [
     buildContainmentStage(),
     buildJevStage('shipped'),
-    buildJudgeStage({ scope: 'jev-denies', replaysRecording: true, reviewsEveryJevDeny: true }),
+    buildJudgeStage({ replaysRecording: true, reviewsEveryJevDeny: true }),
   ],
   measurements: [
     (records) => collectJudgeOutcomes(records, JUDGE_STAGE),

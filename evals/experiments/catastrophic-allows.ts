@@ -82,7 +82,7 @@ export const catastrophicAllows = defineExperiment<MeasurementCase>({
     buildContainmentStage(),
     buildJevStage('release-all-allow'),
     buildCategoricalStage(),
-    buildJudgeStage({ scope: 'jev-denies', replaysRecording: false }),
+    buildJudgeStage({ replaysRecording: false }),
   ],
   measurements: [
     (records) => collectCatastrophicAllows(records, [JUDGE_STAGE], [CATEGORICAL_STAGE]),
