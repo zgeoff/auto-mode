@@ -356,7 +356,9 @@ test.each([
     'salt',
   );
 
-  expect(corpus.cases[0]?.request).toStrictEqual({ command: expect.stringMatching(expected) });
+  expect(corpus.cases[0]?.request).toStrictEqual({
+    command: expect.toSatisfy((value: string) => expected.test(value)),
+  });
 });
 
 test('it replaces the branch of a git push that follows global options', () => {
