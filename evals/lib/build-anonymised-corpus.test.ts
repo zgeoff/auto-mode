@@ -363,6 +363,16 @@ test.each([
   ],
   ['sudo -u bob git push origin feat-login', /^sudo -u bob git push origin branch-[0-9a-f]{8}$/],
   ['out=$(git push origin feat-login 2>&1)', /^out=\$\(git push origin branch-[0-9a-f]{8} 2>&1\)$/],
+  ['echo "$(git push origin feat-login)"', /^echo "\$\(git push origin branch-[0-9a-f]{8}\)"$/],
+  [
+    `echo "it's $(git push origin feat-login)"`,
+    /^echo "it's \$\(git push origin branch-[0-9a-f]{8}\)"$/,
+  ],
+  [
+    "out=$(echo ')'; git push origin feat-login)",
+    /^out=\$\(echo '\)'; git push origin branch-[0-9a-f]{8}\)$/,
+  ],
+  ['echo `git push origin feat-login`', /^echo `git push origin branch-[0-9a-f]{8}`$/],
 ])('it replaces the branch that %j pushes', (command, expected) => {
   const corpus = buildAnonymisedCorpus(
     [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
@@ -372,6 +382,28 @@ test.each([
   expect(corpus.cases[0]?.request).toStrictEqual({
     command: expect.toSatisfy((value: string) => expected.test(value)),
   });
+});
+
+test.each([
+  "echo '$(git push origin commit)'",
+  "echo '`git push origin commit`'",
+  String.raw`echo \$(git push origin commit)`,
+  String.raw`echo "\$(git push origin commit)"`,
+  'echo "\\`git push origin commit\\`"',
+])('it keeps commit in a case whose command %j runs no push', (command) => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: { command, text: 'push the commit to main' },
+      },
+    ],
+    'salt',
+  );
+
+  expect(corpus.cases[0]?.request).toStrictEqual({ command, text: 'push the commit to main' });
 });
 
 test('it replaces the branch of a git push that follows global options', () => {

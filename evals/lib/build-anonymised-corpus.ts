@@ -398,16 +398,11 @@ function collectCommands(value: unknown, key: string | null): string[] {
   return [];
 }
 
-const SUBSTITUTION = /\$\((?<dollar>[^()]*)\)|`(?<tick>[^`]*)`/g;
-
 // A substitution runs its own command, so its text is read on its own, and a
 // grouping bracket that the shell layer keeps on a word would stick to a branch name.
 function collectCommandBranches(command: string): Identifier[] {
   const text = command.replaceAll('\\\n', ' ');
-
-  const substituted = [...text.matchAll(SUBSTITUTION)].flatMap((match) =>
-    collectCommandBranches(match.groups?.['dollar'] ?? match.groups?.['tick'] ?? ''),
-  );
+  const substituted = collectSubstitutions(text).flatMap((body) => collectCommandBranches(body));
 
   return [
     ...substituted,
@@ -415,6 +410,93 @@ function collectCommandBranches(command: string): Identifier[] {
       collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
     ),
   ];
+}
+
+// The shell runs no substitution inside single quotes or after a backslash, so
+// a quoted `$(git push …)` pushes nothing and names no branch.
+function collectSubstitutions(text: string): string[] {
+  const bodies: string[] = [];
+  let isDoubleQuoted = false;
+  let index = 0;
+
+  while (index < text.length) {
+    const char = text[index];
+
+    if (char === '\\') {
+      index += 2;
+    } else if (char === "'" && !isDoubleQuoted) {
+      index = findSingleQuoteEnd(text, index) + 1;
+    } else if (char === '"') {
+      isDoubleQuoted = !isDoubleQuoted;
+      index += 1;
+    } else if (char === '`' || text.startsWith('$(', index)) {
+      const end = findSubstitutionEnd(text, index);
+
+      if (end === -1) {
+        break;
+      }
+
+      bodies.push(text.slice(index + (char === '`' ? 1 : 2), end));
+
+      index = end + 1;
+    } else {
+      index += 1;
+    }
+  }
+
+  return bodies;
+}
+
+function findSingleQuoteEnd(text: string, start: number): number {
+  const end = text.indexOf("'", start + 1);
+
+  return end === -1 ? text.length : end;
+}
+
+// A bracket inside quotes or a nested substitution does not close the
+// substitution, so the close is found by the same quote rules.
+function findSubstitutionEnd(text: string, start: number): number {
+  const isBacktick = text[start] === '`';
+  let isDoubleQuoted = false;
+  let depth = 1;
+  let index = start + (isBacktick ? 1 : 2);
+
+  while (index < text.length) {
+    const char = text[index];
+
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+
+    if (isBacktick) {
+      if (char === '`') {
+        return index;
+      }
+    } else if (char === "'" && !isDoubleQuoted) {
+      index = findSingleQuoteEnd(text, index);
+    } else if (char === '"') {
+      isDoubleQuoted = !isDoubleQuoted;
+    } else if (char === '`' || text.startsWith('$(', index)) {
+      index = findSubstitutionEnd(text, index);
+
+      if (index === -1) {
+        return -1;
+      }
+    } else if (char === '(' && !isDoubleQuoted) {
+      depth += 1;
+    } else if (char === ')' && !isDoubleQuoted) {
+      depth -= 1;
+
+      if (depth === 0) {
+        return index;
+      }
+    }
+
+    index += 1;
+  }
+
+  return -1;
 }
 
 const COMMAND_PREFIXES = new Set([
