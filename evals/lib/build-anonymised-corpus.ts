@@ -402,7 +402,10 @@ function collectCommands(value: unknown, key: string | null): string[] {
 // grouping bracket that the shell layer keeps on a word would stick to a branch name.
 function collectCommandBranches(command: string): Identifier[] {
   const text = command.replaceAll('\\\n', ' ');
-  const substituted = collectSubstitutions(text).flatMap((body) => collectCommandBranches(body));
+
+  const substituted = collectSubstitutions(text, 0, null).bodies.flatMap((body) =>
+    collectCommandBranches(body),
+  );
 
   return [
     ...substituted,
@@ -412,91 +415,187 @@ function collectCommandBranches(command: string): Identifier[] {
   ];
 }
 
-// The shell runs no substitution inside single quotes or after a backslash, so
-// a quoted `$(git push …)` pushes nothing and names no branch.
-function collectSubstitutions(text: string): string[] {
+interface SubstitutionScan {
+  readonly bodies: string[];
+  readonly end: number;
+}
+
+interface Heredoc {
+  readonly delimiter: string;
+  readonly isQuoted: boolean;
+  readonly stripsTabs: boolean;
+}
+
+const HEREDOC = /^<<(?<strip>-?)[ \t]*(?<word>[^\s<>;&|()]+)/;
+
+// The shell runs no substitution inside single quotes, after a backslash, in a
+// comment or in a quoted heredoc. A quote or bracket that never closes is read
+// as one literal character, because stopping there would leak a later push.
+function collectSubstitutions(
+  text: string,
+  start: number,
+  closer: ')' | '`' | null,
+): SubstitutionScan {
   const bodies: string[] = [];
+  const heredocs: Heredoc[] = [];
   let isDoubleQuoted = false;
-  let index = 0;
+  let depth = 0;
+  let index = start;
 
   while (index < text.length) {
-    const char = text[index];
-
-    if (char === '\\') {
-      index += 2;
-    } else if (char === "'" && !isDoubleQuoted) {
-      index = findSingleQuoteEnd(text, index) + 1;
-    } else if (char === '"') {
-      isDoubleQuoted = !isDoubleQuoted;
-      index += 1;
-    } else if (char === '`' || text.startsWith('$(', index)) {
-      const end = findSubstitutionEnd(text, index);
-
-      if (end === -1) {
-        break;
-      }
-
-      bodies.push(text.slice(index + (char === '`' ? 1 : 2), end));
-
-      index = end + 1;
-    } else {
-      index += 1;
-    }
-  }
-
-  return bodies;
-}
-
-function findSingleQuoteEnd(text: string, start: number): number {
-  const end = text.indexOf("'", start + 1);
-
-  return end === -1 ? text.length : end;
-}
-
-// A bracket inside quotes or a nested substitution does not close the
-// substitution, so the close is found by the same quote rules.
-function findSubstitutionEnd(text: string, start: number): number {
-  const isBacktick = text[start] === '`';
-  let isDoubleQuoted = false;
-  let depth = 1;
-  let index = start + (isBacktick ? 1 : 2);
-
-  while (index < text.length) {
-    const char = text[index];
+    const char = text[index] ?? '';
 
     if (char === '\\') {
       index += 2;
       continue;
     }
 
-    if (isBacktick) {
-      if (char === '`') {
-        return index;
+    if (char === '`' && closer === '`') {
+      return { bodies, end: index };
+    }
+
+    if (char === '`' || text.startsWith('$(', index)) {
+      const substitution = findSubstitution(text, index);
+
+      if (substitution !== null) {
+        bodies.push(substitution.body);
       }
-    } else if (char === "'" && !isDoubleQuoted) {
-      index = findSingleQuoteEnd(text, index);
-    } else if (char === '"') {
+
+      index = substitution === null ? index + 1 : substitution.end + 1;
+      continue;
+    }
+
+    if (char === '\n' && heredocs.length > 0 && !isDoubleQuoted) {
+      for (const heredoc of heredocs.splice(0)) {
+        const [bodyEnd, next] = getHeredocEnd(text, index + 1, heredoc);
+
+        if (!heredoc.isQuoted) {
+          bodies.push(...collectHeredocSubstitutions(text.slice(index + 1, bodyEnd)));
+        }
+
+        index = next;
+      }
+
+      continue;
+    }
+
+    if (char === '"') {
       isDoubleQuoted = !isDoubleQuoted;
-    } else if (char === '`' || text.startsWith('$(', index)) {
-      index = findSubstitutionEnd(text, index);
+    } else if (!isDoubleQuoted) {
+      if (char === "'") {
+        const end = findSingleQuoteEnd(text, index, text[index - 1] === '$');
 
-      if (index === -1) {
-        return -1;
-      }
-    } else if (char === '(' && !isDoubleQuoted) {
-      depth += 1;
-    } else if (char === ')' && !isDoubleQuoted) {
-      depth -= 1;
+        index = end === -1 ? index : end;
+      } else if (char === '#' && isWordStart(text, index, start)) {
+        const newline = text.indexOf('\n', index);
 
-      if (depth === 0) {
-        return index;
+        index = (newline === -1 ? text.length : newline) - 1;
+      } else if (text.startsWith('<<<', index)) {
+        index += 2;
+      } else if (text.startsWith('<<', index)) {
+        const match = HEREDOC.exec(text.slice(index));
+
+        if (match !== null) {
+          heredocs.push(toHeredoc(match.groups?.['word'] ?? '', match.groups?.['strip'] === '-'));
+
+          index += match[0].length - 1;
+        }
+      } else if (char === '(') {
+        depth += 1;
+      } else if (char === ')') {
+        if (closer === ')' && depth === 0) {
+          return { bodies, end: index };
+        }
+
+        depth -= 1;
       }
     }
 
     index += 1;
   }
 
+  return { bodies, end: -1 };
+}
+
+function findSubstitution(text: string, index: number): { body: string; end: number } | null {
+  const isBacktick = text[index] === '`';
+  const bodyStart = index + (isBacktick ? 1 : 2);
+  const closer = isBacktick ? '`' : ')';
+  const nested = collectSubstitutions(text, bodyStart, closer);
+
+  return nested.end === -1 ? null : { body: text.slice(bodyStart, nested.end), end: nested.end };
+}
+
+// `$'…'` lets a backslash escape the closing quote; a plain single quote does not.
+function findSingleQuoteEnd(text: string, start: number, allowsEscapes: boolean): number {
+  for (let index = start + 1; index < text.length; index += 1) {
+    if (allowsEscapes && text[index] === '\\') {
+      index += 1;
+    } else if (text[index] === "'") {
+      return index;
+    }
+  }
+
   return -1;
+}
+
+function isWordStart(text: string, index: number, start: number): boolean {
+  return index === start || /[\s;&|()<>`]/.test(text[index - 1] ?? '');
+}
+
+// Any quoted character in the word quotes the whole delimiter and turns
+// substitution off for the body.
+function toHeredoc(word: string, stripsTabs: boolean): Heredoc {
+  return {
+    delimiter: word.replaceAll(/['"\\]/g, ''),
+    isQuoted: /['"\\]/.test(word),
+    stripsTabs,
+  };
+}
+
+// A body with no closing delimiter runs to the end of the command.
+function getHeredocEnd(text: string, bodyStart: number, heredoc: Heredoc): [number, number] {
+  let lineStart = bodyStart;
+
+  while (lineStart < text.length) {
+    const newline = text.indexOf('\n', lineStart);
+    const lineEnd = newline === -1 ? text.length : newline;
+    const line = text.slice(lineStart, lineEnd);
+
+    if ((heredoc.stripsTabs ? line.replace(/^\t+/, '') : line) === heredoc.delimiter) {
+      return [lineStart, lineEnd];
+    }
+
+    lineStart = lineEnd + 1;
+  }
+
+  return [text.length, text.length];
+}
+
+// Quotes are literal in a heredoc body, so only a backslash and a substitution count.
+function collectHeredocSubstitutions(body: string): string[] {
+  const bodies: string[] = [];
+  let index = 0;
+
+  while (index < body.length) {
+    const char = body[index] ?? '';
+
+    if (char === '\\') {
+      index += 2;
+    } else if (char === '`' || body.startsWith('$(', index)) {
+      const substitution = findSubstitution(body, index);
+
+      if (substitution !== null) {
+        bodies.push(substitution.body);
+      }
+
+      index = substitution === null ? index + 1 : substitution.end + 1;
+    } else {
+      index += 1;
+    }
+  }
+
+  return bodies;
 }
 
 const COMMAND_PREFIXES = new Set([

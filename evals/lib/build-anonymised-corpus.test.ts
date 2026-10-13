@@ -373,6 +373,22 @@ test.each([
     /^out=\$\(echo '\)'; git push origin branch-[0-9a-f]{8}\)$/,
   ],
   ['echo `git push origin feat-login`', /^echo `git push origin branch-[0-9a-f]{8}`$/],
+  [
+    `git commit -m "$(cat <<'EOF'\nDon't break the build\nEOF\n)" && echo "$(git push origin feat-login)"`,
+    /^git commit -m "\$\(cat <<'EOF'\nDon't break the build\nEOF\n\)" && echo "\$\(git push origin branch-[0-9a-f]{8}\)"$/,
+  ],
+  [
+    `# don't force\necho $(git push origin feat-login) # it's done`,
+    /^# don't force\necho \$\(git push origin branch-[0-9a-f]{8}\) # it's done$/,
+  ],
+  [
+    `cat <<EOF\nit's $(git push origin feat-login)\nEOF`,
+    /^cat <<EOF\nit's \$\(git push origin branch-[0-9a-f]{8}\)\nEOF$/,
+  ],
+  [
+    String.raw`echo $'it\'s' $(git push origin feat-login)`,
+    /^echo \$'it\\'s' \$\(git push origin branch-[0-9a-f]{8}\)$/,
+  ],
 ])('it replaces the branch that %j pushes', (command, expected) => {
   const corpus = buildAnonymisedCorpus(
     [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
@@ -390,6 +406,7 @@ test.each([
   String.raw`echo \$(git push origin commit)`,
   String.raw`echo "\$(git push origin commit)"`,
   'echo "\\`git push origin commit\\`"',
+  "cat <<'EOF'\n$(git push origin commit)\nEOF",
 ])('it keeps commit in a case whose command %j runs no push', (command) => {
   const corpus = buildAnonymisedCorpus(
     [
