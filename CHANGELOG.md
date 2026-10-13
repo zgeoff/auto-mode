@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.3](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.19.2...auto-mode-v0.19.3) (2026-10-13)
+
+
+### Bug Fixes
+
+* **geo-725:** stop the anonymiser replacing words after a prose push ([#145](https://github.com/zgeoff/auto-mode/issues/145)) ([2a2b573](https://github.com/zgeoff/auto-mode/commit/2a2b573929e3fd436d7ce711fa02c55a065b086c))
+
 ## [0.19.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.19.1...auto-mode-v0.19.2) (2026-10-12)
 
 
