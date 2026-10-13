@@ -398,10 +398,23 @@ function collectCommands(value: unknown, key: string | null): string[] {
   return [];
 }
 
+const SUBSTITUTION = /\$\((?<dollar>[^()]*)\)|`(?<tick>[^`]*)`/g;
+
+// A substitution runs its own command, so its text is read on its own, and a
+// grouping bracket that the shell layer keeps on a word would stick to a branch name.
 function collectCommandBranches(command: string): Identifier[] {
-  return splitShellCommand(command.replaceAll('\\\n', ' ')).segments.flatMap((segment) =>
-    collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
+  const text = command.replaceAll('\\\n', ' ');
+
+  const substituted = [...text.matchAll(SUBSTITUTION)].flatMap((match) =>
+    collectCommandBranches(match.groups?.['dollar'] ?? match.groups?.['tick'] ?? ''),
   );
+
+  return [
+    ...substituted,
+    ...splitShellCommand(text.replaceAll(/[(){}]/g, ' ')).segments.flatMap((segment) =>
+      collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
+    ),
+  ];
 }
 
 const COMMAND_PREFIXES = new Set([
@@ -421,10 +434,26 @@ const COMMAND_PREFIXES = new Set([
   'command',
 ]);
 
-function toProgramWords(words: readonly string[]): readonly string[] {
-  const index = words.findIndex((word) => !COMMAND_PREFIXES.has(word) && !/^\w+=/.test(word));
+const VALUED_PREFIX_OPTIONS = new Set(['-u', '-g', '-n', '-I']);
 
-  return index === -1 ? [] : words.slice(index);
+// A comment ends the command, and a wrapper's options come before the program.
+function toProgramWords(words: readonly string[]): readonly string[] {
+  const comment = words.findIndex((word) => word.startsWith('#'));
+  const command = comment === -1 ? words : words.slice(0, comment);
+  let index = 0;
+
+  while (index < command.length) {
+    const word = command[index] ?? '';
+    const isPrefixOption = word.startsWith('-');
+
+    if (!COMMAND_PREFIXES.has(word) && !/^\w+=/.test(word) && !isPrefixOption) {
+      break;
+    }
+
+    index += isPrefixOption && VALUED_PREFIX_OPTIONS.has(word) ? 2 : 1;
+  }
+
+  return command.slice(index);
 }
 
 const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash']);
@@ -437,7 +466,7 @@ function collectSegmentBranches(words: readonly string[]): Identifier[] {
     return collectCommandBranches(args[script + 1] ?? '');
   }
 
-  if (program !== 'git') {
+  if (basename(program) !== 'git') {
     return [];
   }
 

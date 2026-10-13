@@ -350,6 +350,15 @@ test.each([
     /^GIT_SSH_COMMAND="ssh -i k" git push origin branch-[0-9a-f]{8}$/,
   ],
   ['git push \\\n  origin feat-login', /^git push \\\n {2}origin branch-[0-9a-f]{8}$/],
+  [
+    'git push origin feat-login # retry the push',
+    /^git push origin branch-[0-9a-f]{8} # retry the push$/,
+  ],
+  ['(cd x && git push origin feat-login)', /^\(cd x && git push origin branch-[0-9a-f]{8}\)$/],
+  ['{ git push origin feat-login; }', /^\{ git push origin branch-[0-9a-f]{8}; \}$/],
+  ['/usr/bin/git push origin feat-login', /^\/usr\/bin\/git push origin branch-[0-9a-f]{8}$/],
+  ['sudo -u bob git push origin feat-login', /^sudo -u bob git push origin branch-[0-9a-f]{8}$/],
+  ['out=$(git push origin feat-login 2>&1)', /^out=\$\(git push origin branch-[0-9a-f]{8} 2>&1\)$/],
 ])('it replaces the branch that %j pushes', (command, expected) => {
   const corpus = buildAnonymisedCorpus(
     [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],
