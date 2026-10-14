@@ -33,6 +33,10 @@ export const jevReportSchema = z
     variant: z.enum(['baseline', 'guidance']),
     model: z.string(),
     threshold: z.literal(0.8),
+
+    // A report written before the runners took the shipped verdict has none, and
+    // its statuses come from the retired confidence combiner.
+    blockThreshold: probabilitySchema.optional(),
     samplesPerCase: z.literal(3),
     requestsSent: z.number().int(),
     policyHash: z.string(),

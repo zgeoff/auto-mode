@@ -20,7 +20,7 @@ import { judgeReportSchema } from '../lib/judge-report-schema.ts';
 import type { SecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 import { parseJudgeVerdict } from '../lib/parse-judge-verdict.ts';
-import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { pickLiveEvaluationVerdict } from '../lib/pick-live-evaluation-verdict.ts';
 import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
 import { toHash } from '../lib/to-hash.ts';
 import { writeReport } from '../lib/write-report.ts';
@@ -136,6 +136,7 @@ async function runJevStage(
   const header = {
     variant,
     threshold: THRESHOLD,
+    blockThreshold: config.blockThreshold,
     samplesPerCase: SAMPLES,
     policyHash: toHash(policy),
     guidanceHash: guidance === null ? null : toHash(JSON.stringify(guidance)),
@@ -162,7 +163,7 @@ async function runJevStage(
       try {
         const result = await sendEvaluationDecision(config.provider, key, request);
 
-        const verdict = pickEvaluationVerdict(request, result, THRESHOLD);
+        const verdict = pickLiveEvaluationVerdict(request, result, config.blockThreshold);
 
         model = result.model;
 

@@ -73,6 +73,13 @@ export function buildSecondJudgeSummary(
         continue;
       }
 
+      // The shipped classifier never asks, so it leaves no sample for a second judge.
+      if (jev.blockThreshold !== undefined) {
+        statuses.push(record.status);
+        eligible.push(false);
+        continue;
+      }
+
       const recorded = buildFirstJudge(record);
       const first = pickSecondJudgeVerdict(recorded.request, recorded.result, THRESHOLD, null);
 

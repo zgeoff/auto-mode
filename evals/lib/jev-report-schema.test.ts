@@ -82,6 +82,67 @@ test('it accepts a two-choice sample with the block probability of every rule', 
   expect(jevReportSchema.safeParse(report).data).toStrictEqual(report);
 });
 
+test('it accepts a live run that records the shipped verdict at its block threshold', () => {
+  const report: z.input<typeof jevReportSchema> = {
+    variant: 'baseline',
+    model: 'jev-1.13.0',
+    threshold: 0.8,
+    blockThreshold: 0.2,
+    samplesPerCase: 3,
+    requestsSent: 1,
+    policyHash: 'p',
+    guidanceHash: null,
+    configuredRulesHash: 'c',
+    corpusHash: 'h',
+    records: [
+      {
+        case: 'real-01',
+        sample: 1,
+        status: 'deny',
+        failureReason: null,
+        rule: 'Data Exfiltration',
+        ruleCount: 2,
+        contributors: [
+          {
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.7,
+            allow: 0.7,
+            block: 0.3,
+            ask: 0,
+          },
+        ],
+        blockProbabilities: { 'Data Exfiltration': 0.3, 'History Rewrite': 0.05 },
+        elapsedMs: 812,
+        requestBytes: 2048,
+      },
+    ],
+  };
+
+  expect(jevReportSchema.safeParse(report).data).toStrictEqual(report);
+});
+
+test('it rejects a block threshold above 1', () => {
+  const result = jevReportSchema.safeParse({
+    variant: 'baseline',
+    model: 'jev-1.13.0',
+    threshold: 0.8,
+    blockThreshold: 1.2,
+    samplesPerCase: 3,
+    requestsSent: 1,
+    policyHash: 'p',
+    guidanceHash: null,
+    configuredRulesHash: 'c',
+    corpusHash: 'h',
+    records: [],
+  });
+
+  invariant(result.error);
+
+  expect(result.error.issues).toPartiallyContain({ path: ['blockThreshold'] });
+});
+
 test('it accepts a recorded guidance run with a failed sample', () => {
   const report: z.input<typeof jevReportSchema> = {
     variant: 'guidance',

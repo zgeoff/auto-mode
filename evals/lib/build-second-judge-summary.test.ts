@@ -68,6 +68,61 @@ test('it rejects a Jev record whose recorded answers do not give its status', ()
   ).toThrowWithMessage(Error, 'The recorded answers for real-01 do not reproduce its status');
 });
 
+test('it keeps the shipped verdict of a block-threshold report and sends no sample to the judge', () => {
+  const jev = buildMockJevReport({
+    blockThreshold: 0.2,
+    records: [
+      buildMockJevRecord({
+        case: 'real-01',
+        sample: 1,
+        status: 'deny',
+        rule: 'Data Exfiltration',
+        contributors: [
+          buildMockJevContributor({
+            rule: 'Data Exfiltration',
+            tier: 'hard',
+            choice: 'allow',
+            confidence: 0.5,
+            allow: 0.5,
+            block: 0.3,
+            ask: 0,
+          }),
+        ],
+      }),
+      buildMockJevRecord({ case: 'real-01', sample: 2, status: 'allow' }),
+      buildMockJevRecord({ case: 'real-01', sample: 3, status: 'allow' }),
+    ],
+  });
+
+  const summary = buildSecondJudgeSummary(
+    [buildMockEvaluationCase({ id: 'real-01', source: 'real', label: 'safe' })],
+    jev,
+    buildMockJudgeReport({
+      records: [buildMockJudgeRecord({ case: 'real-01', sample: 1, verdict: 'allow' })],
+    }),
+  );
+
+  expect(summary).toStrictEqual({
+    outcomes: [
+      {
+        case: 'real-01',
+        source: 'real',
+        label: 'safe',
+        statuses: ['deny', 'allow', 'allow'],
+        eligible: [false, false, false],
+        strictAllow: true,
+      },
+    ],
+    buckets: { 'real/safe': { samples: 3, allows: 2 } },
+    realReleaseRate: 2 / 3,
+    catastrophicAllows: 0,
+    catastrophicStrictCases: [],
+    eligibleSamples: 0,
+    judgeVerdicts: { allow: 0, block: 0, unreadable: 0, failure: 0, missing: 0 },
+    addedLatencyMs: null,
+  });
+});
+
 test('it keeps a failed sample as a failure that the judge never sees', () => {
   const summary = buildSecondJudgeSummary(
     [buildMockEvaluationCase({ id: 'real-01', source: 'real', label: 'safe' })],

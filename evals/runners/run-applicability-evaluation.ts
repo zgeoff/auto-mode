@@ -12,7 +12,7 @@ import { loadRepositoryContext, readHostEnvironment } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
-import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { pickLiveEvaluationVerdict } from '../lib/pick-live-evaluation-verdict.ts';
 import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
 import { toHash } from '../lib/to-hash.ts';
 import { writeReport } from '../lib/write-report.ts';
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
       try {
         const result = await sendEvaluationDecision(config.provider, key, request);
 
-        const verdict = pickEvaluationVerdict(request, result, 0.8);
+        const verdict = pickLiveEvaluationVerdict(request, result, config.blockThreshold);
 
         const answers = Object.fromEntries(
           Object.entries(request.rules).map(([id, rule]) => {
@@ -220,7 +220,7 @@ async function main(): Promise<void> {
       const report = {
         phase,
         model: config.provider.model,
-        threshold: 0.8,
+        blockThreshold: config.blockThreshold,
         samplesPerCase: 2,
         corpusHash: toHash(JSON.stringify(corpus)),
         policyHash: toHash(policy),
