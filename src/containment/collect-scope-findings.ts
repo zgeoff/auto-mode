@@ -7,6 +7,7 @@ import type { ShellCommand } from '../shell/collect-shell-commands.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
+import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 
 // What a direct user message must name to hand a finding to the judge: the
@@ -136,11 +137,24 @@ function collectCommandFindings(
   const findings: ScopeFinding[] = [];
   const entries = collectShellCommands(command, cwd, scope.home);
   const piped = collectPipedSegments(command);
+  const segments = splitShellCommand(command).segments;
 
   for (const [index, entry] of entries.entries()) {
     const [name, ...args] = entry.words;
+    const fixed = findFixedXargsCommand(entry.words, segments[index]?.text ?? '');
 
-    if (isBranchSweep(entries.slice(0, index + 1), piped.slice(0, index + 1))) {
+    if (fixed !== null) {
+      findings.push(
+        ...collectProgramFindings(
+          fixed.name,
+          fixed.args,
+          entry.directory,
+          cwd,
+          scope,
+          scratchPaths,
+        ),
+      );
+    } else if (isBranchSweep(entries.slice(0, index + 1), piped.slice(0, index + 1))) {
       findings.push({ kind: 'discard', target: 'git branch delete by exclusion' });
     }
 
@@ -177,6 +191,82 @@ function collectPipedSegments(command: string): boolean[] {
   }
 
   return piped;
+}
+
+const XARGS_FLAG = /^(?:-[0oprtx]+|--(?:null|no-run-if-empty|verbose|interactive|exit|open-tty))$/u;
+const XARGS_VALUE_OPTION = /^-[EPads]$/u;
+
+const XARGS_ATTACHED_VALUE =
+  /^(?:-[EPads].|--(?:eof|max-procs|delimiter|arg-file|max-chars|process-slot-var)=)/u;
+
+const XARGS_REPLACE = /^(?:-I(?<attached>.+)|-i(?<short>.*)|--replace(?:=(?<long>.*))?)$/u;
+
+// The shell can expand, unquote or unescape a word into the replacement token,
+// so only a segment written in plain literal words shows that the token is missing.
+const PLAIN_WORD = /^(?:[\w./:@%+=-]|\{\})+$/u;
+
+// In replacement mode xargs runs the command once per listed name, putting the
+// name only where the token stands, so a command without the token runs as
+// written. `-n` or `-L` beside it appends names again, so either one rules it out.
+function findFixedXargsCommand(
+  words: readonly string[],
+  text: string,
+): { readonly name: string; readonly args: readonly string[] } | null {
+  if (
+    words[0] !== 'xargs' ||
+    !splitShellTokens(text).tokens.every(
+      (token) =>
+        token.kind !== 'word' || (token.raw === token.value && PLAIN_WORD.test(token.value)),
+    )
+  ) {
+    return null;
+  }
+
+  let token: string | null = null;
+  let start = 1;
+
+  while (words[start]?.startsWith('-') === true) {
+    const word = words[start] ?? '';
+    const replace = XARGS_REPLACE.exec(word)?.groups;
+
+    if (word === '--') {
+      start += 1;
+      break;
+    }
+
+    if (word === '-I') {
+      token = words[start + 1] ?? null;
+      start += 2;
+    } else if (replace !== undefined) {
+      const short = replace['short'];
+
+      token =
+        replace['attached'] ??
+        replace['long'] ??
+        (short === undefined || short === '' ? '{}' : short);
+
+      start += 1;
+    } else if (XARGS_VALUE_OPTION.test(word)) {
+      start += 2;
+    } else if (XARGS_FLAG.test(word) || XARGS_ATTACHED_VALUE.test(word)) {
+      start += 1;
+    } else {
+      return null;
+    }
+  }
+
+  const [name, ...args] = words.slice(start);
+
+  if (
+    token === null ||
+    token === '' ||
+    name === undefined ||
+    [name, ...args].some((word) => word.includes(token))
+  ) {
+    return null;
+  }
+
+  return { name, args };
 }
 
 const XARGS_VALUE_OPTIONS = new Set(['-I', '-L', '-n', '-P', '-s', '-d', '-E']);
