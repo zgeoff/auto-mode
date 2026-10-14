@@ -19,7 +19,8 @@ import { buildScopeEvidenceRequest } from '../lib/build-scope-evidence-request.t
 import type { JevReport } from '../lib/jev-report-schema.ts';
 import type { EvaluationCase } from '../lib/load-second-judge-corpus.ts';
 import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
-import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { pickLiveEvaluationVerdict } from '../lib/pick-live-evaluation-verdict.ts';
+import { resolveBlockThreshold } from '../lib/resolve-block-threshold.ts';
 import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
 import { toHash } from '../lib/to-hash.ts';
 import { writeReport } from '../lib/write-report.ts';
@@ -108,6 +109,7 @@ async function main(): Promise<void> {
     evidence,
     scope: 'cwd',
     threshold: THRESHOLD,
+    blockThreshold: resolveBlockThreshold(config),
     samplesPerCase: SAMPLES,
     policyHash: toHash(policy),
     guidanceHash: guidance === null ? null : toHash(JSON.stringify(guidance)),
@@ -136,7 +138,7 @@ async function main(): Promise<void> {
       try {
         const result = await sendEvaluationDecision(config.provider, key, request);
 
-        const verdict = pickEvaluationVerdict(request, result, THRESHOLD);
+        const verdict = pickLiveEvaluationVerdict(request, result, resolveBlockThreshold(config));
 
         model = result.model;
 
@@ -167,6 +169,14 @@ async function main(): Promise<void> {
               ];
         });
 
+        // A deny at a threshold below 0.8 can rest on an answer the contributors leave out.
+        const blockProbabilities = Object.fromEntries(
+          Object.entries(request.rules).map(([id, rule]) => [
+            rule.source === 'shipped' ? rule.name : id,
+            result.answers[id]?.probabilities.block ?? 0,
+          ]),
+        );
+
         record = {
           case: entry.id,
           sample,
@@ -175,6 +185,7 @@ async function main(): Promise<void> {
           rule: verdict.kind === 'deny' ? verdict.rule : null,
           ruleCount: Object.keys(request.rules).length,
           contributors,
+          blockProbabilities,
           elapsedMs: Math.round(performance.now() - started),
           requestBytes,
         };

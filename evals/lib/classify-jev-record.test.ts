@@ -75,6 +75,21 @@ test('it classifies a recorded deny as a deny naming its rule', () => {
   });
 });
 
+test('it reads the block probability of a deny from an answer the contributors leave out', () => {
+  const record = buildMockJevRecord({
+    status: 'deny',
+    rule: 'Secret Persistence',
+    contributors: [],
+    blockProbabilities: { 'Secret Persistence': 0.2, 'History Rewrite': 0.05 },
+  });
+
+  expect(classifyJevRecord(record)).toStrictEqual({
+    kind: 'deny',
+    rule: 'Secret Persistence',
+    pBlock: 0.2,
+  });
+});
+
 test('it gives a failed request no class', () => {
   const record = buildMockJevRecord({ status: 'failure', failureReason: 'invalid-response' });
 

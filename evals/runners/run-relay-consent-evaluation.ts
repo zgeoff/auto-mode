@@ -19,12 +19,13 @@ import { buildRelayConsentSummary } from '../lib/build-relay-consent-summary.ts'
 import { makeRecordingFetch } from '../lib/make-recording-fetch.ts';
 import type { ResponseCopy } from '../lib/make-recording-fetch.ts';
 import { makeSeededRandom } from '../lib/make-seeded-random.ts';
-import { pickEvaluationVerdict } from '../lib/pick-evaluation-verdict.ts';
+import { pickLiveEvaluationVerdict } from '../lib/pick-live-evaluation-verdict.ts';
 import {
   RELAY_CONSENT_THRESHOLD as THRESHOLD,
   relayConsentCorpusSchema,
 } from '../lib/relay-consent-corpus-schema.ts';
 import { relayConsentSegmentSchema } from '../lib/relay-consent-segment-schema.ts';
+import { resolveBlockThreshold } from '../lib/resolve-block-threshold.ts';
 import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
 import { toControlHash } from '../lib/to-control-hash.ts';
 import { toHash } from '../lib/to-hash.ts';
@@ -174,6 +175,7 @@ async function main(): Promise<void> {
   const report = {
     model: corpus.model,
     threshold: THRESHOLD,
+    blockThreshold: resolveBlockThreshold(config),
     repeats: corpus.repeats,
     retries: 0,
     redirects: 'error',
@@ -262,6 +264,13 @@ async function main(): Promise<void> {
       'A resumed run keeps every frozen hash.',
     );
 
+    const thresholdMismatch =
+      previous.blockThreshold === undefined
+        ? 'A report without a recorded block threshold cannot be resumed.'
+        : 'A resumed run scores its records at the block threshold of the earlier records.';
+
+    invariant(previous.blockThreshold === report.blockThreshold, thresholdMismatch);
+
     invariant(
       previous.records.every(
         (record) => schedule[record.index]?.requestHash === record.requestHash,
@@ -344,7 +353,11 @@ async function main(): Promise<void> {
         fetch: sendCountedFetch,
       });
 
-      const verdict = pickEvaluationVerdict(item.request, result, THRESHOLD);
+      const verdict = pickLiveEvaluationVerdict(
+        item.request,
+        result,
+        resolveBlockThreshold(config),
+      );
 
       const answers = Object.fromEntries(
         Object.entries(item.request.rules).map(([id, rule]) => {
@@ -450,6 +463,7 @@ function parseReport(text: string) {
       scheduleHash: z.string(),
       controlHashes: z.record(z.string(), z.string()),
       attemptedRequests: z.number().int(),
+      blockThreshold: z.number().optional(),
       startedAt: z.string().nullable().optional(),
       completedAt: z.string().nullable().optional(),
       stoppedEarly: z.enum(['failure', 'model-changed']).nullable().optional(),
