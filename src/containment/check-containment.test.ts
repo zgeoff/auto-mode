@@ -194,3 +194,51 @@ test('it denies a write under /tmp when the caller supplies an empty scratch lis
     findings: [{ kind: 'path', target: '/tmp/build' }],
   });
 });
+
+test('it denies a hard reset onto the remote branch and says how to keep the work', () => {
+  const request = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/home/dev/app',
+    toolInput: { command: 'git fetch origin && git reset --hard origin/feat/a' },
+  });
+
+  const deny = checkContainment(
+    request,
+    buildMockOwnedScope({
+      home: '/home/dev',
+      worktrees: ['/home/dev/app'],
+      branches: ['feat/a'],
+      currentBranch: 'feat/a',
+    }),
+  );
+
+  expect(deny).toStrictEqual({
+    rule: 'Outside Task Scope',
+    reason:
+      'This action writes outside the task scope: discarded work git reset --hard origin/feat/a. The task owns the worktree /home/dev/app and the branch feat/a. A hard reset onto another commit, or a branch deletion that names no branch, discards commits and changes the task may not have made. Sync a branch with git merge --ff-only or git rebase, and delete branches by name, or ask the user to run this action.',
+    findings: [{ kind: 'discard', target: 'git reset --hard origin/feat/a' }],
+  });
+});
+
+test('it gives both pieces of advice when a discard comes with a write outside the scope', () => {
+  const request = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/home/dev/app',
+    toolInput: { command: 'git branch | grep -v main | xargs git branch -D; rm -rf /srv/a' },
+  });
+
+  const deny = checkContainment(
+    request,
+    buildMockOwnedScope({ home: '/home/dev', worktrees: ['/home/dev/app'], branches: [] }),
+  );
+
+  expect(deny).toStrictEqual({
+    rule: 'Outside Task Scope',
+    reason:
+      "This action writes outside the task scope: discarded work git branch delete by exclusion, path /srv/a. The task owns the worktree /home/dev/app. A hard reset onto another commit, or a branch deletion that names no branch, discards commits and changes the task may not have made. Sync a branch with git merge --ff-only or git rebase, and delete branches by name, or ask the user to run this action. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
+    findings: [
+      { kind: 'discard', target: 'git branch delete by exclusion' },
+      { kind: 'path', target: '/srv/a' },
+    ],
+  });
+});

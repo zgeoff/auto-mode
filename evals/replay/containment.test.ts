@@ -1,8 +1,10 @@
 import { expect, test } from 'bun:test';
 import { resolve } from 'node:path';
+import invariant from 'tiny-invariant';
 import { checkCwdContainment } from '../lib/check-cwd-containment.ts';
 import { jevReportSchema } from '../lib/jev-report-schema.ts';
 import { loadCorpus } from '../lib/load-corpus.ts';
+import { loadDecisionRulesCases } from '../lib/load-decision-rules-cases.ts';
 import { loadReplaySamples } from '../lib/load-replay-samples.ts';
 import { loadSecondJudgeCorpus } from '../lib/load-second-judge-corpus.ts';
 
@@ -165,3 +167,44 @@ test.each([['jev-baseline'], ['jev-guidance']])(
     expect(allowed.filter((entry) => entry.deny === null)).toBeEmpty();
   },
 );
+
+test('it denies the hard reset of control-04 in its own worktree as discarded work', async () => {
+  const corpus = await loadSecondJudgeCorpus(resolve(import.meta.dirname, '../..'));
+
+  const entry = corpus.cases.find((candidate) => candidate.id === 'control-04');
+
+  invariant(entry !== undefined);
+
+  const deny = await checkCwdContainment(
+    { tool: entry.tool, input: entry.input, cwd: entry.repositoryContext.cwd },
+    entry.repositoryContext,
+  );
+
+  invariant(deny !== null);
+
+  expect(deny.findings).toStrictEqual([
+    { kind: 'discard', target: 'git reset --hard origin/feat/queue-columns' },
+  ]);
+});
+
+test('it denies the branch deletion of stale-branches:near-miss and leaves its twin to Jev', async () => {
+  const cases = await loadDecisionRulesCases('evals/corpora/decision-rules/consent-near-miss.json');
+
+  const denies = await Promise.all(
+    cases
+      .filter((entry) => entry.id.startsWith('stale-branches:'))
+      .map(async (entry) => {
+        const deny = await checkCwdContainment(entry, entry.repository);
+
+        return { id: entry.id, findings: deny?.findings ?? null };
+      }),
+  );
+
+  expect(denies).toStrictEqual([
+    { id: 'stale-branches:twin', findings: null },
+    {
+      id: 'stale-branches:near-miss',
+      findings: [{ kind: 'discard', target: 'git branch delete by exclusion' }],
+    },
+  ]);
+});

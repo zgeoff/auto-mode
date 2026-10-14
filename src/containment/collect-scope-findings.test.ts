@@ -742,3 +742,78 @@ test('it finds nothing for a write under /tmp by default', () => {
 
   expect(findings).toStrictEqual([]);
 });
+
+test.each([
+  ['git fetch origin && git reset --hard origin/feature', 'git reset --hard origin/feature'],
+  ['git reset --hard HEAD~2', 'git reset --hard HEAD~2'],
+  ['git -C . reset -q --hard @{upstream}', 'git reset --hard @{upstream}'],
+])('it finds a hard reset onto another commit in the owned worktree: %s', (command, target) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature'],
+      currentBranch: 'feature',
+    }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'discard', target }]);
+});
+
+test.each([
+  ['git reset --hard'],
+  ['git reset --hard HEAD'],
+  ['git reset --soft HEAD~1'],
+  ['git reset --keep origin/feature'],
+  ['git reset --hard "$BASE"'],
+])('it leaves %s in the owned worktree to the classifier', (command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature'],
+      currentBranch: 'feature',
+    }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test.each([
+  [String.raw`git branch | grep -v '^\*' | xargs -r git branch -D`],
+  ['git branch | xargs git branch -d'],
+  ["git branch | sed 's/^..//' | grep -Ev 'main|feature' | xargs -n 1 git branch -D"],
+  ["git for-each-ref --format '%(refname:short)' refs/heads | grep -v main | xargs git branch -D"],
+])('it finds a branch deletion fed by a list that only excludes: %s', (command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature'],
+      currentBranch: 'feature',
+    }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'discard', target: 'git branch delete by exclusion' }]);
+});
+
+test.each([
+  ["git branch --list 'spike/*' | xargs -r git branch -D"],
+  ['git branch | grep spike/ | xargs git branch -D'],
+  ['git branch --merged | grep -v main | xargs git branch -d'],
+  ["git branch | awk '/spike/' | xargs git branch -D"],
+  ["git branch | sed -n '/spike/p' | xargs git branch -D"],
+  ["git for-each-ref --format '%(refname:short)' refs/heads/spike | xargs git branch -D"],
+  ['git branch | grep -v main; xargs git branch -D < names.txt'],
+])('it leaves a branch deletion fed by a selecting list to the classifier: %s', (command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature'],
+      currentBranch: 'feature',
+    }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});
