@@ -399,13 +399,17 @@ function collectCommands(value: unknown, key: string | null): string[] {
 }
 
 // A space keeps both halves of a branch name split by `\<newline>` for the rewriter,
-// and after an escaped `\\` the newline stays.
+// and after an escaped `\\` the newline stays. The shell joins the two lines, so
+// a `#` right after the continuation stays in its word and starts no comment.
 const LINE_CONTINUATION = /(?<!\\)(?<escapes>(?:\\\\)*)\\\n/g;
+const HASH_CONTINUATION = /(?<!\\)(?<escapes>(?:\\\\)*)\\\n(?=#)/g;
 
 // A substitution runs its own command, so its text is read on its own, and a
 // grouping bracket that the shell layer keeps on a word would stick to a branch name.
 function collectCommandBranches(command: string): Identifier[] {
-  const text = command.replaceAll(LINE_CONTINUATION, '$<escapes> ');
+  const text = command
+    .replaceAll(HASH_CONTINUATION, '$<escapes>')
+    .replaceAll(LINE_CONTINUATION, '$<escapes> ');
 
   const substituted = collectSubstitutions(text, 0, null).bodies.flatMap((body) =>
     collectCommandBranches(body),
