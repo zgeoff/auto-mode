@@ -803,6 +803,11 @@ test.each([
   ['git branch --merged | grep -v main | xargs git branch -d'],
   ["git branch | awk '/spike/' | xargs git branch -D"],
   ["git branch | sed -n '/spike/p' | xargs git branch -D"],
+  [String.raw`git branch | sed '/spike\//!d' | xargs git branch -D`],
+  ["git branch | sed 's/^..//;/spike/!d' | xargs git branch -D"],
+  ['git branch | uniq -u | xargs git branch -D'],
+  ['git branch | xargs -a names.txt git branch -D'],
+  ['git branch | xargs --arg-file=names.txt git branch -D'],
   ["git for-each-ref --format '%(refname:short)' refs/heads/spike | xargs git branch -D"],
   ['git branch | grep -v main; xargs git branch -D < names.txt'],
 ])('it leaves a branch deletion fed by a selecting list to the classifier: %s', (command) => {

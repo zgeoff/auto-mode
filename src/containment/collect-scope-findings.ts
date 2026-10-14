@@ -163,7 +163,7 @@ function collectPipedSegments(command: string): boolean[] {
   return piped;
 }
 
-const XARGS_VALUE_OPTIONS = new Set(['-I', '-L', '-n', '-P', '-s', '-d', '-E', '-a']);
+const XARGS_VALUE_OPTIONS = new Set(['-I', '-L', '-n', '-P', '-s', '-d', '-E']);
 
 // A branch list that only drops names, piped into `git branch -d`, deletes
 // branches no one named. A list that selects names by a pattern goes to the
@@ -178,6 +178,11 @@ function isBranchSweep(entries: readonly ShellCommand[], piped: readonly boolean
   let start = 1;
 
   while (deleter[start]?.startsWith('-') === true) {
+    // `xargs -a FILE` reads its names from the file, not from the pipe.
+    if (/^(?:-a|--arg-file)/u.test(deleter[start] ?? '')) {
+      return false;
+    }
+
     start += XARGS_VALUE_OPTIONS.has(deleter[start] ?? '') ? 2 : 1;
   }
 
@@ -227,7 +232,7 @@ function isWholeBranchListing(words: readonly string[]): boolean {
   return subcommand === 'for-each-ref' && refs.every((ref) => /^refs\/heads\/?$/u.test(ref));
 }
 
-const NAME_EDITORS = new Set(['sed', 'tr', 'cut', 'sort', 'uniq']);
+const NAME_EDITORS = new Set(['tr', 'cut', 'sort']);
 
 function isExcludingFilter(words: readonly string[]): boolean {
   const [program, ...args] = words;
@@ -236,11 +241,29 @@ function isExcludingFilter(words: readonly string[]): boolean {
     return args.some((word) => /^-[a-zA-Z]*v[a-zA-Z]*$|^--invert-match$/u.test(word));
   }
 
-  // `sed -n` prints only what its script selects.
+  if (program === 'sed') {
+    return isSubstitutionOnly(args);
+  }
+
+  if (program === 'uniq') {
+    return args.every((word) => !/^-[a-zA-Z]*[dDu]/u.test(word));
+  }
+
+  return program !== undefined && NAME_EDITORS.has(program);
+}
+
+// A sed script can delete or print by pattern, so only one substitution that
+// rewrites each name, such as stripping the current-branch marker, passes.
+function isSubstitutionOnly(args: readonly string[]): boolean {
+  const scripts = args.filter((word) => word !== '-e' && word !== '-E' && word !== '-r');
+
   return (
-    program !== undefined &&
-    NAME_EDITORS.has(program) &&
-    !(program === 'sed' && args.includes('-n'))
+    scripts.length > 0 &&
+    scripts.every((script) =>
+      /^s(?<delimiter>[^\w\s;])(?:(?!\k<delimiter>).)*\k<delimiter>(?:(?!\k<delimiter>).)*\k<delimiter>g?$/u.test(
+        script,
+      ),
+    )
   );
 }
 
