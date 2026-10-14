@@ -52,9 +52,11 @@ both. A plain hard reset onto the current commit drops only uncommitted changes,
 presumes its own in its own worktree, so it goes to Jev. A branch deletion that selects by exclusion
 names no branch, so no message can have named the branches it deletes. An `xargs` in replacement
 mode whose command holds no replacement token appends no listed name, so the check reads that
-command as written, and a deletion of an owned branch passes. A list that selects by a pattern, or
-through a filter the check cannot read, names its branches, and Jev and the judge decide whether the
-user named the same ones.
+command as written, and a deletion of an owned branch passes. BSD `xargs -J` is no replacement mode
+for this purpose: when no word of its command matches the token, it appends the listed names after
+the command, so a sweep through `-J` gets the finding whatever its command names. A list that
+selects by a pattern, or through a filter the check cannot read, names its branches, and Jev and the
+judge decide whether the user named the same ones.
 
 A write to a pull request passes only when the task owns that pull request in that repository. A
 merge never passes, whoever owns the pull request, so every merge, through `gh`, the GitHub API or
