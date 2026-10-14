@@ -419,7 +419,7 @@ function collectCommandBranches(command: string): Identifier[] {
   );
 
   // After a separator the `#` starts a word, so it opens a comment.
-  const words = text.replaceAll(/[(){}]/g, ' ').replaceAll(/(?<=\s)\0/g, '');
+  const words = text.replaceAll(/[(){}]/g, ' ').replaceAll(/(?<=^|[\s;&|<>])\0/g, '');
 
   const branches = splitShellCommand(words).segments.flatMap((segment) =>
     collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),

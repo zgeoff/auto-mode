@@ -461,6 +461,7 @@ test.each([
   String.raw`echo "\$(git push origin commit)"`,
   'echo "\\`git push origin commit\\`"',
   "cat <<'EOF'\n$(git push origin commit)\nEOF",
+  'echo ok;\\\n# git push origin commit',
 ])('it keeps commit in a case whose command %j runs no push', (command) => {
   const corpus = buildAnonymisedCorpus(
     [
