@@ -139,8 +139,20 @@ function collectCommandFindings(
 
   for (const [index, entry] of entries.entries()) {
     const [name, ...args] = entry.words;
+    const fixed = findFixedXargsCommand(entry.words);
 
-    if (isBranchSweep(entries.slice(0, index + 1), piped.slice(0, index + 1))) {
+    if (fixed !== null) {
+      findings.push(
+        ...collectProgramFindings(
+          fixed.name,
+          fixed.args,
+          entry.directory,
+          cwd,
+          scope,
+          scratchPaths,
+        ),
+      );
+    } else if (isBranchSweep(entries.slice(0, index + 1), piped.slice(0, index + 1))) {
       findings.push({ kind: 'discard', target: 'git branch delete by exclusion' });
     }
 
@@ -177,6 +189,71 @@ function collectPipedSegments(command: string): boolean[] {
   }
 
   return piped;
+}
+
+const XARGS_FLAG = /^(?:-[0oprtx]+|--(?:null|no-run-if-empty|verbose|interactive|exit|open-tty))$/u;
+const XARGS_VALUE_OPTION = /^-[EPads]$/u;
+
+const XARGS_ATTACHED_VALUE =
+  /^(?:-[EPads].|--(?:eof|max-procs|delimiter|arg-file|max-chars|process-slot-var)=)/u;
+
+const XARGS_REPLACE = /^(?:-I(?<attached>.+)|-i(?<short>.*)|--replace(?:=(?<long>.*))?)$/u;
+
+// In replacement mode xargs runs the command once per listed name, putting the
+// name only where the token stands, so a command without the token runs as
+// written. `-n` or `-L` beside it appends names again, so either one rules it out.
+function findFixedXargsCommand(
+  words: readonly string[],
+): { readonly name: string; readonly args: readonly string[] } | null {
+  if (words[0] !== 'xargs') {
+    return null;
+  }
+
+  let token: string | null = null;
+  let start = 1;
+
+  while (words[start]?.startsWith('-') === true) {
+    const word = words[start] ?? '';
+    const replace = XARGS_REPLACE.exec(word)?.groups;
+
+    if (word === '--') {
+      start += 1;
+      break;
+    }
+
+    if (word === '-I') {
+      token = words[start + 1] ?? null;
+      start += 2;
+    } else if (replace !== undefined) {
+      const short = replace['short'];
+
+      token =
+        replace['attached'] ??
+        replace['long'] ??
+        (short === undefined || short === '' ? '{}' : short);
+
+      start += 1;
+    } else if (XARGS_VALUE_OPTION.test(word)) {
+      start += 2;
+    } else if (XARGS_FLAG.test(word) || XARGS_ATTACHED_VALUE.test(word)) {
+      start += 1;
+    } else {
+      return null;
+    }
+  }
+
+  const [name, ...args] = words.slice(start);
+
+  if (
+    token === null ||
+    token === '' ||
+    name === undefined ||
+    [name, ...args].some((word) => word.includes(token))
+  ) {
+    return null;
+  }
+
+  return { name, args };
 }
 
 const XARGS_VALUE_OPTIONS = new Set(['-I', '-L', '-n', '-P', '-s', '-d', '-E']);

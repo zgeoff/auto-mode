@@ -870,6 +870,68 @@ test.each([
   expect(findings).toStrictEqual([]);
 });
 
+test.each([
+  ['git branch | xargs -I {} git branch -D cleanup'],
+  ['git branch | xargs -I{} git branch -D cleanup'],
+  ['git branch | xargs -r -I NAME git branch -d cleanup'],
+  ['git branch | xargs -i git branch -D cleanup'],
+  ['git branch | xargs --replace git branch -D cleanup'],
+  ['git branch | xargs --replace=NAME git branch -D cleanup'],
+])('it reads %s as a delete of its fixed, owned target', (command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature', 'cleanup'],
+      currentBranch: 'feature',
+    }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it finds the fixed target of an xargs replacement delete that the task does not own', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'git branch | xargs -I {} git branch -D release' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature', 'cleanup'],
+      currentBranch: 'feature',
+    }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'branch', target: 'release', grant: { kind: 'branch' } },
+  ]);
+});
+
+test.each([
+  ['git branch | xargs -I {} git branch -D {}'],
+  ['git branch | xargs -I NAME git branch -D NAME'],
+  ['git branch | xargs -I {} git branch -D origin/{}'],
+  ['git branch | xargs -i git branch -D {}'],
+  ['git branch | xargs --replace=NAME git branch -D NAME'],
+  ['git branch | xargs -I {} -n 1 git branch -D cleanup'],
+  ['git branch | xargs -I {} -L 1 git branch -D cleanup'],
+  ['git branch | xargs -n 1 git branch -D cleanup'],
+  ['git branch | xargs git branch -D cleanup'],
+])('it finds a branch sweep in %s', (command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature', 'cleanup'],
+      currentBranch: 'feature',
+    }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'discard', target: 'git branch delete by exclusion' }]);
+});
+
 test.each([['gh pr merge 512 --admin --squash'], ['gh pr merge 512 --admin=true']])(
   'it finds an admin merge in %s that no message can grant',
   (command) => {
