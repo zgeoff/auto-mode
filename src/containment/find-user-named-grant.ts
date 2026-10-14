@@ -32,10 +32,15 @@ export function findUserNamedGrant(
   return named.length === 0 ? null : named;
 }
 
+// A quoted or backticked span stays whole, so a path that holds a space can
+// still name its target.
 function splitMessageWords(message: string): string[] {
-  return message
-    .split(/[\s"'`()<>[\]{},;*]+/u)
-    .map((word) => word.replace(/[.:!?]+$/u, ''))
+  const quoted = [...message.matchAll(/(?<quote>["'`])(?<text>[^"'`\n]+?)\k<quote>/gu)].map(
+    (match) => match.groups?.['text'] ?? '',
+  );
+
+  return [...quoted, ...message.split(/[\s"'`()<>[\]{},;*]+/u)]
+    .map((word) => word.trim().replace(/[.:!?]+$/u, ''))
     .filter((word) => word !== '');
 }
 

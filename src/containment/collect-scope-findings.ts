@@ -12,7 +12,7 @@ import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 // What a direct user message must name to hand a finding to the judge: the
 // path or branch the target holds, or a pull request by number. A finding
 // without one, such as a credential or a push to another remote, stays final.
-export type ScopeGrant =
+type ScopeGrant =
   | { readonly kind: 'path' | 'branch' }
   | { readonly kind: 'pull-request'; readonly number: number };
 

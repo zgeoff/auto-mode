@@ -218,3 +218,18 @@ test('it finds no grant when the message names only one of two targets', () => {
     ),
   ).toBeNull();
 });
+
+test.each([
+  ['backticks', 'Write the note to `/home/dev/My Notes/todo.md`.'],
+  ['double quotes', 'Write the note to "/home/dev/My Notes/todo.md".'],
+])('it finds a path with a space that the message holds in %s', (_label, message) => {
+  expect(
+    findUserNamedGrant(
+      [{ kind: 'path', target: '/home/dev/My Notes/todo.md', grant: { kind: 'path' } }],
+      message,
+      { home: '/home/dev', defaultBranch: 'main' },
+    ),
+  ).toStrictEqual([
+    { kind: 'path', target: '/home/dev/My Notes/todo.md', namedAs: '/home/dev/My Notes/todo.md' },
+  ]);
+});
