@@ -60,7 +60,7 @@ test('it replays the public recordings into consent outcomes per stage and repor
     ['twins-credited', 'containment', 'recorded', 9, 10],
     ['near-misses-held', 'containment', 'recorded', 0, 1],
     ['twins-credited', 'containment', 'synthetic', 15, 39],
-    ['near-misses-held', 'containment', 'synthetic', 39, 52],
+    ['near-misses-held', 'containment', 'synthetic', 41, 52],
     ['twins-credited', 'jev', 'recorded', 5, 10],
     ['near-misses-held', 'jev', 'recorded', 1, 1],
     ['twins-credited', 'jev', 'synthetic', 17, 26],

@@ -25,7 +25,7 @@ session scope use, so all three agree on where a word, a segment and a redirecti
 
 ## What counts as a write target
 
-Each finding has one of five kinds, and the deny reason holds the kind and the target:
+Each finding has one of six kinds, and the deny reason holds the kind and the target:
 
 - **Path:** the file tools' targets, output redirections, the programs that delete, move, copy or
   edit files in place, and git commands such as `commit`, `reset` or `checkout` run in a directory
@@ -39,6 +39,18 @@ Each finding has one of five kinds, and the deny reason holds the kind and the t
 - **Credential or global setting:** the credential directories in the home directory, global git
   config, `gh auth`, secret stores and cloud identity commands.
 - **Shared resource:** pruning Docker volumes, images or containers.
+- **Discarded work:** a hard reset onto any commit other than the current one, and a branch deletion
+  fed by a branch list that only drops names, such as every branch but the current one.
+
+A discarded-work finding stands inside the task's own worktree. A hard reset onto another commit
+drops every commit after it that no other branch holds, and every uncommitted change. The text
+cannot tell whether those commits were pushed, or whether the task made the changes, so the check
+denies the reset and its reason points the agent at a fast-forward merge or a rebase, which keep
+both. A plain hard reset onto the current commit drops only uncommitted changes, which the task
+presumes its own in its own worktree, so it goes to Jev. A branch deletion that selects by exclusion
+names no branch, so no message can have named the branches it deletes. A list that selects by a
+pattern, or through a filter the check cannot read, names its branches, and Jev and the judge decide
+whether the user named the same ones.
 
 A write to a pull request passes only when the task owns that pull request in that repository. A
 merge never passes, whoever owns the pull request, so every merge, through `gh`, the GitHub API or

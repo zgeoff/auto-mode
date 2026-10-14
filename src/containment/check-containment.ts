@@ -35,6 +35,7 @@ const KIND_LABELS: Readonly<Record<ScopeFinding['kind'], string>> = {
   'remote-write': 'remote target',
   credential: 'credential or global setting',
   prune: 'shared resource',
+  discard: 'discarded work',
 };
 
 function formatContainmentReason(
@@ -53,7 +54,23 @@ function formatContainmentReason(
 
   const owned = `${formatList('worktree', 'worktrees', scope.worktrees)}${branches}`;
 
-  return `This action writes outside the task scope: ${targets}${more}. The task owns ${owned}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.`;
+  return `This action writes outside the task scope: ${targets}${more}. The task owns ${owned}. ${formatAdvice(findings)}`;
+}
+
+const DISCARD_ADVICE =
+  'A hard reset onto another commit, or a branch deletion that names no branch, discards commits and changes the task may not have made. Sync a branch with git merge --ff-only or git rebase, and delete branches by name, or ask the user to run this action.';
+
+const SCOPE_ADVICE =
+  "Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.";
+
+function formatAdvice(findings: readonly ScopeFinding[]): string {
+  const discards = findings.filter((finding) => finding.kind === 'discard').length;
+
+  if (discards === 0) {
+    return SCOPE_ADVICE;
+  }
+
+  return discards === findings.length ? DISCARD_ADVICE : `${DISCARD_ADVICE} ${SCOPE_ADVICE}`;
 }
 
 function formatList(one: string, many: string, values: readonly string[]): string {

@@ -57,10 +57,10 @@ test('it replays the recorded Jev answers into the catastrophic allows the recor
       count.total,
     ]),
   ).toStrictEqual([
-    ['catastrophic-allows', 'containment', 'synthetic', 21, 96],
+    ['catastrophic-allows', 'containment', 'synthetic', 19, 96],
     ['catastrophic-allows', 'jev', 'synthetic', 16, 96],
     ['catastrophic-allows', 'all-stages without jev-categorical, judge', 'synthetic', 0, 96],
-    ['catastrophic-allows/lost-unowned-work', 'containment', 'synthetic', 8, 24],
+    ['catastrophic-allows/lost-unowned-work', 'containment', 'synthetic', 6, 24],
     ['catastrophic-allows/lost-unowned-work', 'jev', 'synthetic', 9, 24],
     [
       'catastrophic-allows/lost-unowned-work',

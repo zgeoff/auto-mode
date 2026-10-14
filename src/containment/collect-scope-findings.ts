@@ -3,12 +3,14 @@ import { SCRATCH_PATHS } from '../config/scratch-paths.ts';
 import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import type { OwnedScope } from '../scope/types.ts';
 import { collectShellCommands } from '../shell/collect-shell-commands.ts';
+import type { ShellCommand } from '../shell/collect-shell-commands.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
+import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 
 export interface ScopeFinding {
-  readonly kind: 'path' | 'branch' | 'remote-write' | 'credential' | 'prune';
+  readonly kind: 'path' | 'branch' | 'remote-write' | 'credential' | 'prune' | 'discard';
   readonly target: string;
 }
 
@@ -116,9 +118,15 @@ function collectCommandFindings(
   scratchPaths: readonly string[],
 ): ScopeFinding[] {
   const findings: ScopeFinding[] = [];
+  const entries = collectShellCommands(command, cwd, scope.home);
+  const piped = collectPipedSegments(command);
 
-  for (const entry of collectShellCommands(command, cwd, scope.home)) {
+  for (const [index, entry] of entries.entries()) {
     const [name, ...args] = entry.words;
+
+    if (isBranchSweep(entries.slice(0, index + 1), piped.slice(0, index + 1))) {
+      findings.push({ kind: 'discard', target: 'git branch delete by exclusion' });
+    }
 
     for (const target of entry.writeTargets) {
       findings.push(...collectTargetFindings(entry.directory, target, scope, scratchPaths));
@@ -132,6 +140,136 @@ function collectCommandFindings(
   }
 
   return findings;
+}
+
+// One flag per segment: whether a pipe joins it to the segment before it. The
+// segments are the runs of tokens between separators, as the shell split cuts them.
+function collectPipedSegments(command: string): boolean[] {
+  const piped: boolean[] = [];
+  let separator: string | null = null;
+  let isInSegment = false;
+
+  for (const token of splitShellTokens(command).tokens) {
+    if (token.kind === 'separator') {
+      separator = token.operator;
+      isInSegment = false;
+    } else if (!isInSegment) {
+      piped.push(separator === '|');
+
+      isInSegment = true;
+    }
+  }
+
+  return piped;
+}
+
+const XARGS_VALUE_OPTIONS = new Set(['-I', '-L', '-n', '-P', '-s', '-d', '-E']);
+
+// A branch list that only drops names, piped into `git branch -d`, deletes
+// branches no one named. A list that selects names by a pattern goes to the
+// classifier, and so does a filter the check cannot read.
+function isBranchSweep(entries: readonly ShellCommand[], piped: readonly boolean[]): boolean {
+  const deleter = entries.at(-1)?.words ?? [];
+
+  if (deleter[0] !== 'xargs' || piped.at(-1) !== true) {
+    return false;
+  }
+
+  let start = 1;
+
+  while (deleter[start]?.startsWith('-') === true) {
+    // `xargs -a FILE` reads its names from the file, not from the pipe.
+    if (/^(?:-a|--arg-file)/u.test(deleter[start] ?? '')) {
+      return false;
+    }
+
+    start += XARGS_VALUE_OPTIONS.has(deleter[start] ?? '') ? 2 : 1;
+  }
+
+  const [program, subcommand, ...rest] = deleter.slice(start);
+
+  if (
+    program !== 'git' ||
+    subcommand !== 'branch' ||
+    !rest.some((word) => /^-(?:d|D|-delete)$/u.test(word))
+  ) {
+    return false;
+  }
+
+  let first = entries.length - 2;
+
+  while (first > 0 && piped[first] === true) {
+    first -= 1;
+  }
+
+  const [listing, ...filters] = entries.slice(first, -1).map((entry) => entry.words);
+
+  return (
+    listing !== undefined &&
+    isWholeBranchListing(listing) &&
+    filters.every((filter) => isExcludingFilter(filter))
+  );
+}
+
+function isWholeBranchListing(words: readonly string[]): boolean {
+  const [program, subcommand, ...rest] = words;
+
+  if (program !== 'git') {
+    return false;
+  }
+
+  if (subcommand === 'branch') {
+    return rest.every((word) =>
+      /^(?:-a|-r|-v|-vv|--all|--remotes|--no-color|--format=.*)$/u.test(word),
+    );
+  }
+
+  if (subcommand !== 'for-each-ref') {
+    return false;
+  }
+
+  // `--format` and `--sort` take their value as the next word, which names no
+  // ref. Every other option, such as `--merged` or `--contains`, selects refs.
+  const kept = rest.filter((_word, index) => !/^--(?:format|sort)$/u.test(rest[index - 1] ?? ''));
+
+  return kept.every(
+    (word) => /^--(?:format|sort)(?:=.*)?$/u.test(word) || /^refs\/heads\/?$/u.test(word),
+  );
+}
+
+const NAME_EDITORS = new Set(['tr', 'cut', 'sort']);
+
+function isExcludingFilter(words: readonly string[]): boolean {
+  const [program, ...args] = words;
+
+  if (program === 'grep' || program === 'egrep') {
+    return args.some((word) => /^-[a-zA-Z]*v[a-zA-Z]*$|^--invert-match$/u.test(word));
+  }
+
+  if (program === 'sed') {
+    return isSubstitutionOnly(args);
+  }
+
+  if (program === 'uniq') {
+    return args.every((word) => !/^-[a-zA-Z]*[dDu]/u.test(word));
+  }
+
+  return program !== undefined && NAME_EDITORS.has(program);
+}
+
+// A sed script can delete or print by pattern, so only one substitution that
+// rewrites each name, such as stripping the current-branch marker, passes.
+function isSubstitutionOnly(args: readonly string[]): boolean {
+  const scripts = args.filter((word) => word !== '-e' && word !== '-E' && word !== '-r');
+
+  return (
+    scripts.length > 0 &&
+    scripts.every((script) =>
+      /^s(?<delimiter>[^\w\s;])(?:(?!\k<delimiter>).)*\k<delimiter>(?:(?!\k<delimiter>).)*\k<delimiter>g?$/u.test(
+        script,
+      ),
+    )
+  );
 }
 
 function collectProgramFindings(
@@ -372,6 +510,21 @@ function collectGitFindings(
     for (const branch of operands.filter((word) => !scope.branches.includes(word))) {
       findings.push({ kind: 'branch', target: branch });
     }
+  }
+
+  // A hard reset onto another commit drops the commits after it and every
+  // uncommitted change, and the text cannot tell whose work those were.
+  const [resetTarget] = operands;
+
+  if (
+    subcommand === 'reset' &&
+    rest.includes('--hard') &&
+    resetTarget !== undefined &&
+    resetTarget !== 'HEAD' &&
+    resetTarget !== '@' &&
+    !isUnresolvedWord(resetTarget)
+  ) {
+    findings.push({ kind: 'discard', target: `git reset --hard ${resetTarget}` });
   }
 
   const isConfigRead = rest.some((word) => /^--(?:get|get-all|get-regexp|list)$|^-l$/u.test(word));
