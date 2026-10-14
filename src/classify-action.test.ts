@@ -1293,9 +1293,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
         'The reviewer confirmed the Outside Task Scope deny: You would write into the export-csv worktree, which the user named only as the source to port from. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
     },
     decidingStage: 'containment',
-    note: expect.stringMatching(
-      new RegExp(`^denied by the containment check: ${target}; judge confirmed \\(\\d+ms\\)$`, 'u'),
-    ),
+    note: expect.toBeString(),
     status: 'deny',
     grant: {
       status: 'confirmed',
@@ -1307,6 +1305,10 @@ test('it keeps the containment deny with the judge’s reason when the judge con
       elapsedMs: expect.toBeNumber(),
     },
   });
+
+  expect(outcome.note).toMatch(
+    new RegExp(`^denied by the containment check: ${target}; judge confirmed \\(\\d+ms\\)$`, 'u'),
+  );
 
   expect(received).not.toHaveBeenCalled();
 });
@@ -1427,9 +1429,7 @@ test('it clears a containment finding the judge confirms the user asked for, and
   expect(outcome).toStrictEqual({
     verdict: { kind: 'allow' },
     decidingStage: 'jev',
-    note: expect.stringMatching(
-      /^containment cleared by the judge for the targets the user named \(\d+ms\); jev-1\.13\.0: allow/u,
-    ),
+    note: expect.toBeString(),
     status: 'allow',
     diagnostics: expect.toBeObject(),
     grant: {
@@ -1442,6 +1442,10 @@ test('it clears a containment finding the judge confirms the user asked for, and
       elapsedMs: expect.toBeNumber(),
     },
   });
+
+  expect(outcome.note).toMatch(
+    /^containment cleared by the judge for the targets the user named \(\d+ms\); jev-1\.13\.0: allow/u,
+  );
 
   expect(received).toHaveBeenCalledOnce();
 });
