@@ -9,9 +9,17 @@ import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 
+// What a direct user message must name to hand a finding to the judge: the
+// path or branch the target holds, or a pull request by number. A finding
+// without one, such as a credential or a push to another remote, stays final.
+export type ScopeGrant =
+  | { readonly kind: 'path' | 'branch' }
+  | { readonly kind: 'pull-request'; readonly number: number };
+
 export interface ScopeFinding {
   readonly kind: 'path' | 'branch' | 'remote-write' | 'credential' | 'prune' | 'discard';
   readonly target: string;
+  readonly grant?: ScopeGrant;
 }
 
 interface ScopeAction {
@@ -78,7 +86,9 @@ function collectPathFindings(
     return [{ kind: 'credential', target: path }];
   }
 
-  return isInScope(path, scope, scratchPaths) ? [] : [{ kind: 'path', target: path }];
+  return isInScope(path, scope, scratchPaths)
+    ? []
+    : [{ kind: 'path', target: path, grant: { kind: 'path' } }];
 }
 
 function collectToolFindings(
@@ -105,7 +115,13 @@ function collectToolFindings(
     typeof number === 'number' &&
     isOwnedPullRequest(number, repo, scope);
 
-  return isOwned ? [] : [{ kind: 'remote-write', target: action.tool }];
+  if (isOwned) {
+    return [];
+  }
+
+  return typeof number === 'number'
+    ? [{ kind: 'remote-write', target: action.tool, grant: { kind: 'pull-request', number } }]
+    : [{ kind: 'remote-write', target: action.tool }];
 }
 
 const PATH_WRITERS = new Set(['rm', 'rmdir', 'shred', 'truncate', 'chmod', 'chown']);
@@ -508,7 +524,7 @@ function collectGitFindings(
 
   if (subcommand === 'branch' && rest.some((word) => /^-(?:d|D|-delete)$/u.test(word))) {
     for (const branch of operands.filter((word) => !scope.branches.includes(word))) {
-      findings.push({ kind: 'branch', target: branch });
+      findings.push({ kind: 'branch', target: branch, grant: { kind: 'branch' } });
     }
   }
 
@@ -573,7 +589,7 @@ function collectPushFindings(
       !branch.startsWith('refs/tags/') &&
       !scope.branches.includes(branch)
     ) {
-      findings.push({ kind: 'branch', target: branch });
+      findings.push({ kind: 'branch', target: branch, grant: { kind: 'branch' } });
     }
   }
 
@@ -604,8 +620,17 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
     const repoIndex = args.findIndex((word) => word === '--repo' || word === '-R');
     const repo = repoIndex === -1 ? undefined : args[repoIndex + 1];
     const isOwned = verb !== 'merge' && isOwnedPullRequest(number, repo, scope);
+    const isAdmin = args.some((word) => /^--admin(?:=|$)/u.test(word));
 
-    return isOwned ? [] : [{ kind: 'remote-write', target: `gh pr ${verb}` }];
+    if (isOwned) {
+      return [];
+    }
+
+    // An admin merge bypasses the forge's own branch protection, so no message
+    // can grant it.
+    return Number.isInteger(number) && !isAdmin
+      ? [{ kind: 'remote-write', target: `gh pr ${verb}`, grant: { kind: 'pull-request', number } }]
+      : [{ kind: 'remote-write', target: `gh pr ${verb}` }];
   }
 
   if (group === 'issue' && verb !== '' && !GH_READS.has(verb)) {

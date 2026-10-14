@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { findCurrentDirectUserMessage } from '../mods/auto-mode/contract/find-current-direct-user-message.ts';
 import { buildRetryKey } from './budget/build-retry-key.ts';
 import { findRetryDeny } from './budget/find-retry-deny.ts';
 import { loadDenialState } from './budget/load-denial-state.ts';
@@ -18,19 +19,25 @@ import { loadClaudeSettings } from './config/load-claude-settings.ts';
 import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
+import type { ContainmentDeny } from './containment/check-containment.ts';
+import { findUserNamedGrant } from './containment/find-user-named-grant.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
+import { buildRepositoryEvidence } from './git/build-repository-evidence.ts';
 import { findCheckout } from './git/find-checkout.ts';
 import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
 import type { Checkout, CheckoutFacts, CheckoutFinder } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
+import type { JudgeOutcome } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithModel } from './model/classify-with-model.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
 import { buildUnavailableVerdict } from './policy/build-unavailable-verdict.ts';
+import { readContainmentRule } from './policy/read-containment-rule.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
+import type { LocalVerdict } from './rules/classify-locally.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
 import type { OwnedScope } from './scope/types.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
@@ -44,6 +51,7 @@ export interface ActionOutcome {
   readonly unavailable?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
   readonly judge?: JudgeDiagnostics;
+  readonly grant?: JudgeDiagnostics;
   readonly denials?: { readonly consecutive: number; readonly session: number };
   readonly escalation?: boolean;
 }
@@ -86,6 +94,7 @@ export async function classifyAction(
         ...(outcome.escalation === undefined ? {} : { escalation: outcome.escalation }),
         ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
         ...(outcome.judge === undefined ? {} : { judge: outcome.judge }),
+        ...(outcome.grant === undefined ? {} : { grant: outcome.grant }),
       },
       host,
       stderr,
@@ -172,7 +181,7 @@ async function classifyStages(
     configured !== undefined &&
     (configured.hard_deny.length > 0 || configured.soft_deny.length > 0);
 
-  const local = hasConfiguredDenies ? { kind: 'escalate' as const } : classifyLocally(request);
+  const local: LocalVerdict = hasConfiguredDenies ? { kind: 'escalate' } : classifyLocally(request);
 
   // A local allow for regenerable output deletes files, so only a read-only
   // allow comes before the containment check.
@@ -196,25 +205,73 @@ async function classifyStages(
   );
 
   const containment = scope === null ? null : checkContainment(request, scope, host.scratchPaths);
+  const stageOptions = { ...options, claudeSettings, findCheckout: findActionCheckout };
+  const facts = { local, scope, checkout, hasConfiguredDenies };
 
-  if (containment !== null) {
-    const guidance = await tryReadDenialGuidance();
+  if (scope === null || containment === null) {
+    return classifyPastContainment(request, config, stageOptions, facts);
+  }
+
+  const containmentNote = `denied by the containment check: ${containment.findings.map((finding) => finding.target).join(', ')}`;
+
+  const [grant, guidance] = await Promise.all([
+    classifyUserNamedGrant(request, config, options, { containment, scope, checkout }),
+    tryReadDenialGuidance(),
+  ]);
+
+  if (grant === null || grant.verdict.kind === 'deny') {
+    const deny =
+      grant?.verdict.kind === 'deny'
+        ? grant.verdict
+        : { rule: containment.rule, reason: containment.reason };
 
     return {
-      verdict: buildGuidedDeny(containment.rule, containment.reason, guidance),
+      verdict: buildGuidedDeny(deny.rule, deny.reason, guidance),
       decidingStage: 'containment',
-      note: `denied by the containment check: ${containment.findings.map((finding) => finding.target).join(', ')}`,
+      note:
+        grant === null
+          ? containmentNote
+          : `${containmentNote}; judge ${grant.status} (${grant.diagnostics.elapsedMs}ms)`,
       status: 'deny',
+      ...(grant === null ? {} : { grant: grant.diagnostics }),
     };
   }
 
-  if (local.kind === 'allow') {
-    return buildLocalAllow(local.exception);
+  // The grant clears the scope finding alone: the call still meets Jev and the
+  // judge, so a hard rule or a secret in the content still denies it.
+  const outcome = await classifyPastContainment(request, config, stageOptions, facts);
+
+  return {
+    ...outcome,
+    note: `containment cleared by the judge for the targets the user named (${grant.diagnostics.elapsedMs}ms); ${outcome.note}`,
+    grant: grant.diagnostics,
+  };
+}
+
+async function classifyPastContainment(
+  request: ActionRequest,
+  config: Config,
+  options: ClassifyOptions &
+    Readonly<{ host: HostEnvironment; stderr: OutputStream; findCheckout: CheckoutFinder }>,
+  facts: Readonly<{
+    local: LocalVerdict;
+    scope: OwnedScope | null;
+    checkout: CheckoutFacts | null;
+    hasConfiguredDenies: boolean;
+  }>,
+): Promise<ActionOutcome> {
+  const host = options.host;
+  const scope = facts.scope;
+  const findActionCheckout = options.findCheckout;
+  const claudeSettings = options.claudeSettings;
+
+  if (facts.local.kind === 'allow') {
+    return buildLocalAllow(facts.local.exception);
   }
 
   // A configured deny entry is the user's own rule, and only Jev reads it.
   const edit =
-    hasConfiguredDenies || scope === null
+    facts.hasConfiguredDenies || scope === null
       ? null
       : await tryClassifyEdit(request, scope, host, { findCheckout: findActionCheckout });
 
@@ -244,7 +301,7 @@ async function classifyStages(
       taskScope,
       host,
       claudeSettings,
-      checkout: checkout ?? undefined,
+      checkout: facts.checkout ?? undefined,
       findCheckout: findActionCheckout,
     }),
     tryReadDenialGuidance(),
@@ -289,6 +346,58 @@ async function classifyStages(
 }
 
 const READ_ONLY_EXCEPTION = 'Read-only actions';
+
+// The judge reviews a containment deny only when the current direct user
+// message names every target, and never in a run that skips the models.
+async function classifyUserNamedGrant(
+  request: ActionRequest,
+  config: Config,
+  options: ClassifyOptions & Readonly<{ host: HostEnvironment }>,
+  facts: Readonly<{
+    containment: ContainmentDeny;
+    scope: OwnedScope;
+    checkout: CheckoutFacts | null;
+  }>,
+): Promise<JudgeOutcome | null> {
+  const containment = facts.containment;
+  const judge = config.judge ?? null;
+  const message = findCurrentDirectUserMessage(request.decisionContext?.lastDirectUserMessage);
+
+  if (judge === null || message === null || options.localOnly === true) {
+    return null;
+  }
+
+  const targets = findUserNamedGrant(containment.findings, message, {
+    home: facts.scope.home,
+    defaultBranch: facts.checkout?.head?.defaultBranch ?? null,
+  });
+
+  if (targets === null) {
+    return null;
+  }
+
+  // A rule that cannot be read leaves no review to run, so the deny stands.
+  const text = await readContainmentRule().catch(() => null);
+
+  if (text === null) {
+    return null;
+  }
+
+  return classifyWithJudge(
+    request,
+    {
+      rule: { name: containment.rule, tier: 'soft', source: 'shipped', text },
+      basis: 'matched',
+      repositoryContext:
+        facts.checkout === null
+          ? null
+          : buildRepositoryEvidence(facts.checkout, buildTaskScopeSummary(facts.scope)),
+      containment: { reason: containment.reason, targets },
+    },
+    judge,
+    { ...options, rulesPath: config.rulesPath, overturns: 'consent' },
+  );
+}
 
 // A scope that cannot be read leaves the action to the classifier, the same as
 // a target the containment check cannot resolve.

@@ -34,7 +34,7 @@ test('it denies a write outside the one owned worktree and names both', () => {
     rule: 'Outside Task Scope',
     reason:
       "This action writes outside the task scope: path /home/dev/notes/todo.md. The task owns the worktree /home/dev/app. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-    findings: [{ kind: 'path', target: '/home/dev/notes/todo.md' }],
+    findings: [{ kind: 'path', target: '/home/dev/notes/todo.md', grant: { kind: 'path' } }],
   });
 });
 
@@ -54,7 +54,7 @@ test('it names one owned branch beside the owned worktree', () => {
     rule: 'Outside Task Scope',
     reason:
       "This action writes outside the task scope: path /home/dev/other. The task owns the worktree /home/dev/app and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-    findings: [{ kind: 'path', target: '/home/dev/other' }],
+    findings: [{ kind: 'path', target: '/home/dev/other', grant: { kind: 'path' } }],
   });
 });
 
@@ -78,7 +78,7 @@ test('it names several owned worktrees and branches in the plural', () => {
     rule: 'Outside Task Scope',
     reason:
       "This action writes outside the task scope: path /home/dev/other. The task owns the worktrees /home/dev/app, /home/dev/app-docs and the branches feat/a, feat/b. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-    findings: [{ kind: 'path', target: '/home/dev/other' }],
+    findings: [{ kind: 'path', target: '/home/dev/other', grant: { kind: 'path' } }],
   });
 });
 
@@ -107,8 +107,12 @@ test('it labels each kind of target by what it reaches', () => {
     reason:
       "This action writes outside the task scope: branch other, remote target gh pr comment, credential or global setting op item edit, shared resource docker volume prune -af. The task owns the worktree /home/dev/app and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
     findings: [
-      { kind: 'branch', target: 'other' },
-      { kind: 'remote-write', target: 'gh pr comment' },
+      { kind: 'branch', target: 'other', grant: { kind: 'branch' } },
+      {
+        kind: 'remote-write',
+        target: 'gh pr comment',
+        grant: { kind: 'pull-request', number: 40 },
+      },
       { kind: 'credential', target: 'op item edit' },
       { kind: 'prune', target: 'docker volume prune -af' },
     ],
@@ -132,13 +136,13 @@ test('it names the first five targets and counts the rest', () => {
     reason:
       "This action writes outside the task scope: path /srv/a, path /srv/b, path /srv/c, path /srv/d, path /srv/e and 2 more. The task owns the worktree /home/dev/app. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
     findings: [
-      { kind: 'path', target: '/srv/a' },
-      { kind: 'path', target: '/srv/b' },
-      { kind: 'path', target: '/srv/c' },
-      { kind: 'path', target: '/srv/d' },
-      { kind: 'path', target: '/srv/e' },
-      { kind: 'path', target: '/srv/f' },
-      { kind: 'path', target: '/srv/g' },
+      { kind: 'path', target: '/srv/a', grant: { kind: 'path' } },
+      { kind: 'path', target: '/srv/b', grant: { kind: 'path' } },
+      { kind: 'path', target: '/srv/c', grant: { kind: 'path' } },
+      { kind: 'path', target: '/srv/d', grant: { kind: 'path' } },
+      { kind: 'path', target: '/srv/e', grant: { kind: 'path' } },
+      { kind: 'path', target: '/srv/f', grant: { kind: 'path' } },
+      { kind: 'path', target: '/srv/g', grant: { kind: 'path' } },
     ],
   });
 });
@@ -191,7 +195,7 @@ test('it denies a write under /tmp when the caller supplies an empty scratch lis
     rule: 'Outside Task Scope',
     reason:
       "This action writes outside the task scope: path /tmp/build. The task owns the worktree /home/dev/app. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-    findings: [{ kind: 'path', target: '/tmp/build' }],
+    findings: [{ kind: 'path', target: '/tmp/build', grant: { kind: 'path' } }],
   });
 });
 
@@ -238,7 +242,7 @@ test('it gives both pieces of advice when a discard comes with a write outside t
       "This action writes outside the task scope: discarded work git branch delete by exclusion, path /srv/a. The task owns the worktree /home/dev/app. A hard reset onto another commit, or a branch deletion that names no branch, discards commits and changes the task may not have made. Sync a branch with git merge --ff-only or git rebase, and delete branches by name, or ask the user to run this action. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
     findings: [
       { kind: 'discard', target: 'git branch delete by exclusion' },
-      { kind: 'path', target: '/srv/a' },
+      { kind: 'path', target: '/srv/a', grant: { kind: 'path' } },
     ],
   });
 });

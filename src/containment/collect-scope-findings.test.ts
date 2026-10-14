@@ -34,7 +34,9 @@ test('it finds a sibling worktree removed by path', () => {
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'path', target: '/home/dev/src/app/.worktrees/other' }]);
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other', grant: { kind: 'path' } },
+  ]);
 });
 
 test.each([
@@ -54,8 +56,8 @@ test.each([
   );
 
   expect(findings).toStrictEqual([
-    { kind: 'path', target: '/home/dev/src/app/.worktrees/other' },
-    { kind: 'remote-write', target: 'gh pr comment' },
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other', grant: { kind: 'path' } },
+    { kind: 'remote-write', target: 'gh pr comment', grant: { kind: 'pull-request', number: 40 } },
   ]);
 });
 
@@ -69,7 +71,9 @@ test('it finds a sibling worktree removed by git', () => {
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'path', target: '/home/dev/src/app/.worktrees/other' }]);
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other', grant: { kind: 'path' } },
+  ]);
 });
 
 test('it finds a sibling worktree written through a file tool', () => {
@@ -83,7 +87,7 @@ test('it finds a sibling worktree written through a file tool', () => {
   );
 
   expect(findings).toStrictEqual([
-    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/a.ts' },
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/a.ts', grant: { kind: 'path' } },
   ]);
 });
 
@@ -93,7 +97,9 @@ test('it finds a write to a nested worktree from its parent checkout', () => {
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app'] }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'path', target: '/home/dev/src/app/.worktrees/other' }]);
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other', grant: { kind: 'path' } },
+  ]);
 });
 
 test('it finds another branch deleted from the main checkout', () => {
@@ -111,7 +117,7 @@ test('it finds another branch deleted from the main checkout', () => {
     }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'branch', target: 'other' }]);
+  expect(findings).toStrictEqual([{ kind: 'branch', target: 'other', grant: { kind: 'branch' } }]);
 });
 
 test('it finds a push to the default branch from the main checkout', () => {
@@ -131,14 +137,14 @@ test('it finds a push to the default branch from the main checkout', () => {
 
   expect(findings).toStrictEqual([
     { kind: 'path', target: '/home/dev/src/app' },
-    { kind: 'branch', target: 'main' },
+    { kind: 'branch', target: 'main', grant: { kind: 'branch' } },
   ]);
 });
 
 test.each([
-  ['a comment on another pull request', 'gh pr comment 40 -b x', 'gh pr comment'],
-  ['a merge of the owned pull request', 'gh pr merge 12', 'gh pr merge'],
-])('it finds %s', (_label, command, target) => {
+  ['a comment on another pull request', 'gh pr comment 40 -b x', 'gh pr comment', 40],
+  ['a merge of the owned pull request', 'gh pr merge 12', 'gh pr merge', 12],
+])('it finds %s', (_label, command, target, number) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
     buildMockOwnedScope({
@@ -149,7 +155,9 @@ test.each([
     }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'remote-write', target }]);
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target, grant: { kind: 'pull-request', number } },
+  ]);
 });
 
 test.each([
@@ -176,7 +184,11 @@ test('it finds a quoted redirect target outside the worktree', () => {
   );
 
   expect(findings).toStrictEqual([
-    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/notes.md' },
+    {
+      kind: 'path',
+      target: '/home/dev/src/app/.worktrees/other/notes.md',
+      grant: { kind: 'path' },
+    },
   ]);
 });
 
@@ -191,7 +203,7 @@ test('it finds a redirect with a descriptor number', () => {
   );
 
   expect(findings).toStrictEqual([
-    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/err.log' },
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/err.log', grant: { kind: 'path' } },
   ]);
 });
 
@@ -218,7 +230,7 @@ test.each([
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'path', target }]);
+  expect(findings).toStrictEqual([{ kind: 'path', target, grant: { kind: 'path' } }]);
 });
 
 test('it finds a push to a URL that only contains the repository name', () => {
@@ -273,7 +285,9 @@ test('it finds a comment on an owned PR number in another repository', () => {
     }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr comment' }]);
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target: 'gh pr comment', grant: { kind: 'pull-request', number: 12 } },
+  ]);
 });
 
 test('it finds nothing in a comment on an owned PR named with its own repository', () => {
@@ -320,7 +334,7 @@ test('it finds a key that ssh-keygen -f writes outside the worktree', () => {
   );
 
   expect(findings).toStrictEqual([
-    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/key' },
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/key', grant: { kind: 'path' } },
   ]);
 });
 
@@ -351,7 +365,7 @@ test('it finds a bare push of the default branch checked out in the cwd', () => 
     }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'branch', target: 'main' }]);
+  expect(findings).toStrictEqual([{ kind: 'branch', target: 'main', grant: { kind: 'branch' } }]);
 });
 
 test('it finds a push from another worktree through git -C, even of an owned branch', () => {
@@ -520,12 +534,6 @@ test.each([
 test.each([
   ['an ssh command', "ssh host 'cat a > b'", 'remote-write', 'ssh'],
   ['an scp upload', 'scp ./app.log host:/tmp/', 'remote-write', 'scp'],
-  [
-    'an scp download outside the worktree',
-    'scp host:/a ../other/a',
-    'path',
-    '/home/dev/src/app/.worktrees/other/a',
-  ],
 ] as const)('it finds a write in %s', (_label, command, kind, target) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
@@ -533,6 +541,21 @@ test.each([
   );
 
   expect(findings).toStrictEqual([{ kind, target }]);
+});
+
+test('it finds a write in an scp download outside the worktree', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'scp host:/a ../other/a' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/a', grant: { kind: 'path' } },
+  ]);
 });
 
 test('it finds an IAM change', () => {
@@ -570,7 +593,7 @@ test('it still checks an absolute target after a cd inside a pipeline, but not a
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'path', target: '/other' }]);
+  expect(findings).toStrictEqual([{ kind: 'path', target: '/other', grant: { kind: 'path' } }]);
 });
 
 test('it still checks a remote write after a cd inside a pipeline', () => {
@@ -587,7 +610,9 @@ test('it still checks a remote write after a cd inside a pipeline', () => {
     }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr merge' }]);
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target: 'gh pr merge', grant: { kind: 'pull-request', number: 12 } },
+  ]);
 });
 
 test.each([
@@ -645,7 +670,11 @@ test('it finds a write to the session scope that auto-mode records', () => {
   );
 
   expect(findings).toStrictEqual([
-    { kind: 'path', target: '/home/dev/.local/state/auto-mode/session-scope/0a1b.json' },
+    {
+      kind: 'path',
+      target: '/home/dev/.local/state/auto-mode/session-scope/0a1b.json',
+      grant: { kind: 'path' },
+    },
   ]);
 });
 
@@ -666,7 +695,9 @@ test('it owns a PR only in its own repository when the checkout has two', () => 
     }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr close' }]);
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target: 'gh pr close', grant: { kind: 'pull-request', number: 12 } },
+  ]);
 });
 
 test('it owns no PR named without a repository when the checkout has two', () => {
@@ -686,7 +717,9 @@ test('it owns no PR named without a repository when the checkout has two', () =>
     }),
   );
 
-  expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr comment' }]);
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target: 'gh pr comment', grant: { kind: 'pull-request', number: 12 } },
+  ]);
 });
 
 test.each([
@@ -727,7 +760,7 @@ test('it finds a write under /tmp when the caller supplies no scratch paths', ()
     [],
   );
 
-  expect(findings).toStrictEqual([{ kind: 'path', target: '/tmp/build' }]);
+  expect(findings).toStrictEqual([{ kind: 'path', target: '/tmp/build', grant: { kind: 'path' } }]);
 });
 
 test('it finds nothing for a write under /tmp by default', () => {
@@ -835,4 +868,66 @@ test.each([
   );
 
   expect(findings).toStrictEqual([]);
+});
+
+test.each([['gh pr merge 512 --admin --squash'], ['gh pr merge 512 --admin=true']])(
+  'it finds an admin merge in %s that no message can grant',
+  (command) => {
+    const findings = collectScopeFindings(
+      { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+      buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+    );
+
+    expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr merge' }]);
+  },
+);
+
+test('it finds a merge with no pull request number that no message can grant', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'gh pr merge --squash' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr merge' }]);
+});
+
+test('it finds a pull request merge through an MCP tool with the number a message can grant', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'mcp__github__merge_pull_request',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { owner: 'dev', repo: 'app', pullNumber: 512 },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    {
+      kind: 'remote-write',
+      target: 'mcp__github__merge_pull_request',
+      grant: { kind: 'pull-request', number: 512 },
+    },
+  ]);
+});
+
+test('it finds a push of every branch that no message can grant', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'git push --all origin' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature'],
+      currentBranch: 'feature',
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'branch', target: '--all' }]);
 });

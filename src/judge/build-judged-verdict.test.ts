@@ -161,3 +161,23 @@ test.each([
     overturnBasis: null,
   });
 });
+
+test('it keeps the held reason it is given when the review fails', () => {
+  expect(
+    buildJudgedVerdict(
+      { name: 'Outside Task Scope', tier: 'soft', source: 'shipped' },
+      'matched',
+      null,
+      'consent',
+      'This action writes outside the task scope: branch other.',
+    ),
+  ).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outside Task Scope',
+      reason: 'This action writes outside the task scope: branch other.',
+    },
+    status: 'failed',
+    overturnBasis: null,
+  });
+});

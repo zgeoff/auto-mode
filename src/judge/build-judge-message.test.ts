@@ -113,3 +113,57 @@ test('it keeps a user message that holds closing tags inside its JSON string', (
 
   expect(evidence.lastDirectUserMessage).toBe(lastUserMessage);
 });
+
+test('it renders the named targets of a containment deny after the action', () => {
+  expect(
+    buildJudgeMessage({
+      rule: {
+        name: 'Outside Task Scope',
+        tier: 'soft',
+        source: 'shipped',
+        text: '### Outside Task Scope\nWriting to a target the task does not own.',
+      },
+      basis: 'matched',
+      action: {
+        tool: 'Bash',
+        cwd: '/home/dev/src/app',
+        input: { command: 'git branch -D feat/old' },
+      },
+      containment: {
+        reason: 'This action writes outside the task scope: branch feat/old.',
+        targets: [{ kind: 'branch', target: 'feat/old', namedAs: 'feat/old' }],
+      },
+      lastUserMessage: 'Delete feat/old.',
+      repositoryContext: null,
+    }),
+  ).toMatchInlineSnapshot(`
+    "Review this deny. The evidence is one JSON object.
+
+    {
+      "deniedRule": {
+        "name": "Outside Task Scope",
+        "tier": "soft",
+        "source": "shipped",
+        "basis": "the action matches the rule",
+        "text": "### Outside Task Scope\\nWriting to a target the task does not own."
+      },
+      "action": {
+        "tool": "Bash",
+        "cwd": "/home/dev/src/app",
+        "input": {
+          "command": "git branch -D feat/old"
+        }
+      },
+      "containment": "This action writes outside the task scope: branch feat/old.",
+      "namedTargets": [
+        {
+          "kind": "branch",
+          "target": "feat/old",
+          "namedAs": "feat/old"
+        }
+      ],
+      "lastDirectUserMessage": "Delete feat/old.",
+      "repository": null
+    }"
+  `);
+});

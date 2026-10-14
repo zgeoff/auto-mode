@@ -1,5 +1,6 @@
 import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import { mergeScopeFacts } from './merge-scope-facts.ts';
+import { PROTECTED_BRANCH_NAMES } from './protected-branch-names.ts';
 import type { OwnedScope, ScopeFacts, ScopeRemote } from './types.ts';
 
 export interface TaskScopeInput {
@@ -18,7 +19,7 @@ export function buildTaskScope(input: Readonly<TaskScopeInput>): OwnedScope {
   const branches = merged.branches.filter(
     (branch) =>
       branch !== input.defaultBranch &&
-      !(input.defaultBranch === null && DEFAULT_NAMES.has(branch)),
+      !(input.defaultBranch === null && PROTECTED_BRANCH_NAMES.has(branch)),
   );
 
   const repositories = new Set(input.remotes.map((remote) => toRepositorySlug(remote.url)));
@@ -37,5 +38,3 @@ export function buildTaskScope(input: Readonly<TaskScopeInput>): OwnedScope {
     pathGlobs: merged.pathGlobs,
   };
 }
-
-const DEFAULT_NAMES: ReadonlySet<string> = new Set(['main', 'master', 'trunk', 'develop']);

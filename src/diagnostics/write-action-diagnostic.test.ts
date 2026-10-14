@@ -63,7 +63,7 @@ test('it appends private correlated records without action, task, credential, or
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 5,
+      schemaVersion: 6,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -76,9 +76,10 @@ test('it appends private correlated records without action, task, credential, or
       escalation: false,
       diagnostics: null,
       judge: null,
+      grant: null,
     },
     {
-      schemaVersion: 5,
+      schemaVersion: 6,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -91,6 +92,7 @@ test('it appends private correlated records without action, task, credential, or
       escalation: false,
       diagnostics: null,
       judge: null,
+      grant: null,
     },
   ]);
 
@@ -207,7 +209,7 @@ test('it records the judge diagnostics of an overturned deny', async () => {
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 5,
+    schemaVersion: 6,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -228,6 +230,7 @@ test('it records the judge diagnostics of an overturned deny', async () => {
       tier: 'soft',
       elapsedMs: 2400,
     },
+    grant: null,
   });
 });
 
@@ -247,7 +250,7 @@ test('it records no action hash for a request without a tool use id', async () =
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 5,
+    schemaVersion: 6,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -260,6 +263,7 @@ test('it records no action hash for a request without a tool use id', async () =
     escalation: false,
     diagnostics: null,
     judge: null,
+    grant: null,
   });
 });
 
@@ -324,7 +328,7 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 5,
+    schemaVersion: 6,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -337,5 +341,6 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
     escalation: false,
     diagnostics: null,
     judge: null,
+    grant: null,
   });
 });

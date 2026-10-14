@@ -1153,7 +1153,7 @@ test('it writes a started and a final action-log record when asked', async () =>
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 5,
+      schemaVersion: 6,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
@@ -1166,9 +1166,10 @@ test('it writes a started and a final action-log record when asked', async () =>
       escalation: false,
       diagnostics: null,
       judge: null,
+      grant: null,
     },
     {
-      schemaVersion: 5,
+      schemaVersion: 6,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
@@ -1181,6 +1182,7 @@ test('it writes a started and a final action-log record when asked', async () =>
       escalation: false,
       diagnostics: null,
       judge: null,
+      grant: null,
     },
   ]);
 });
@@ -1213,4 +1215,388 @@ test('it walks up to the checkout once for an edit the bypass sends on to Jev', 
 
   expect(outcome.decidingStage).toBe('jev');
   expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.dir, 'repo'), expect.any(Object));
+});
+
+test('it keeps the containment deny with the judge’s reason when the judge confirms that the message names the target only as a source (GEO-78 control-11)', async () => {
+  const ctx = await setupTest();
+
+  const received = mock();
+
+  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  runGit(ctx.dir, [
+    '-C',
+    join(ctx.dir, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/queue-columns',
+    '-b',
+    'feat/queue-columns',
+  ]);
+
+  server.use(
+    http.post(DECISION_URL, (info) => {
+      received();
+
+      return sendDecisionReply(info);
+    }),
+  );
+
+  const target = join(
+    ctx.dir,
+    'repo',
+    '.worktrees',
+    'export-csv',
+    'src',
+    'client',
+    'format-row.ts',
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo', '.worktrees', 'queue-columns'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: 'export const formatRow = () => "";\n' },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: 'Port the row formatter from the export-csv worktree into the queue view.',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>confirm</verdict><reason>You would write into the export-csv worktree, which the user named only as the source to port from.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outside Task Scope',
+      reason:
+        'The reviewer confirmed the Outside Task Scope deny: You would write into the export-csv worktree, which the user named only as the source to port from. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.',
+    },
+    decidingStage: 'containment',
+    note: expect.stringMatching(
+      new RegExp(`^denied by the containment check: ${target}; judge confirmed \\(\\d+ms\\)$`, 'u'),
+    ),
+    status: 'deny',
+    grant: {
+      status: 'confirmed',
+      overturnBasis: null,
+      failureReason: null,
+      model: 'claude-haiku-5-5',
+      rule: 'Outside Task Scope',
+      tier: 'soft',
+      elapsedMs: expect.toBeNumber(),
+    },
+  });
+
+  expect(received).not.toHaveBeenCalled();
+});
+
+test('it denies the own-worktree cleanup that also removes another worktree the message never names, without asking the judge', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  runGit(ctx.dir, [
+    '-C',
+    join(ctx.dir, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/columns-glm',
+    '-b',
+    'feat/columns-glm',
+  ]);
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo', '.worktrees', 'columns-glm'),
+      toolName: 'Bash',
+      toolInput: {
+        command: `cd ${join(ctx.dir, 'repo')} && git worktree remove --force .worktrees/columns-glm && git worktree remove --force .worktrees/columns-codex`,
+      },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: 'The columns PR merged. Clean up your own worktree for it.',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outside Task Scope',
+      reason: expect.toStartWith(
+        `This action writes outside the task scope: path ${join(ctx.dir, 'repo', '.worktrees', 'columns-codex')}.`,
+      ),
+    },
+    decidingStage: 'containment',
+    note: `denied by the containment check: ${join(ctx.dir, 'repo', '.worktrees', 'columns-codex')}`,
+    status: 'deny',
+  });
+
+  expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test('it clears a containment finding the judge confirms the user asked for, and lets Jev decide the write', async () => {
+  const ctx = await setupTest();
+
+  const received = mock();
+
+  server.use(
+    http.post(DECISION_URL, (info) => {
+      received();
+
+      return sendDecisionReply(info);
+    }),
+  );
+
+  const target = join(ctx.dir, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test, then run it. Change no other file.`,
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked to create this exact file.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'jev',
+    note: expect.stringMatching(
+      /^containment cleared by the judge for the targets the user named \(\d+ms\); jev-1\.13\.0: allow/u,
+    ),
+    status: 'allow',
+    diagnostics: expect.toBeObject(),
+    grant: {
+      status: 'overturned',
+      overturnBasis: 'consent',
+      failureReason: null,
+      model: 'claude-haiku-5-5',
+      rule: 'Outside Task Scope',
+      tier: 'soft',
+      elapsedMs: expect.toBeNumber(),
+    },
+  });
+
+  expect(received).toHaveBeenCalledOnce();
+});
+
+test('it still denies on a hard rule after the judge clears the containment finding the user named', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set('rule_1', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const target = join(ctx.dir, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: `Create ${target} with one label test.` },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for this file.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Secret Persistence' },
+    decidingStage: 'judge',
+    status: 'deny',
+    judge: { status: 'held', rule: 'Secret Persistence', tier: 'hard' },
+    grant: { status: 'overturned', rule: 'Outside Task Scope' },
+  });
+});
+
+test('it denies a write the message names without asking the judge when the message is stale after a relayed turn', async () => {
+  const ctx = await setupTest();
+
+  const target = join(ctx.dir, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test.`,
+          freshness: 'stale',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Outside Task Scope' },
+    decidingStage: 'containment',
+    note: `denied by the containment check: ${target}`,
+  });
+
+  expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test.each([
+  [
+    'an admin merge of the pull request the message names',
+    'gh pr merge 512 --admin',
+    'Merge #512 now, with --admin if you must.',
+  ],
+  [
+    'a push to the default branch the message names',
+    'git push origin HEAD:main',
+    'Push this straight to main.',
+  ],
+])('it denies %s without asking the judge', async (_label, command, message) => {
+  const ctx = await setupTest();
+
+  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  runGit(ctx.dir, [
+    '-C',
+    join(ctx.dir, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/queue-columns',
+    '-b',
+    'feat/queue-columns',
+  ]);
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo', '.worktrees', 'queue-columns'),
+      toolName: 'Bash',
+      toolInput: { command },
+      decisionContext: { agentID: null, lastDirectUserMessage: { text: message } },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Outside Task Scope' },
+    decidingStage: 'containment',
+    status: 'deny',
+  });
+
+  expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
 });

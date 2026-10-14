@@ -33,6 +33,10 @@ export async function classifyWithJudge(
 ): Promise<JudgeOutcome> {
   const start = performance.now();
   const now = options.now ?? Date.now;
+
+  // The task scope is a fact the judge cannot read better than the check did,
+  // so only consent clears a containment finding.
+  const overturns = evidence.containment === undefined ? options.overturns : 'consent';
   let failure: JudgeFailure | null = null;
   let verdict: JudgedVerdict;
 
@@ -59,6 +63,7 @@ export async function classifyWithJudge(
       action: { tool: payload.toolName, cwd: payload.cwd, input: payload.toolInput },
       lastUserMessage: directMessage,
       repositoryContext: evidence.repositoryContext,
+      containment: evidence.containment,
     });
 
     const remainingMs =
@@ -92,9 +97,22 @@ export async function classifyWithJudge(
     const reply = parseJudgeReply(text);
 
     failure = reply.kind === 'unreadable' ? 'unreadable' : null;
-    verdict = buildJudgedVerdict(evidence.rule, evidence.basis, reply, options.overturns);
+
+    verdict = buildJudgedVerdict(
+      evidence.rule,
+      evidence.basis,
+      reply,
+      overturns,
+      evidence.containment?.reason,
+    );
   } catch {
-    verdict = buildJudgedVerdict(evidence.rule, evidence.basis, null, options.overturns);
+    verdict = buildJudgedVerdict(
+      evidence.rule,
+      evidence.basis,
+      null,
+      overturns,
+      evidence.containment?.reason,
+    );
   }
 
   return {

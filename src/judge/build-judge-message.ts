@@ -1,4 +1,4 @@
-import type { DecisionRule, DenyBasis, RepositoryContext } from '../types.ts';
+import type { ContainmentEvidence, DecisionRule, DenyBasis, RepositoryContext } from '../types.ts';
 
 export interface JudgeInput {
   readonly rule: DecisionRule;
@@ -10,6 +10,7 @@ export interface JudgeInput {
   };
   readonly lastUserMessage: string | null;
   readonly repositoryContext: RepositoryContext | null;
+  readonly containment?: ContainmentEvidence | undefined;
 }
 
 // The evidence goes out as one JSON value, so a user message or a command that
@@ -24,6 +25,9 @@ export function buildJudgeMessage(input: Readonly<JudgeInput>): string {
       text: input.rule.text,
     },
     action: input.action,
+    ...(input.containment === undefined
+      ? {}
+      : { containment: input.containment.reason, namedTargets: input.containment.targets }),
     lastDirectUserMessage: input.lastUserMessage,
     repository: input.repositoryContext,
   };

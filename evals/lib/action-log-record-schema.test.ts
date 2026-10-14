@@ -102,6 +102,68 @@ test('it rejects a version 5 record without an agent hash', () => {
   expect(result.error?.issues).toPartiallyContain({ path: ['agentHash'] });
 });
 
+test('it accepts a version 6 record with the grant diagnostics', () => {
+  const payload = {
+    schemaVersion: 6,
+    time: '2026-10-01T10:00:03.000Z',
+    invocationID: 'invocation-3',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'deny',
+    verdict: 'deny',
+    decidingStage: 'containment',
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+    grant: { status: 'confirmed', rule: 'Outside Task Scope' },
+  } as const;
+
+  expect(actionLogRecordSchema.safeParse(payload).data).toStrictEqual(payload);
+});
+
+test('it rejects a version 6 record without the grant field', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 6,
+    time: '2026-10-01T10:00:03.000Z',
+    invocationID: 'invocation-3',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['grant'] });
+});
+
+test('it rejects the grant field on a version 5 record', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 5,
+    time: '2026-10-01T10:00:03.000Z',
+    invocationID: 'invocation-3',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+    grant: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['grant'] });
+});
+
 test('it rejects an agent hash on a version 4 record', () => {
   const result = actionLogRecordSchema.safeParse({
     schemaVersion: 4,
@@ -142,9 +204,9 @@ test('it rejects an agent identifier that is not a 16-digit hash', () => {
   expect(result.error?.issues).toPartiallyContain({ path: ['agentHash'] });
 });
 
-test('it rejects a schema version other than 3, 4 or 5', () => {
+test('it rejects a schema version other than 3 to 6', () => {
   const result = actionLogRecordSchema.safeParse({
-    schemaVersion: 6,
+    schemaVersion: 7,
     time: '2026-10-01T10:00:00.000Z',
     invocationID: 'invocation-1',
     sessionHash: 'ad9ef8a88622d2c9',
