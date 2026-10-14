@@ -31,6 +31,7 @@ then one line for each recording it can replay.
 | `infrastructure-failures` | 5: failed and unreadable requests per stage, the judge on each Jev deny   |
 | `containment-replay`      | 1 and 2 for the containment check over the recorded Jev answers           |
 | `default-branch-write`    | 1 and 3 for default-branch writes, with two captured fixture edits by key |
+| `user-named-grant`        | 1 and 3 through the containment check and the judge's review of it        |
 
 Every experiment also reports measurement 5 for the stages it sends.
 

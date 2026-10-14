@@ -773,3 +773,165 @@ test('it allows an action whose soft-rule deny the judge overturns as a misread 
     diagnostics: { status: 'overturned', overturnBasis: 'misread' },
   });
 });
+
+test('it holds a containment deny the judge overturns as a misread, with the containment reason, when any overturn may clear a rule', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyWithJudge(
+    buildMockActionRequest({
+      toolName: 'Write',
+      toolInput: { file_path: '/home/dev/src/app/.worktrees/other/a.ts', content: 'x' },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Look at the other worktree.' },
+      },
+    }),
+    {
+      rule: {
+        name: 'Outside Task Scope',
+        tier: 'soft',
+        source: 'shipped',
+        text: '### Outside Task Scope\nWriting to a target the task does not own.',
+      },
+      basis: 'matched',
+      repositoryContext: null,
+      containment: {
+        reason:
+          'This action writes outside the task scope: path /home/dev/src/app/.worktrees/other/a.ts.',
+        targets: [
+          { kind: 'path', target: '/home/dev/src/app/.worktrees/other/a.ts', namedAs: 'other' },
+        ],
+      },
+    },
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
+    {
+      overturns: 'any',
+      host: buildMockHostEnvironment({
+        env: {
+          PATH: ctx.binDir,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>misread</basis><reason>The other worktree looks like the task’s.</reason>',
+        },
+        home: ctx.dir,
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outside Task Scope',
+      reason:
+        'This action writes outside the task scope: path /home/dev/src/app/.worktrees/other/a.ts.',
+    },
+    status: 'held',
+    overturnBasis: 'misread',
+    diagnostics: {
+      status: 'held',
+      overturnBasis: 'misread',
+      failureReason: null,
+      model: 'claude-haiku-5-5',
+      rule: 'Outside Task Scope',
+      tier: 'soft',
+      elapsedMs: expect.toBeNumber(),
+    },
+  });
+});
+
+test('it keeps a containment deny with the containment reason when the judge fails', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyWithJudge(
+    buildMockActionRequest({
+      toolName: 'Write',
+      toolInput: { file_path: '/home/dev/src/app/.worktrees/other/a.ts', content: 'x' },
+      decisionContext: { agentID: null, lastDirectUserMessage: { text: 'Write a.ts in other.' } },
+    }),
+    {
+      rule: {
+        name: 'Outside Task Scope',
+        tier: 'soft',
+        source: 'shipped',
+        text: '### Outside Task Scope\nWriting to a target the task does not own.',
+      },
+      basis: 'matched',
+      repositoryContext: null,
+      containment: {
+        reason:
+          'This action writes outside the task scope: path /home/dev/src/app/.worktrees/other/a.ts.',
+        targets: [
+          { kind: 'path', target: '/home/dev/src/app/.worktrees/other/a.ts', namedAs: 'other' },
+        ],
+      },
+    },
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
+    {
+      overturns: 'consent',
+      host: buildMockHostEnvironment({
+        env: { PATH: ctx.binDir, STUB_CLAUDE_REPLY: 'I would rather not say.' },
+        home: ctx.dir,
+      }),
+    },
+  );
+
+  expect(outcome.verdict).toStrictEqual({
+    kind: 'deny',
+    rule: 'Outside Task Scope',
+    reason:
+      'This action writes outside the task scope: path /home/dev/src/app/.worktrees/other/a.ts.',
+  });
+});
+
+test('it sends the targets of a containment deny with the words that name them to the judge', async () => {
+  const ctx = await setupTest();
+
+  await classifyWithJudge(
+    buildMockActionRequest({
+      toolName: 'Write',
+      toolInput: { file_path: '/home/dev/src/app/.worktrees/other/a.ts', content: 'x' },
+      decisionContext: { agentID: null, lastDirectUserMessage: { text: 'Write a.ts in other.' } },
+    }),
+    {
+      rule: {
+        name: 'Outside Task Scope',
+        tier: 'soft',
+        source: 'shipped',
+        text: '### Outside Task Scope\nWriting to a target the task does not own.',
+      },
+      basis: 'matched',
+      repositoryContext: null,
+      containment: {
+        reason:
+          'This action writes outside the task scope: path /home/dev/src/app/.worktrees/other/a.ts.',
+        targets: [
+          { kind: 'path', target: '/home/dev/src/app/.worktrees/other/a.ts', namedAs: 'other' },
+        ],
+      },
+    },
+    buildMockProviderConfig({ protocol: 'claude-code' }),
+    {
+      overturns: 'consent',
+      host: buildMockHostEnvironment({
+        env: {
+          PATH: ctx.binDir,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+        },
+        home: ctx.dir,
+      }),
+    },
+  );
+
+  const recorded = await readFile(ctx.recordPath, 'utf8');
+
+  const record = z.object({ stdin: z.string() }).parse(JSON.parse(recorded));
+  const evidence: unknown = JSON.parse(record.stdin.slice(record.stdin.indexOf('{')));
+
+  expect(evidence).toMatchObject({
+    namedTargets: [
+      { kind: 'path', target: '/home/dev/src/app/.worktrees/other/a.ts', namedAs: 'other' },
+    ],
+    lastDirectUserMessage: 'Write a.ts in other.',
+  });
+});

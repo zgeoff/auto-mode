@@ -48,6 +48,22 @@ export interface MCPServerFact {
   readonly host: string | null;
 }
 
+// A containment finding and the word of the last direct user message that
+// names its target.
+export interface NamedTarget {
+  readonly kind: string;
+  readonly target: string;
+  readonly namedAs: string;
+}
+
+// A containment deny the user named every target of, which the judge reviews
+// in place of a Jev deny; a review that does not overturn keeps its reason.
+export interface ContainmentEvidence {
+  readonly reason: string;
+  readonly targets: readonly NamedTarget[];
+}
+
 export interface JudgeEvidence extends DeniedRule {
   readonly repositoryContext: RepositoryContext | null;
+  readonly containment?: ContainmentEvidence | undefined;
 }

@@ -9,9 +9,17 @@ import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 
+// What a direct user message must name to hand a finding to the judge: the
+// path or branch the target holds, or a pull request by number. A finding
+// without one, such as a credential or a push to another remote, stays final.
+type ScopeGrant =
+  | { readonly kind: 'path' | 'branch' }
+  | { readonly kind: 'pull-request'; readonly number: number };
+
 export interface ScopeFinding {
   readonly kind: 'path' | 'branch' | 'remote-write' | 'credential' | 'prune' | 'discard';
   readonly target: string;
+  readonly grant?: ScopeGrant;
 }
 
 interface ScopeAction {
@@ -78,7 +86,9 @@ function collectPathFindings(
     return [{ kind: 'credential', target: path }];
   }
 
-  return isInScope(path, scope, scratchPaths) ? [] : [{ kind: 'path', target: path }];
+  return isInScope(path, scope, scratchPaths)
+    ? []
+    : [{ kind: 'path', target: path, grant: { kind: 'path' } }];
 }
 
 function collectToolFindings(
@@ -105,7 +115,13 @@ function collectToolFindings(
     typeof number === 'number' &&
     isOwnedPullRequest(number, repo, scope);
 
-  return isOwned ? [] : [{ kind: 'remote-write', target: action.tool }];
+  if (isOwned) {
+    return [];
+  }
+
+  return typeof number === 'number'
+    ? [{ kind: 'remote-write', target: action.tool, grant: { kind: 'pull-request', number } }]
+    : [{ kind: 'remote-write', target: action.tool }];
 }
 
 const PATH_WRITERS = new Set(['rm', 'rmdir', 'shred', 'truncate', 'chmod', 'chown']);
@@ -508,7 +524,7 @@ function collectGitFindings(
 
   if (subcommand === 'branch' && rest.some((word) => /^-(?:d|D|-delete)$/u.test(word))) {
     for (const branch of operands.filter((word) => !scope.branches.includes(word))) {
-      findings.push({ kind: 'branch', target: branch });
+      findings.push({ kind: 'branch', target: branch, grant: { kind: 'branch' } });
     }
   }
 
@@ -573,7 +589,7 @@ function collectPushFindings(
       !branch.startsWith('refs/tags/') &&
       !scope.branches.includes(branch)
     ) {
-      findings.push({ kind: 'branch', target: branch });
+      findings.push({ kind: 'branch', target: branch, grant: { kind: 'branch' } });
     }
   }
 
@@ -600,12 +616,20 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
   const verb = args[1] ?? '';
 
   if (group === 'pr' && GH_PR_WRITES.has(verb)) {
-    const number = Number(args.slice(2).find((word) => /^\d+$/u.test(word)));
-    const repoIndex = args.findIndex((word) => word === '--repo' || word === '-R');
-    const repo = repoIndex === -1 ? undefined : args[repoIndex + 1];
-    const isOwned = verb !== 'merge' && isOwnedPullRequest(number, repo, scope);
+    const pull = findPullRequestSelector(args.slice(2));
+    const number = pull?.number ?? Number.NaN;
+    const isOwned = verb !== 'merge' && isOwnedPullRequest(number, pull?.repo, scope);
+    const isAdmin = args.some((word) => /^--admin(?:=|$)/u.test(word));
 
-    return isOwned ? [] : [{ kind: 'remote-write', target: `gh pr ${verb}` }];
+    if (isOwned) {
+      return [];
+    }
+
+    // An admin merge bypasses the forge's own branch protection, so no message
+    // can grant it.
+    return Number.isInteger(number) && !isAdmin
+      ? [{ kind: 'remote-write', target: `gh pr ${verb}`, grant: { kind: 'pull-request', number } }]
+      : [{ kind: 'remote-write', target: `gh pr ${verb}` }];
   }
 
   if (group === 'issue' && verb !== '' && !GH_READS.has(verb)) {
@@ -629,6 +653,75 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
   }
 
   return [];
+}
+
+// The options of the gh pr write commands that take a value as the next word.
+const GH_PR_VALUE_OPTIONS = new Set([
+  '-b',
+  '--body',
+  '-F',
+  '--body-file',
+  '-t',
+  '--title',
+  '--subject',
+  '-A',
+  '--author-email',
+  '--match-head-commit',
+  '-B',
+  '--base',
+  '-m',
+  '--milestone',
+  '-c',
+  '--comment',
+  '-R',
+  '--repo',
+  '--add-label',
+  '--remove-label',
+  '--add-reviewer',
+  '--remove-reviewer',
+  '--add-assignee',
+  '--remove-assignee',
+  '--add-project',
+  '--remove-project',
+]);
+
+// gh selects the pull request by its first positional word: a number, a pull
+// request URL, or a branch, which names no number. A URL names its repository.
+function findPullRequestSelector(
+  args: readonly string[],
+): { readonly number: number | null; readonly repo: string | undefined } | null {
+  let repo: string | undefined;
+  let selector: string | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const word = args[index] ?? '';
+
+    if (word === '-R' || word === '--repo') {
+      repo = args[index + 1];
+    } else if (word.startsWith('--repo=')) {
+      repo = word.slice('--repo='.length);
+    }
+
+    if (GH_PR_VALUE_OPTIONS.has(word)) {
+      index += 1;
+    } else if (selector === undefined && !word.startsWith('-')) {
+      selector = word;
+    }
+  }
+
+  if (selector === undefined) {
+    return null;
+  }
+
+  const url = /^https?:\/\/(?<repo>[^/]+\/[^/]+\/[^/]+)\/pull\/(?<number>\d+)(?:[/?#]|$)/u.exec(
+    selector,
+  )?.groups;
+
+  if (url !== undefined) {
+    return { number: Number(url['number']), repo: url['repo'] };
+  }
+
+  return { number: /^#?\d+$/u.test(selector) ? Number(selector.replace('#', '')) : null, repo };
 }
 
 // `gh --repo` takes `owner/name` or `host/owner/name`; a bare `owner/name`

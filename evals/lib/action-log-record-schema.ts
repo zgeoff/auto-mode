@@ -2,12 +2,12 @@ import * as z from 'zod';
 
 const hashSchema = z.string().regex(/^[0-9a-f]{16}$/);
 
-// A version 3, 4 or 5 record of the diagnostics log; version 4 adds the judge
-// stage and its field, and version 5 the agent hash. The diagnostics and judge
-// fields pass unchecked: no measurement reads them and no result keeps them.
+// Versions 3 to 6: 4 adds the judge stage and field, 5 the agent hash, 6 the
+// grant field. The diagnostics, judge and grant fields pass unchecked: no
+// measurement reads them and no result keeps them.
 export const actionLogRecordSchema = z
   .strictObject({
-    schemaVersion: z.union([z.literal(3), z.literal(4), z.literal(5)]),
+    schemaVersion: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6)]),
     time: z.iso.datetime(),
     invocationID: z.string().min(1),
     sessionHash: hashSchema,
@@ -37,13 +37,23 @@ export const actionLogRecordSchema = z
     escalation: z.boolean(),
     diagnostics: z.unknown(),
     judge: z.unknown().optional(),
+    grant: z.unknown().optional(),
   })
   .superRefine((record, context) => {
-    if ((record.schemaVersion === 5) !== (record.agentHash !== undefined)) {
+    if (record.schemaVersion >= 5 !== (record.agentHash !== undefined)) {
       context.addIssue({
         code: 'custom',
         path: ['agentHash'],
-        message: 'A version 5 record holds the agent hash, and an earlier version does not.',
+        message:
+          'A version 5 or later record holds the agent hash, and an earlier version does not.',
+      });
+    }
+
+    if ((record.schemaVersion === 6) !== (record.grant !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['grant'],
+        message: 'A version 6 record holds the grant field, and an earlier version does not.',
       });
     }
   })

@@ -151,10 +151,11 @@ is configured to leave it alone: its bytes are the prompt and the cache prefix, 
 prompt change and belongs in a commit that reviews it as one.
 
 - `decision.md` is the Jev framework, `classifier.md` is the generative framework, `judge.md` is the
-  judge's framework, and `rules.md` is the rule list. `denial.md` is the instruction every deny
-  reason ends with; it reaches the agent, not a classifier. `loadPolicy` splices the rules at the
-  `<rules>` marker. `auto-mode print-prompt` prints the selected base policy; configured rules and
-  action evidence are separate request fields.
+  judge's framework, and `rules.md` is the rule list. `containment.md` is the Outside Task Scope
+  rule the judge reads when it reviews a containment deny the user named. `denial.md` is the
+  instruction every deny reason ends with; it reaches the agent, not a classifier. `loadPolicy`
+  splices the rules at the `<rules>` marker. `auto-mode print-prompt` prints the selected base
+  policy; configured rules and action evidence are separate request fields.
 - Every instruction to block must terminate at a rule name that exists in `rules.md` or an explicit
   configured deny entry. An evaluation rule in `classifier.md` may never order a block on its own —
   a block the model cannot name is one the user cannot read or appeal. A block that cannot be named

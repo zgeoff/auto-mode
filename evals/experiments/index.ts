@@ -4,6 +4,7 @@ import { containmentReplay } from './containment-replay.ts';
 import { defaultBranchWrite } from './default-branch-write.ts';
 import { infrastructureFailures } from './infrastructure-failures.ts';
 import { judgeAlone } from './judge-alone.ts';
+import { userNamedGrant } from './user-named-grant.ts';
 
 export const experiments = [
   catastrophicAllows,
@@ -12,4 +13,5 @@ export const experiments = [
   infrastructureFailures,
   containmentReplay,
   defaultBranchWrite,
+  userNamedGrant,
 ];

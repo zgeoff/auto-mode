@@ -67,7 +67,7 @@ test('it checks an action against a worktree that a call made earlier in its ses
         rule: 'Outside Task Scope',
         reason:
           "This action writes outside the task scope: path /home/dev/app-fix/build. The task owns the worktree /home/dev/app and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-        findings: [{ kind: 'path', target: '/home/dev/app-fix/build' }],
+        findings: [{ kind: 'path', target: '/home/dev/app-fix/build', grant: { kind: 'path' } }],
       },
     ],
     ['R2', null],
@@ -115,7 +115,7 @@ test('it takes nothing from a call that failed', async () => {
         rule: 'Outside Task Scope',
         reason:
           "This action writes outside the task scope: path /home/dev/app-fix/build. The task owns the worktree /home/dev/app and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-        findings: [{ kind: 'path', target: '/home/dev/app-fix/build' }],
+        findings: [{ kind: 'path', target: '/home/dev/app-fix/build', grant: { kind: 'path' } }],
       },
     ],
   ]);
@@ -162,7 +162,7 @@ test('it keeps what one session made out of the scope of another session', async
         rule: 'Outside Task Scope',
         reason:
           "This action writes outside the task scope: path /home/dev/app-fix/build. The task owns the worktree /home/dev/app and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-        findings: [{ kind: 'path', target: '/home/dev/app-fix/build' }],
+        findings: [{ kind: 'path', target: '/home/dev/app-fix/build', grant: { kind: 'path' } }],
       },
     ],
   ]);
@@ -290,7 +290,13 @@ test('it checks an action against a PR that a call opened earlier in its session
         rule: 'Outside Task Scope',
         reason:
           "This action writes outside the task scope: remote target gh pr comment. The task owns the worktree /home/dev/app and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-        findings: [{ kind: 'remote-write', target: 'gh pr comment' }],
+        findings: [
+          {
+            kind: 'remote-write',
+            target: 'gh pr comment',
+            grant: { kind: 'pull-request', number: 5 },
+          },
+        ],
       },
     ],
     ['R2', null],
@@ -345,7 +351,7 @@ test('it checks an action against a branch that a call made earlier in its sessi
         rule: 'Outside Task Scope',
         reason:
           "This action writes outside the task scope: branch fix/b. The task owns the worktree /home/dev/app and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-        findings: [{ kind: 'branch', target: 'fix/b' }],
+        findings: [{ kind: 'branch', target: 'fix/b', grant: { kind: 'branch' } }],
       },
     ],
     ['R2', null],

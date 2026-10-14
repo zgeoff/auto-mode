@@ -23,6 +23,7 @@ interface ActionDiagnostic {
   readonly escalation?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
   readonly judge?: JudgeDiagnostics;
+  readonly grant?: JudgeDiagnostics;
 }
 
 export async function writeActionDiagnostic(
@@ -45,7 +46,7 @@ export async function writeActionDiagnostic(
   const agentKey = agentID === null ? payload.sessionID : `${payload.sessionID}\0${agentID}`;
 
   const record = {
-    schemaVersion: 5,
+    schemaVersion: 6,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
     sessionHash: toHash(payload.sessionID),
@@ -58,6 +59,7 @@ export async function writeActionDiagnostic(
     escalation: entry.escalation ?? false,
     diagnostics: entry.diagnostics ?? null,
     judge: entry.judge ?? null,
+    grant: entry.grant ?? null,
   };
 
   try {

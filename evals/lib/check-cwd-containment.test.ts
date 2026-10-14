@@ -20,7 +20,7 @@ test('it denies a deletion of a sibling worktree, naming the cwd worktree and br
     rule: 'Outside Task Scope',
     reason:
       "This action writes outside the task scope: path /home/dev/app/.worktrees/other. The task owns the worktree /home/dev/app/.worktrees/feat and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-    findings: [{ kind: 'path', target: '/home/dev/app/.worktrees/other' }],
+    findings: [{ kind: 'path', target: '/home/dev/app/.worktrees/other', grant: { kind: 'path' } }],
   });
 });
 
@@ -34,7 +34,7 @@ test('it reads the first two parts of the cwd as the home directory', async () =
     rule: 'Outside Task Scope',
     reason:
       "This action writes outside the task scope: path /home/dev/notes. The task owns the worktree /home/dev/app and the branch feat/a. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-    findings: [{ kind: 'path', target: '/home/dev/notes' }],
+    findings: [{ kind: 'path', target: '/home/dev/notes', grant: { kind: 'path' } }],
   });
 });
 
@@ -57,6 +57,6 @@ test('it keeps the default branch out of the task', async () => {
     rule: 'Outside Task Scope',
     reason:
       "This action writes outside the task scope: branch main. The task owns the worktree /home/dev/app. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target.",
-    findings: [{ kind: 'branch', target: 'main' }],
+    findings: [{ kind: 'branch', target: 'main', grant: { kind: 'branch' } }],
   });
 });
