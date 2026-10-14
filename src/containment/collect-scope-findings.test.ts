@@ -877,6 +877,7 @@ test.each([
   ['git branch | xargs -i git branch -D cleanup'],
   ['git branch | xargs --replace git branch -D cleanup'],
   ['git branch | xargs --replace=NAME git branch -D cleanup'],
+  ['git branch | xargs -J % -I {} git branch -D cleanup'],
 ])('it reads %s as a delete of its fixed, owned target', (command) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
@@ -931,6 +932,11 @@ test.each([
   ["git branch | xargs -I {} git branch -D 'cleanup'"],
   ['git branch | xargs -I {} git branch -D "cleanup"'],
   ['git branch | xargs -I {} git branch -D cle~anup'],
+  ['git branch | xargs -J % git branch -D %'],
+  ['git branch | xargs -J% git branch -D %'],
+  ['git branch | xargs -r -J NAME git branch -d NAME'],
+  ['git branch | xargs -J % git branch -D cleanup'],
+  ['git branch | xargs -I {} -J % git branch -D cleanup'],
 ])('it finds a branch sweep in %s', (command) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },

@@ -246,6 +246,11 @@ function findFixedXargsCommand(
         (short === undefined || short === '' ? '{}' : short);
 
       start += 1;
+    } else if (word.startsWith('-J')) {
+      // BSD `-J` puts the names where its token stands, or after the command
+      // when no word matches it, so the later of `-I` and `-J` decides the mode.
+      token = null;
+      start += word === '-J' ? 2 : 1;
     } else if (XARGS_VALUE_OPTION.test(word)) {
       start += 2;
     } else if (XARGS_FLAG.test(word) || XARGS_ATTACHED_VALUE.test(word)) {
@@ -269,7 +274,7 @@ function findFixedXargsCommand(
   return { name, args };
 }
 
-const XARGS_VALUE_OPTIONS = new Set(['-I', '-L', '-n', '-P', '-s', '-d', '-E']);
+const XARGS_VALUE_OPTIONS = new Set(['-I', '-J', '-L', '-n', '-P', '-s', '-d', '-E']);
 
 // A branch list that only drops names, piped into `git branch -d`, deletes
 // branches no one named. A list that selects names by a pattern goes to the
