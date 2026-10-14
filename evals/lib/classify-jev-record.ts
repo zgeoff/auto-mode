@@ -5,13 +5,14 @@ type JevRecord = JevReport['records'][number];
 
 // A recorded Jev report keeps only the answers short of a confident allow, so
 // the class comes from its status and those answers. A failed request has none.
+// A record with every rule's P(block) gives the highest of them, as a live run does.
 export function classifyJevRecord(record: Readonly<JevRecord>): JevClass | null {
   if (record.status === 'failure') {
     return null;
   }
 
   const [held] = record.contributors.toSorted((left, right) => right.block - left.block);
-  const pBlock = held?.block ?? 0;
+  const pBlock = Math.max(held?.block ?? 0, ...Object.values(record.blockProbabilities ?? {}));
 
   if (record.status === 'allow') {
     return { kind: 'allow', rule: null, pBlock };

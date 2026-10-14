@@ -169,6 +169,14 @@ async function main(): Promise<void> {
               ];
         });
 
+        // A deny at a threshold below 0.8 can rest on an answer the contributors leave out.
+        const blockProbabilities = Object.fromEntries(
+          Object.entries(request.rules).map(([id, rule]) => [
+            rule.source === 'shipped' ? rule.name : id,
+            result.answers[id]?.probabilities.block ?? 0,
+          ]),
+        );
+
         record = {
           case: entry.id,
           sample,
@@ -177,6 +185,7 @@ async function main(): Promise<void> {
           rule: verdict.kind === 'deny' ? verdict.rule : null,
           ruleCount: Object.keys(request.rules).length,
           contributors,
+          blockProbabilities,
           elapsedMs: Math.round(performance.now() - started),
           requestBytes,
         };

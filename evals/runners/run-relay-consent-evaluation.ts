@@ -264,10 +264,12 @@ async function main(): Promise<void> {
       'A resumed run keeps every frozen hash.',
     );
 
-    invariant(
-      previous.blockThreshold === report.blockThreshold,
-      'A resumed run scores its records at the block threshold of the earlier records.',
-    );
+    const thresholdMismatch =
+      previous.blockThreshold === undefined
+        ? 'A report without a recorded block threshold cannot be resumed.'
+        : 'A resumed run scores its records at the block threshold of the earlier records.';
+
+    invariant(previous.blockThreshold === report.blockThreshold, thresholdMismatch);
 
     invariant(
       previous.records.every(
