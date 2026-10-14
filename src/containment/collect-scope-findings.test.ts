@@ -931,3 +931,67 @@ test('it finds a push of every branch that no message can grant', () => {
 
   expect(findings).toStrictEqual([{ kind: 'branch', target: '--all' }]);
 });
+
+test.each([
+  ['a number after an option value', 'gh pr comment --body 42 512', 'gh pr comment'],
+  ['a pull request URL', 'gh pr merge https://github.com/dev/app/pull/512', 'gh pr merge'],
+  ['a number after the repository option', 'gh pr close -R dev/app 512', 'gh pr close'],
+])('it takes the pull request a message can grant from %s', (_label, command, target) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target, grant: { kind: 'pull-request', number: 512 } },
+  ]);
+});
+
+test('it finds a comment on another pull request even when an option value holds the number of an owned one', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'gh pr comment --body 12 40' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+      pullRequests: [{ number: 12, repository: 'github.com/dev/app' }],
+    }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target: 'gh pr comment', grant: { kind: 'pull-request', number: 40 } },
+  ]);
+});
+
+test('it finds nothing in a comment on the owned pull request named by its URL', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'gh pr comment https://github.com/dev/app/pull/12 -b done' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+      pullRequests: [{ number: 12, repository: 'github.com/dev/app' }],
+    }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it finds a comment on a pull request named by its branch that no message can grant', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'gh pr comment feat/other -b 512' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr comment' }]);
+});

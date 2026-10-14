@@ -616,10 +616,9 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
   const verb = args[1] ?? '';
 
   if (group === 'pr' && GH_PR_WRITES.has(verb)) {
-    const number = Number(args.slice(2).find((word) => /^\d+$/u.test(word)));
-    const repoIndex = args.findIndex((word) => word === '--repo' || word === '-R');
-    const repo = repoIndex === -1 ? undefined : args[repoIndex + 1];
-    const isOwned = verb !== 'merge' && isOwnedPullRequest(number, repo, scope);
+    const pull = findPullRequestSelector(args.slice(2));
+    const number = pull?.number ?? Number.NaN;
+    const isOwned = verb !== 'merge' && isOwnedPullRequest(number, pull?.repo, scope);
     const isAdmin = args.some((word) => /^--admin(?:=|$)/u.test(word));
 
     if (isOwned) {
@@ -654,6 +653,75 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
   }
 
   return [];
+}
+
+// The options of the gh pr write commands that take a value as the next word.
+const GH_PR_VALUE_OPTIONS = new Set([
+  '-b',
+  '--body',
+  '-F',
+  '--body-file',
+  '-t',
+  '--title',
+  '--subject',
+  '-A',
+  '--author-email',
+  '--match-head-commit',
+  '-B',
+  '--base',
+  '-m',
+  '--milestone',
+  '-c',
+  '--comment',
+  '-R',
+  '--repo',
+  '--add-label',
+  '--remove-label',
+  '--add-reviewer',
+  '--remove-reviewer',
+  '--add-assignee',
+  '--remove-assignee',
+  '--add-project',
+  '--remove-project',
+]);
+
+// gh selects the pull request by its first positional word: a number, a pull
+// request URL, or a branch, which names no number. A URL names its repository.
+function findPullRequestSelector(
+  args: readonly string[],
+): { readonly number: number | null; readonly repo: string | undefined } | null {
+  let repo: string | undefined;
+  let selector: string | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const word = args[index] ?? '';
+
+    if (word === '-R' || word === '--repo') {
+      repo = args[index + 1];
+    } else if (word.startsWith('--repo=')) {
+      repo = word.slice('--repo='.length);
+    }
+
+    if (GH_PR_VALUE_OPTIONS.has(word)) {
+      index += 1;
+    } else if (selector === undefined && !word.startsWith('-')) {
+      selector = word;
+    }
+  }
+
+  if (selector === undefined) {
+    return null;
+  }
+
+  const url = /^https?:\/\/(?<repo>[^/]+\/[^/]+\/[^/]+)\/pull\/(?<number>\d+)(?:[/?#]|$)/u.exec(
+    selector,
+  )?.groups;
+
+  if (url !== undefined) {
+    return { number: Number(url['number']), repo: url['repo'] };
+  }
+
+  return { number: /^#?\d+$/u.test(selector) ? Number(selector.replace('#', '')) : null, repo };
 }
 
 // `gh --repo` takes `owner/name` or `host/owner/name`; a bare `owner/name`
