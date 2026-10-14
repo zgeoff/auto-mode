@@ -14,6 +14,7 @@ import { readHostEnvironment } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { pickLiveEvaluationVerdict } from '../lib/pick-live-evaluation-verdict.ts';
+import { resolveBlockThreshold } from '../lib/resolve-block-threshold.ts';
 import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
 import { staleConsentCorpusSchema } from '../lib/stale-consent-corpus-schema.ts';
 import { toControlHash } from '../lib/to-control-hash.ts';
@@ -96,7 +97,7 @@ async function main(): Promise<void> {
 
   const report = {
     model: config.provider.model,
-    blockThreshold: config.blockThreshold,
+    blockThreshold: resolveBlockThreshold(config),
     samplesPerCase: 1,
     retries: 0,
     startedAt: new Date().toISOString(),
@@ -152,7 +153,7 @@ async function main(): Promise<void> {
     try {
       const result = await sendEvaluationDecision(config.provider, key, request);
 
-      const verdict = pickLiveEvaluationVerdict(request, result, config.blockThreshold);
+      const verdict = pickLiveEvaluationVerdict(request, result, resolveBlockThreshold(config));
 
       const answers = Object.fromEntries(
         Object.entries(request.rules).map(([id, rule]) => {

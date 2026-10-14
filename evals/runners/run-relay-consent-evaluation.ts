@@ -25,6 +25,7 @@ import {
   relayConsentCorpusSchema,
 } from '../lib/relay-consent-corpus-schema.ts';
 import { relayConsentSegmentSchema } from '../lib/relay-consent-segment-schema.ts';
+import { resolveBlockThreshold } from '../lib/resolve-block-threshold.ts';
 import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
 import { toControlHash } from '../lib/to-control-hash.ts';
 import { toHash } from '../lib/to-hash.ts';
@@ -174,7 +175,7 @@ async function main(): Promise<void> {
   const report = {
     model: corpus.model,
     threshold: THRESHOLD,
-    blockThreshold: config.blockThreshold,
+    blockThreshold: resolveBlockThreshold(config),
     repeats: corpus.repeats,
     retries: 0,
     redirects: 'error',
@@ -350,7 +351,11 @@ async function main(): Promise<void> {
         fetch: sendCountedFetch,
       });
 
-      const verdict = pickLiveEvaluationVerdict(item.request, result, config.blockThreshold);
+      const verdict = pickLiveEvaluationVerdict(
+        item.request,
+        result,
+        resolveBlockThreshold(config),
+      );
 
       const answers = Object.fromEntries(
         Object.entries(item.request.rules).map(([id, rule]) => {
