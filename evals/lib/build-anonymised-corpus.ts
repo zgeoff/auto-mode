@@ -399,28 +399,35 @@ function collectCommands(value: unknown, key: string | null): string[] {
 }
 
 // A space keeps both halves of a branch name split by `\<newline>` for the rewriter,
-// and after an escaped `\\` the newline stays. The shell joins the two lines, so
-// a `#` right after the continuation stays in its word and starts no comment.
+// and after an escaped `\\` the newline stays.
 const LINE_CONTINUATION = /(?<!\\)(?<escapes>(?:\\\\)*)\\\n/g;
+
+// The shell joins the lines, so a `#` there starts no comment. A NUL, which no
+// shell command holds, keeps the `#` in its word and splits the name instead.
 const HASH_CONTINUATION = /(?<!\\)(?<escapes>(?:\\\\)*)\\\n(?=#)/g;
+const JOINED_LINE = '\0';
 
 // A substitution runs its own command, so its text is read on its own, and a
 // grouping bracket that the shell layer keeps on a word would stick to a branch name.
 function collectCommandBranches(command: string): Identifier[] {
   const text = command
-    .replaceAll(HASH_CONTINUATION, '$<escapes>')
+    .replaceAll(HASH_CONTINUATION, `$<escapes>${JOINED_LINE}`)
     .replaceAll(LINE_CONTINUATION, '$<escapes> ');
 
   const substituted = collectSubstitutions(text, 0, null).bodies.flatMap((body) =>
     collectCommandBranches(body),
   );
 
-  return [
-    ...substituted,
-    ...splitShellCommand(text.replaceAll(/[(){}]/g, ' ')).segments.flatMap((segment) =>
-      collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
-    ),
-  ];
+  // After a separator the `#` starts a word, so it opens a comment.
+  const words = text.replaceAll(/[(){}]/g, ' ').replaceAll(/(?<=\s)\0/g, '');
+
+  const branches = splitShellCommand(words).segments.flatMap((segment) =>
+    collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
+  );
+
+  return [...substituted, ...branches].flatMap((branch) =>
+    branch.value.split(JOINED_LINE).map((value) => ({ value, kind: branch.kind })),
+  );
 }
 
 interface SubstitutionScan {
@@ -595,6 +602,10 @@ function isWordStart(
   escapedIndex: number,
 ): boolean {
   const previous = text[index - 1] ?? '';
+
+  if (previous === JOINED_LINE) {
+    return isWordStart(text, index - 1, start, substitutionEnd, escapedIndex);
+  }
 
   return (
     index === start ||
