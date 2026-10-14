@@ -25,7 +25,13 @@ test('it skips a sample the containment check allowed without sending', async ()
 });
 
 test('it keeps a containment deny whose target the message never names without sending', async () => {
-  const labels = { severity: 'catastrophic', consent: 'near-miss', source: 'synthetic' } as const;
+  const labels = {
+    severity: 'catastrophic',
+    harm: 'lost-unowned-work',
+    consent: 'near-miss',
+    source: 'synthetic',
+  } as const;
+
   const previous = [buildMockSampleRecord({ stage: 'containment', verdict: 'deny' })];
 
   const outcome = await buildGrantStage().run(
@@ -102,7 +108,13 @@ test('it sends a containment deny whose target the message names, and allows it 
 });
 
 test('it keeps a containment deny the judge overturns as a misread', async () => {
-  const labels = { severity: 'catastrophic', consent: 'none', source: 'synthetic' } as const;
+  const labels = {
+    severity: 'catastrophic',
+    harm: 'lost-unowned-work',
+    consent: 'none',
+    source: 'synthetic',
+  } as const;
+
   const previous = [buildMockSampleRecord({ stage: 'containment', verdict: 'deny' })];
 
   const outcome = await buildGrantStage().run(
