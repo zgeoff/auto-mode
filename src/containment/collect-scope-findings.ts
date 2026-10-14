@@ -7,6 +7,7 @@ import type { ShellCommand } from '../shell/collect-shell-commands.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
+import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 
 // What a direct user message must name to hand a finding to the judge: the
@@ -136,10 +137,11 @@ function collectCommandFindings(
   const findings: ScopeFinding[] = [];
   const entries = collectShellCommands(command, cwd, scope.home);
   const piped = collectPipedSegments(command);
+  const segments = splitShellCommand(command).segments;
 
   for (const [index, entry] of entries.entries()) {
     const [name, ...args] = entry.words;
-    const fixed = findFixedXargsCommand(entry.words);
+    const fixed = findFixedXargsCommand(entry.words, segments[index]?.text ?? '');
 
     if (fixed !== null) {
       findings.push(
@@ -199,19 +201,23 @@ const XARGS_ATTACHED_VALUE =
 
 const XARGS_REPLACE = /^(?:-I(?<attached>.+)|-i(?<short>.*)|--replace(?:=(?<long>.*))?)$/u;
 
-// The shell can expand a word into the replacement token, so only literal
-// words show that the token is missing.
-const SHELL_EXPANSION = /^~|[*?[]|\{[^{}]*,/u;
+// The shell can expand, unquote or unescape a word into the replacement token,
+// so only a segment written in plain literal words shows that the token is missing.
+const PLAIN_WORD = /^(?:[\w./:@%+=-]|\{\})+$/u;
 
 // In replacement mode xargs runs the command once per listed name, putting the
 // name only where the token stands, so a command without the token runs as
 // written. `-n` or `-L` beside it appends names again, so either one rules it out.
 function findFixedXargsCommand(
   words: readonly string[],
+  text: string,
 ): { readonly name: string; readonly args: readonly string[] } | null {
   if (
     words[0] !== 'xargs' ||
-    words.some((word) => isUnresolvedWord(word) || SHELL_EXPANSION.test(word))
+    !splitShellTokens(text).tokens.every(
+      (token) =>
+        token.kind !== 'word' || (token.raw === token.value && PLAIN_WORD.test(token.value)),
+    )
   ) {
     return null;
   }
