@@ -4,9 +4,10 @@ Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/act
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
 an empty string to disable the file. A failed diagnostic write does not change the verdict. Records
-carry `schemaVersion` 5. A version 4 record lacks the `agentHash` field, a version 3 record also
-lacks the `judge` field and the `judge` stage, a version 2 record also lacks the three budget fields
-below, and a version 1 record in an older file also carries `harness` and `event`.
+carry `schemaVersion` 6. A version 5 record lacks the `grant` field, a version 4 record also lacks
+the `agentHash` field, a version 3 record also lacks the `judge` field and the `judge` stage, a
+version 2 record also lacks the three budget fields below, and a version 1 record in an older file
+also carries `harness` and `event`.
 
 The records exclude commands, paths, prompts, configuration contents, credentials, provider
 responses, and exception text. Configured and replacement rules use question identifiers; only
@@ -40,6 +41,12 @@ or a held overturn, and `null` otherwise. `failureReason` names the step that fa
 `policy`, `request`, `timeout`, or `unreadable`; it is `null` when the judge answered. `rule` is a
 shipped rule's name, or the rule's source for a configured or replacement rule; `tier`, `model` and
 `elapsedMs` complete the record. The judge's reason text is not recorded.
+
+When the judge reviewed a containment deny whose every target the last direct user message named,
+`grant` holds that review in the same shape as `judge`, with `rule` set to `Outside Task Scope`;
+otherwise it is `null`. A `confirmed`, `held` or `failed` review leaves `decidingStage` at
+`containment`. An `overturned` review clears the finding, so the call goes on and a later stage
+decides it, and that stage's `judge` record can sit beside the `grant` record.
 
 Each final record also measures the task, so escalations can be counted per agent:
 

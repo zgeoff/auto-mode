@@ -8,7 +8,8 @@ last message, and either confirms the deny with a reason written for this call, 
 an allow when the user asked for exactly this or when the facts show that no rule covers the action.
 It is a generative model, `claude -p` on a Claude model by default, with its own framework in the
 [policy](../policy.md). The judge can only change a deny into an allow on a soft rule, and it fails
-closed: whatever goes wrong, the deny stands.
+closed: whatever goes wrong, the deny stands. It also reviews a containment deny whose every target
+the user named ([a containment deny](#a-containment-deny)).
 
 ## What the judge reads
 
@@ -55,6 +56,20 @@ agent's context.
 
 The judge has its own time limit, longer than Jev's because it writes, and it also honours the
 deadline the mod passes, whichever comes first. A missing API key, a policy that cannot load, a
-timeout, a failed call and an unreadable reply all end in the failed outcome. A
-[containment](./containment.md) deny never reaches the judge, because containment returns before Jev
-runs.
+timeout, a failed call and an unreadable reply all end in the failed outcome.
+
+## A containment deny
+
+The judge also reviews a [containment](./containment.md) deny when the last direct user message
+names every target of it ([the user-named grant](./containment.md#the-user-named-grant)). That
+review reads the Outside Task Scope rule from its own policy file in place of a rule from the rule
+list, and two more evidence fields: the check's finding, which names every target and what the task
+owns, and each target paired with the word of the message that names it. The rule tells the judge
+that a name alone is not consent, and that a target named as a source to read, a place to look or a
+reference is none.
+
+The review is a soft rule that only consent clears. A misread overturn is held whatever the
+configuration accepts, because the task scope is a fact the check read and the judge has no better
+reading of it. A held or failed review keeps the check's own reason, which names the targets, and a
+confirmed one carries the judge's reason behind the fixed prefix. The action log records the review
+in a field of its own, apart from the judge's review of a later Jev deny on the same call.

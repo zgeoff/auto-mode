@@ -24,7 +24,11 @@ flowchart TD
   R -->|no| L{"local rules"}
   L -->|"read-only allow"| B
   L -->|"passes on"| C{"containment check"}
-  C -->|"target outside the task scope"| B
+  C -->|"target outside the task scope"| N{"every target named by the user?"}
+  N -->|no| B
+  N -->|yes| G2{"the judge"}
+  G2 -->|confirm| B
+  G2 -->|"overturn: finding cleared"| E
   C -->|"no finding"| E{"edit bypass"}
   E -->|"in-scope edit, no secret"| B
   E -->|"passes on"| J{"Jev"}
@@ -45,7 +49,10 @@ flowchart TD
    call on ([local rules](./stages/local-rules.md)).
 4. The containment check reads the write targets it can resolve from the call and denies any that
    lies outside the task scope: the worktrees, branches and pull requests the task owns
-   ([containment](./stages/containment.md), [the task scope](./evidence/task-scope.md)).
+   ([containment](./stages/containment.md), [the task scope](./evidence/task-scope.md)). When the
+   user's last message names every target, the judge reviews the deny first, and an overturn clears
+   the finding so the call moves on
+   ([the user-named grant](./stages/containment.md#the-user-named-grant)).
 5. The edit bypass allows a file edit inside a worktree the task owns, once a secret scan of the new
    content finds nothing ([the edit bypass](./stages/edit-bypass.md)).
 6. Jev answers one question per block rule in the policy, and the CLI denies when any rule's block

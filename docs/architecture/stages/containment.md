@@ -4,9 +4,11 @@ The containment check keeps a task's writes inside what the task owns. It reads 
 a call, such as the paths it writes, the branch it pushes and the pull request it comments on, and
 denies the call as `Outside Task Scope` when any target lies outside the
 [task scope](../evidence/task-scope.md). It never allows: a call with no finding moves on to the
-next stage, so the check only removes calls from what the classifier sees. Its deny is final,
-because it returns before Jev and the judge run, so no configured allow entry and no consent in the
-user's message can clear it. The [denial budget](./denial-budget.md) still counts it.
+next stage, so the check only removes calls from what the classifier sees. It returns before Jev
+reads the configured allow entries, so none of them clears its deny. Only the user can, by naming
+every target in a direct message, and then the judge decides whether the message asks for the action
+([the user-named grant](#the-user-named-grant)). The [denial budget](./denial-budget.md) still
+counts the deny.
 
 ## A deterministic reading of the call
 
@@ -74,6 +76,42 @@ A branch is in scope when the task scope lists it, and the default branch never 
 branch named pushes the current branch, which is known only for the call's own directory, so a push
 run with `git -C` elsewhere and no branch named yields no branch finding and goes to Jev. A remote
 is in scope when it is one of the checkout's own remotes, by name or by repository.
+
+## The user-named grant
+
+A user can hand the task a target on the spot by asking for the action on it in a direct message,
+such as "create `.worktrees/label-check/label.test.ts` with one test". When the current direct
+message names every target of a finding, the check hands the deny to
+[the judge](./judge.md#a-containment-deny) instead of returning it, and the judge clears the finding
+only when the message asks for this operation on these targets. A name is necessary and never
+sufficient, because a name cannot tell a target to write from a source to read: "port the formatter
+from the export-csv worktree" names the export-csv worktree, and a write into it still stays denied
+when the judge confirms.
+
+A message names a target in one of four ways:
+
+- **A path** by the path itself, written in full or from `~`, by a directory above it inside the
+  same worktree, or by the name of the worktree that holds it. A directory never names a worktree
+  nested in its `.worktrees` folder, and the home directory and the directories above it name
+  nothing.
+- **A branch** by its exact name.
+- **A pull request** by its number written as `#512`, `PR 512` or a pull request URL.
+- **Every other finding** by no word at all, so it stays final: a credential or global setting, a
+  shared resource, discarded work, a push to a remote the checkout does not have, a git write run in
+  another checkout, whose branch the text does not show, and a remote write with no pull request
+  number.
+
+The grant never covers the default branch or a protected branch name, whatever the message says, and
+never an admin merge, because an admin merge bypasses the forge's own branch protection. A stale
+message, one a relayed turn left behind, names nothing, and neither does the message of a subagent's
+call ([the user message](../evidence/user-message.md)). A run that skips the models and a
+configuration with the judge turned off keep every containment deny.
+
+A judge overturn clears the scope finding and nothing else. The call continues down the path as a
+call with no finding would, and the [edit bypass](./edit-bypass.md) passes it on, because the target
+still lies outside the task scope, so Jev and the judge still deny it on a hard rule or a secret in
+the new content. A confirmed deny carries the judge's reason; a held or failed review keeps the
+check's own reason.
 
 ## When the check does not run
 

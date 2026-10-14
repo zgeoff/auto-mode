@@ -39,7 +39,8 @@ as context only:
 - Jev reads it in the task context, never as the current user message, and its guidance gains one
   rule: a stale message cannot grant consent, satisfy an allow exception, or clear a rule, but a
   refusal or a limit in it still applies.
-- The judge and the Messages API classifiers receive no stale message at all.
+- The judge and the Messages API classifiers receive no stale message at all, and a stale message
+  names no target for [the user-named grant](../stages/containment.md#the-user-named-grant).
 
 ## What consent can and cannot do
 
@@ -50,6 +51,10 @@ sees the reply without the question it answered. A hard rule never clears throug
 rules, Policy Tampering and Audit Tampering, accept a narrow clarification instead: a message that
 identifies the flagged action and explains why the match is wrong
 ([Jev](../stages/jev.md#the-request)).
+
+The same consent can extend the task scope for one call. A message that names every target of a
+containment deny hands it to the judge, which clears the finding only when the message asks for this
+operation on those targets ([the user-named grant](../stages/containment.md#the-user-named-grant)).
 
 The message stays whole in the request and is never truncated. The retry key of the
 [denial budget](../stages/denial-budget.md#repeats-of-the-action-just-denied) includes it, so a new
