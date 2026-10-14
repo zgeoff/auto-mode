@@ -919,6 +919,11 @@ test.each([
   ['git branch | xargs -I {} -L 1 git branch -D cleanup'],
   ['git branch | xargs -n 1 git branch -D cleanup'],
   ['git branch | xargs git branch -D cleanup'],
+  ['git branch | xargs -I "$TOKEN" git branch -D cleanup'],
+  ['git branch | xargs -I {} git branch -D "$NAME"'],
+  ['git branch | xargs -I {} git branch -D $(echo {})'],
+  ['git branch | xargs -I NAME git branch -D NAM?'],
+  ['git branch | xargs -I ab git branch -D a{b,}'],
 ])('it finds a branch sweep in %s', (command) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },

@@ -199,13 +199,20 @@ const XARGS_ATTACHED_VALUE =
 
 const XARGS_REPLACE = /^(?:-I(?<attached>.+)|-i(?<short>.*)|--replace(?:=(?<long>.*))?)$/u;
 
+// The shell can expand a word into the replacement token, so only literal
+// words show that the token is missing.
+const SHELL_EXPANSION = /^~|[*?[]|\{[^{}]*,/u;
+
 // In replacement mode xargs runs the command once per listed name, putting the
 // name only where the token stands, so a command without the token runs as
 // written. `-n` or `-L` beside it appends names again, so either one rules it out.
 function findFixedXargsCommand(
   words: readonly string[],
 ): { readonly name: string; readonly args: readonly string[] } | null {
-  if (words[0] !== 'xargs') {
+  if (
+    words[0] !== 'xargs' ||
+    words.some((word) => isUnresolvedWord(word) || SHELL_EXPANSION.test(word))
+  ) {
     return null;
   }
 
