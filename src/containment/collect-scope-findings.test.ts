@@ -1016,6 +1016,11 @@ test.each([
   ['a number after an option value', 'gh pr comment --body 42 512', 'gh pr comment'],
   ['a pull request URL', 'gh pr merge https://github.com/dev/app/pull/512', 'gh pr merge'],
   ['a number after the repository option', 'gh pr close -R dev/app 512', 'gh pr close'],
+  ['a number after the merge method flag', 'gh pr merge -m 512', 'gh pr merge'],
+  ['a number after the review type flag', 'gh pr review --comment 512 -b done', 'gh pr review'],
+  ['a number after a milestone', 'gh pr edit -m 42 512', 'gh pr edit'],
+  ['a number after an attachment', 'gh pr comment --attach shot.png 512 -b x', 'gh pr comment'],
+  ['a number after a closing comment', 'gh pr close -c 42 512', 'gh pr close'],
 ])('it takes the pull request a message can grant from %s', (_label, command, target) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
@@ -1074,4 +1079,40 @@ test('it finds a comment on a pull request named by its branch that no message c
   );
 
   expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'gh pr comment' }]);
+});
+
+test('it finds nothing in a comment review of the owned pull request', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'gh pr review --comment 12 -b done' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+      pullRequests: [{ number: 12, repository: 'github.com/dev/app' }],
+    }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it finds an edit of another pull request even when a milestone holds the number of an owned one', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'gh pr edit -m 12 40' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+      pullRequests: [{ number: 12, repository: 'github.com/dev/app' }],
+    }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target: 'gh pr edit', grant: { kind: 'pull-request', number: 40 } },
+  ]);
 });

@@ -711,7 +711,7 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
   const verb = args[1] ?? '';
 
   if (group === 'pr' && GH_PR_WRITES.has(verb)) {
-    const pull = findPullRequestSelector(args.slice(2));
+    const pull = findPullRequestSelector(verb, args.slice(2));
     const number = pull?.number ?? Number.NaN;
     const isOwned = verb !== 'merge' && isOwnedPullRequest(number, pull?.repo, scope);
     const isAdmin = args.some((word) => /^--admin(?:=|$)/u.test(word));
@@ -750,54 +750,72 @@ function collectGhFindings(args: readonly string[], scope: Readonly<OwnedScope>)
   return [];
 }
 
-// The options of the gh pr write commands that take a value as the next word.
-const GH_PR_VALUE_OPTIONS = new Set([
-  '-b',
-  '--body',
-  '-F',
-  '--body-file',
-  '-t',
-  '--title',
-  '--subject',
-  '-A',
-  '--author-email',
-  '--match-head-commit',
-  '-B',
-  '--base',
-  '-m',
-  '--milestone',
-  '-c',
-  '--comment',
-  '-R',
-  '--repo',
-  '--add-label',
-  '--remove-label',
-  '--add-reviewer',
-  '--remove-reviewer',
-  '--add-assignee',
-  '--remove-assignee',
-  '--add-project',
-  '--remove-project',
-]);
+// The options of each gh pr write command that take a value as the next word,
+// from gh 2.102. A short flag can take a value under one command and none under
+// another: `-m` names a milestone for `edit` and picks the merge method for `merge`.
+const GH_PR_VALUE_OPTIONS: Readonly<Record<string, ReadonlySet<string>>> = {
+  comment: new Set(['-b', '--body', '-F', '--body-file', '--attach']),
+  merge: new Set([
+    '-A',
+    '--author-email',
+    '-b',
+    '--body',
+    '-F',
+    '--body-file',
+    '--match-head-commit',
+    '-t',
+    '--subject',
+  ]),
+  edit: new Set([
+    '--add-assignee',
+    '--add-label',
+    '--add-project',
+    '--add-reviewer',
+    '--attach',
+    '-B',
+    '--base',
+    '-b',
+    '--body',
+    '-F',
+    '--body-file',
+    '-m',
+    '--milestone',
+    '--remove-assignee',
+    '--remove-label',
+    '--remove-project',
+    '--remove-reviewer',
+    '-t',
+    '--title',
+  ]),
+  close: new Set(['-c', '--comment']),
+  review: new Set(['-b', '--body', '-F', '--body-file']),
+  ready: new Set(),
+  reopen: new Set(['-c', '--comment']),
+};
+
+// Every gh pr command takes the repository option.
+const GH_REPO_OPTIONS = new Set(['-R', '--repo']);
 
 // gh selects the pull request by its first positional word: a number, a pull
 // request URL, or a branch, which names no number. A URL names its repository.
 function findPullRequestSelector(
+  verb: string,
   args: readonly string[],
 ): { readonly number: number | null; readonly repo: string | undefined } | null {
+  const valueOptions = GH_PR_VALUE_OPTIONS[verb] ?? new Set<string>();
   let repo: string | undefined;
   let selector: string | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
     const word = args[index] ?? '';
 
-    if (word === '-R' || word === '--repo') {
+    if (GH_REPO_OPTIONS.has(word)) {
       repo = args[index + 1];
     } else if (word.startsWith('--repo=')) {
       repo = word.slice('--repo='.length);
     }
 
-    if (GH_PR_VALUE_OPTIONS.has(word)) {
+    if (GH_REPO_OPTIONS.has(word) || valueOptions.has(word)) {
       index += 1;
     } else if (selector === undefined && !word.startsWith('-')) {
       selector = word;
