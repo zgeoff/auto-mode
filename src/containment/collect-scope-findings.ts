@@ -224,12 +224,17 @@ function isWholeBranchListing(words: readonly string[]): boolean {
     );
   }
 
-  // `--format` takes its value as the next word, which names no ref.
-  const refs = rest.filter(
-    (word, index) => !word.startsWith('-') && rest[index - 1] !== '--format',
-  );
+  if (subcommand !== 'for-each-ref') {
+    return false;
+  }
 
-  return subcommand === 'for-each-ref' && refs.every((ref) => /^refs\/heads\/?$/u.test(ref));
+  // `--format` and `--sort` take their value as the next word, which names no
+  // ref. Every other option, such as `--merged` or `--contains`, selects refs.
+  const kept = rest.filter((_word, index) => !/^--(?:format|sort)$/u.test(rest[index - 1] ?? ''));
+
+  return kept.every(
+    (word) => /^--(?:format|sort)(?:=.*)?$/u.test(word) || /^refs\/heads\/?$/u.test(word),
+  );
 }
 
 const NAME_EDITORS = new Set(['tr', 'cut', 'sort']);

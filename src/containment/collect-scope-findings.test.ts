@@ -784,6 +784,9 @@ test.each([
   ['git branch | xargs git branch -d'],
   ["git branch | sed 's/^..//' | grep -Ev 'main|feature' | xargs -n 1 git branch -D"],
   ["git for-each-ref --format '%(refname:short)' refs/heads | grep -v main | xargs git branch -D"],
+  [
+    "git for-each-ref --sort=-committerdate --format='%(refname:short)' refs/heads/ | xargs git branch -D",
+  ],
 ])('it finds a branch deletion fed by a list that only excludes: %s', (command) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
@@ -807,6 +810,17 @@ test.each([
   ["git branch | sed 's/^..//;/spike/!d' | xargs git branch -D"],
   ['git branch | uniq -u | xargs git branch -D'],
   ['git branch | xargs -a names.txt git branch -D'],
+  ["git for-each-ref --merged=main --format='%(refname:short)' refs/heads | xargs git branch -d"],
+  ["git for-each-ref --merged main --format '%(refname:short)' refs/heads | xargs git branch -d"],
+  [
+    "git for-each-ref --contains HEAD~3 --format='%(refname:short)' refs/heads | xargs git branch -D",
+  ],
+  [
+    "git for-each-ref --points-at=HEAD --format='%(refname:short)' refs/heads | xargs git branch -D",
+  ],
+  ["git for-each-ref --count=3 --format='%(refname:short)' refs/heads | xargs git branch -D"],
+  ['git branch --merged=main | grep -v main | xargs git branch -d'],
+  ['git branch --contains HEAD~3 | xargs git branch -D'],
   ['git branch | xargs --arg-file=names.txt git branch -D'],
   ["git for-each-ref --format '%(refname:short)' refs/heads/spike | xargs git branch -D"],
   ['git branch | grep -v main; xargs git branch -D < names.txt'],
