@@ -74,12 +74,15 @@ interface TextTokens {
   readonly unclosedAt: number | null;
 }
 
-// One level of nesting: the top level, a `$(…)` body, or a heredoc body.
+// One level of nesting: the top level, a `$(…)` body, or a heredoc body. The
+// balance counts only the grouping parentheses read at this level, so a quoted
+// or nested parenthesis never ends an arithmetic command.
 interface Level {
   readonly substitutions: string[];
   readonly limit: number;
   readonly closer: ')' | null;
   depth: number;
+  balance: number;
 }
 
 // Every helper reads and updates the state of one scan, so each closes over
@@ -112,10 +115,13 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
 
   // At a level with a closer, `end` is the offset of that closer, or -1 when
   // the text ends first.
-  const collectTokens = (start: number): { tokens: ShellToken[]; end: number } => {
+  const collectTokens = (
+    start: number,
+    isArithmeticStart = false,
+  ): { tokens: ShellToken[]; end: number } => {
     const tokens: ShellToken[] = [];
     const heredocs: Heredoc[] = [];
-    let isArithmetic = false;
+    let arithmeticDepth = isArithmeticStart ? 1 : 0;
     let index = start;
 
     while (index < level.limit) {
@@ -169,6 +175,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
+      const balance = level.balance;
       const word = readWord(index);
       const operator = findOperator(REDIRECTS, text, word.end);
       const isDescriptor = operator !== undefined && /^\d+$/u.test(word.raw);
@@ -176,7 +183,9 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
       if (word.raw !== '' && !isDescriptor) {
         tokens.push(buildWordToken(word, index));
 
-        isArithmetic = (isArithmetic || word.raw.startsWith('((')) && !word.raw.endsWith('))');
+        if (arithmeticDepth > 0 || word.raw.startsWith('((')) {
+          arithmeticDepth += level.balance - balance;
+        }
 
         if (word.isUnterminated) {
           return { tokens, end: -1 };
@@ -191,7 +200,8 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
-      const redirect = readRedirect(word.end, operator);
+      const opensHeredoc = (operator === '<<' || operator === '<<-') && arithmeticDepth <= 0;
+      const redirect = readRedirect(word.end, operator, opensHeredoc);
 
       tokens.push({
         kind: 'redirect',
@@ -207,11 +217,14 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
 
       // Inside `(( … ))`, up to its closing word, a `<<` shifts bits and opens
       // no heredoc, even after a `&` or `|` there.
-      if ((operator === '<<' || operator === '<<-') && redirect.raw !== '' && !isArithmetic) {
+      if (opensHeredoc && redirect.raw !== '') {
         heredocs.push(buildHeredoc(redirect.raw, operator === '<<-', index));
       }
 
-      isArithmetic &&= !text.slice(index, redirect.end).endsWith('))');
+      if (arithmeticDepth > 0) {
+        arithmeticDepth += level.balance - balance;
+      }
+
       index = redirect.end;
     }
 
@@ -289,6 +302,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
           level.depth += ch === '(' ? 1 : -1;
         }
 
+        level.balance += ch === '(' ? 1 : -1;
         paren ??= { value: value.length, raw: index - start };
         parenEnd = index + 1;
       }
@@ -352,9 +366,28 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
       const isBacktick = text.charAt(index) === '`';
       const bodyStart = index + (isBacktick ? 1 : 2);
 
-      const end = isBacktick
-        ? findBacktickEnd(bodyStart)
-        : withLevel(level.limit, ')', () => collectTokens(bodyStart).end).result;
+      if (isBacktick) {
+        return collectExpansionBody(index, bodyStart, findBacktickEnd(bodyStart));
+      }
+
+      // Bash reads `$((…))` as arithmetic, which runs only the substitutions
+      // inside it, when the inner parenthesis closes right before the outer
+      // one; otherwise the body is a command that starts with a subshell.
+      if (text.charAt(bodyStart) === '(') {
+        const arithmetic = withLevel(
+          level.limit,
+          ')',
+          () => collectTokens(bodyStart + 1, true).end,
+        );
+
+        if (arithmetic.result !== -1 && text.charAt(arithmetic.result + 1) === ')') {
+          level.substitutions.push(...arithmetic.substitutions);
+
+          return { end: arithmetic.result + 2, isUnterminated: false };
+        }
+      }
+
+      const end = withLevel(level.limit, ')', () => collectTokens(bodyStart).end).result;
 
       return collectExpansionBody(index, bodyStart, end);
     }
@@ -462,7 +495,11 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
   // The target is the next word. A target stops short at an unquoted parenthesis,
   // so `(echo x > out)` writes `out`, while the redirection still takes the
   // whole word. A process substitution runs its body as a command.
-  const readRedirect = (start: number, operator: string): ScannedRedirect => {
+  const readRedirect = (
+    start: number,
+    operator: string,
+    opensHeredoc: boolean,
+  ): ScannedRedirect => {
     let index = start + operator.length;
 
     if (operator.endsWith('(')) {
@@ -487,7 +524,17 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
       }
     }
 
+    const collected = level.substitutions.length;
+    const hadSubstitution = hasSubstitution;
     const word = readWord(index);
+
+    // Bash only removes quotes from a heredoc delimiter, so a substitution in
+    // it never runs.
+    if (opensHeredoc) {
+      level.substitutions.splice(collected);
+
+      hasSubstitution = hadSubstitution;
+    }
 
     if (word.raw === '') {
       return { target: null, raw: '', end: index, isUnterminated: false };
@@ -556,7 +603,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
 }
 
 function buildLevel(limit: number, closer: ')' | null): Level {
-  return { substitutions: [], limit, closer, depth: 0 };
+  return { substitutions: [], limit, closer, depth: 0, balance: 0 };
 }
 
 const SEPARATORS = ['&&', '||', ';', '|', '&', '\n'];

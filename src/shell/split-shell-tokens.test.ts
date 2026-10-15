@@ -155,6 +155,40 @@ test.each([
 });
 
 test.each([
+  ['a double-quoted substitution', 'cat <<"$(git log)"\nnotes\n$(git log)'],
+  ['a bare substitution', 'cat <<-$(git log)\nnotes\n$(git log)'],
+  ['a backtick', 'cat <<`git log`\nnotes\n`git log`'],
+])('it reads a heredoc delimiter that holds %s as text that runs nothing', (_label, text) => {
+  expect(splitShellTokens(text)).toMatchObject({ substitutions: [], hasSubstitution: false });
+});
+
+test.each([
+  ['an arithmetic command', '(( 1 << $(git log) ))'],
+  ['an arithmetic expansion', 'echo $((1 << $(git log)))'],
+  ['an arithmetic command after a nested expansion', '(( 1 + $((2)) << $(git log) ))'],
+  ['an arithmetic expansion after a nested expansion', 'echo $((1 + $((2)) << $(git log)))'],
+])('it collects a substitution after a shift in %s', (_label, text) => {
+  expect(splitShellTokens(text).substitutions).toStrictEqual(['git log']);
+});
+
+test('it collects a substitution after a shift that follows a quoted parenthesis', () => {
+  expect(splitShellTokens("echo $((1 + $(printf ')') << $(git log)))").substitutions).toStrictEqual(
+    ["printf ')'", 'git log'],
+  );
+});
+
+test.each([
+  ['a body that does not end in ))', 'echo $((cd app); make)', '(cd app); make'],
+  ['two subshells', 'echo $((cd app); make; (ls))', '(cd app); make; (ls)'],
+])('it reads a $(( with %s as a command substitution', (_label, text, body) => {
+  expect(splitShellTokens(text).substitutions).toStrictEqual([body]);
+});
+
+test('it collects a substitution in a here-string, which bash expands', () => {
+  expect(splitShellTokens('cat <<<"$(git log)"').substitutions).toStrictEqual(['git log']);
+});
+
+test.each([
   ['after a space', 'echo ok # note', '# note'],
   ['after a separator', 'echo ok;# note', '# note'],
   ['after a grouping parenthesis', "(echo ok)# 'note", "# 'note"],
