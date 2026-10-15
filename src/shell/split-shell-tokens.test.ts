@@ -209,6 +209,36 @@ test('it opens no heredoc for a shift inside an arithmetic command', () => {
   });
 });
 
+test.each([
+  ['a delimiter before a grouping parenthesis', '(cat <<EOF)\nhello\nEOF\ngit log', 22],
+  [
+    'a shift after a bitwise operator in an arithmetic command',
+    '(( x = 1 & 2 << 3 ))\ngit log',
+    21,
+  ],
+])('it reads the line after %s as a command', (_label, text, start) => {
+  expect(splitShellTokens(text).tokens.at(-2)).toStrictEqual({
+    kind: 'word',
+    value: 'git',
+    raw: 'git',
+    start,
+    end: start + 3,
+  });
+});
+
+test('it reads a heredoc delimiter split by a line continuation as unquoted', () => {
+  expect(splitShellTokens('cat <<EO\\\nF\n$(git log)\nEOF').substitutions).toStrictEqual([
+    'git log',
+  ]);
+});
+
+test('it reads a bare opening brace in a parameter default as text', () => {
+  expect(splitShellTokens(`echo \${x:-{}; git log`).tokens.slice(-2)).toStrictEqual([
+    { kind: 'word', value: 'git', raw: 'git', start: 14, end: 17 },
+    { kind: 'word', value: 'log', raw: 'log', start: 18, end: 21 },
+  ]);
+});
+
 test('it reads a line continuation between words as no word', () => {
   expect(splitShellTokens('git push \\\n  origin').tokens.map((token) => token.kind)).toStrictEqual(
     ['word', 'word', 'word'],

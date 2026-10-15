@@ -150,7 +150,6 @@ function collectTokens(
       });
 
       index += separator.length;
-      isArithmetic = false;
 
       if (separator === '\n' && heredocs.length > 0) {
         index = readHeredocs(scanner, level, index, heredocs.splice(0), tokens);
@@ -195,7 +194,8 @@ function collectTokens(
       return { tokens, end: -1 };
     }
 
-    // Inside `(( … ))` a `<<` shifts bits and opens no heredoc.
+    // Inside `(( … ))`, up to its closing word, a `<<` shifts bits and opens
+    // no heredoc, even after a `&` or `|` there.
     if ((operator === '<<' || operator === '<<-') && redirect.raw !== '' && !isArithmetic) {
       heredocs.push(buildHeredoc(redirect.raw, operator === '<<-'));
     }
@@ -234,11 +234,17 @@ function findOperator(
   return operators.find((operator) => text.startsWith(operator, index));
 }
 
+// The first unquoted parenthesis, as an offset into the value and the raw text.
+interface WordParen {
+  readonly value: number;
+  readonly raw: number;
+}
+
 interface ScannedWord {
   readonly value: string;
   readonly raw: string;
   readonly end: number;
-  readonly parenAt: number | null;
+  readonly paren: WordParen | null;
   readonly isUnterminated: boolean;
 }
 
@@ -252,7 +258,7 @@ function buildWordToken(word: Readonly<ScannedWord>, start: number): ShellToken 
 function readWord(scanner: Scanner, level: Level, start: number): ScannedWord {
   const text = scanner.text;
   let value = '';
-  let parenAt: number | null = null;
+  let paren: WordParen | null = null;
   let parenEnd = -1;
   let index = start;
 
@@ -284,7 +290,7 @@ function readWord(scanner: Scanner, level: Level, start: number): ScannedWord {
       index = quoted.end;
 
       if (quoted.isUnterminated) {
-        return buildScannedWord(text, start, index, value, parenAt, true);
+        return buildScannedWord(text, start, index, value, paren, true);
       }
 
       continue;
@@ -303,7 +309,7 @@ function readWord(scanner: Scanner, level: Level, start: number): ScannedWord {
       index = expansion.end;
 
       if (expansion.isUnterminated) {
-        return buildScannedWord(text, start, index, value, parenAt, true);
+        return buildScannedWord(text, start, index, value, paren, true);
       }
 
       continue;
@@ -322,7 +328,7 @@ function readWord(scanner: Scanner, level: Level, start: number): ScannedWord {
         level.depth += ch === '(' ? 1 : -1;
       }
 
-      parenAt ??= value.length;
+      paren ??= { value: value.length, raw: index - start };
       parenEnd = index + 1;
     }
 
@@ -330,7 +336,7 @@ function readWord(scanner: Scanner, level: Level, start: number): ScannedWord {
     index += 1;
   }
 
-  return buildScannedWord(text, start, Math.min(index, level.limit), value, parenAt, false);
+  return buildScannedWord(text, start, Math.min(index, level.limit), value, paren, false);
 }
 
 function buildScannedWord(
@@ -338,10 +344,10 @@ function buildScannedWord(
   start: number,
   end: number,
   value: string,
-  parenAt: number | null,
+  paren: WordParen | null,
   isUnterminated: boolean,
 ): ScannedWord {
-  return { value, raw: text.slice(start, end), end, parenAt, isUnterminated };
+  return { value, raw: text.slice(start, end), end, paren, isUnterminated };
 }
 
 // A double-quoted string still expands `$(…)`, backticks and `${…}`, and a
@@ -465,11 +471,10 @@ function findBacktickEnd(scanner: Scanner, level: Level, start: number): number 
 }
 
 // Inside `${…}` a double quote opens its own quoting, so a quote there closes
-// no outer quote, and a single quote is plain text.
+// no outer quote, and a single quote and a bare `{` are plain text.
 function findParameterEnd(scanner: Scanner, level: Level, start: number): number {
   const text = scanner.text;
   let isDoubleQuoted = false;
-  let depth = 0;
   let index = start;
 
   while (index < level.limit) {
@@ -498,14 +503,8 @@ function findParameterEnd(scanner: Scanner, level: Level, start: number): number
 
     if (ch === '"') {
       isDoubleQuoted = !isDoubleQuoted;
-    } else if (!isDoubleQuoted && ch === '{') {
-      depth += 1;
     } else if (!isDoubleQuoted && ch === '}') {
-      if (depth === 0) {
-        return index;
-      }
-
-      depth -= 1;
+      return index;
     }
 
     index += 1;
@@ -564,8 +563,8 @@ function readRedirect(
   }
 
   return {
-    target: word.parenAt === null ? word.value : word.value.slice(0, word.parenAt),
-    raw: word.raw,
+    target: word.paren === null ? word.value : word.value.slice(0, word.paren.value),
+    raw: word.paren === null ? word.raw : word.raw.slice(0, word.paren.raw),
     end: word.end,
     isUnterminated: word.isUnterminated,
   };
@@ -579,7 +578,9 @@ interface Heredoc {
 
 // Any quoted character in the word quotes the whole delimiter and turns
 // substitution off for the body.
-function buildHeredoc(word: string, stripsTabs: boolean): Heredoc {
+function buildHeredoc(raw: string, stripsTabs: boolean): Heredoc {
+  const word = raw.replaceAll('\\\n', '');
+
   return {
     delimiter: word.replaceAll(/['"\\]/gu, ''),
     isQuoted: /['"\\]/u.test(word),
