@@ -815,6 +815,8 @@ test.each([
 test.each([
   [String.raw`git branch | grep -v '^\*' | xargs -r git branch -D`],
   ['git branch | xargs git branch -d'],
+  ['# tidy up\ngit branch | xargs git branch -d'],
+  ['cat <<EOF\nnotes\nEOF\ngit branch | xargs git branch -d'],
   ["git branch | sed 's/^..//' | grep -Ev 'main|feature' | xargs -n 1 git branch -D"],
   ["git for-each-ref --format '%(refname:short)' refs/heads | grep -v main | xargs git branch -D"],
   [

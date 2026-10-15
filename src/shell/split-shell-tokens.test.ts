@@ -14,6 +14,7 @@ test('it reads words, separators and redirections with their offsets', () => {
       { kind: 'word', value: 'wc', raw: 'wc', start: 39, end: 41 },
       { kind: 'word', value: '-l', raw: '-l', start: 42, end: 44 },
     ],
+    substitutions: [],
     hasSubstitution: false,
     isUnterminated: false,
   });
@@ -108,9 +109,114 @@ test('it reports an unterminated quote and keeps the open word', () => {
       { kind: 'word', value: 'echo', raw: 'echo', start: 0, end: 4 },
       { kind: 'word', value: 'open', raw: "'open", start: 5, end: 10 },
     ],
+    substitutions: [],
     hasSubstitution: false,
     isUnterminated: true,
   });
+});
+
+test.each([
+  ['a bare substitution', 'echo $(git log)', ['git log']],
+  ['a backtick', 'echo `git log`', ['git log']],
+  ['a substitution inside double quotes', 'echo "$(git log)"', ['git log']],
+  ['a closing parenthesis inside quotes', "out=$(echo ')'; git log)", ["echo ')'; git log"]],
+  ['a nested substitution, once', 'echo $(a $(b))', ['a $(b)']],
+  ['a substitution inside a parameter default', `echo \${x:-$(git log)}`, ['git log']],
+  ['a quote inside a parameter', `echo "\${x:-"it's"}" $(git log)`, ['git log']],
+  ['a process substitution', 'diff <(git log) b', ['git log']],
+  ['a substitution after a word-joined one', 'ref=$(a)#L1 && echo $(b)', ['a', 'b']],
+  ['an ANSI quote with an escaped quote', String.raw`echo $'it\'s' $(git log)`, ['git log']],
+  [
+    'a backtick whose body holds a quote',
+    "echo `echo it's` $(git log) 'x'",
+    ["echo it's", 'git log'],
+  ],
+  ['an unclosed quote before a substitution', "echo it's $(git log)", ['git log']],
+])('it collects the body of %s', (_label, text, substitutions) => {
+  expect(splitShellTokens(text).substitutions).toStrictEqual(substitutions);
+});
+
+test.each([
+  ['single quotes', "echo '$(git log)'"],
+  ['an escaped dollar sign', String.raw`echo \$(git log)`],
+  ['an escaped dollar sign inside double quotes', String.raw`echo "\$(git log)"`],
+  ['escaped backticks inside double quotes', 'echo "\\`git log\\`"'],
+  ['an escaped dollar sign before an ANSI quote', String.raw`echo \$'a\' 'b'`],
+  ['a comment', 'echo ok # $(git log)'],
+  ['a comment after a continued line', 'echo ok;\\\n# $(git log)'],
+  ['a quoted heredoc', "cat <<'EOF'\n$(git log)\nEOF"],
+])('it collects no substitution from %s', (_label, text) => {
+  expect(splitShellTokens(text).substitutions).toStrictEqual([]);
+});
+
+test.each([
+  ['after a space', 'echo ok # note', '# note'],
+  ['after a separator', 'echo ok;# note', '# note'],
+  ['after a grouping parenthesis', "(echo ok)# 'note", "# 'note"],
+  ['after a line continuation', 'echo ok \\\n# note', '# note'],
+  ['after an escaped backslash at the end of a line', "echo a\\\\\n# don't", "# don't"],
+])('it reads a # %s as a comment', (_label, text, comment) => {
+  expect(splitShellTokens(text).tokens.filter((token) => token.kind === 'comment')).toStrictEqual([
+    { kind: 'comment', text: comment, start: text.indexOf('#'), end: text.length },
+  ]);
+});
+
+test.each([
+  ['inside a word', 'echo a#b'],
+  ['after a substitution in the same word', 'echo $(a)#b'],
+  ['after an escaped space', String.raw`echo foo\ #b`],
+  ['after an escaped separator', String.raw`echo foo\;#b`],
+  ['after a line continuation inside a word', 'echo foo\\\n#b'],
+])('it keeps a # %s in its word', (_label, text) => {
+  expect(splitShellTokens(text).tokens.map((token) => token.kind)).toStrictEqual(['word', 'word']);
+});
+
+test('it reads a heredoc body as one token and the line after it as a command', () => {
+  expect(splitShellTokens('cat <<EOF\nrm x\nEOF\nls').tokens).toStrictEqual([
+    { kind: 'word', value: 'cat', raw: 'cat', start: 0, end: 3 },
+    { kind: 'redirect', operator: '<<', target: 'EOF', start: 4, end: 9 },
+    { kind: 'separator', operator: '\n', start: 9, end: 10 },
+    { kind: 'heredoc', body: 'rm x\n', isQuoted: false, start: 10, end: 18 },
+    { kind: 'separator', operator: '\n', start: 18, end: 19 },
+    { kind: 'word', value: 'ls', raw: 'ls', start: 19, end: 21 },
+  ]);
+});
+
+test.each([
+  ['an unquoted heredoc', "cat <<EOF\nit's $(git log)\nEOF", ['git log']],
+  ['a heredoc that strips tabs', 'cat <<-EOF\n\t$(git log)\n\tEOF', ['git log']],
+  [
+    'a heredoc whose delimiter follows a line continuation',
+    'cat <<\\\nEOF\n$(git log)\nEOF',
+    ['git log'],
+  ],
+  [
+    'a quoted heredoc inside a substitution',
+    `git commit -m "$(cat <<'EOF'\nDon't stop\nEOF\n)" && echo $(git log)`,
+    ["cat <<'EOF'\nDon't stop\nEOF\n", 'git log'],
+  ],
+])('it collects the substitutions in %s', (_label, text, substitutions) => {
+  expect(splitShellTokens(text).substitutions).toStrictEqual(substitutions);
+});
+
+test('it opens no heredoc for a shift inside an arithmetic command', () => {
+  expect(splitShellTokens('(( x = 1<<2 ))\nrm x').tokens.at(-1)).toStrictEqual({
+    kind: 'word',
+    value: 'x',
+    raw: 'x',
+    start: 18,
+    end: 19,
+  });
+});
+
+test('it reads a line continuation between words as no word', () => {
+  expect(splitShellTokens('git push \\\n  origin').tokens.map((token) => token.kind)).toStrictEqual(
+    ['word', 'word', 'word'],
+  );
+});
+
+test('it reports a substitution that never closes as unterminated', () => {
+  expect(splitShellTokens('echo $(git log').isUnterminated).toBeTrue();
 });
 
 test('it reports an unterminated quote in a redirection target', () => {

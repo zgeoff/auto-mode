@@ -27,4 +27,5 @@ export { findSecret } from '../secrets/find-secret.ts';
 export { splitCommandWords } from '../shell/split-command-words.ts';
 export { splitGitCommand } from '../shell/split-git-command.ts';
 export { splitShellCommand } from '../shell/split-shell-command.ts';
+export { splitShellTokens } from '../shell/split-shell-tokens.ts';
 export { resolveXDGDir } from '../state/resolve-xdg-dir.ts';

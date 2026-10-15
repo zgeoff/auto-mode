@@ -15,6 +15,13 @@ test.each([
   });
 });
 
+test.each([
+  ['a comment', 'ls # list it\npwd', 'ls'],
+  ['a heredoc body', 'cat <<EOF\nrm -rf x\nEOF\npwd', 'cat <<EOF'],
+])('it leaves %s out of every segment', (_label, command, first) => {
+  expect(splitShellCommand(command).segments).toStrictEqual([{ text: first }, { text: 'pwd' }]);
+});
+
 test('it reads a single command as one segment', () => {
   expect(splitShellCommand('git status --short')).toStrictEqual({
     segments: [{ text: 'git status --short' }],

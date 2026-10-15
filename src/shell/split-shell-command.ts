@@ -20,7 +20,7 @@ export function splitShellCommand(command: string): {
       }
 
       start = null;
-    } else {
+    } else if (token.kind !== 'comment' && token.kind !== 'heredoc') {
       start ??= token.start;
       end = token.end;
     }

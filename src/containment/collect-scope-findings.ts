@@ -183,7 +183,7 @@ function collectPipedSegments(command: string): boolean[] {
     if (token.kind === 'separator') {
       separator = token.operator;
       isInSegment = false;
-    } else if (!isInSegment) {
+    } else if (!isInSegment && token.kind !== 'comment' && token.kind !== 'heredoc') {
       piped.push(separator === '|');
 
       isInSegment = true;

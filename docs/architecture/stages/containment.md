@@ -22,8 +22,9 @@ a call that runs unjudged.
 The check follows a shell command segment by segment and tracks `cd`, so
 `cd ../other && rm -rf build` resolves `build` against the other directory. A `cd` inside a pipeline
 runs in a subshell, so a pipe anywhere in the command, outside quotes, leaves the directory unknown
-from that point. The check reads the command with the same shell tokenizer the local rules and the
-session scope use, so all three agree on where a word, a segment and a redirection end.
+from that point. The check reads the command with the same shell tokenizer the local rules, the
+session scope and the evaluation anonymiser use, so all four agree on where a word, a segment and a
+redirection end.
 
 ## What counts as a write target
 
