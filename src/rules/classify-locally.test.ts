@@ -23,6 +23,8 @@ test.each([
   'fd -e ts config',
   'git log',
   'git -C sub log --oneline',
+  'git -C /repo status',
+  'git --no-pager -P log',
   'git diff --stat HEAD~1',
   'git log --output-indicator-new=+ -p',
   'sort -u names.txt',
@@ -160,6 +162,13 @@ test.each([
   ['git ls-remote origin', 'git ls-remote reaches the network'],
   ['git -c core.pager=./x log', 'git -c sets a program to run'],
   ['git -C /repo -ccore.fsmonitor=./x status', 'git -c with an attached value'],
+  ['git -C /repo --work-tree status clean -fd', 'a --work-tree value hides the subcommand'],
+  ['git -C -- -c core.fsmonitor=./probe status', 'a -C value of -- hides a later -c'],
+  ['git --work-tree=x status', 'git --work-tree'],
+  ['git --git-dir x status', 'git --git-dir'],
+  ['git -C -- status', 'a -C value that starts with a dash'],
+  ['git -C', 'a -C with no value'],
+  ['git -p log', 'git -p starts a pager'],
   ['git --exec-path=./x log', 'git runs subcommands from another path'],
 ])('it escalates the argument shape in %s (%s)', (command) => {
   const payload = buildMockActionRequest({

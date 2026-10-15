@@ -32,8 +32,9 @@ outside single quotes passes on, because the shell removes the backslash and the
 `--out\put` would not match `--output`. A program whose effects live in an argument the rules cannot
 read, such as an `awk` program or a `yq -i` edit, is not on the list at all. `git tag` and
 `git ls-remote` are not on the subcommand list, because one writes a ref and the other reaches the
-network, and a `git -c` or `--exec-path` option passes on because either can name a program for git
-to run.
+network. Of git's global options, only `-C <dir>`, `--no-pager` and `-P` are allowed: `-c` and
+`--exec-path` can name a program for git to run, and an option that takes a value, such as
+`--work-tree`, can hide the subcommand git runs.
 
 A call the lists do not cover passes on, and so does any tool other than Bash that is not on the
 read-only list. The CLI's explain note holds the exception that matched, `Read-only actions` or

@@ -199,13 +199,9 @@ export const READ_ONLY_GIT_SUBCOMMANDS: ReadonlySet<string> = new Set([
 // which writes the report to a file.
 export const UNSAFE_GIT_OPTIONS: UnsafeOptions = { long: ['output'] };
 
-// Global options that set configuration or the path git runs its
-// subcommands from, either of which can run a program: `-c core.pager=sh`.
-// The short `c` matches an attached value such as `-ccore.pager=sh` too.
-export const UNSAFE_GIT_GLOBAL_OPTIONS: UnsafeOptions = {
-  short: ['c'],
-  long: ['config-env', 'exec-path'],
-};
+// The git global options that take no value and change only how a report is
+// shown. Any other global passes on, `-C <dir>` aside.
+export const SAFE_GIT_GLOBAL_FLAGS: ReadonlySet<string> = new Set(['--no-pager', '-P']);
 
 export const REGENERABLE_DIRS: ReadonlySet<string> = new Set([
   '.gradle',

@@ -10,8 +10,8 @@ import {
   READ_ONLY_GIT_SUBCOMMANDS,
   READ_ONLY_TOOLS,
   REGENERABLE_DIRS,
+  SAFE_GIT_GLOBAL_FLAGS,
   SHELL_TOOLS,
-  UNSAFE_GIT_GLOBAL_OPTIONS,
   UNSAFE_GIT_OPTIONS,
   UNSAFE_OPTIONS,
 } from './local-allowlists.ts';
@@ -190,10 +190,35 @@ function classifyGit(args: readonly string[], cwd: string): string | null {
     return null;
   }
 
-  return hasUnsafeOption(globals, UNSAFE_GIT_GLOBAL_OPTIONS) ||
-    hasUnsafeOption(subArgs, UNSAFE_GIT_OPTIONS)
-    ? null
-    : 'Read-only actions';
+  return hasOnlySafeGitGlobals(globals) && !hasUnsafeOption(subArgs, UNSAFE_GIT_OPTIONS)
+    ? 'Read-only actions'
+    : null;
+}
+
+// splitGitCommand gives a value to `-C` and `-c` alone, so another global that
+// takes one, such as `--work-tree status`, would hide the subcommand git runs.
+function hasOnlySafeGitGlobals(globals: readonly string[]): boolean {
+  let index = 0;
+
+  while (index < globals.length) {
+    const option = globals[index] ?? '';
+
+    if (option === '-C') {
+      const directory = globals[index + 1];
+
+      if (directory === undefined || directory.startsWith('-')) {
+        return false;
+      }
+
+      index += 2;
+    } else if (SAFE_GIT_GLOBAL_FLAGS.has(option)) {
+      index += 1;
+    } else {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function classifyRemove(args: readonly ShellWord[], cwd: string): string | null {
