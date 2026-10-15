@@ -735,3 +735,71 @@ test.each(['Policy Tampering', 'Audit Tampering'] as const)(
     expect(question.criteria.allow).not.toInclude('specific user clarification');
   },
 );
+
+test('it tells Jev under Policy Tampering which words turn off the repository hooks', async () => {
+  const policy = await loadPolicy({}, 'decision.md');
+
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'LEFTHOOK=0 git commit --no-verify -m wip' },
+    }),
+    policy,
+    buildMockClaudeRules(),
+    'Ship the parser fix',
+    'shipped',
+  );
+
+  const [id] =
+    Object.entries(request.rules).find(([, rule]) => rule.name === 'Policy Tampering') ?? [];
+
+  invariant(id, 'the shipped policy holds Policy Tampering');
+
+  expect(request.questions[id]?.instructions).toInclude(
+    "The pending action runs a git commit or push with the repository's hooks turned off, through LEFTHOOK=0, --no-verify.",
+  );
+});
+
+test('it adds no hook guidance to Policy Tampering for a plain git push', async () => {
+  const policy = await loadPolicy({}, 'decision.md');
+
+  const request = buildDecisionRequest(
+    buildMockActionRequest({ cwd: '/repo', toolName: 'Bash', toolInput: { command: 'git push' } }),
+    policy,
+    buildMockClaudeRules(),
+    'Ship the parser fix',
+    'shipped',
+  );
+
+  const [id] =
+    Object.entries(request.rules).find(([, rule]) => rule.name === 'Policy Tampering') ?? [];
+
+  invariant(id, 'the shipped policy holds Policy Tampering');
+
+  const question = request.questions[id];
+
+  invariant(question, 'Policy Tampering has a question');
+
+  expect(question.instructions).not.toInclude("the repository's hooks turned off");
+});
+
+test('it adds no hook guidance to a replacement Policy Tampering rule', () => {
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'git push --no-verify' },
+    }),
+    '## HARD BLOCK rules\n### Policy Tampering\nNever edit the deploy config.',
+    buildMockClaudeRules(),
+    'Ship the parser fix',
+    'replacement',
+  );
+
+  const question = request.questions['rule_0'];
+
+  invariant(question, 'the replacement question exists');
+
+  expect(question.instructions).not.toInclude("the repository's hooks turned off");
+});

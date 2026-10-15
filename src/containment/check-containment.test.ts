@@ -246,3 +246,29 @@ test('it gives both pieces of advice when a discard comes with a write outside t
     ],
   });
 });
+
+test.each([
+  'LEFTHOOK=0 git push',
+  'HUSKY=0 git commit -m x',
+  'git commit --no-verify -m x',
+  'git push --no-verify',
+  'git commit -n -m x',
+])('it passes the in-scope hook bypass %s on with no deny', (command) => {
+  const request = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/home/dev/app',
+    toolInput: { command },
+  });
+
+  const deny = checkContainment(
+    request,
+    buildMockOwnedScope({
+      home: '/home/dev',
+      worktrees: ['/home/dev/app'],
+      branches: ['feat/a'],
+      currentBranch: 'feat/a',
+    }),
+  );
+
+  expect(deny).toBeNull();
+});
