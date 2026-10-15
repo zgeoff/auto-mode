@@ -260,3 +260,19 @@ test('it escalates any tool it does not recognise', () => {
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
+
+test.each([
+  'LEFTHOOK=0 git push',
+  'HUSKY=0 git commit -m x',
+  'git commit --no-verify -m x',
+  'git push --no-verify',
+  'git commit -n -m x',
+])('it escalates the hook bypass %s', (command) => {
+  const payload = buildMockActionRequest({
+    toolName: 'Bash',
+    cwd: '/repo',
+    toolInput: { command },
+  });
+
+  expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
+});

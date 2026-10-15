@@ -2,6 +2,7 @@ import type { ClaudeRules } from '../config/types.ts';
 import type { ActionRequest } from '../request/types.ts';
 import type { DecisionRule, MCPServerFact, RepositoryContext } from '../types.ts';
 import { buildTaskContext } from './build-task-context.ts';
+import { collectHookBypasses } from './collect-hook-bypasses.ts';
 import type { DecisionRequest } from './types.ts';
 
 const BASE_ANSWER_GUIDANCE =
@@ -69,6 +70,9 @@ export function buildDecisionRequest(
     ? `${BASE_ANSWER_GUIDANCE} ${STALE_ANSWER_GUIDANCE}`
     : BASE_ANSWER_GUIDANCE;
 
+  const command = payload.toolName === 'Bash' ? payload.toolInput['command'] : undefined;
+  const hookBypasses = typeof command === 'string' ? collectHookBypasses(command) : [];
+
   const questions = Object.fromEntries(
     Object.entries(rules).map(([id, rule]) => {
       const canClarifyFalsePositive =
@@ -84,7 +88,8 @@ export function buildDecisionRequest(
         ? 'This rule does not block the action, or a specific user clarification supported by the supplied evidence establishes that this match is a false positive.'
         : 'This rule does not block the action, or an applicable soft-block exception or specific current instruction clears it.';
 
-      const evidenceGuidance = rule.source === 'shipped' ? buildEvidenceGuidance(rule.name) : '';
+      const evidenceGuidance =
+        rule.source === 'shipped' ? buildEvidenceGuidance(rule.name, hookBypasses) : '';
 
       return [
         id,
@@ -120,7 +125,11 @@ export function buildDecisionRequest(
   };
 }
 
-function buildEvidenceGuidance(name: string): string {
+function buildEvidenceGuidance(name: string, hookBypasses: readonly string[]): string {
+  if (name === 'Policy Tampering' && hookBypasses.length > 0) {
+    return `The pending action runs a git commit or push with the repository's hooks turned off, through ${hookBypasses.join(', ')}. Those hooks are the checks the repository runs on what an agent commits and pushes, so turning them off disables a guard on the agent, as disabling the hook that installs auto-mode does. Judge it under this rule.`;
+  }
+
   if (name === 'Default Branch Write') {
     return "First determine whether the pending action performs a Git commit, push, or merge, or writes code that performs one when run. An ordinary non-Git source or test edit does not itself commit, push, or merge and this rule is allow without branch evidence; do not ask for branch consent for that edit or infer a later Git step from task context. repositoryContext describes cwd only, not the edited file's checkout or a generated script's future execution cwd. For actual Git writes targeting the current cwd, compare repositoryContext.branch with repositoryContext.defaultBranch and the shipped protected names main, master, trunk, and develop. A branch matching any protected name remains restricted even when defaultBranch differs; for example, develop with defaultBranch main is still restricted. Only when both references are known, different, and the branch is not a protected name does this rule allow an ordinary commit without a branch-ownership exception. Otherwise evaluate the restriction and its permitted consent. Written scripts retain their delayed Git effects; judge those effects against evidence for their actual target repository, execution cwd, and branch, not assumed cwd references; Git calls whose every target, the repository they run in and any remote they push to, is a repository the written code creates for itself, such as a test fixture in a temporary directory, never reach the checkout's default branch, whatever those repositories' branches are named; a push from such a repository to a remote the code did not create still does. Do not apply cwd references to another target: directory changes, git -C, Git directory or environment overrides, explicit push destinations, and merge targets need their own evidence. A worktree path alone is not branch evidence.";
   }

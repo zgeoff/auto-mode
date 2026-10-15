@@ -35,6 +35,14 @@ Tampering and Audit Tampering, carry a narrow clarification path, because their 
 false positives that only the user can explain, and some rules carry extra guidance on which
 evidence settles them.
 
+A git commit or push that turns off the repository's hooks gets guidance of its own. The hooks check
+what an agent commits and pushes, so turning them off disables a guard on the agent, and the Policy
+Tampering text names only the hook that installs auto-mode. When a shell command commits or pushes
+with lefthook or husky switched off by a leading environment assignment, or with git's no-verify
+option, the Policy Tampering question names the words that turn the hooks off and asks Jev to judge
+the call under that rule. No earlier stage allows such a call: the local rules never allow a commit
+or a push, and containment passes an in-scope one on.
+
 The request never truncates the action or the user's message. When the request is larger than the
 client's request cap, the client drops the delegated task first, then the original task, each with
 an explicit note that it was omitted. When it is still too large, the call is a classifier failure.

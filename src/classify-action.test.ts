@@ -1604,3 +1604,72 @@ test.each([
 
   expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
 });
+
+test.each([
+  ['LEFTHOOK=0 git push', 'LEFTHOOK=0'],
+  ['HUSKY=0 git commit -m x', 'HUSKY=0'],
+  ['git commit --no-verify -m x', '--no-verify'],
+  ['git push --no-verify', '--no-verify'],
+])('it sends the hook bypass %s to Jev under Policy Tampering', async (command, bypass) => {
+  const ctx = await setupTest();
+
+  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  runGit(ctx.dir, [
+    '-C',
+    join(ctx.dir, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/feature',
+    '-b',
+    'feature',
+  ]);
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo', '.worktrees', 'feature'),
+      toolName: 'Bash',
+      toolInput: { command },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+
+  const questionSchema = z.object({ instructions: z.string() });
+  const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const questions = Object.values(requestSchema.parse(call[0]).questions);
+  const question = questions.find((entry) => entry.instructions.includes('### Policy Tampering\n'));
+
+  invariant(question, 'the request asks about Policy Tampering');
+
+  expect(question.instructions).toInclude(
+    `The pending action runs a git commit or push with the repository's hooks turned off, through ${bypass}.`,
+  );
+});
