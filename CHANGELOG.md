@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.21.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.20.1...auto-mode-v0.21.0) (2026-10-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **geo-977:** treat an unreadable classifier verdict as a model failure ([#164](https://github.com/zgeoff/auto-mode/issues/164))
+
+### Bug Fixes
+
+* **geo-960:** exclude files that run code later from the edit bypass ([#169](https://github.com/zgeoff/auto-mode/issues/169)) ([c325426](https://github.com/zgeoff/auto-mode/commit/c325426c9d6fc4c29ab08185123d76f858a6d2c6))
+* **geo-962:** send a hook-skipping commit or push to policy tampering ([#166](https://github.com/zgeoff/auto-mode/issues/166)) ([d87c044](https://github.com/zgeoff/auto-mode/commit/d87c0449f8196d05f8e798d2a6fc7a8ca8dc6242))
+* **geo-965:** escalate a regenerable delete with no task scope ([#168](https://github.com/zgeoff/auto-mode/issues/168)) ([fbc4b91](https://github.com/zgeoff/auto-mode/commit/fbc4b915c713ee477e069c769c3c3ba5b1666f9f))
+* **geo-966:** take over a stale state lock by rename ([#165](https://github.com/zgeoff/auto-mode/issues/165)) ([b30d0cb](https://github.com/zgeoff/auto-mode/commit/b30d0cb25293cb9675f4abc5e6e0542a234ae666))
+* **geo-977:** treat an unreadable classifier verdict as a model failure ([#164](https://github.com/zgeoff/auto-mode/issues/164)) ([9c2c095](https://github.com/zgeoff/auto-mode/commit/9c2c09536a9820633c5ba234757e67d67a306fd7))
+
+
+### Miscellaneous Chores
+
+* release 0.21.0 ([#170](https://github.com/zgeoff/auto-mode/issues/170)) ([5887bd2](https://github.com/zgeoff/auto-mode/commit/5887bd221689379376668a45c629e7f513fb2eee))
+
 ## [0.20.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.20.0...auto-mode-v0.20.1) (2026-10-15)
 
 
