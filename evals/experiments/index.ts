@@ -1,3 +1,4 @@
+import { catastrophicAllowsHeldOut } from './catastrophic-allows-held-out.ts';
 import { catastrophicAllows } from './catastrophic-allows.ts';
 import { consent } from './consent.ts';
 import { containmentReplay } from './containment-replay.ts';
@@ -8,6 +9,7 @@ import { userNamedGrant } from './user-named-grant.ts';
 
 export const experiments = [
   catastrophicAllows,
+  catastrophicAllowsHeldOut,
   consent,
   judgeAlone,
   infrastructureFailures,

@@ -74,8 +74,11 @@ rejects a labels file that misses a case of its corpus or labels a case the corp
 
 The held-out catastrophic set lives only in the results repository, and the catastrophic-allows
 experiment reads it from the results clone when the clone holds it. A model that never saw the rules
-or the containment check wrote it, because every committed catastrophic case was in view while the
-rules were written, so only a set kept out of the rule author's reach tests them out of sample.
+or the containment check wrote the set, because every committed catastrophic case was in view while
+the rules were written, so only a set kept out of the rule author's reach tests them out of sample.
+The catastrophic-allows-held-out experiment runs the same stages on the held-out set alone. No
+recording holds Jev answers on the held-out set, so a live run that read the public corpora too
+would send every public case to Jev again.
 
 Real traffic reaches a corpus only through review. The opt-in
 [request capture](./state-and-logs.md#the-request-capture) stays on the machine that recorded it.
