@@ -306,3 +306,18 @@ test('it reports a substitution that never closes as unterminated', () => {
 test('it reports an unterminated quote in a redirection target', () => {
   expect(splitShellTokens("echo > 'out").isUnterminated).toBeTrue();
 });
+
+test('it reads twenty nested $(( command substitutions in under 10 ms', () => {
+  let text = 'echo 1';
+
+  for (let level = 0; level < 20; level += 1) {
+    text = `$((echo ${text}); echo 1)`;
+  }
+
+  const startedAt = performance.now();
+  const shellTokens = splitShellTokens(text);
+  const elapsedMs = performance.now() - startedAt;
+
+  expect(shellTokens.substitutions).toStrictEqual([text.slice(2, -1)]);
+  expect(elapsedMs).toBeLessThan(10);
+});
