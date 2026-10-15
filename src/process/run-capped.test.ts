@@ -146,7 +146,7 @@ test('it settles at the abort when the child has exited and a process outside it
 
   controller.abort();
 
-  await expect(result).resolves.toStrictEqual({
+  expect(result).resolves.toStrictEqual({
     exitCode: 0,
     stdout: '',
     stopped: true,
