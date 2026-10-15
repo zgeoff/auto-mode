@@ -6,17 +6,21 @@ const BLOCK = /<block>\s*(?<answer>yes|no)\s*<\/block>/i;
 const RULE = /<rule>(?<rule>[^<]*)<\/rule>/i;
 const REASON = /<reason>(?<reason>[^<]*)<\/reason>/i;
 
-export function parseModelVerdict(text: string): Verdict {
+export function parseModelVerdict(text: string): Verdict | null {
   const block = BLOCK.exec(text);
 
-  if (block === null || block[1]?.toLowerCase() !== 'yes') {
+  if (block === null) {
+    return null;
+  }
+
+  if (block[1]?.toLowerCase() !== 'yes') {
     return { kind: 'allow' };
   }
 
   const rule = RULE.exec(text)?.[1]?.trim();
 
   if (rule === undefined || rule === '') {
-    return { kind: 'allow' };
+    return null;
   }
 
   const reason = REASON.exec(text)?.[1]?.trim();

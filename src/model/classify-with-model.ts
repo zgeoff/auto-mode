@@ -116,6 +116,11 @@ export async function classifyWithModel(
     }
 
     const verdict = parseModelVerdict(formatClassifierNote(result.text, apiKey));
+
+    if (verdict === null) {
+      return buildFailure(config, `${config.provider.model} returned no readable verdict`);
+    }
+
     const cache = `${result.cachedInputTokens} cached / ${result.cacheWriteTokens} written / ${result.newInputTokens} new / ${result.outputTokens} out`;
 
     return {

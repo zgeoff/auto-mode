@@ -83,6 +83,7 @@ whichever comes first. A cancelled call and a call past the deadline are both fa
 The configuration also defines classifiers that use the Anthropic Messages API: presets for Claude,
 GLM and Spark, and a generic kind for any Anthropic-compatible gateway. They read the generative
 framework instead of the Jev one, see the user's last message as their only history, and answer in
-tags that hold a block flag, a rule and a reason. A reply with no block tag reads as an allow. The
-mod never uses them, because it always runs the CLI in its Jev-only mode, so they serve callers of
-the library and of the CLI by hand.
+tags that hold a block flag, a rule and a reason. A reply with no block tag, or a block with no
+rule, is a failed call and ends in the configured failure response, because a reply the CLI cannot
+read is no allow. The mod never uses them, because it always runs the CLI in its Jev-only mode, so
+they serve callers of the library and of the CLI by hand.

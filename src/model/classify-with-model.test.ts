@@ -472,6 +472,90 @@ test('it treats an empty answer as a failure rather than an allow', async () => 
   });
 });
 
+test('it treats a reply with no block tag as a failure rather than an allow', async () => {
+  const ctx = await setupTest();
+
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [
+        { type: 'text', text: 'The push rewrites shared history, so I lean towards a block.' },
+      ],
+    }),
+  );
+
+  const outcome = await classifyWithModel(
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
+    buildMockConfig({
+      provider: {
+        protocol: 'messages',
+        baseURL: 'https://gateway.test',
+        model: 'test-model',
+        apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
+      },
+      onFailure: 'defer',
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    note: 'test-model returned no readable verdict; no verdict',
+  });
+});
+
+test('it denies a block with no rule when configured to fail closed', async () => {
+  const ctx = await setupTest();
+
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [
+        { type: 'text', text: '<block>yes</block><reason>The push rewrites main.</reason>' },
+      ],
+    }),
+  );
+
+  const outcome = await classifyWithModel(
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git push --force origin main' },
+    }),
+    buildMockConfig({
+      provider: {
+        protocol: 'messages',
+        baseURL: 'https://gateway.test',
+        model: 'test-model',
+        apiKeyEnv: 'AUTO_MODE_CLASSIFY_KEY',
+      },
+      onFailure: 'deny',
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: { AUTO_MODE_CLASSIFY_KEY: 'test-key' },
+        home: ctx.dir,
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Classifier Unavailable',
+      reason: 'test-model returned no readable verdict; this policy is configured to fail closed.',
+    },
+    note: 'test-model returned no readable verdict',
+  });
+});
+
 test('it denies rather than deferring when configured to fail closed', async () => {
   const ctx = await setupTest();
 
