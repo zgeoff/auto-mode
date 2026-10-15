@@ -178,13 +178,14 @@ function isWithin(path: string, dir: string): boolean {
   return offset !== '' && !offset.startsWith('..') && !offset.startsWith(sep);
 }
 
-const EXCLUDED_DIRS: readonly (readonly [string, string])[] = [
+const EXCLUDED_PATHS: readonly (readonly [string, string])[] = [
   ['.git', 'git metadata'],
   ['.claude', 'agent configuration'],
   ['.codex', 'agent configuration'],
   ['.muse', 'agent configuration'],
   ['.husky', 'a hook file'],
   ['.githooks', 'a hook file'],
+  ['.vscode/tasks.json', 'a hook file'],
   ['.github/workflows', 'a CI workflow'],
   ['.circleci', 'a CI workflow'],
   ['.ssh', 'a credential file'],
@@ -196,8 +197,10 @@ const EXCLUDED_DIRS: readonly (readonly [string, string])[] = [
 
 const EXCLUDED_NAMES: readonly (readonly [RegExp, string])[] = [
   [/^(?:agents|claude)(?:\.[\w-]+)?\.md$/i, 'agent configuration'],
+  [/^\.mcp\.json$/i, 'agent configuration'],
   [/^settings(?:\.[\w-]+)?\.json$/i, 'a settings file'],
   [/^(?:hooks\.json|\.?lefthook(?:-local)?\.ya?ml|\.pre-commit-config\.ya?ml)$/i, 'a hook file'],
+  [/^(?:package\.json|\.?bunfig\.toml|\.gitattributes)$/i, 'a hook file'],
   [/^\.gitlab-ci\.ya?ml$/i, 'a CI workflow'],
   [/^\.env(?:\..*)?$|^\.envrc$/i, 'an env file'],
   [/^(?:\.netrc|\.npmrc|\.pypirc|\.git-credentials|\.dockercfg|kubeconfig)$/i, 'a credential file'],
@@ -211,7 +214,7 @@ const EXCLUDED_NAMES: readonly (readonly [RegExp, string])[] = [
 function findExclusion(path: string): string | null {
   const lower = path.toLowerCase();
 
-  const dir = EXCLUDED_DIRS.find(
+  const excludedPath = EXCLUDED_PATHS.find(
     ([prefix]) =>
       lower === prefix ||
       lower.endsWith(`/${prefix}`) ||
@@ -219,8 +222,8 @@ function findExclusion(path: string): string | null {
       lower.includes(`/${prefix}/`),
   );
 
-  if (dir !== undefined) {
-    return dir[1];
+  if (excludedPath !== undefined) {
+    return excludedPath[1];
   }
 
   const name = basename(path);
