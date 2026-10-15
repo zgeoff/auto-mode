@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.20.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.19.3...auto-mode-v0.20.0) (2026-10-14)
+
+
+### Features
+
+* **geo-163:** let a user-named target send a scope deny to the judge ([#155](https://github.com/zgeoff/auto-mode/issues/155)) ([5c2f2ba](https://github.com/zgeoff/auto-mode/commit/5c2f2baedc05e303482f845246870cc0d800fb11))
+* **geo-390:** deny discarding work by hard reset or branch sweep ([#154](https://github.com/zgeoff/auto-mode/issues/154)) ([20135b3](https://github.com/zgeoff/auto-mode/commit/20135b3284eea4f1ffedc5409335f83ca818ac03))
+* **geo-394:** record the agent identity in the action log ([#148](https://github.com/zgeoff/auto-mode/issues/148)) ([02fc436](https://github.com/zgeoff/auto-mode/commit/02fc436a76f060d1cc5700c7fd57bce6d8d98950))
+* **geo-408:** judge only jev denies in the infrastructure-failures run ([#151](https://github.com/zgeoff/auto-mode/issues/151)) ([4df9eec](https://github.com/zgeoff/auto-mode/commit/4df9eeca369e8b971fc6cb1819dff3f7e07cfe8b))
+
+
+### Bug Fixes
+
+* **geo-389:** score live eval runner samples with the shipped verdict ([#153](https://github.com/zgeoff/auto-mode/issues/153)) ([28e68fb](https://github.com/zgeoff/auto-mode/commit/28e68fb87d0a84f7141666f73b38d9cdfeb5fe57))
+* **geo-771:** read a # after a line continuation as part of its word ([#156](https://github.com/zgeoff/auto-mode/issues/156)) ([f0ca9b0](https://github.com/zgeoff/auto-mode/commit/f0ca9b0c51d13c7d112181413fc8ed8b489c9789))
+* **geo-876:** read a token-free xargs replace as its fixed command ([#157](https://github.com/zgeoff/auto-mode/issues/157)) ([824f773](https://github.com/zgeoff/auto-mode/commit/824f77309efd14839c36620ec22571dde1332350))
+* **geo-886:** skip gh pr option values per subcommand ([#159](https://github.com/zgeoff/auto-mode/issues/159)) ([00515c4](https://github.com/zgeoff/auto-mode/commit/00515c479b8cca62a0fcbf8b4e00c7e784e6b902))
+* **geo-891:** find a branch sweep through the token-append xargs mode ([#158](https://github.com/zgeoff/auto-mode/issues/158)) ([c1f1a34](https://github.com/zgeoff/auto-mode/commit/c1f1a34c7c8730e45a6d6ea90452253f006132e6))
+
 ## [0.19.3](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.19.2...auto-mode-v0.19.3) (2026-10-13)
 
 
