@@ -663,13 +663,12 @@ test.each([
   },
 );
 
-test('it checks a write in a substitution inside an arithmetic shift', () => {
+test.each([
+  ['a substitution inside an arithmetic shift', 'echo $((1 << $(rm /other/file; echo 1)))'],
+  ['a $(( that opens a subshell', 'echo $((echo one); rm /other/file; (echo two))'],
+])('it checks a write in %s', (_label, command) => {
   const findings = collectScopeFindings(
-    {
-      tool: 'Bash',
-      cwd: '/home/dev/src/app/.worktrees/feature',
-      input: { command: 'echo $((1 << $(rm /other/file; echo 1)))' },
-    },
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
     buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
   );
 

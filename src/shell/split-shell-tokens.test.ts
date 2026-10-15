@@ -169,10 +169,11 @@ test.each([
   expect(splitShellTokens(text).substitutions).toStrictEqual(['git log']);
 });
 
-test('it reads a $(( whose body does not end in )) as a subshell substitution', () => {
-  expect(splitShellTokens('echo $((cd app); make)').substitutions).toStrictEqual([
-    '(cd app); make',
-  ]);
+test.each([
+  ['a body that does not end in ))', 'echo $((cd app); make)', '(cd app); make'],
+  ['two subshells', 'echo $((cd app); make; (ls))', '(cd app); make; (ls)'],
+])('it reads a $(( with %s as a command substitution', (_label, text, body) => {
+  expect(splitShellTokens(text).substitutions).toStrictEqual([body]);
 });
 
 test('it collects a substitution in a here-string, which bash expands', () => {

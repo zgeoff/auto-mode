@@ -70,17 +70,36 @@ function findStandardInput(
     const operator = token.operator.slice(number.length);
     const implied = operator.startsWith('<') ? '0' : '1';
     const descriptor = number === '' ? implied : String(Number(number));
+    const move = /^(?<source>\d+)(?<close>-?)$/u.exec(token.target ?? '')?.groups;
+    const path = operator === '<' ? findInputPathDescriptor(token.target ?? '') : null;
 
-    if (operator.endsWith('&') && token.target !== null && /^\d+$/u.test(token.target)) {
-      const source = String(Number(token.target));
+    if (operator.endsWith('&') && move !== undefined) {
+      const source = String(Number(move['source']));
 
       descriptors.set(descriptor, descriptors.get(source) ?? null);
-    } else {
+
+      if (move['close'] === '-') {
+        descriptors.delete(source);
+      }
+    } else if (path === null) {
       descriptors.set(descriptor, token.start);
+    } else {
+      descriptors.set(descriptor, descriptors.get(path) ?? null);
     }
   }
 
   return descriptors.get('0') ?? null;
+}
+
+// A path that opens a descriptor the shell already holds, as that descriptor.
+function findInputPathDescriptor(path: string): string | null {
+  const descriptor = /^\/(?:dev|proc\/self)\/fd\/(?<number>\d+)$/u.exec(path)?.groups?.['number'];
+
+  if (descriptor !== undefined) {
+    return String(Number(descriptor));
+  }
+
+  return path === '/dev/stdin' ? '0' : null;
 }
 
 const SHELLS: ReadonlySet<string> = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
@@ -88,10 +107,7 @@ const SHELLS: ReadonlySet<string> = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']
 // These options take the next word as their value, not as a script file.
 const VALUE_OPTIONS: ReadonlySet<string> = new Set(['--rcfile', '--init-file']);
 
-const VALUE_OPTION_GROUP = /^[-+][^-]*[oO]/u;
-
-// A script file that names standard input reads the heredoc after all.
-const INPUT_PATHS: ReadonlySet<string> = new Set(['/dev/stdin', '/dev/fd/0', '/proc/self/fd/0']);
+const VALUE_OPTION_GROUP = /^[-+][^-]*[oO]$/u;
 
 // A shell reads its script from standard input only when no argument names a
 // script file or, with `-c`, the script itself. With `-s` the arguments after
@@ -114,11 +130,15 @@ function isShellScript(segment: string): boolean {
     }
 
     if (arg === '--' || arg === '-') {
-      return readsInput || index === args.length - 1 || INPUT_PATHS.has(args[index + 1] ?? '');
+      return (
+        readsInput ||
+        index === args.length - 1 ||
+        findInputPathDescriptor(args[index + 1] ?? '') === '0'
+      );
     }
 
     if (!/^[-+]/u.test(arg)) {
-      return readsInput || INPUT_PATHS.has(arg);
+      return readsInput || findInputPathDescriptor(arg) === '0';
     }
 
     readsInput ||= /^-[^-]*s/u.test(arg);

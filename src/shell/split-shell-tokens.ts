@@ -360,23 +360,26 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         return collectExpansionBody(index, bodyStart, findBacktickEnd(bodyStart));
       }
 
-      const isArithmeticStart = text.charAt(bodyStart) === '(';
-
-      const body = withLevel(
-        level.limit,
-        ')',
-        () => collectTokens(bodyStart, isArithmeticStart).end,
-      );
-
       // Bash reads `$((…))` as arithmetic, which runs only the substitutions
-      // inside it, and falls back to a subshell when the body does not end `))`.
-      if (isArithmeticStart && body.result !== -1 && text.charAt(body.result - 1) === ')') {
-        level.substitutions.push(...body.substitutions);
+      // inside it, when the inner parenthesis closes right before the outer
+      // one; otherwise the body is a command that starts with a subshell.
+      if (text.charAt(bodyStart) === '(') {
+        const arithmetic = withLevel(
+          level.limit,
+          ')',
+          () => collectTokens(bodyStart + 1, true).end,
+        );
 
-        return { end: body.result + 1, isUnterminated: false };
+        if (arithmetic.result !== -1 && text.charAt(arithmetic.result + 1) === ')') {
+          level.substitutions.push(...arithmetic.substitutions);
+
+          return { end: arithmetic.result + 2, isUnterminated: false };
+        }
       }
 
-      return collectExpansionBody(index, bodyStart, body.result);
+      const end = withLevel(level.limit, ')', () => collectTokens(bodyStart).end).result;
+
+      return collectExpansionBody(index, bodyStart, end);
     }
 
     if (text.startsWith('${', index)) {
