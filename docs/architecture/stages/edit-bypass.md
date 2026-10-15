@@ -29,8 +29,11 @@ agent, what runs later, or what holds credentials:
 
 - auto-mode's own configuration and state directories
 - git metadata
-- agent configuration, such as `.claude/`, `AGENTS.md` and `CLAUDE.md`, and settings files
-- hook files and CI workflows
+- agent configuration, such as `.claude/`, `AGENTS.md`, `CLAUDE.md` and `.mcp.json`, and settings
+  files
+- hook files, which include any file that names a command to run later, such as `package.json` with
+  its scripts, `bunfig.toml`, `.gitattributes` and `.vscode/tasks.json`
+- CI workflows
 - env files and credential files
 
 The bypass checks both the path as written and the path it resolves to, because a link can give an
