@@ -78,7 +78,7 @@ export interface UnsafeOptions {
   readonly valued?: ValuedOptions;
 }
 
-export interface ValuedOptions {
+interface ValuedOptions {
   readonly short: readonly string[];
   readonly attached?: readonly string[];
   readonly long: readonly string[];
@@ -201,8 +201,9 @@ export const UNSAFE_GIT_OPTIONS: UnsafeOptions = { long: ['output'] };
 
 // Global options that set configuration or the path git runs its
 // subcommands from, either of which can run a program: `-c core.pager=sh`.
+// The short `c` matches an attached value such as `-ccore.pager=sh` too.
 export const UNSAFE_GIT_GLOBAL_OPTIONS: UnsafeOptions = {
-  words: ['-c'],
+  short: ['c'],
   long: ['config-env', 'exec-path'],
 };
 

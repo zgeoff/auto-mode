@@ -159,6 +159,7 @@ test.each([
   ['fd -e -x rm', 'a value word that is itself an unsafe option'],
   ['git ls-remote origin', 'git ls-remote reaches the network'],
   ['git -c core.pager=./x log', 'git -c sets a program to run'],
+  ['git -C /repo -ccore.fsmonitor=./x status', 'git -c with an attached value'],
   ['git --exec-path=./x log', 'git runs subcommands from another path'],
 ])('it escalates the argument shape in %s (%s)', (command) => {
   const payload = buildMockActionRequest({
