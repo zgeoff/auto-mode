@@ -64,6 +64,12 @@ export function classifyLocally(payload: ActionRequest): LocalVerdict {
 }
 
 function classifySegment(text: string, cwd: string): string | null {
+  // An input redirection reads a target the rules never see, and Bash opens a
+  // socket for `< /dev/tcp/host/port`.
+  if (splitShellTokens(text).tokens.some((token) => token.kind === 'redirect')) {
+    return null;
+  }
+
   const words = splitWords(text);
 
   // splitCommandWords drops a leading assignment and a wrapper such as env or
@@ -72,9 +78,9 @@ function classifySegment(text: string, cwd: string): string | null {
     return null;
   }
 
-  // The tokenizer keeps a backslash escape in the word, so `--out\put` would
-  // not match `--output`, though the shell runs it as `--output`.
-  if (words.some((word) => hasShellEscape(word.raw))) {
+  // The rules read each word literally, so a word the shell expands, such as
+  // `{/repo,clean}` or `--out\put`, would be read as other words than it runs.
+  if (words.some((word) => hasShellExpansion(word.raw))) {
     return null;
   }
 
@@ -270,24 +276,37 @@ function splitWords(text: string): readonly ShellWord[] {
   );
 }
 
-// A backslash is literal only inside single quotes. Inside double quotes it
-// escapes some characters, which counts as an escape too.
-function hasShellEscape(raw: string): boolean {
+// A tilde expands only at the start of a word or after `=` or `:`, so the
+// literal `HEAD~1` stays readable.
+function hasShellExpansion(raw: string): boolean {
   let quote: "'" | '"' | null = null;
+  let previous = '';
 
   for (const char of raw) {
     if (quote === "'") {
       quote = char === "'" ? null : quote;
-    } else if (char === '\\') {
+    } else if (char === '\\' || char === '$' || char === '`') {
       return true;
     } else if (char === quote) {
       quote = null;
     } else if (quote === null && (char === "'" || char === '"')) {
       quote = char;
+    } else if (quote === null && isExpansionCharacter(char, previous)) {
+      return true;
     }
+
+    previous = char;
   }
 
   return false;
+}
+
+function isExpansionCharacter(char: string, previous: string): boolean {
+  if (char === '~') {
+    return previous === '' || previous === '=' || previous === ':';
+  }
+
+  return '{}*?[]()!'.includes(char) || /\s/u.test(char);
 }
 
 // An operand quoted whole or not at all, with no whitespace, is the one shape
