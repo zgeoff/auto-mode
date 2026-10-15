@@ -72,6 +72,12 @@ function classifySegment(text: string, cwd: string): string | null {
     return null;
   }
 
+  // The tokenizer keeps a backslash escape in the word, so `--out\put` would
+  // not match `--output`, though the shell runs it as `--output`.
+  if (words.some((word) => hasShellEscape(word.raw))) {
+    return null;
+  }
+
   const [head, ...rest] = words;
 
   invariant(head !== undefined, 'the segment holds at least one word');
@@ -96,71 +102,79 @@ function classifySegment(text: string, cwd: string): string | null {
   return null;
 }
 
-// Reads the arguments as getopt does: options end at `--`, a single dash
-// starts a cluster of short options, and a lone `-` is an operand.
+// Reads the arguments as getopt does, except that a value word starting with a
+// dash is read as an option, so a wrong value list can only make a call pass
+// on, never allow one.
 function hasUnsafeOption(args: readonly string[], unsafe: Readonly<UnsafeOptions>): boolean {
-  const end = args.indexOf('--');
-  const options = end === -1 ? args : args.slice(0, end);
-  const operands = countOperands(options, unsafe) + (end === -1 ? 0 : args.length - end - 1);
-
-  return (
-    args.some((arg) => unsafe.words?.includes(arg) === true) ||
-    options.some((arg) => isUnsafeOption(arg, unsafe)) ||
-    (unsafe.operands !== undefined && operands > unsafe.operands)
-  );
-}
-
-function isUnsafeOption(arg: string, unsafe: Readonly<UnsafeOptions>): boolean {
-  if (arg.startsWith('--')) {
-    const name = arg.slice(2).split('=', 1)[0] ?? '';
-
-    return name !== '' && unsafe.long?.some((long) => long.startsWith(name)) === true;
+  if (args.some((arg) => unsafe.words?.includes(arg) === true)) {
+    return true;
   }
 
-  return isOptionWord(arg) && unsafe.short?.some((letter) => arg.includes(letter, 1)) === true;
-}
-
-function countOperands(options: readonly string[], unsafe: Readonly<UnsafeOptions>): number {
-  let count = 0;
+  let operands = 0;
   let index = 0;
 
-  while (index < options.length) {
-    const arg = options[index] ?? '';
+  while (index < args.length) {
+    const arg = args[index] ?? '';
 
-    if (!isOptionWord(arg)) {
-      count += 1;
-    } else if (needsValueWord(arg, unsafe)) {
-      index += 1;
+    if (arg === '--') {
+      operands += args.length - index - 1;
+      break;
+    }
+
+    if (isOptionWord(arg)) {
+      const option = parseOption(arg, unsafe);
+
+      if (option.isUnsafe) {
+        return true;
+      }
+
+      if (option.takesNextWord && !isOptionWord(args[index + 1] ?? '-')) {
+        index += 1;
+      }
+    } else {
+      operands += 1;
     }
 
     index += 1;
   }
 
-  return count;
+  return unsafe.operands !== undefined && operands > unsafe.operands;
 }
 
-// A short option that takes a value reads the rest of its cluster, so the
-// next word is its value only when the value letter ends the cluster.
-function needsValueWord(arg: string, unsafe: Readonly<UnsafeOptions>): boolean {
+interface ParsedOption {
+  readonly isUnsafe: boolean;
+  readonly takesNextWord: boolean;
+}
+
+function parseOption(arg: string, unsafe: Readonly<UnsafeOptions>): ParsedOption {
   const valued = unsafe.valued;
 
-  if (valued === undefined) {
-    return false;
-  }
-
   if (arg.startsWith('--')) {
-    const name = arg.slice(2);
+    const [name = '', ...value] = arg.slice(2).split('=');
 
-    return !name.includes('=') && valued.long.some((long) => long.startsWith(name));
+    return {
+      isUnsafe: name !== '' && unsafe.long?.some((long) => long.startsWith(name)) === true,
+      takesNextWord: value.length === 0 && valued?.long.includes(name) === true,
+    };
   }
 
   for (let index = 1; index < arg.length; index += 1) {
-    if (valued.short.includes(arg.charAt(index))) {
-      return index === arg.length - 1;
+    const letter = arg.charAt(index);
+
+    if (unsafe.short?.includes(letter) === true) {
+      return { isUnsafe: true, takesNextWord: false };
+    }
+
+    if (valued?.attached?.includes(letter) === true) {
+      break;
+    }
+
+    if (valued?.short.includes(letter) === true) {
+      return { isUnsafe: false, takesNextWord: index === arg.length - 1 };
     }
   }
 
-  return false;
+  return { isUnsafe: false, takesNextWord: false };
 }
 
 function isOptionWord(arg: string): boolean {
@@ -229,6 +243,26 @@ function splitWords(text: string): readonly ShellWord[] {
   return splitShellTokens(text).tokens.flatMap((token) =>
     token.kind === 'word' ? [{ raw: token.raw, value: token.value }] : [],
   );
+}
+
+// A backslash is literal only inside single quotes. Inside double quotes it
+// escapes some characters, which counts as an escape too.
+function hasShellEscape(raw: string): boolean {
+  let quote: "'" | '"' | null = null;
+
+  for (const char of raw) {
+    if (quote === "'") {
+      quote = char === "'" ? null : quote;
+    } else if (char === '\\') {
+      return true;
+    } else if (char === quote) {
+      quote = null;
+    } else if (quote === null && (char === "'" || char === '"')) {
+      quote = char;
+    }
+  }
+
+  return false;
 }
 
 // An operand quoted whole or not at all, with no whitespace, is the one shape

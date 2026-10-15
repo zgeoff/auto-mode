@@ -25,11 +25,15 @@ Some reporting programs take an option that runs another command, writes a file,
 machine: `find -exec` and `find -delete`, `fd -x`, `rg --pre`, `sort -o`, `uniq`'s second operand,
 and `git log --output`. A second table holds those options per program, and a command that uses one
 passes on. The rules read the arguments as getopt does, so an option inside a short cluster such as
-`sort -uo FILE`, or a long one cut to a prefix such as `--out=FILE`, counts as the option. A program
-whose effects live in an argument the rules cannot read, such as an `awk` program or a `yq -i` edit,
-is not on the list at all. `git tag` and `git ls-remote` are not on the subcommand list, because one
-writes a ref and the other reaches the network, and a `git -c` or `--exec-path` option passes on
-because either can name a program for git to run.
+`sort -uo FILE`, or a long one cut to a prefix such as `--out=FILE`, counts as the option. The table
+also names each program's options that take a value, because such an option takes the rest of its
+cluster: `sort -to` sets the field separator to `o` and writes nothing. A word holding a backslash
+outside single quotes passes on, because the shell removes the backslash and the rules do not, so
+`--out\put` would not match `--output`. A program whose effects live in an argument the rules cannot
+read, such as an `awk` program or a `yq -i` edit, is not on the list at all. `git tag` and
+`git ls-remote` are not on the subcommand list, because one writes a ref and the other reaches the
+network, and a `git -c` or `--exec-path` option passes on because either can name a program for git
+to run.
 
 A call the lists do not cover passes on, and so does any tool other than Bash that is not on the
 read-only list. The CLI's explain note holds the exception that matched, `Read-only actions` or

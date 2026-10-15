@@ -72,18 +72,56 @@ export interface UnsafeOptions {
   // The most operands the command takes before one names a file it writes.
   readonly operands?: number;
 
-  // The options that take the next word as their value, short and long, so
-  // the operand count skips that word.
-  readonly valued?: { readonly short: readonly string[]; readonly long: readonly string[] };
+  // The options that take a value. A short one takes the rest of its cluster,
+  // so `sort -to` sets the separator to `o`, or else the next word, as does a
+  // long one written without `=`. An `attached` one takes only the rest.
+  readonly valued?: ValuedOptions;
+}
+
+export interface ValuedOptions {
+  readonly short: readonly string[];
+  readonly attached?: readonly string[];
+  readonly long: readonly string[];
 }
 
 // The options that make a read-only command run another command, write a file,
 // or change the machine. A command allowed by name passes on when its
 // arguments hold one of these.
 export const UNSAFE_OPTIONS: ReadonlyMap<string, UnsafeOptions> = new Map([
-  ['date', { short: ['s'], long: ['set'] }],
-  ['fd', { short: ['x', 'X'], long: ['exec', 'exec-batch'] }],
-  ['file', { short: ['C'], long: ['compile'] }],
+  [
+    'date',
+    {
+      short: ['s'],
+      long: ['set'],
+      valued: {
+        short: ['d', 'f', 'r'],
+        attached: ['I'],
+        long: ['date', 'file', 'reference', 'rfc-3339'],
+      },
+    },
+  ],
+  [
+    'fd',
+    {
+      short: ['x', 'X'],
+      long: ['exec', 'exec-batch'],
+      valued: {
+        short: ['c', 'd', 'e', 'E', 'j', 'o', 'S', 't'],
+        long: ['color', 'exclude', 'extension', 'max-depth', 'owner', 'size', 'threads', 'type'],
+      },
+    },
+  ],
+  [
+    'file',
+    {
+      short: ['C'],
+      long: ['compile'],
+      valued: {
+        short: ['e', 'f', 'F', 'm', 'P'],
+        long: ['exclude', 'exclude-quiet', 'files-from', 'magic-file', 'parameter', 'separator'],
+      },
+    },
+  ],
   [
     'find',
     {
@@ -106,11 +144,29 @@ export const UNSAFE_OPTIONS: ReadonlyMap<string, UnsafeOptions> = new Map([
       short: ['b', 'F'],
       long: ['boot', 'file'],
       operands: 0,
-      valued: { short: ['F'], long: ['file'] },
     },
   ],
   ['rg', { long: ['hostname-bin', 'pre'] }],
-  ['sort', { short: ['o', 'T'], long: ['compress-program', 'output', 'temporary-directory'] }],
+  [
+    'sort',
+    {
+      short: ['o', 'T'],
+      long: ['compress-program', 'output', 'temporary-directory'],
+      valued: {
+        short: ['k', 'S', 't'],
+        long: [
+          'batch-size',
+          'buffer-size',
+          'field-separator',
+          'files0-from',
+          'key',
+          'parallel',
+          'random-source',
+          'sort',
+        ],
+      },
+    },
+  ],
   [
     'uniq',
     {
