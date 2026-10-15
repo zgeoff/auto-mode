@@ -5,12 +5,23 @@ import {
   READ_ONLY_TOOLS,
   REGENERABLE_DIRS,
   SHELL_TOOLS,
+  UNSAFE_OPTIONS,
 } from './local-allowlists.ts';
 
 // A tool in both sets would be allowed on its name, so its command would never
 // be read.
 test('#READ_ONLY_TOOLS names no shell-carrying tool', () => {
   expect([...READ_ONLY_TOOLS]).not.toIncludeAnyMembers([...SHELL_TOOLS]);
+});
+
+// A network tool reaches any host, so Jev reads its target.
+test('#READ_ONLY_TOOLS names no network tool', () => {
+  expect([...READ_ONLY_TOOLS]).not.toIncludeAnyMembers(['WebFetch', 'WebSearch']);
+});
+
+// An entry for a command the list does not allow by name is never read.
+test('#UNSAFE_OPTIONS names only commands the read-only list allows', () => {
+  expect([...READ_ONLY_COMMANDS]).toIncludeAllMembers([...UNSAFE_OPTIONS.keys()]);
 });
 
 // git is judged by subcommand, so allowing the bare name would allow git push.
@@ -31,6 +42,11 @@ test('#READ_ONLY_COMMANDS names no writing command', () => {
     'npm',
     'sed',
     'tee',
+    'awk',
+    'env',
+    'less',
+    'xxd',
+    'yq',
   ]);
 });
 
@@ -45,6 +61,8 @@ test('#READ_ONLY_GIT_SUBCOMMANDS names no writing subcommand', () => {
     'rebase',
     'add',
     'rm',
+    'tag',
+    'ls-remote',
   ]);
 });
 

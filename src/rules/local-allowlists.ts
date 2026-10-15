@@ -4,15 +4,12 @@ export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   'Grep',
   'LS',
   'NotebookRead',
-  'WebFetch',
-  'WebSearch',
   'TodoWrite',
 ]);
 
 export const SHELL_TOOLS: ReadonlySet<string> = new Set(['Bash']);
 
 export const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set([
-  'awk',
   'basename',
   'cat',
   'cksum',
@@ -25,7 +22,6 @@ export const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   'dirname',
   'du',
   'echo',
-  'env',
   'false',
   'fd',
   'file',
@@ -35,7 +31,6 @@ export const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   'hostname',
   'id',
   'jq',
-  'less',
   'ls',
   'md5sum',
   'nl',
@@ -61,8 +56,50 @@ export const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set([
   'wc',
   'which',
   'whoami',
-  'xxd',
-  'yq',
+]);
+
+export interface UnsafeOptions {
+  // Short option letters, matched anywhere in a cluster such as `-uo`.
+  readonly short?: string;
+
+  // Long option names, matched by any prefix, because getopt_long accepts an
+  // unambiguous prefix such as `--out` for `--output`.
+  readonly long?: readonly string[];
+
+  // Arguments matched whole, such as find's `-exec`.
+  readonly words?: readonly string[];
+
+  // The most operands the command takes before one names a file it writes.
+  readonly operands?: number;
+}
+
+// The options that make a read-only command run another command, write a file,
+// or change the machine. A command allowed by name passes on when its
+// arguments hold one of these.
+export const UNSAFE_OPTIONS: ReadonlyMap<string, UnsafeOptions> = new Map([
+  ['date', { short: 's', long: ['set'] }],
+  ['fd', { short: 'xX', long: ['exec', 'exec-batch'] }],
+  ['file', { short: 'C', long: ['compile'] }],
+  [
+    'find',
+    {
+      words: [
+        '-delete',
+        '-exec',
+        '-execdir',
+        '-fls',
+        '-fprint',
+        '-fprint0',
+        '-fprintf',
+        '-ok',
+        '-okdir',
+      ],
+    },
+  ],
+  ['hostname', { short: 'bF', long: ['boot', 'file'], operands: 0 }],
+  ['rg', { long: ['hostname-bin', 'pre'] }],
+  ['sort', { short: 'oT', long: ['compress-program', 'output', 'temporary-directory'] }],
+  ['uniq', { operands: 1 }],
 ]);
 
 export const READ_ONLY_GIT_SUBCOMMANDS: ReadonlySet<string> = new Set([
@@ -71,7 +108,6 @@ export const READ_ONLY_GIT_SUBCOMMANDS: ReadonlySet<string> = new Set([
   'diff',
   'log',
   'ls-files',
-  'ls-remote',
   'ls-tree',
   'rev-list',
   'rev-parse',
@@ -79,9 +115,19 @@ export const READ_ONLY_GIT_SUBCOMMANDS: ReadonlySet<string> = new Set([
   'show',
   'show-ref',
   'status',
-  'tag',
   'whatchanged',
 ]);
+
+// Every reporting git subcommand that takes diff options accepts `--output`,
+// which writes the report to a file.
+export const UNSAFE_GIT_OPTIONS: UnsafeOptions = { long: ['output'] };
+
+// Global options that set configuration or the path git runs its
+// subcommands from, either of which can run a program: `-c core.pager=sh`.
+export const UNSAFE_GIT_GLOBAL_OPTIONS: UnsafeOptions = {
+  words: ['-c'],
+  long: ['config-env', 'exec-path'],
+};
 
 export const REGENERABLE_DIRS: ReadonlySet<string> = new Set([
   '.gradle',

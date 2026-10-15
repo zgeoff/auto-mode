@@ -1,6 +1,8 @@
 import { isAbsolute, normalize, relative } from 'node:path';
 import invariant from 'tiny-invariant';
 import type { ActionRequest } from '../request/types.ts';
+import { splitCommandWords } from '../shell/split-command-words.ts';
+import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import {
@@ -9,7 +11,11 @@ import {
   READ_ONLY_TOOLS,
   REGENERABLE_DIRS,
   SHELL_TOOLS,
+  UNSAFE_GIT_GLOBAL_OPTIONS,
+  UNSAFE_GIT_OPTIONS,
+  UNSAFE_OPTIONS,
 } from './local-allowlists.ts';
+import type { UnsafeOptions } from './local-allowlists.ts';
 
 export type LocalVerdict =
   | { readonly kind: 'allow'; readonly exception: string }
@@ -59,28 +65,28 @@ export function classifyLocally(payload: ActionRequest): LocalVerdict {
 
 function classifySegment(text: string, cwd: string): string | null {
   const words = splitWords(text);
-  const start = words.findIndex((word) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word.raw));
 
-  if (start === -1) {
-    // Only environment assignments, so nothing runs.
-    return 'Read-only actions';
+  // splitCommandWords drops a leading assignment and a wrapper such as env or
+  // sudo. Either one changes what runs, so a segment it shortens passes on.
+  if (words.length === 0 || splitCommandWords(text).length !== words.length) {
+    return null;
   }
 
-  const head = words[start];
+  const [head, ...rest] = words;
 
-  invariant(head !== undefined, 'findIndex returned an index the array holds');
+  invariant(head !== undefined, 'the segment holds at least one word');
 
-  const rest = words.slice(start + 1);
   const name = head.raw.slice(head.raw.lastIndexOf('/') + 1);
+  const args = rest.map((word) => word.value);
 
   if (READ_ONLY_COMMANDS.has(name)) {
-    return 'Read-only actions';
+    const unsafe = UNSAFE_OPTIONS.get(name);
+
+    return unsafe === undefined || !hasUnsafeOption(args, unsafe) ? 'Read-only actions' : null;
   }
 
   if (name === 'git') {
-    const sub = rest.find((word) => !word.raw.startsWith('-'));
-
-    return sub !== undefined && READ_ONLY_GIT_SUBCOMMANDS.has(sub.raw) ? 'Read-only actions' : null;
+    return classifyGit(args, cwd);
   }
 
   if (name === 'rm') {
@@ -88,6 +94,51 @@ function classifySegment(text: string, cwd: string): string | null {
   }
 
   return null;
+}
+
+// Reads the arguments as getopt does: options end at `--`, a single dash
+// starts a cluster of short options, and a lone `-` is an operand.
+function hasUnsafeOption(args: readonly string[], unsafe: Readonly<UnsafeOptions>): boolean {
+  const end = args.indexOf('--');
+  const options = end === -1 ? args : args.slice(0, end);
+
+  const operands =
+    options.filter((arg) => !isOptionWord(arg)).length + (end === -1 ? 0 : args.length - end - 1);
+
+  return (
+    args.some((arg) => unsafe.words?.includes(arg) === true) ||
+    options.some((arg) => isUnsafeOption(arg, unsafe)) ||
+    (unsafe.operands !== undefined && operands > unsafe.operands)
+  );
+}
+
+function isUnsafeOption(arg: string, unsafe: Readonly<UnsafeOptions>): boolean {
+  if (arg.startsWith('--')) {
+    const name = arg.slice(2).split('=', 1)[0] ?? '';
+
+    return name !== '' && unsafe.long?.some((long) => long.startsWith(name)) === true;
+  }
+
+  return isOptionWord(arg) && [...(unsafe.short ?? '')].some((letter) => arg.includes(letter, 1));
+}
+
+function isOptionWord(arg: string): boolean {
+  return arg.startsWith('-') && arg !== '-';
+}
+
+function classifyGit(args: readonly string[], cwd: string): string | null {
+  const git = splitGitCommand(args, cwd, '');
+  const globals = args.slice(0, args.length - git.args.length);
+  const [sub, ...subArgs] = git.args;
+
+  if (sub === undefined || !READ_ONLY_GIT_SUBCOMMANDS.has(sub)) {
+    return null;
+  }
+
+  return hasUnsafeOption(globals, UNSAFE_GIT_GLOBAL_OPTIONS) ||
+    hasUnsafeOption(subArgs, UNSAFE_GIT_OPTIONS)
+    ? null
+    : 'Read-only actions';
 }
 
 function classifyRemove(args: readonly ShellWord[], cwd: string): string | null {
