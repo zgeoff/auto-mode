@@ -917,6 +917,35 @@ test('it still allows a local regenerable-output removal inside the task worktre
   });
 });
 
+test('it escalates a local regenerable-output removal when the task scope does not load', async () => {
+  const ctx = await setupTest();
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf dist' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      localOnly: true,
+      findCheckout: () => Promise.reject(new Error('the git directory is unreadable')),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    decidingStage: 'local',
+    note: 'Bash needs the model tier, which this run skipped',
+    status: 'skipped',
+  });
+});
+
 test('it allows a file-tool write inside the cwd worktree without the model tier', async () => {
   const ctx = await setupTest();
 

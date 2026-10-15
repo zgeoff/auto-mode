@@ -265,7 +265,9 @@ async function classifyPastContainment(
   const findActionCheckout = options.findCheckout;
   const claudeSettings = options.claudeSettings;
 
-  if (facts.local.kind === 'allow') {
+  // Only a regenerable-output allow reaches here, and it deletes files, so
+  // without a task scope no containment check has cleared it.
+  if (facts.local.kind === 'allow' && scope !== null) {
     return buildLocalAllow(facts.local.exception);
   }
 
