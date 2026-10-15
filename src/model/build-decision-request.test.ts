@@ -754,7 +754,7 @@ test('it tells Jev under Policy Tampering which words turn off the repository ho
   const [id] =
     Object.entries(request.rules).find(([, rule]) => rule.name === 'Policy Tampering') ?? [];
 
-  invariant(id, 'the shipped policy holds Policy Tampering');
+  invariant(id !== undefined, 'the shipped policy holds Policy Tampering');
 
   expect(request.questions[id]?.instructions).toInclude(
     "The pending action runs a git commit or push with the repository's hooks turned off, through LEFTHOOK=0, --no-verify.",
@@ -775,7 +775,7 @@ test('it adds no hook guidance to Policy Tampering for a plain git push', async 
   const [id] =
     Object.entries(request.rules).find(([, rule]) => rule.name === 'Policy Tampering') ?? [];
 
-  invariant(id, 'the shipped policy holds Policy Tampering');
+  invariant(id !== undefined, 'the shipped policy holds Policy Tampering');
 
   const question = request.questions[id];
 

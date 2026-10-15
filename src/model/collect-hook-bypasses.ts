@@ -117,21 +117,19 @@ interface CommitCluster {
 }
 
 function parseCommitCluster(arg: string): CommitCluster {
+  let hasNoVerify = false;
+
   for (let index = 1; index < arg.length; index += 1) {
     const letter = arg.charAt(index);
 
     if (letter === 'n') {
-      return { hasNoVerify: true, takesNextWord: false };
-    }
-
-    if (COMMIT_ATTACHED_SHORT.includes(letter)) {
+      hasNoVerify = true;
+    } else if (COMMIT_ATTACHED_SHORT.includes(letter)) {
       break;
-    }
-
-    if (COMMIT_VALUED_SHORT.includes(letter)) {
-      return { hasNoVerify: false, takesNextWord: index === arg.length - 1 };
+    } else if (COMMIT_VALUED_SHORT.includes(letter)) {
+      return { hasNoVerify, takesNextWord: index === arg.length - 1 };
     }
   }
 
-  return { hasNoVerify: false, takesNextWord: false };
+  return { hasNoVerify, takesNextWord: false };
 }

@@ -14,6 +14,7 @@ test.each([
   ['git commit -anm x', ['-anm']],
   ['git add . && LEFTHOOK=0 git commit -nm x', ['LEFTHOOK=0', '-nm']],
   ['git push --verify --no-verify', ['--no-verify']],
+  ['git commit -nm --verify', ['-nm']],
   ['LEFTHOOK=1 LEFTHOOK=0 git push', ['LEFTHOOK=0']],
 ])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command)).toStrictEqual(expected);
