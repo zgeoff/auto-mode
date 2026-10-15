@@ -69,10 +69,12 @@ function findStandardInput(
     const number = /^\d*/u.exec(token.operator)?.[0] ?? '';
     const operator = token.operator.slice(number.length);
     const implied = operator.startsWith('<') ? '0' : '1';
-    const descriptor = number === '' ? implied : number;
+    const descriptor = number === '' ? implied : String(Number(number));
 
     if (operator.endsWith('&') && token.target !== null && /^\d+$/u.test(token.target)) {
-      descriptors.set(descriptor, descriptors.get(token.target) ?? null);
+      const source = String(Number(token.target));
+
+      descriptors.set(descriptor, descriptors.get(source) ?? null);
     } else {
       descriptors.set(descriptor, token.start);
     }
