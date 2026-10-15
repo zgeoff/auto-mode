@@ -232,6 +232,9 @@ test.each([
   ['a heredoc that follows an arithmetic command', "((1<<2))\ncat <<EOF\n'\nEOF\ngit log", 25],
   ['a single-quoted brace in a parameter default', `echo \${x:-'{}'}; git log`, 17],
   ['a heredoc whose delimiter line is continued', 'cat <<EOF\nignored\nE\\\nOF\ngit log', 24],
+  ['a heredoc whose delimiter is an ANSI-C quote', "cat <<$'EOF'\nnotes\nEOF\ngit log", 23],
+  ['a heredoc whose ANSI-C delimiter holds an escape', "cat <<$'E\\x4fF'\nx\nEOF\ngit log", 22],
+  ['a heredoc whose delimiter is a locale quote', 'cat <<$"EOF"\ny\nEOF\ngit log', 19],
   ['a heredoc whose quoted delimiter holds a backslash', "cat <<'E\\OF'\nbody\nE\\OF\ngit log", 23],
 ])('it reads the line after %s as a command', (_label, text, start) => {
   expect(splitShellTokens(text).tokens.at(-2)).toStrictEqual({

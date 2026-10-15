@@ -444,6 +444,10 @@ test.each([
   ],
   ['git push origin feat-\\\nlogin', /^git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}$/],
   [
+    "cat <<$'EOF'\nnotes\nEOF\ngit push origin feat-login",
+    /^cat <<\$'EOF'\nnotes\nEOF\ngit push origin branch-[0-9a-f]{8}$/,
+  ],
+  [
     "bash <<'EOF'\ngit push origin feat-login\nEOF",
     /^bash <<'EOF'\ngit push origin branch-[0-9a-f]{8}\nEOF$/,
   ],
