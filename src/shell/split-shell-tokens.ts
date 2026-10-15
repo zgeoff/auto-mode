@@ -118,7 +118,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
   ): { tokens: ShellToken[]; end: number } => {
     const tokens: ShellToken[] = [];
     const heredocs: Heredoc[] = [];
-    let isArithmetic = isArithmeticStart;
+    let arithmeticDepth = isArithmeticStart ? 1 : 0;
     let index = start;
 
     while (index < level.limit) {
@@ -179,7 +179,9 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
       if (word.raw !== '' && !isDescriptor) {
         tokens.push(buildWordToken(word, index));
 
-        isArithmetic = (isArithmetic || word.raw.startsWith('((')) && !word.raw.endsWith('))');
+        if (arithmeticDepth > 0 || word.raw.startsWith('((')) {
+          arithmeticDepth += countParenBalance(word.raw);
+        }
 
         if (word.isUnterminated) {
           return { tokens, end: -1 };
@@ -194,7 +196,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
-      const opensHeredoc = (operator === '<<' || operator === '<<-') && !isArithmetic;
+      const opensHeredoc = (operator === '<<' || operator === '<<-') && arithmeticDepth <= 0;
       const redirect = readRedirect(word.end, operator, opensHeredoc);
 
       tokens.push({
@@ -215,7 +217,10 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         heredocs.push(buildHeredoc(redirect.raw, operator === '<<-', index));
       }
 
-      isArithmetic &&= !text.slice(index, redirect.end).endsWith('))');
+      if (arithmeticDepth > 0) {
+        arithmeticDepth += countParenBalance(text.slice(index, redirect.end));
+      }
+
       index = redirect.end;
     }
 
@@ -590,6 +595,12 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
   const tokens = collectTokens(0).tokens;
 
   return { tokens, substitutions: top.substitutions, hasSubstitution, unclosedAt };
+}
+
+// An arithmetic command lasts until its parentheses balance, so a nested
+// `$((…))` inside it does not end it.
+function countParenBalance(raw: string): number {
+  return (raw.match(/\(/gu)?.length ?? 0) - (raw.match(/\)/gu)?.length ?? 0);
 }
 
 function buildLevel(limit: number, closer: ')' | null): Level {

@@ -165,6 +165,8 @@ test.each([
 test.each([
   ['an arithmetic command', '(( 1 << $(git log) ))'],
   ['an arithmetic expansion', 'echo $((1 << $(git log)))'],
+  ['an arithmetic command after a nested expansion', '(( 1 + $((2)) << $(git log) ))'],
+  ['an arithmetic expansion after a nested expansion', 'echo $((1 + $((2)) << $(git log)))'],
 ])('it collects a substitution after a shift in %s', (_label, text) => {
   expect(splitShellTokens(text).substitutions).toStrictEqual(['git log']);
 });

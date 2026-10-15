@@ -649,6 +649,11 @@ test.each([
 test.each([
   ['a quoted heredoc', "bash <<'EOF'\nrm /other/file\nEOF"],
   ['an unquoted heredoc without a substitution', 'bash -e 0<<EOF\nrm /other/file\nEOF'],
+  [
+    'a heredoc on the descriptor its script path opens',
+    "bash /dev/fd/3 3<<'EOF'\nrm /other/file\nEOF",
+  ],
+  ['a heredoc after a zsh option value', "zsh --emulate sh <<'EOF'\nrm /other/file\nEOF"],
 ])(
   'it finds a write outside the scope in %s that a shell runs as its script',
   (_label, command) => {
@@ -666,6 +671,10 @@ test.each([
 test.each([
   ['a substitution inside an arithmetic shift', 'echo $((1 << $(rm /other/file; echo 1)))'],
   ['a $(( that opens a subshell', 'echo $((echo one); rm /other/file; (echo two))'],
+  [
+    'a shift after a nested arithmetic expansion',
+    'echo $((1 + $((2)) << $(rm /other/file; echo 1)))',
+  ],
 ])('it checks a write in %s', (_label, command) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },

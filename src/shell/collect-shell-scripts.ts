@@ -33,10 +33,12 @@ export function collectShellScripts(command: string): ShellScript[] {
 
       // The outer shell expands an unquoted body before the inner one reads
       // it, and the output of a substitution can be any script text.
+      const descriptor = range === undefined ? null : findScriptDescriptor(range.text);
+
       const isScript =
         range !== undefined &&
-        isShellScript(range.text) &&
-        findStandardInput(tokens, range.start, range.end) === token.opener &&
+        descriptor !== null &&
+        findDescriptorSource(tokens, range.start, range.end, descriptor) === token.opener &&
         (token.isQuoted || token.substitutions.length === 0);
 
       const bodies = isScript ? [...token.substitutions, token.body] : token.substitutions;
@@ -46,13 +48,14 @@ export function collectShellScripts(command: string): ShellScript[] {
   ];
 }
 
-// The redirection that feeds descriptor 0, as the offset where it starts, or
+// The redirection that feeds a descriptor, as the offset where it starts, or
 // null when none does. Redirections apply in order, `<&3` copies whatever
 // descriptor 3 holds at that point, and a process substitution is a word.
-function findStandardInput(
+function findDescriptorSource(
   tokens: ShellTokens['tokens'],
   start: number,
   end: number,
+  descriptor: string,
 ): number | null {
   const descriptors = new Map<string, number | null>();
 
@@ -69,26 +72,26 @@ function findStandardInput(
     const number = /^\d*/u.exec(token.operator)?.[0] ?? '';
     const operator = token.operator.slice(number.length);
     const implied = operator.startsWith('<') ? '0' : '1';
-    const descriptor = number === '' ? implied : String(Number(number));
+    const assigned = number === '' ? implied : String(Number(number));
     const move = /^(?<source>\d+)(?<close>-?)$/u.exec(token.target ?? '')?.groups;
     const path = operator === '<' ? findInputPathDescriptor(token.target ?? '') : null;
 
     if (operator.endsWith('&') && move !== undefined) {
       const source = String(Number(move['source']));
 
-      descriptors.set(descriptor, descriptors.get(source) ?? null);
+      descriptors.set(assigned, descriptors.get(source) ?? null);
 
       if (move['close'] === '-') {
         descriptors.delete(source);
       }
     } else if (path === null) {
-      descriptors.set(descriptor, token.start);
+      descriptors.set(assigned, token.start);
     } else {
-      descriptors.set(descriptor, descriptors.get(path) ?? null);
+      descriptors.set(assigned, descriptors.get(path) ?? null);
     }
   }
 
-  return descriptors.get('0') ?? null;
+  return descriptors.get(descriptor) ?? null;
 }
 
 // A path that opens a descriptor the shell already holds, as that descriptor.
@@ -105,18 +108,18 @@ function findInputPathDescriptor(path: string): string | null {
 const SHELLS: ReadonlySet<string> = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
 
 // These options take the next word as their value, not as a script file.
-const VALUE_OPTIONS: ReadonlySet<string> = new Set(['--rcfile', '--init-file']);
+const VALUE_OPTIONS: ReadonlySet<string> = new Set(['--rcfile', '--init-file', '--emulate']);
 
 const VALUE_OPTION_GROUP = /^[-+][^-]*[oO]$/u;
 
-// A shell reads its script from standard input only when no argument names a
-// script file or, with `-c`, the script itself. With `-s` the arguments after
-// the options are positional parameters, and the script still comes from input.
-function isShellScript(segment: string): boolean {
+// The descriptor a shell reads its script from, or null when it runs a `-c`
+// string or a script file that is no open descriptor. With `-s` the arguments
+// after the options are positional parameters, and the script comes from input.
+function findScriptDescriptor(segment: string): string | null {
   const [program = '', ...args] = splitCommandWords(segment);
 
   if (!SHELLS.has(basename(program))) {
-    return false;
+    return null;
   }
 
   let readsInput = false;
@@ -126,24 +129,22 @@ function isShellScript(segment: string): boolean {
     const arg = args[index] ?? '';
 
     if (/^-[^-]*c/u.test(arg)) {
-      return false;
+      return null;
     }
 
     if (arg === '--' || arg === '-') {
-      return (
-        readsInput ||
-        index === args.length - 1 ||
-        findInputPathDescriptor(args[index + 1] ?? '') === '0'
-      );
+      const script = args[index + 1];
+
+      return readsInput || script === undefined ? '0' : findInputPathDescriptor(script);
     }
 
     if (!/^[-+]/u.test(arg)) {
-      return readsInput || findInputPathDescriptor(arg) === '0';
+      return readsInput ? '0' : findInputPathDescriptor(arg);
     }
 
     readsInput ||= /^-[^-]*s/u.test(arg);
     index += VALUE_OPTIONS.has(arg) || VALUE_OPTION_GROUP.test(arg) ? 2 : 1;
   }
 
-  return true;
+  return '0';
 }
