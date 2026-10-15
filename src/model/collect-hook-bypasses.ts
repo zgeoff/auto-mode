@@ -29,10 +29,10 @@ function collectSegmentBypasses(text: string): readonly string[] {
     return [];
   }
 
-  const assignments = words.slice(0, words.length - program.length);
+  const prefix = words.slice(0, words.length - program.length);
   const option = findNoVerifyOption(subArgs, subcommand);
 
-  return [...collectHookSwitches(assignments), ...(option === null ? [] : [option])];
+  return [...collectHookSwitches(prefix), ...(option === null ? [] : [option])];
 }
 
 // lefthook skips its hooks for `0` or `false`, husky for `0` alone.
@@ -41,12 +41,29 @@ const HOOK_SWITCH_VALUES: ReadonlyMap<string, readonly string[]> = new Map([
   ['HUSKY', ['0']],
 ]);
 
-// The shell keeps the last assignment to a name, so an earlier one is dropped.
-function collectHookSwitches(assignments: readonly string[]): readonly string[] {
-  return [...HOOK_SWITCH_VALUES].flatMap(([name, values]) => {
-    const last = assignments.findLast((word) => word.startsWith(`${name}=`));
+// The words before the program set and unset variables in order: a later
+// assignment replaces an earlier one, and `env -u NAME` removes it, so only
+// the last state of each name reaches git.
+function collectHookSwitches(prefix: readonly string[]): readonly string[] {
+  const reaching = new Map<string, string>();
 
-    return last !== undefined && values.includes(last.slice(name.length + 1)) ? [last] : [];
+  for (let index = 0; index < prefix.length; index += 1) {
+    const word = prefix[index] ?? '';
+    const name = word.slice(0, word.indexOf('='));
+
+    if (word === '-u') {
+      reaching.delete(prefix[index + 1] ?? '');
+
+      index += 1;
+    } else if (/^\w+$/u.test(name)) {
+      reaching.set(name, word);
+    }
+  }
+
+  return [...HOOK_SWITCH_VALUES].flatMap(([name, values]) => {
+    const word = reaching.get(name);
+
+    return word !== undefined && values.includes(word.slice(name.length + 1)) ? [word] : [];
   });
 }
 

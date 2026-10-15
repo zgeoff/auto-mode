@@ -16,6 +16,7 @@ test.each([
   ['git push --verify --no-verify', ['--no-verify']],
   ['git commit -nm --verify', ['-nm']],
   ['LEFTHOOK=1 LEFTHOOK=0 git push', ['LEFTHOOK=0']],
+  ['env -u HUSKY HUSKY=0 git commit -m x', ['HUSKY=0']],
 ])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command)).toStrictEqual(expected);
 });
@@ -32,6 +33,7 @@ test.each([
   'LEFTHOOK=1 git push',
   'HUSKY=false git commit -m x',
   'LEFTHOOK=0 LEFTHOOK=1 git push',
+  'HUSKY=0 env -u HUSKY git commit -m x',
   'git push --no-verify --verify',
   'git commit -n --veri -m x',
   'LEFTHOOK=0 git status',
