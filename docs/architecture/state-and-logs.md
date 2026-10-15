@@ -58,6 +58,8 @@ never torn. What a crash costs follows from the order of the writes:
   and the agent's next try at the same action gets that deny again
   ([crashes and races](./stages/denial-budget.md#crashes-and-races)).
 - A CLI killed while holding the lock on the denial counts or the session scope leaves a lock that
-  the next update of that file removes once it is stale.
+  the next update of that file takes over once it is stale. The update renames its own lock over the
+  stale one, so the lock path never stands empty for a second update to claim, and a CLI removes a
+  lock only when the lock holds its own owner id.
 - A file that a later read cannot parse counts as empty: no denials so far, or no scope the session
   created.

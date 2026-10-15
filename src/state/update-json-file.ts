@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, rename, rm, stat, writeFile } from 'node:fs/promises';
+import type { Stats } from 'node:fs';
+import { link, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { setTimeout as waitFor } from 'node:timers/promises';
 import type { LockClock } from './types.ts';
@@ -18,7 +19,7 @@ export async function updateJSONFile<T>(
 
   const lock = `${path}.lock`;
 
-  await claimLock(lock, clock);
+  const owner = await claimLock(lock, clock);
 
   try {
     const previous = await load(path);
@@ -34,7 +35,7 @@ export async function updateJSONFile<T>(
 
     return { previous, next };
   } finally {
-    await rm(lock, { force: true });
+    await removeOwnLock(lock, owner);
   }
 }
 
@@ -44,30 +45,125 @@ const STALE_LOCK_MS = 10_000;
 const LOCK_WAIT_MS = 3000;
 const LOCK_POLL_MS = 10;
 
-async function claimLock(lock: string, clock: Readonly<LockClock>): Promise<void> {
+// The lock is staged under a private name and linked into place, so it holds
+// its owner id from the moment it exists.
+async function claimLock(lock: string, clock: Readonly<LockClock>): Promise<string> {
   const deadline = clock.now() + LOCK_WAIT_MS;
+  const owner = randomUUID();
+  const staged = `${lock}.${owner}`;
 
-  for (;;) {
+  await writeFile(staged, owner, { flag: 'wx', mode: 0o600 });
+
+  try {
+    for (;;) {
+      try {
+        await link(staged, lock);
+
+        return owner;
+      } catch (error) {
+        if (!hasErrorCode(error, 'EEXIST')) {
+          throw error;
+        }
+      }
+
+      const held = await stat(lock).catch(() => null);
+
+      if (held !== null && isStale(held, clock)) {
+        const tookOver = await claimStaleLock(lock, staged, held, clock);
+
+        if (tookOver) {
+          return owner;
+        }
+      }
+
+      if (clock.now() > deadline) {
+        throw new Error('state file lock unavailable');
+      }
+
+      await clock.wait(LOCK_POLL_MS);
+    }
+  } finally {
+    await rm(staged, { force: true });
+  }
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return error instanceof Error && 'code' in error && error.code === code;
+}
+
+function isStale(file: Readonly<Pick<Stats, 'mtimeMs'>>, clock: Readonly<LockClock>): boolean {
+  return clock.now() - file.mtimeMs > STALE_LOCK_MS;
+}
+
+// A marker named for the stale lock's inode and mtime admits one process, and
+// the rename swaps its lock in without leaving the path empty. A dead taker's
+// marker goes stale; the next process claims the next generation instead.
+async function claimStaleLock(
+  lock: string,
+  staged: string,
+  held: Readonly<Pick<Stats, 'ino' | 'mtimeMs'>>,
+  clock: Readonly<LockClock>,
+): Promise<boolean> {
+  const prefix = `${lock}.${String(held.ino)}-${String(held.mtimeMs)}`;
+
+  const generation = await claimTakeoverMarker(prefix, clock);
+
+  if (generation === null) {
+    return false;
+  }
+
+  try {
+    const current = await stat(lock).catch(() => null);
+
+    if (current?.ino !== held.ino || current.mtimeMs !== held.mtimeMs) {
+      return false;
+    }
+
+    await rename(staged, lock);
+
+    return true;
+  } finally {
+    await Promise.all(
+      Array.from({ length: generation + 1 }, (_, index) =>
+        rm(buildTakeoverMarkerPath(prefix, index), { force: true }),
+      ),
+    );
+  }
+}
+
+async function claimTakeoverMarker(
+  prefix: string,
+  clock: Readonly<LockClock>,
+): Promise<number | null> {
+  for (let generation = 0; ; generation += 1) {
+    const marker = buildTakeoverMarkerPath(prefix, generation);
+
     try {
-      const handle = await open(lock, 'wx', 0o600);
+      await writeFile(marker, '', { flag: 'wx', mode: 0o600 });
 
-      await handle.close();
-
-      return;
+      return generation;
     } catch (error) {
-      if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) {
+      if (!hasErrorCode(error, 'EEXIST')) {
         throw error;
       }
     }
 
-    const held = await stat(lock).catch(() => null);
+    const existing = await stat(marker).catch(() => null);
 
-    if (held !== null && clock.now() - held.mtimeMs > STALE_LOCK_MS) {
-      await rm(lock, { force: true });
-    } else if (clock.now() > deadline) {
-      throw new Error('state file lock unavailable');
-    } else {
-      await clock.wait(LOCK_POLL_MS);
+    if (existing === null || !isStale(existing, clock)) {
+      return null;
     }
+  }
+}
+
+function buildTakeoverMarkerPath(prefix: string, generation: number): string {
+  return `${prefix}-${String(generation)}.takeover`;
+}
+
+async function removeOwnLock(lock: string, owner: string): Promise<void> {
+  const holder = await readFile(lock, 'utf8').catch(() => null);
+
+  if (holder === owner) {
+    await rm(lock, { force: true });
   }
 }
