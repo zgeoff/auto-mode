@@ -73,7 +73,7 @@ send a record of its own.
 
 The session's subagents record in parallel processes into one file per session, so each record
 reads, merges and writes the file under a lock file beside it, and replaces the file by a rename. A
-lock left by a process that died is stale after a bounded age, and the next record removes it. A
+lock left by a process that died is stale after a bounded age, and the next record takes it over. A
 record that cannot take the lock in time gives up: the CLI writes a note to stderr, and the session
 loses only the scope that call would have added. The record command never writes to stdout and
 always exits zero, because a record is not a verdict.
