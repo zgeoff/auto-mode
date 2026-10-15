@@ -42,21 +42,24 @@ read-only list. The CLI's explain note holds the exception that matched, `Read-o
 ## What they refuse to read
 
 The local rules split a shell command into its segments at `;`, `&&`, `||`, `|`, `&` and newlines,
-and judge each segment alone. They pass the whole command on when any part of it can hide an effect
-the segment text does not show: a command substitution, inside double quotes or bare, a backtick, a
-process substitution, an output redirection, or an unbalanced quote. A redirection makes a reporting
-command write a file, so `cat log > out` is a write even though `cat` is on the read-only list, and
-a segment with an input redirection passes on too, because Bash opens a socket for
-`cat < /dev/tcp/host/port`. A segment that starts with a `NAME=value` assignment or a wrapper such
-as `env`, `sudo`, `command` or `timeout` passes on too: the assignment can change what the program
-does, as `GIT_EXTERNAL_DIFF` does for `git diff`, and the wrapper runs a program the list never
-sees. The rules read the words through the same splitters the containment check uses,
-`splitCommandWords` and `splitGitCommand`, and pass on any segment where the first word is not the
-program. The rules read each word literally and never expand it, so a segment passes on when a word
-holds a character the shell expands outside single quotes: a backslash, `$`, a backtick, a brace, a
-glob character, `(`, `)` or `!`, or a `~` at the start of the word or after `=` or `:`.
-`git -C {/repo,clean,-fd} status` runs `git clean`, and `--out\put` runs as `--output`. A `~` inside
-a word, as in `HEAD~1`, is literal to the shell, so it stays readable.
+and judge each segment alone. A comment and a heredoc body belong to no segment, because Bash runs
+neither: a `#` that starts a word runs to the end of its line, and a heredoc body runs to the line
+that holds only its delimiter. A `<<` inside `(( … ))` shifts bits, so it opens no heredoc. They
+pass the whole command on when any part of it can hide an effect the segment text does not show: a
+command substitution, inside double quotes or bare, a backtick, a process substitution, an output
+redirection, or an unbalanced quote. A redirection makes a reporting command write a file, so
+`cat log > out` is a write even though `cat` is on the read-only list, and a segment with an input
+redirection passes on too, because Bash opens a socket for `cat < /dev/tcp/host/port`. A segment
+that starts with a `NAME=value` assignment or a wrapper such as `env`, `sudo`, `command` or
+`timeout` passes on too: the assignment can change what the program does, as `GIT_EXTERNAL_DIFF`
+does for `git diff`, and the wrapper runs a program the list never sees. The rules read the words
+through the same splitters the containment check uses, `splitCommandWords` and `splitGitCommand`,
+and pass on any segment where the first word is not the program. The rules read each word literally
+and never expand it, so a segment passes on when a word holds a character the shell expands outside
+single quotes: a backslash, `$`, a backtick, a brace, a glob character, `(`, `)` or `!`, or a `~` at
+the start of the word or after `=` or `:`. `git -C {/repo,clean,-fd} status` runs `git clean`, and
+`--out\put` runs as `--output`. A `~` inside a word, as in `HEAD~1`, is literal to the shell, so it
+stays readable.
 
 ## Where they sit in the path
 

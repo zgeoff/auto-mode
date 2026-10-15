@@ -11,7 +11,11 @@ export interface ShellCommand {
 
 // One entry per segment, with the directory it runs in and the files its
 // output redirections write. A `cd` moves the directory of every later entry.
-export function collectShellCommands(command: string, cwd: string, home: string): ShellCommand[] {
+export function collectShellCommands(
+  command: string,
+  cwd: string | null,
+  home: string,
+): ShellCommand[] {
   const hasPipe = splitShellTokens(command).tokens.some(
     (token) => token.kind === 'separator' && token.operator === '|',
   );

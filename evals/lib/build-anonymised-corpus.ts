@@ -1,6 +1,12 @@
 import { createHmac } from 'node:crypto';
 import { basename } from 'node:path';
-import { findSecret, splitCommandWords, splitGitCommand, splitShellCommand } from 'auto-mode/eval';
+import {
+  collectShellScripts,
+  findSecret,
+  splitCommandWords,
+  splitGitCommand,
+  splitShellCommand,
+} from 'auto-mode/eval';
 
 export interface CapturedAction {
   readonly cwd: string;
@@ -398,275 +404,24 @@ function collectCommands(value: unknown, key: string | null): string[] {
   return [];
 }
 
-// A space keeps both halves of a branch name split by `\<newline>` for the rewriter,
-// and after an escaped `\\` the newline stays.
-const LINE_CONTINUATION = /(?<!\\)(?<escapes>(?:\\\\)*)\\\n/g;
+// The shell layer keeps a `\<newline>` inside its word, and the rewriter
+// matches the text as written, so a branch name split by one gives two names.
+const LINE_CONTINUATION = '\\\n';
 
-// The shell joins the lines, so a `#` there starts no comment. A NUL, which no
-// shell command holds, keeps the `#` in its word and splits the name instead.
-const HASH_CONTINUATION = /(?<!\\)(?<escapes>(?:\\\\)*)\\\n(?=#)/g;
-const JOINED_LINE = '\0';
-
-// A substitution runs its own command, so its text is read on its own, and a
-// grouping bracket that the shell layer keeps on a word would stick to a branch name.
+// A substitution or a shell's heredoc script runs its own commands, so each is
+// read on its own.
 function collectCommandBranches(command: string): Identifier[] {
-  const text = command
-    .replaceAll(HASH_CONTINUATION, `$<escapes>${JOINED_LINE}`)
-    .replaceAll(LINE_CONTINUATION, '$<escapes> ');
-
-  const substituted = collectSubstitutions(text, 0, null).bodies.flatMap((body) =>
-    collectCommandBranches(body),
+  const substituted = collectShellScripts(command).flatMap((script) =>
+    collectCommandBranches(script.text),
   );
 
-  // After a separator the `#` starts a word, so it opens a comment.
-  const words = text.replaceAll(/[(){}]/g, ' ').replaceAll(/(?<=^|[\s;&|<>])\0/g, '');
-
-  const branches = splitShellCommand(words).segments.flatMap((segment) =>
+  const branches = splitShellCommand(command).segments.flatMap((segment) =>
     collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
   );
 
   return [...substituted, ...branches].flatMap((branch) =>
-    branch.value.split(JOINED_LINE).map((value) => ({ value, kind: branch.kind })),
+    branch.value.split(LINE_CONTINUATION).map((value) => ({ value, kind: branch.kind })),
   );
-}
-
-interface SubstitutionScan {
-  readonly bodies: string[];
-  readonly end: number;
-}
-
-interface Heredoc {
-  readonly delimiter: string;
-  readonly isQuoted: boolean;
-  readonly stripsTabs: boolean;
-}
-
-const HEREDOC = /^<<(?<strip>-?)[ \t]*(?<word>[^\s<>;&|()]+)/;
-
-// The shell runs no substitution inside single quotes, after a backslash, in a
-// comment or in a quoted heredoc. A quote or bracket that never closes is read
-// as one literal character, because stopping there would leak a later push.
-function collectSubstitutions(
-  text: string,
-  start: number,
-  closer: ')' | '}' | null,
-): SubstitutionScan {
-  const bodies: string[] = [];
-  const heredocs: Heredoc[] = [];
-  const isExpansion = closer === '}';
-  const opener = isExpansion ? '{' : '(';
-  let isDoubleQuoted = false;
-  let depth = 0;
-  let substitutionEnd = -1;
-  let escapedIndex = -1;
-  let index = start;
-
-  while (index < text.length) {
-    const char = text[index] ?? '';
-
-    if (char === '\\') {
-      escapedIndex = index + 1;
-      index += 2;
-      continue;
-    }
-
-    // A `${…}` opens its own quoting, so a quote inside it closes no outer quote.
-    if (text.startsWith('${', index)) {
-      const expansion = collectSubstitutions(text, index + 2, '}');
-
-      bodies.push(...expansion.bodies);
-
-      index = expansion.end === -1 ? index + 1 : expansion.end + 1;
-      continue;
-    }
-
-    if (char === '`' || text.startsWith('$(', index)) {
-      const substitution = findSubstitution(text, index);
-
-      if (substitution !== null) {
-        bodies.push(substitution.body);
-
-        substitutionEnd = substitution.end;
-      }
-
-      index = substitution === null ? index + 1 : substitution.end + 1;
-      continue;
-    }
-
-    if (char === '\n' && heredocs.length > 0 && !isDoubleQuoted) {
-      for (const heredoc of heredocs.splice(0)) {
-        const [bodyEnd, next] = getHeredocEnd(text, index + 1, heredoc);
-
-        if (!heredoc.isQuoted) {
-          bodies.push(...collectHeredocSubstitutions(text.slice(index + 1, bodyEnd)));
-        }
-
-        index = next;
-      }
-
-      continue;
-    }
-
-    if (char === '"') {
-      isDoubleQuoted = !isDoubleQuoted;
-    } else if (!isDoubleQuoted) {
-      if (isExpansion) {
-        // Quotes, comments and heredocs do not apply inside an expansion.
-      } else if (char === "'") {
-        const end = findSingleQuoteEnd(text, index, isANSIQuote(text, index));
-
-        index = end === -1 ? index : end;
-      } else if (char === '#' && isWordStart(text, index, start, substitutionEnd, escapedIndex)) {
-        const newline = text.indexOf('\n', index);
-
-        index = (newline === -1 ? text.length : newline) - 1;
-      } else if (text.startsWith('<<<', index)) {
-        index += 2;
-      } else if (text.startsWith('<<', index)) {
-        const match = HEREDOC.exec(text.slice(index));
-
-        if (match !== null) {
-          heredocs.push(toHeredoc(match.groups?.['word'] ?? '', match.groups?.['strip'] === '-'));
-
-          index += match[0].length - 1;
-        }
-      }
-
-      if (char === opener) {
-        depth += 1;
-      } else if (char === closer) {
-        if (depth === 0) {
-          return { bodies, end: index };
-        }
-
-        depth -= 1;
-      }
-    }
-
-    index += 1;
-  }
-
-  return { bodies, end: -1 };
-}
-
-function findSubstitution(text: string, index: number): { body: string; end: number } | null {
-  const isBacktick = text[index] === '`';
-  const bodyStart = index + (isBacktick ? 1 : 2);
-
-  const end = isBacktick
-    ? findBacktickEnd(text, bodyStart)
-    : collectSubstitutions(text, bodyStart, ')').end;
-
-  return end === -1 ? null : { body: text.slice(bodyStart, end), end };
-}
-
-// The shell ends a backtick body at the first unescaped backtick, before it reads any quote.
-function findBacktickEnd(text: string, start: number): number {
-  for (let index = start; index < text.length; index += 1) {
-    if (text[index] === '\\') {
-      index += 1;
-    } else if (text[index] === '`') {
-      return index;
-    }
-  }
-
-  return -1;
-}
-
-// An escaped `\$` or the `$$` parameter before a quote does not start `$'…'`.
-function isANSIQuote(text: string, index: number): boolean {
-  return text[index - 1] === '$' && !/[\\$]/.test(text[index - 2] ?? '');
-}
-
-// `$'…'` lets a backslash escape the closing quote; a plain single quote does not.
-function findSingleQuoteEnd(text: string, start: number, allowsEscapes: boolean): number {
-  for (let index = start + 1; index < text.length; index += 1) {
-    if (allowsEscapes && text[index] === '\\') {
-      index += 1;
-    } else if (text[index] === "'") {
-      return index;
-    }
-  }
-
-  return -1;
-}
-
-// A `)` that closes a subshell ends a word, but one that closes a substitution
-// leaves the word open, so `$(…)#L1` holds no comment. An escaped separator
-// belongs to the word, so `foo\ #` holds no comment either.
-function isWordStart(
-  text: string,
-  index: number,
-  start: number,
-  substitutionEnd: number,
-  escapedIndex: number,
-): boolean {
-  const previous = text[index - 1] ?? '';
-
-  if (previous === JOINED_LINE) {
-    return isWordStart(text, index - 1, start, substitutionEnd, escapedIndex);
-  }
-
-  return (
-    index === start ||
-    (index - 1 !== escapedIndex &&
-      (/[\s;&|(<>]/.test(previous) || (previous === ')' && index - 1 !== substitutionEnd)))
-  );
-}
-
-// Any quoted character in the word quotes the whole delimiter and turns
-// substitution off for the body.
-function toHeredoc(word: string, stripsTabs: boolean): Heredoc {
-  return {
-    delimiter: word.replaceAll(/['"\\]/g, ''),
-    isQuoted: /['"\\]/.test(word),
-    stripsTabs,
-  };
-}
-
-// A body with no closing delimiter runs to the end of the command.
-function getHeredocEnd(text: string, bodyStart: number, heredoc: Heredoc): [number, number] {
-  let lineStart = bodyStart;
-
-  while (lineStart < text.length) {
-    const newline = text.indexOf('\n', lineStart);
-    const lineEnd = newline === -1 ? text.length : newline;
-    const line = text.slice(lineStart, lineEnd);
-
-    if ((heredoc.stripsTabs ? line.replace(/^\t+/, '') : line) === heredoc.delimiter) {
-      return [lineStart, lineEnd];
-    }
-
-    lineStart = lineEnd + 1;
-  }
-
-  return [text.length, text.length];
-}
-
-// Quotes are literal in a heredoc body, so only a backslash and a substitution count.
-function collectHeredocSubstitutions(body: string): string[] {
-  const bodies: string[] = [];
-  let index = 0;
-
-  while (index < body.length) {
-    const char = body[index] ?? '';
-
-    if (char === '\\') {
-      index += 2;
-    } else if (char === '`' || body.startsWith('$(', index)) {
-      const substitution = findSubstitution(body, index);
-
-      if (substitution !== null) {
-        bodies.push(substitution.body);
-      }
-
-      index = substitution === null ? index + 1 : substitution.end + 1;
-    } else {
-      index += 1;
-    }
-  }
-
-  return bodies;
 }
 
 const COMMAND_PREFIXES = new Set([
@@ -688,10 +443,10 @@ const COMMAND_PREFIXES = new Set([
 
 const VALUED_PREFIX_OPTIONS = new Set(['-u', '-g', '-n', '-I']);
 
-// A comment ends the command, and a wrapper's options come before the program.
+// The shell layer keeps a grouping bracket on the word beside it, where it
+// would stick to a branch name, and a wrapper's options come before the program.
 function toProgramWords(words: readonly string[]): readonly string[] {
-  const comment = words.findIndex((word) => word.startsWith('#'));
-  const command = comment === -1 ? words : words.slice(0, comment);
+  const command = words.map((word) => word.replaceAll(/[(){}]/g, '')).filter((word) => word !== '');
   let index = 0;
 
   while (index < command.length) {

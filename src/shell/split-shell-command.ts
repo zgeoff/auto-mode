@@ -1,7 +1,10 @@
 import { splitShellTokens } from './split-shell-tokens.ts';
 
+// Offsets index the command, end exclusive.
 export interface ShellSegment {
   readonly text: string;
+  readonly start: number;
+  readonly end: number;
 }
 
 export function splitShellCommand(command: string): {
@@ -16,11 +19,11 @@ export function splitShellCommand(command: string): {
   for (const token of [...scanned.tokens, null]) {
     if (token === null || token.kind === 'separator') {
       if (start !== null) {
-        segments.push({ text: command.slice(start, end) });
+        segments.push({ text: command.slice(start, end), start, end });
       }
 
       start = null;
-    } else {
+    } else if (token.kind !== 'comment' && token.kind !== 'heredoc') {
       start ??= token.start;
       end = token.end;
     }
