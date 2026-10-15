@@ -74,7 +74,9 @@ function findDescriptorSource(
     const implied = operator.startsWith('<') ? '0' : '1';
     const assigned = number === '' ? implied : String(Number(number));
     const move = /^(?<source>\d+)(?<close>-?)$/u.exec(token.target ?? '')?.groups;
-    const path = operator === '<' ? findInputPathDescriptor(token.target ?? '') : null;
+
+    const path =
+      operator === '<' || operator === '<>' ? findPathDescriptor(token.target ?? '') : null;
 
     if (operator.endsWith('&') && move !== undefined) {
       const source = String(Number(move['source']));
@@ -94,15 +96,21 @@ function findDescriptorSource(
   return descriptors.get(descriptor) ?? null;
 }
 
+const STANDARD_PATHS: ReadonlyMap<string, string> = new Map([
+  ['/dev/stdin', '0'],
+  ['/dev/stdout', '1'],
+  ['/dev/stderr', '2'],
+]);
+
 // A path that opens a descriptor the shell already holds, as that descriptor.
-function findInputPathDescriptor(path: string): string | null {
+function findPathDescriptor(path: string): string | null {
   const descriptor = /^\/(?:dev|proc\/self)\/fd\/(?<number>\d+)$/u.exec(path)?.groups?.['number'];
 
   if (descriptor !== undefined) {
     return String(Number(descriptor));
   }
 
-  return path === '/dev/stdin' ? '0' : null;
+  return STANDARD_PATHS.get(path) ?? null;
 }
 
 const SHELLS: ReadonlySet<string> = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
@@ -135,11 +143,11 @@ function findScriptDescriptor(segment: string): string | null {
     if (arg === '--' || arg === '-') {
       const script = args[index + 1];
 
-      return readsInput || script === undefined ? '0' : findInputPathDescriptor(script);
+      return readsInput || script === undefined ? '0' : findPathDescriptor(script);
     }
 
     if (!/^[-+]/u.test(arg)) {
-      return readsInput ? '0' : findInputPathDescriptor(arg);
+      return readsInput ? '0' : findPathDescriptor(arg);
     }
 
     readsInput ||= /^-[^-]*s/u.test(arg);

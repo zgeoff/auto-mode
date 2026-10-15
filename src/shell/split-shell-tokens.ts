@@ -74,12 +74,15 @@ interface TextTokens {
   readonly unclosedAt: number | null;
 }
 
-// One level of nesting: the top level, a `$(…)` body, or a heredoc body.
+// One level of nesting: the top level, a `$(…)` body, or a heredoc body. The
+// balance counts only the grouping parentheses read at this level, so a quoted
+// or nested parenthesis never ends an arithmetic command.
 interface Level {
   readonly substitutions: string[];
   readonly limit: number;
   readonly closer: ')' | null;
   depth: number;
+  balance: number;
 }
 
 // Every helper reads and updates the state of one scan, so each closes over
@@ -172,6 +175,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
+      const balance = level.balance;
       const word = readWord(index);
       const operator = findOperator(REDIRECTS, text, word.end);
       const isDescriptor = operator !== undefined && /^\d+$/u.test(word.raw);
@@ -180,7 +184,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         tokens.push(buildWordToken(word, index));
 
         if (arithmeticDepth > 0 || word.raw.startsWith('((')) {
-          arithmeticDepth += countParenBalance(word.raw);
+          arithmeticDepth += level.balance - balance;
         }
 
         if (word.isUnterminated) {
@@ -218,7 +222,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
       }
 
       if (arithmeticDepth > 0) {
-        arithmeticDepth += countParenBalance(text.slice(index, redirect.end));
+        arithmeticDepth += level.balance - balance;
       }
 
       index = redirect.end;
@@ -298,6 +302,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
           level.depth += ch === '(' ? 1 : -1;
         }
 
+        level.balance += ch === '(' ? 1 : -1;
         paren ??= { value: value.length, raw: index - start };
         parenEnd = index + 1;
       }
@@ -597,14 +602,8 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
   return { tokens, substitutions: top.substitutions, hasSubstitution, unclosedAt };
 }
 
-// An arithmetic command lasts until its parentheses balance, so a nested
-// `$((…))` inside it does not end it.
-function countParenBalance(raw: string): number {
-  return (raw.match(/\(/gu)?.length ?? 0) - (raw.match(/\)/gu)?.length ?? 0);
-}
-
 function buildLevel(limit: number, closer: ')' | null): Level {
-  return { substitutions: [], limit, closer, depth: 0 };
+  return { substitutions: [], limit, closer, depth: 0, balance: 0 };
 }
 
 const SEPARATORS = ['&&', '||', ';', '|', '&', '\n'];

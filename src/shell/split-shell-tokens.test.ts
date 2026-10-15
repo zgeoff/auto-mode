@@ -171,6 +171,12 @@ test.each([
   expect(splitShellTokens(text).substitutions).toStrictEqual(['git log']);
 });
 
+test('it collects a substitution after a shift that follows a quoted parenthesis', () => {
+  expect(splitShellTokens("echo $((1 + $(printf ')') << $(git log)))").substitutions).toStrictEqual(
+    ["printf ')'", 'git log'],
+  );
+});
+
 test.each([
   ['a body that does not end in ))', 'echo $((cd app); make)', '(cd app); make'],
   ['two subshells', 'echo $((cd app); make; (ls))', '(cd app); make; (ls)'],

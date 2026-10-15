@@ -24,6 +24,11 @@ test.each([
   ['a shell whose input reopens /dev/stdin', "bash <<'EOF' < /dev/stdin\nrm x\nEOF"],
   ['a shell whose script path opens descriptor 3', "bash /dev/fd/3 3<<'EOF'\nrm x\nEOF"],
   ['zsh after an emulation value', "zsh --emulate sh <<'EOF'\nrm x\nEOF"],
+  [
+    'a shell whose input reopens /dev/stdin for writing too',
+    "bash <<'EOF' <> /dev/stdin\nrm x\nEOF",
+  ],
+  ['a shell whose script path is /dev/stderr', "bash /dev/stderr 2<<'EOF'\nrm x\nEOF"],
 ])('it reads a heredoc that %s runs as a script', (_label, command) => {
   expect(collectShellScripts(command)).toStrictEqual([{ text: 'rm x\n', segment: 0 }]);
 });
