@@ -26,11 +26,11 @@ from that point. The check reads the command with the same shell tokenizer the l
 session scope and the evaluation anonymiser use, so all four agree on where a word, a segment and a
 redirection end. A command substitution, and a heredoc that a shell reads as its script, run
 commands of their own, so the check reads each one from the directory of the segment that runs it. A
-shell reads a heredoc as its script only when the heredoc reaches its standard input and the shell
-runs neither a `-c` string nor a script file other than standard input. The outer shell expands an
-unquoted heredoc before the inner shell reads it, and a substitution's output can be any script
-text. The check therefore reads the substitutions of such a body, and the body itself only when it
-holds none.
+shell reads a heredoc as its script only when it runs no `-c` string and the heredoc reaches the
+descriptor its script comes from: standard input, or the descriptor that a script path such as
+`/dev/fd/3` opens. The outer shell expands an unquoted heredoc before the inner shell reads it, and
+a substitution's output can be any script text. The check therefore reads the substitutions of such
+a body, and the body itself only when it holds none.
 
 ## What counts as a write target
 
