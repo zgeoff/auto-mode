@@ -23,8 +23,9 @@ line in the list:
 
 Some reporting programs take an option that runs another command, writes a file, or changes the
 machine: `find -exec` and `find -delete`, `fd -x`, `rg --pre`, `sort -o`, `uniq`'s second operand,
-and `git log --output`. A second table holds those options per program, and a command that uses one
-passes on. The rules read the arguments as getopt does, so an option inside a short cluster such as
+`git log --output`, and `git diff --ext-diff`, which runs the external diff the git configuration
+names. A second table holds those options per program, and a command that uses one passes on. The
+rules read the arguments as getopt does, so an option inside a short cluster such as
 `sort -uo FILE`, or a long one cut to a prefix such as `--out=FILE`, counts as the option. The table
 also names each program's options that take a value, because such an option takes the rest of its
 cluster: `sort -to` sets the field separator to `o` and writes nothing. A program whose effects live

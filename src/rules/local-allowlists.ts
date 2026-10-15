@@ -146,7 +146,7 @@ export const UNSAFE_OPTIONS: ReadonlyMap<string, UnsafeOptions> = new Map([
       operands: 0,
     },
   ],
-  ['rg', { long: ['hostname-bin', 'pre'] }],
+  ['rg', { short: ['z'], long: ['hostname-bin', 'pre', 'search-zip'] }],
   [
     'sort',
     {
@@ -196,8 +196,9 @@ export const READ_ONLY_GIT_SUBCOMMANDS: ReadonlySet<string> = new Set([
 ]);
 
 // Every reporting git subcommand that takes diff options accepts `--output`,
-// which writes the report to a file.
-export const UNSAFE_GIT_OPTIONS: UnsafeOptions = { long: ['output'] };
+// which writes the report to a file, and `--ext-diff` and `--textconv`, which
+// run the programs the git configuration names.
+export const UNSAFE_GIT_OPTIONS: UnsafeOptions = { long: ['ext-diff', 'output', 'textconv'] };
 
 // The git global options that take no value and change only how a report is
 // shown. Any other global passes on, `-C <dir>` aside.
