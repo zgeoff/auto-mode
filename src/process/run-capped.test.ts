@@ -128,7 +128,14 @@ test('it settles at the abort when the child has exited and a process outside it
   const pids = z.object({ child: z.number(), escaped: z.number() }).parse(JSON.parse(report));
 
   onTestFinished(() => {
-    process.kill(pids.escaped, 'SIGKILL');
+    // The escaped process can be gone already, so a missing process is not a failure.
+    try {
+      process.kill(pids.escaped, 'SIGKILL');
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) {
+        throw error;
+      }
+    }
   });
 
   // The abort comes after the child is reaped, so only the escaped process holds stdout.
