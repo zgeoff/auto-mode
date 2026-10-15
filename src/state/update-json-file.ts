@@ -68,11 +68,7 @@ async function claimLock(lock: string, clock: Readonly<LockClock>): Promise<stri
 
       const held = await stat(lock).catch(() => null);
 
-      if (held === null) {
-        continue;
-      }
-
-      if (isStale(held, clock)) {
+      if (held !== null && isStale(held, clock)) {
         const tookOver = await claimStaleLock(lock, staged, held, clock);
 
         if (tookOver) {

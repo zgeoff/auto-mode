@@ -1,6 +1,16 @@
 import { expect, onTestFinished, test } from 'bun:test';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as z from 'zod';
@@ -102,6 +112,26 @@ test('it gives up on a held lock once it has waited 3 s', async () => {
   ).rejects.toThrowWithMessage(Error, 'state file lock unavailable');
 
   expect(clock.now()).toBe(lockedAt + 3010);
+});
+
+test('it gives up after 3 s on a lock path it cannot inspect', async () => {
+  const ctx = await setupTest();
+
+  const startedAt = Date.parse('2026-01-01T00:00:00Z');
+
+  await mkdir(dirname(ctx.path));
+  await symlink(join(ctx.dir, 'missing-lock-target'), ctx.lock);
+
+  const clock = buildStubLockClock({ startAt: startedAt, advancesOnWait: true });
+
+  expect(
+    updateJSONFile(ctx.path, ctx.load, () => ({ count: 1 }), clock),
+  ).rejects.toThrowWithMessage(Error, 'state file lock unavailable');
+
+  const loaded = await ctx.load(ctx.path);
+
+  expect(clock.now()).toBe(startedAt + 3010);
+  expect(loaded).toStrictEqual({ count: 0 });
 });
 
 test('it takes over a lock older than the stale age and writes the update', async () => {
