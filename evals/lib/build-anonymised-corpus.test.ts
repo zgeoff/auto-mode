@@ -443,6 +443,14 @@ test.each([
     /^echo \$\(git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}\)$/,
   ],
   ['git push origin feat-\\\nlogin', /^git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}$/],
+  [
+    "bash <<'EOF'\ngit push origin feat-login\nEOF",
+    /^bash <<'EOF'\ngit push origin branch-[0-9a-f]{8}\nEOF$/,
+  ],
+  [
+    `echo "\${x:-'$(git push origin feat-login)'}"`,
+    /^echo "\$\{x:-'\$\(git push origin branch-[0-9a-f]{8}\)'\}"$/,
+  ],
 ])('it replaces the branch that %j pushes', (command, expected) => {
   const corpus = buildAnonymisedCorpus(
     [{ cwd: '/tmp', decidingStage: 'jev', verdict: null, request: { command } }],

@@ -1,11 +1,11 @@
 import { createHmac } from 'node:crypto';
 import { basename } from 'node:path';
 import {
+  collectShellScripts,
   findSecret,
   splitCommandWords,
   splitGitCommand,
   splitShellCommand,
-  splitShellTokens,
 } from 'auto-mode/eval';
 
 export interface CapturedAction {
@@ -408,10 +408,11 @@ function collectCommands(value: unknown, key: string | null): string[] {
 // matches the text as written, so a branch name split by one gives two names.
 const LINE_CONTINUATION = '\\\n';
 
-// A substitution runs its own command, so its body is read on its own.
+// A substitution or a shell's heredoc script runs its own commands, so each is
+// read on its own.
 function collectCommandBranches(command: string): Identifier[] {
-  const substituted = splitShellTokens(command).substitutions.flatMap((body) =>
-    collectCommandBranches(body),
+  const substituted = collectShellScripts(command).flatMap((script) =>
+    collectCommandBranches(script.text),
   );
 
   const branches = splitShellCommand(command).segments.flatMap((segment) =>

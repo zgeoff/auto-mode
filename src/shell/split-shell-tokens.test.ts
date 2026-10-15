@@ -123,6 +123,7 @@ test.each([
   ['a nested substitution, once', 'echo $(a $(b))', ['a $(b)']],
   ['a substitution inside a parameter default', `echo \${x:-$(git log)}`, ['git log']],
   ['a quote inside a parameter', `echo "\${x:-"it's"}" $(git log)`, ['git log']],
+  ['single quotes in a parameter inside double quotes', `echo "\${x:-'$(git log)'}"`, ['git log']],
   ['a process substitution', 'diff <(git log) b', ['git log']],
   ['a substitution after a word-joined one', 'ref=$(a)#L1 && echo $(b)', ['a', 'b']],
   ['an ANSI quote with an escaped quote', String.raw`echo $'it\'s' $(git log)`, ['git log']],
@@ -180,7 +181,15 @@ test('it reads a heredoc body as one token and the line after it as a command', 
     { kind: 'word', value: 'cat', raw: 'cat', start: 0, end: 3 },
     { kind: 'redirect', operator: '<<', target: 'EOF', start: 4, end: 9 },
     { kind: 'separator', operator: '\n', start: 9, end: 10 },
-    { kind: 'heredoc', body: 'rm x\n', isQuoted: false, start: 10, end: 18 },
+    {
+      kind: 'heredoc',
+      body: 'rm x\n',
+      isQuoted: false,
+      opener: 4,
+      substitutions: [],
+      start: 10,
+      end: 18,
+    },
     { kind: 'separator', operator: '\n', start: 18, end: 19 },
     { kind: 'word', value: 'ls', raw: 'ls', start: 19, end: 21 },
   ]);
@@ -222,6 +231,8 @@ test.each([
   ],
   ['a heredoc that follows an arithmetic command', "((1<<2))\ncat <<EOF\n'\nEOF\ngit log", 25],
   ['a single-quoted brace in a parameter default', `echo \${x:-'{}'}; git log`, 17],
+  ['a heredoc whose delimiter line is continued', 'cat <<EOF\nignored\nE\\\nOF\ngit log', 24],
+  ['a heredoc whose quoted delimiter holds a backslash', "cat <<'E\\OF'\nbody\nE\\OF\ngit log", 23],
 ])('it reads the line after %s as a command', (_label, text, start) => {
   expect(splitShellTokens(text).tokens.at(-2)).toStrictEqual({
     kind: 'word',

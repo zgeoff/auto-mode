@@ -596,6 +596,39 @@ test('it still checks an absolute target after a cd inside a pipeline, but not a
   expect(findings).toStrictEqual([{ kind: 'path', target: '/other', grant: { kind: 'path' } }]);
 });
 
+test('it checks a write inside a command substitution', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'echo $(echo start; rm /other/file; echo done)' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/other/file', grant: { kind: 'path' } },
+  ]);
+});
+
+test('it checks a push in a heredoc that a shell runs as its script', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: "bash <<'EOF'\ngit push origin other\nEOF" },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      branches: ['feature'],
+      currentBranch: 'feature',
+      remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'branch', target: 'other', grant: { kind: 'branch' } }]);
+});
+
 test('it still checks a remote write after a cd inside a pipeline', () => {
   const findings = collectScopeFindings(
     {

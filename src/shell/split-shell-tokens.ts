@@ -32,6 +32,8 @@ type ShellToken =
       readonly kind: 'heredoc';
       readonly body: string;
       readonly isQuoted: boolean;
+      readonly opener: number;
+      readonly substitutions: readonly string[];
       readonly start: number;
       readonly end: number;
     };
@@ -206,7 +208,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
       // Inside `(( … ))`, up to its closing word, a `<<` shifts bits and opens
       // no heredoc, even after a `&` or `|` there.
       if ((operator === '<<' || operator === '<<-') && redirect.raw !== '' && !isArithmetic) {
-        heredocs.push(buildHeredoc(redirect.raw, operator === '<<-'));
+        heredocs.push(buildHeredoc(redirect.raw, operator === '<<-', index));
       }
 
       isArithmetic &&= !text.slice(index, redirect.end).endsWith('))');
@@ -261,7 +263,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
-      const expansion = readExpansion(index);
+      const expansion = readExpansion(index, false);
 
       if (expansion !== null) {
         value += text.slice(index, expansion.end);
@@ -321,7 +323,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         value += text.slice(index, index + 2);
         index += 2;
       } else {
-        const expansion = quote === '"' ? readExpansion(index) : null;
+        const expansion = quote === '"' ? readExpansion(index, true) : null;
         const end = expansion?.end ?? index + 1;
 
         value += text.slice(index, end);
@@ -340,7 +342,10 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
 
   // `$(…)` and backticks run a command, whose body joins the level's
   // substitutions; `${…}` holds parameter text that can hold either.
-  const readExpansion = (index: number): { end: number; isUnterminated: boolean } | null => {
+  const readExpansion = (
+    index: number,
+    isInDoubleQuotes: boolean,
+  ): { end: number; isUnterminated: boolean } | null => {
     if (text.startsWith('$(', index) || text.charAt(index) === '`') {
       hasSubstitution = true;
 
@@ -355,7 +360,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
     }
 
     if (text.startsWith('${', index)) {
-      return collectExpansionBody(index, -1, findParameterEnd(index + 2));
+      return collectExpansionBody(index, -1, findParameterEnd(index + 2, isInDoubleQuotes));
     }
 
     return null;
@@ -397,11 +402,12 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
     return -1;
   };
 
-  // Inside `${…}` a double quote opens its own quoting, so a quote there closes
-  // no outer quote. A single-quoted `}` closes nothing, even inside double
-  // quotes, and a bare `{` is plain text.
-  const findParameterEnd = (start: number): number => {
+  // A single-quoted `}` closes nothing and a bare `{` is plain text. Within
+  // double quotes a single quote is literal, so a substitution between single
+  // quotes still runs.
+  const findParameterEnd = (start: number, isInDoubleQuotes: boolean): number => {
     let isDoubleQuoted = false;
+    let isSingleQuoted = false;
     let index = start;
 
     while (index < level.limit) {
@@ -417,7 +423,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
-      const expansion = readExpansion(index);
+      const expansion = readExpansion(index, isInDoubleQuotes || isDoubleQuoted);
 
       if (expansion !== null) {
         if (expansion.isUnterminated) {
@@ -428,7 +434,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
-      if (ch === "'" && !isDoubleQuoted) {
+      if (ch === "'" && !isInDoubleQuotes && !isDoubleQuoted) {
         const close = text.indexOf("'", index + 1);
 
         if (close === -1 || close >= level.limit) {
@@ -439,9 +445,11 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
-      if (ch === '"') {
+      if (ch === "'" && !isDoubleQuoted) {
+        isSingleQuoted = !isSingleQuoted;
+      } else if (ch === '"' && !isSingleQuoted) {
         isDoubleQuoted = !isDoubleQuoted;
-      } else if (!isDoubleQuoted && ch === '}') {
+      } else if (!isDoubleQuoted && !isSingleQuoted && ch === '}') {
         return index;
       }
 
@@ -506,18 +514,19 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
 
     for (const heredoc of heredocs) {
       const [bodyEnd, next] = findHeredocEnd(text, bodyStart, level.limit, heredoc);
+      const substitutions = heredoc.isQuoted ? [] : collectHeredocSubstitutions(bodyStart, bodyEnd);
 
       tokens.push({
         kind: 'heredoc',
         body: text.slice(bodyStart, bodyEnd),
         isQuoted: heredoc.isQuoted,
+        opener: heredoc.opener,
+        substitutions,
         start: bodyStart,
         end: next,
       });
 
-      if (!heredoc.isQuoted) {
-        level.substitutions.push(...collectHeredocSubstitutions(bodyStart, bodyEnd));
-      }
+      level.substitutions.push(...substitutions);
 
       end = next;
       bodyStart = Math.min(next + 1, level.limit);
@@ -536,7 +545,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         } else if (text.charAt(index) === '\\') {
           index += 2;
         } else {
-          index = readExpansion(index)?.end ?? index + 1;
+          index = readExpansion(index, true)?.end ?? index + 1;
         }
       }
     }).substitutions;
@@ -618,19 +627,44 @@ interface Heredoc {
   readonly delimiter: string;
   readonly isQuoted: boolean;
   readonly stripsTabs: boolean;
+  readonly opener: number;
 }
 
-// Any quoted character in the word quotes the whole delimiter and turns
-// substitution off for the body. A line continuation joins the word, except
-// inside single quotes.
-function buildHeredoc(raw: string, stripsTabs: boolean): Heredoc {
-  const word = raw.replaceAll(/'[^']*'|\\\n|\\[\s\S]/gu, (part) => (part === '\\\n' ? '' : part));
+// Any quote or escape in the word turns substitution off for the body. The
+// delimiter is the word after quote removal, so a single-quoted backslash
+// stays and a line continuation outside single quotes joins the word.
+function buildHeredoc(raw: string, stripsTabs: boolean, opener: number): Heredoc {
+  let delimiter = '';
+  let quote: "'" | '"' | null = null;
+  let isQuoted = false;
+  let index = 0;
 
-  return {
-    delimiter: word.replaceAll(/['"\\]/gu, ''),
-    isQuoted: /['"\\]/u.test(word),
-    stripsTabs,
-  };
+  while (index < raw.length) {
+    const ch = raw.charAt(index);
+    const next = raw.charAt(index + 1);
+
+    if (quote === "'") {
+      quote = ch === "'" ? null : quote;
+      delimiter += ch === "'" ? '' : ch;
+      index += 1;
+    } else if (ch === quote) {
+      quote = null;
+      index += 1;
+    } else if (ch === '\\' && (quote === null || /[$`"\\\n]/u.test(next))) {
+      isQuoted ||= next !== '\n';
+      delimiter += next === '\n' ? '' : next;
+      index += 2;
+    } else if (quote === null && (ch === "'" || ch === '"')) {
+      quote = ch;
+      isQuoted = true;
+      index += 1;
+    } else {
+      delimiter += ch;
+      index += 1;
+    }
+  }
+
+  return { delimiter, isQuoted, stripsTabs, opener };
 }
 
 function findHeredocEnd(
@@ -642,9 +676,17 @@ function findHeredocEnd(
   let lineStart = bodyStart;
 
   while (lineStart < limit) {
-    const newline = text.indexOf('\n', lineStart);
-    const lineEnd = newline === -1 || newline > limit ? limit : newline;
-    const line = text.slice(lineStart, lineEnd);
+    let lineEnd = findLineEnd(text, lineStart, limit);
+    let line = text.slice(lineStart, lineEnd);
+
+    // In an unquoted body the shell joins a line that ends in a line
+    // continuation to the next one before it compares the delimiter.
+    while (!heredoc.isQuoted && /(?<!\\)(?:\\\\)*\\$/u.test(line) && lineEnd < limit) {
+      const nextEnd = findLineEnd(text, lineEnd + 1, limit);
+
+      line = `${line.slice(0, -1)}${text.slice(lineEnd + 1, nextEnd)}`;
+      lineEnd = nextEnd;
+    }
 
     if ((heredoc.stripsTabs ? line.replace(/^\t+/u, '') : line) === heredoc.delimiter) {
       return [lineStart, lineEnd];
@@ -654,4 +696,10 @@ function findHeredocEnd(
   }
 
   return [limit, limit];
+}
+
+function findLineEnd(text: string, start: number, limit: number): number {
+  const newline = text.indexOf('\n', start);
+
+  return newline === -1 || newline > limit ? limit : newline;
 }

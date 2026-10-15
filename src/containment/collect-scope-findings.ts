@@ -4,6 +4,7 @@ import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import type { OwnedScope } from '../scope/types.ts';
 import { collectShellCommands } from '../shell/collect-shell-commands.ts';
 import type { ShellCommand } from '../shell/collect-shell-commands.ts';
+import { collectShellScripts } from '../shell/collect-shell-scripts.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
@@ -46,7 +47,7 @@ export function collectScopeFindings(
       : []),
     ...(action.tool.startsWith('mcp__') ? collectToolFindings(action, scope) : []),
     ...(action.tool === 'Bash' && typeof command === 'string'
-      ? collectCommandFindings(command, action.cwd, scope, scratchPaths)
+      ? collectCommandFindings(command, action.cwd, action.cwd, scope, scratchPaths)
       : []),
   ];
 
@@ -128,16 +129,20 @@ function collectToolFindings(
 const PATH_WRITERS = new Set(['rm', 'rmdir', 'shred', 'truncate', 'chmod', 'chown']);
 const DESTINATION_WRITERS = new Set(['cp', 'mv', 'rsync', 'ln']);
 
+// A substitution or a shell's heredoc script runs commands of its own, so the
+// check reads each one from the directory its segment runs in.
 function collectCommandFindings(
   command: string,
+  directory: string | null,
   cwd: string,
   scope: Readonly<OwnedScope>,
   scratchPaths: readonly string[],
 ): ScopeFinding[] {
   const findings: ScopeFinding[] = [];
-  const entries = collectShellCommands(command, cwd, scope.home);
+  const entries = collectShellCommands(command, directory, scope.home);
   const piped = collectPipedSegments(command);
   const segments = splitShellCommand(command).segments;
+  const scripts = collectShellScripts(command);
 
   for (const [index, entry] of entries.entries()) {
     const [name, ...args] = entry.words;
@@ -165,6 +170,12 @@ function collectCommandFindings(
     if (name !== undefined && name !== 'cd') {
       findings.push(
         ...collectProgramFindings(name, args, entry.directory, cwd, scope, scratchPaths),
+      );
+    }
+
+    for (const script of scripts.filter((candidate) => candidate.segment === index)) {
+      findings.push(
+        ...collectCommandFindings(script.text, entry.directory, cwd, scope, scratchPaths),
       );
     }
   }

@@ -24,7 +24,8 @@ The check follows a shell command segment by segment and tracks `cd`, so
 runs in a subshell, so a pipe anywhere in the command, outside quotes, leaves the directory unknown
 from that point. The check reads the command with the same shell tokenizer the local rules, the
 session scope and the evaluation anonymiser use, so all four agree on where a word, a segment and a
-redirection end.
+redirection end. A command substitution, and a heredoc that a shell reads as its script, run
+commands of their own, so the check reads each one from the directory of the segment that runs it.
 
 ## What counts as a write target
 
