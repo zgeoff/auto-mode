@@ -26,17 +26,15 @@ test('it finds the verdict after reasoning prose', () => {
   expect(parseModelVerdict(text)).toStrictEqual({ kind: 'allow' });
 });
 
-// Every one of these is a model failing to make a case. The policy says a block
-// nobody can name is a false positive, so each resolves to allow rather than to
-// a block the user cannot appeal.
 test.each([
   ['empty output', ''],
   ['prose with no tags', 'I think this should probably be blocked.'],
-  ['block with no rule', '<block>yes</block>'],
-  ['block with an empty rule', '<block>yes</block><rule>  </rule>'],
-  ['a malformed tag', '<block>yes<rule>Data Exfiltration</rule>'],
-])('it allows on %s', (_name, text) => {
-  expect(parseModelVerdict(text)).toStrictEqual({ kind: 'allow' });
+  ['a block with no rule', '<block>yes</block>'],
+  ['a block with an empty rule', '<block>yes</block><rule>  </rule>'],
+  ['a malformed block tag', '<block>yes<rule>Data Exfiltration</rule>'],
+  ['a block flag that is neither yes nor no', '<block>maybe</block><rule>Data Exfiltration</rule>'],
+])('it reads %s as no verdict', (_name, text) => {
+  expect(parseModelVerdict(text)).toBeNull();
 });
 
 test('it supplies the fixed reason when the model names a shipped rule but gives none', () => {
