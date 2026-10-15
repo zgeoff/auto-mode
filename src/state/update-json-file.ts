@@ -95,7 +95,7 @@ function hasErrorCode(error: unknown, code: string): boolean {
   return error instanceof Error && 'code' in error && error.code === code;
 }
 
-function isStale(file: Readonly<Stats>, clock: Readonly<LockClock>): boolean {
+function isStale(file: Readonly<Pick<Stats, 'mtimeMs'>>, clock: Readonly<LockClock>): boolean {
   return clock.now() - file.mtimeMs > STALE_LOCK_MS;
 }
 
@@ -105,7 +105,7 @@ function isStale(file: Readonly<Stats>, clock: Readonly<LockClock>): boolean {
 async function claimStaleLock(
   lock: string,
   staged: string,
-  held: Readonly<Stats>,
+  held: Readonly<Pick<Stats, 'ino' | 'mtimeMs'>>,
   clock: Readonly<LockClock>,
 ): Promise<boolean> {
   const prefix = `${lock}.${String(held.ino)}-${String(held.mtimeMs)}`;

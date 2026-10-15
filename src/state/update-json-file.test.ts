@@ -148,9 +148,8 @@ test('it writes its owner id into the lock while it holds it', async () => {
     () => ({ count: 1 }),
   );
 
-  expect(locksSeen).toStrictEqual([
-    expect.stringMatching(/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/),
-  ]);
+  expect(locksSeen).toHaveLength(1);
+  expect(locksSeen.at(0)).toMatch(/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/);
 });
 
 test('it never removes a lock that another owner took over while it held it', async () => {
