@@ -101,9 +101,7 @@ function classifySegment(text: string, cwd: string): string | null {
 function hasUnsafeOption(args: readonly string[], unsafe: Readonly<UnsafeOptions>): boolean {
   const end = args.indexOf('--');
   const options = end === -1 ? args : args.slice(0, end);
-
-  const operands =
-    options.filter((arg) => !isOptionWord(arg)).length + (end === -1 ? 0 : args.length - end - 1);
+  const operands = countOperands(options, unsafe) + (end === -1 ? 0 : args.length - end - 1);
 
   return (
     args.some((arg) => unsafe.words?.includes(arg) === true) ||
@@ -119,7 +117,50 @@ function isUnsafeOption(arg: string, unsafe: Readonly<UnsafeOptions>): boolean {
     return name !== '' && unsafe.long?.some((long) => long.startsWith(name)) === true;
   }
 
-  return isOptionWord(arg) && [...(unsafe.short ?? '')].some((letter) => arg.includes(letter, 1));
+  return isOptionWord(arg) && unsafe.short?.some((letter) => arg.includes(letter, 1)) === true;
+}
+
+function countOperands(options: readonly string[], unsafe: Readonly<UnsafeOptions>): number {
+  let count = 0;
+  let index = 0;
+
+  while (index < options.length) {
+    const arg = options[index] ?? '';
+
+    if (!isOptionWord(arg)) {
+      count += 1;
+    } else if (needsValueWord(arg, unsafe)) {
+      index += 1;
+    }
+
+    index += 1;
+  }
+
+  return count;
+}
+
+// A short option that takes a value reads the rest of its cluster, so the
+// next word is its value only when the value letter ends the cluster.
+function needsValueWord(arg: string, unsafe: Readonly<UnsafeOptions>): boolean {
+  const valued = unsafe.valued;
+
+  if (valued === undefined) {
+    return false;
+  }
+
+  if (arg.startsWith('--')) {
+    const name = arg.slice(2);
+
+    return !name.includes('=') && valued.long.some((long) => long.startsWith(name));
+  }
+
+  for (let index = 1; index < arg.length; index += 1) {
+    if (valued.short.includes(arg.charAt(index))) {
+      return index === arg.length - 1;
+    }
+  }
+
+  return false;
 }
 
 function isOptionWord(arg: string): boolean {
