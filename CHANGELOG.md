@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.20.0...auto-mode-v0.20.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **geo-934:** allow a read-only command only for a safe argument shape ([#160](https://github.com/zgeoff/auto-mode/issues/160)) ([e8e90b3](https://github.com/zgeoff/auto-mode/commit/e8e90b3870c85cdc597cc6a232a4bf1e60bf2cc8))
+
 ## [0.20.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.19.3...auto-mode-v0.20.0) (2026-10-14)
 
 
