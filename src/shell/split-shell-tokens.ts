@@ -209,6 +209,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         heredocs.push(buildHeredoc(redirect.raw, operator === '<<-'));
       }
 
+      isArithmetic &&= !text.slice(index, redirect.end).endsWith('))');
       index = redirect.end;
     }
 
@@ -397,7 +398,8 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
   };
 
   // Inside `${…}` a double quote opens its own quoting, so a quote there closes
-  // no outer quote, and a single quote and a bare `{` are plain text.
+  // no outer quote. A single-quoted `}` closes nothing, even inside double
+  // quotes, and a bare `{` is plain text.
   const findParameterEnd = (start: number): number => {
     let isDoubleQuoted = false;
     let index = start;
@@ -423,6 +425,17 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         }
 
         index = expansion.end;
+        continue;
+      }
+
+      if (ch === "'" && !isDoubleQuoted) {
+        const close = text.indexOf("'", index + 1);
+
+        if (close === -1 || close >= level.limit) {
+          return -1;
+        }
+
+        index = close + 1;
         continue;
       }
 
@@ -608,9 +621,10 @@ interface Heredoc {
 }
 
 // Any quoted character in the word quotes the whole delimiter and turns
-// substitution off for the body.
+// substitution off for the body. A line continuation joins the word, except
+// inside single quotes.
 function buildHeredoc(raw: string, stripsTabs: boolean): Heredoc {
-  const word = raw.replaceAll('\\\n', '');
+  const word = raw.replaceAll(/'[^']*'|\\\n|\\[\s\S]/gu, (part) => (part === '\\\n' ? '' : part));
 
   return {
     delimiter: word.replaceAll(/['"\\]/gu, ''),

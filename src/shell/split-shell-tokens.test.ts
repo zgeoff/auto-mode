@@ -145,6 +145,10 @@ test.each([
   ['a comment', 'echo ok # $(git log)'],
   ['a comment after a continued line', 'echo ok;\\\n# $(git log)'],
   ['a quoted heredoc', "cat <<'EOF'\n$(git log)\nEOF"],
+  [
+    'a heredoc whose single-quoted delimiter holds a line continuation',
+    "cat <<'EO\\\nF'\nEOF\n$(git log)",
+  ],
 ])('it collects no substitution from %s', (_label, text) => {
   expect(splitShellTokens(text).substitutions).toStrictEqual([]);
 });
@@ -216,6 +220,8 @@ test.each([
     '(( x = 1 & 2 << 3 ))\ngit log',
     21,
   ],
+  ['a heredoc that follows an arithmetic command', "((1<<2))\ncat <<EOF\n'\nEOF\ngit log", 25],
+  ['a single-quoted brace in a parameter default', `echo \${x:-'{}'}; git log`, 17],
 ])('it reads the line after %s as a command', (_label, text, start) => {
   expect(splitShellTokens(text).tokens.at(-2)).toStrictEqual({
     kind: 'word',
