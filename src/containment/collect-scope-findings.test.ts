@@ -629,6 +629,40 @@ test('it checks a push in a heredoc that a shell runs as its script', () => {
   expect(findings).toStrictEqual([{ kind: 'branch', target: 'other', grant: { kind: 'branch' } }]);
 });
 
+test.each([
+  ['a substitution in a heredoc delimiter', 'cat <<"$(rm /other/file)"\nnotes\n$(rm /other/file)'],
+  [
+    'a substitution that the outer shell runs before the heredoc script moves',
+    'bash <<EOF\ncd /other\necho $(rm file)\nEOF',
+  ],
+  ['a heredoc fed as data to a script file', "bash build.sh <<'EOF'\nrm /other/file\nEOF"],
+  ['a heredoc on descriptor 3', "bash 3<<'EOF'\nrm /other/file\nEOF"],
+])('it finds nothing in %s', (_label, command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test.each([
+  ['a quoted heredoc', "bash <<'EOF'\nrm /other/file\nEOF"],
+  ['an unquoted heredoc without a substitution', 'bash -e 0<<EOF\nrm /other/file\nEOF'],
+])(
+  'it finds a write outside the scope in %s that a shell runs as its script',
+  (_label, command) => {
+    const findings = collectScopeFindings(
+      { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+      buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+    );
+
+    expect(findings).toStrictEqual([
+      { kind: 'path', target: '/other/file', grant: { kind: 'path' } },
+    ]);
+  },
+);
+
 test('it still checks a remote write after a cd inside a pipeline', () => {
   const findings = collectScopeFindings(
     {

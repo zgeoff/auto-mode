@@ -155,6 +155,18 @@ test.each([
 });
 
 test.each([
+  ['a double-quoted substitution', 'cat <<"$(git log)"\nnotes\n$(git log)'],
+  ['a bare substitution', 'cat <<-$(git log)\nnotes\n$(git log)'],
+  ['a backtick', 'cat <<`git log`\nnotes\n`git log`'],
+])('it reads a heredoc delimiter that holds %s as text that runs nothing', (_label, text) => {
+  expect(splitShellTokens(text)).toMatchObject({ substitutions: [], hasSubstitution: false });
+});
+
+test('it collects a substitution in a here-string, which bash expands', () => {
+  expect(splitShellTokens('cat <<<"$(git log)"').substitutions).toStrictEqual(['git log']);
+});
+
+test.each([
   ['after a space', 'echo ok # note', '# note'],
   ['after a separator', 'echo ok;# note', '# note'],
   ['after a grouping parenthesis', "(echo ok)# 'note", "# 'note"],

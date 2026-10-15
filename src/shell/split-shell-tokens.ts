@@ -487,7 +487,17 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
       }
     }
 
+    const collected = level.substitutions.length;
+    const hadSubstitution = hasSubstitution;
     const word = readWord(index);
+
+    // Bash only removes quotes from a heredoc delimiter, so a substitution in
+    // it never runs.
+    if (operator === '<<' || operator === '<<-') {
+      level.substitutions.splice(collected);
+
+      hasSubstitution = hadSubstitution;
+    }
 
     if (word.raw === '') {
       return { target: null, raw: '', end: index, isUnterminated: false };

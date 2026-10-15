@@ -13,12 +13,13 @@ export interface ShellScript {
 // script names the segment that runs it, counted as the shell split counts.
 export function collectShellScripts(command: string): ShellScript[] {
   const segments = splitShellCommand(command).segments;
+  const tokens = splitShellTokens(command).tokens;
 
   return [
     ...segments.flatMap((range, segment) =>
       splitShellTokens(range.text).substitutions.map((body) => ({ text: body, segment })),
     ),
-    ...splitShellTokens(command).tokens.flatMap((token) => {
+    ...tokens.flatMap((token) => {
       if (token.kind !== 'heredoc') {
         return [];
       }
@@ -27,9 +28,19 @@ export function collectShellScripts(command: string): ShellScript[] {
         (range) => range.start <= token.opener && token.opener < range.end,
       );
 
-      const bodies = isShellScript(segments[segment]?.text ?? '')
-        ? [...token.substitutions, token.body]
-        : token.substitutions;
+      const opener = tokens.find(
+        (candidate) => candidate.kind === 'redirect' && candidate.start === token.opener,
+      );
+
+      // The outer shell expands an unquoted body before the inner one reads
+      // it, and the output of a substitution can be any script text.
+      const isScript =
+        isShellScript(segments[segment]?.text ?? '') &&
+        opener?.kind === 'redirect' &&
+        /^0?<</u.test(opener.operator) &&
+        (token.isQuoted || token.substitutions.length === 0);
+
+      const bodies = isScript ? [...token.substitutions, token.body] : token.substitutions;
 
       return bodies.map((body) => ({ text: body, segment }));
     }),
@@ -38,9 +49,47 @@ export function collectShellScripts(command: string): ShellScript[] {
 
 const SHELLS: ReadonlySet<string> = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
 
-// With `-c` the shell runs its argument, and the heredoc is only its input.
+// These options take the next word as their value, not as a script file.
+const VALUE_OPTIONS: ReadonlySet<string> = new Set([
+  '-o',
+  '+o',
+  '-O',
+  '+O',
+  '--rcfile',
+  '--init-file',
+]);
+
+// A shell reads its script from standard input only when no argument names a
+// script file or, with `-c`, the script itself. With `-s` the arguments after
+// the options are positional parameters, and the script still comes from input.
 function isShellScript(segment: string): boolean {
   const [program = '', ...args] = splitCommandWords(segment);
 
-  return SHELLS.has(basename(program)) && !args.some((arg) => /^-\w*c/u.test(arg));
+  if (!SHELLS.has(basename(program))) {
+    return false;
+  }
+
+  let readsInput = false;
+  let index = 0;
+
+  while (index < args.length) {
+    const arg = args[index] ?? '';
+
+    if (/^-[^-]*c/u.test(arg)) {
+      return false;
+    }
+
+    if (arg === '--' || arg === '-') {
+      return readsInput || index === args.length - 1;
+    }
+
+    if (!/^[-+]/u.test(arg)) {
+      return readsInput;
+    }
+
+    readsInput ||= /^-[^-]*s/u.test(arg);
+    index += VALUE_OPTIONS.has(arg) ? 2 : 1;
+  }
+
+  return true;
 }
