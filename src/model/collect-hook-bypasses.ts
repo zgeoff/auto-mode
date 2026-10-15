@@ -11,9 +11,6 @@ export function collectHookBypasses(command: string): readonly string[] {
   );
 }
 
-// lefthook skips its hooks for `0` or `false`, husky for `0`.
-const HOOK_SWITCH = /^(?:LEFTHOOK|HUSKY)=(?:0|false)$/u;
-
 function collectSegmentBypasses(text: string): readonly string[] {
   const words = splitShellTokens(text).tokens.flatMap((token) =>
     token.kind === 'word' ? [token.value] : [],
@@ -33,11 +30,24 @@ function collectSegmentBypasses(text: string): readonly string[] {
   }
 
   const assignments = words.slice(0, words.length - program.length);
+  const option = findNoVerifyOption(subArgs, subcommand);
 
-  return [
-    ...assignments.filter((word) => HOOK_SWITCH.test(word)),
-    ...collectNoVerifyOptions(subArgs, subcommand),
-  ];
+  return [...collectHookSwitches(assignments), ...(option === null ? [] : [option])];
+}
+
+// lefthook skips its hooks for `0` or `false`, husky for `0` alone.
+const HOOK_SWITCH_VALUES: ReadonlyMap<string, readonly string[]> = new Map([
+  ['LEFTHOOK', ['0', 'false']],
+  ['HUSKY', ['0']],
+]);
+
+// The shell keeps the last assignment to a name, so an earlier one is dropped.
+function collectHookSwitches(assignments: readonly string[]): readonly string[] {
+  return [...HOOK_SWITCH_VALUES].flatMap(([name, values]) => {
+    const last = assignments.findLast((word) => word.startsWith(`${name}=`));
+
+    return last !== undefined && values.includes(last.slice(name.length + 1)) ? [last] : [];
+  });
 }
 
 // The commit options that take a value, so the value word is not read as an
@@ -60,11 +70,10 @@ const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([
   'trailer',
 ]);
 
-function collectNoVerifyOptions(
-  args: readonly string[],
-  subcommand: 'commit' | 'push',
-): readonly string[] {
-  const found: string[] = [];
+// git keeps the last of `--no-verify` and `--verify`, so a later `--verify`
+// runs the hooks again.
+function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'push'): string | null {
+  let found: string | null = null;
   let index = 0;
 
   while (index < args.length && args[index] !== '--') {
@@ -75,7 +84,9 @@ function collectNoVerifyOptions(
 
       // git accepts an unambiguous prefix of a long option, such as `--no-veri`.
       if (option.startsWith('no-ve') && 'no-verify'.startsWith(option)) {
-        found.push(arg);
+        found = arg;
+      } else if (option.startsWith('veri') && 'verify'.startsWith(option)) {
+        found = null;
       }
 
       if (subcommand === 'commit' && value.length === 0 && COMMIT_VALUED_LONG.has(option)) {
@@ -86,7 +97,7 @@ function collectNoVerifyOptions(
       const cluster = parseCommitCluster(arg);
 
       if (cluster.hasNoVerify) {
-        found.push(arg);
+        found = arg;
       }
 
       if (cluster.takesNextWord) {
