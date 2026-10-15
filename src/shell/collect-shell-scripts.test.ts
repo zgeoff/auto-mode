@@ -15,6 +15,10 @@ test.each([
   ['a shell told to read its input', "bash -s build.sh <<'EOF'\nrm x\nEOF"],
   ['a shell given the heredoc on descriptor 0', "bash 0<<'EOF'\nrm x\nEOF"],
   ['a shell after its last option', "bash -x -- <<'EOF'\nrm x\nEOF"],
+  ['a shell with a grouped option value', "bash -euo pipefail <<'EOF'\nrm x\nEOF"],
+  ['a shell whose script file is standard input', "bash /dev/stdin <<'EOF'\nrm x\nEOF"],
+  ['a shell whose input copies descriptor 3', "bash 3<<'EOF' <&3\nrm x\nEOF"],
+  ['a shell given two heredocs, from the last', "bash <<'A' <<'B'\nls\nA\nrm x\nB"],
 ])('it reads a heredoc that %s runs as a script', (_label, command) => {
   expect(collectShellScripts(command)).toStrictEqual([{ text: 'rm x\n', segment: 0 }]);
 });

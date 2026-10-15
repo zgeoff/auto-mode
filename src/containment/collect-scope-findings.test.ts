@@ -663,6 +663,21 @@ test.each([
   },
 );
 
+test('it checks a write in a substitution inside an arithmetic shift', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'echo $((1 << $(rm /other/file; echo 1)))' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/other/file', grant: { kind: 'path' } },
+  ]);
+});
+
 test('it still checks a remote write after a cd inside a pipeline', () => {
   const findings = collectScopeFindings(
     {

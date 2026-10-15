@@ -112,10 +112,13 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
 
   // At a level with a closer, `end` is the offset of that closer, or -1 when
   // the text ends first.
-  const collectTokens = (start: number): { tokens: ShellToken[]; end: number } => {
+  const collectTokens = (
+    start: number,
+    isArithmeticStart = false,
+  ): { tokens: ShellToken[]; end: number } => {
     const tokens: ShellToken[] = [];
     const heredocs: Heredoc[] = [];
-    let isArithmetic = false;
+    let isArithmetic = isArithmeticStart;
     let index = start;
 
     while (index < level.limit) {
@@ -191,7 +194,8 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         continue;
       }
 
-      const redirect = readRedirect(word.end, operator);
+      const opensHeredoc = (operator === '<<' || operator === '<<-') && !isArithmetic;
+      const redirect = readRedirect(word.end, operator, opensHeredoc);
 
       tokens.push({
         kind: 'redirect',
@@ -207,7 +211,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
 
       // Inside `(( … ))`, up to its closing word, a `<<` shifts bits and opens
       // no heredoc, even after a `&` or `|` there.
-      if ((operator === '<<' || operator === '<<-') && redirect.raw !== '' && !isArithmetic) {
+      if (opensHeredoc && redirect.raw !== '') {
         heredocs.push(buildHeredoc(redirect.raw, operator === '<<-', index));
       }
 
@@ -352,11 +356,27 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
       const isBacktick = text.charAt(index) === '`';
       const bodyStart = index + (isBacktick ? 1 : 2);
 
-      const end = isBacktick
-        ? findBacktickEnd(bodyStart)
-        : withLevel(level.limit, ')', () => collectTokens(bodyStart).end).result;
+      if (isBacktick) {
+        return collectExpansionBody(index, bodyStart, findBacktickEnd(bodyStart));
+      }
 
-      return collectExpansionBody(index, bodyStart, end);
+      const isArithmeticStart = text.charAt(bodyStart) === '(';
+
+      const body = withLevel(
+        level.limit,
+        ')',
+        () => collectTokens(bodyStart, isArithmeticStart).end,
+      );
+
+      // Bash reads `$((…))` as arithmetic, which runs only the substitutions
+      // inside it, and falls back to a subshell when the body does not end `))`.
+      if (isArithmeticStart && body.result !== -1 && text.charAt(body.result - 1) === ')') {
+        level.substitutions.push(...body.substitutions);
+
+        return { end: body.result + 1, isUnterminated: false };
+      }
+
+      return collectExpansionBody(index, bodyStart, body.result);
     }
 
     if (text.startsWith('${', index)) {
@@ -462,7 +482,11 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
   // The target is the next word. A target stops short at an unquoted parenthesis,
   // so `(echo x > out)` writes `out`, while the redirection still takes the
   // whole word. A process substitution runs its body as a command.
-  const readRedirect = (start: number, operator: string): ScannedRedirect => {
+  const readRedirect = (
+    start: number,
+    operator: string,
+    opensHeredoc: boolean,
+  ): ScannedRedirect => {
     let index = start + operator.length;
 
     if (operator.endsWith('(')) {
@@ -493,7 +517,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
 
     // Bash only removes quotes from a heredoc delimiter, so a substitution in
     // it never runs.
-    if (operator === '<<' || operator === '<<-') {
+    if (opensHeredoc) {
       level.substitutions.splice(collected);
 
       hasSubstitution = hadSubstitution;

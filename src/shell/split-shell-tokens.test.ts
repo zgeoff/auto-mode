@@ -162,6 +162,19 @@ test.each([
   expect(splitShellTokens(text)).toMatchObject({ substitutions: [], hasSubstitution: false });
 });
 
+test.each([
+  ['an arithmetic command', '(( 1 << $(git log) ))'],
+  ['an arithmetic expansion', 'echo $((1 << $(git log)))'],
+])('it collects a substitution after a shift in %s', (_label, text) => {
+  expect(splitShellTokens(text).substitutions).toStrictEqual(['git log']);
+});
+
+test('it reads a $(( whose body does not end in )) as a subshell substitution', () => {
+  expect(splitShellTokens('echo $((cd app); make)').substitutions).toStrictEqual([
+    '(cd app); make',
+  ]);
+});
+
 test('it collects a substitution in a here-string, which bash expands', () => {
   expect(splitShellTokens('cat <<<"$(git log)"').substitutions).toStrictEqual(['git log']);
 });
