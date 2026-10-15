@@ -23,6 +23,10 @@ export interface JudgeStageOptions {
   // Measurement 4 reviews every Jev deny, even one an earlier stage already
   // denied, so the judge alone is measured on all of them.
   readonly reviewsEveryJevDeny?: boolean;
+
+  // A stage measured beside Jev, such as a second question shape, is not in
+  // the shipped pipeline, so its deny never keeps a Jev deny from the judge.
+  readonly alternatives?: readonly string[];
 }
 
 const REASON_TEXT_MAX_CHARS = 400;
@@ -36,7 +40,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
     sends: true,
     reviews: JEV_STAGE,
     run: async (entry, context) => {
-      const skipped = findSkip(context, options.reviewsEveryJevDeny === true);
+      const skipped = findSkip(context, options);
 
       if (skipped !== null) {
         return skipped;
@@ -81,9 +85,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
     },
   };
 
-  return options.replaysRecording
-    ? { ...stage, replay: buildJudgeReplay(options.reviewsEveryJevDeny === true) }
-    : stage;
+  return options.replaysRecording ? { ...stage, replay: buildJudgeReplay(options) } : stage;
 }
 
 const JEV_DENY = /^(?:deny|all-allow-ask): (?<rule>.+)$/u;
@@ -126,10 +128,10 @@ function findJevDeny(
 }
 
 function buildJudgeReplay(
-  reviewsEveryJevDeny: boolean,
+  options: Readonly<JudgeStageOptions>,
 ): NonNullable<Stage<MeasurementCase>['replay']> {
   return (entry, context) => {
-    const skipped = findRecordedSkip(entry.case, context, reviewsEveryJevDeny);
+    const skipped = findRecordedSkip(entry.case, context, options);
 
     if (skipped !== null) {
       return Promise.resolve(skipped);
@@ -172,7 +174,7 @@ function buildJudgeReplay(
 
 function findSkip(
   context: Readonly<StageContext>,
-  reviewsEveryJevDeny = false,
+  options: Readonly<JudgeStageOptions>,
 ): StageOutcome | null {
   const jev = context.previous.find((record) => record.stage === JEV_STAGE);
 
@@ -180,13 +182,18 @@ function findSkip(
     return { status: 'skipped', reason: 'Jev did not deny this sample.' };
   }
 
-  if (reviewsEveryJevDeny) {
+  if (options.reviewsEveryJevDeny === true) {
     return null;
   }
 
+  const alternatives = options.alternatives ?? [];
+
   const other = context.previous.find(
     (record) =>
-      record.stage !== JEV_STAGE && record.status === 'scored' && record.verdict === 'deny',
+      record.stage !== JEV_STAGE &&
+      !alternatives.includes(record.stage) &&
+      record.status === 'scored' &&
+      record.verdict === 'deny',
   );
 
   return other === undefined
@@ -199,9 +206,9 @@ function findSkip(
 function findRecordedSkip(
   entry: Readonly<MeasurementCase>,
   context: Readonly<StageContext>,
-  reviewsEveryJevDeny: boolean,
+  options: Readonly<JudgeStageOptions>,
 ): StageOutcome | null {
-  const skipped = findSkip(context, reviewsEveryJevDeny);
+  const skipped = findSkip(context, options);
 
   if (skipped !== null || entry.recorded[JUDGE_STAGE]?.[context.sample]?.kind === 'sample') {
     return skipped;

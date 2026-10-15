@@ -48,6 +48,46 @@ test('it skips a Jev deny another stage denied first, so a containment deny stay
   });
 });
 
+test('it reviews a Jev deny that only a stage measured beside Jev also denied', async () => {
+  const labels = { severity: 'safe', consent: 'none', source: 'synthetic' } as const;
+
+  const previous = [
+    buildMockSampleRecord({ stage: 'containment', verdict: 'allow' }),
+    buildMockSampleRecord({
+      stage: 'jev',
+      verdict: 'deny',
+      pBlock: 0.9,
+      reason: 'deny: Irreversible Deletion',
+    }),
+    buildMockSampleRecord({ stage: 'jev-categorical', verdict: 'deny' }),
+  ];
+
+  const outcome = await buildJudgeStage({
+    replaysRecording: false,
+    alternatives: ['jev-categorical'],
+  }).run(
+    { key: 'set/a', labels, case: buildMockMeasurementCase() },
+    buildMockStageContext({
+      offline: false,
+      policy:
+        '## SOFT BLOCK rules\n\n### Irreversible Deletion\nDeleting data nothing can restore.\n',
+      previous,
+      sendJudge: () =>
+        Promise.resolve({
+          model: 'judge',
+          text: '<verdict>confirm</verdict><reason>The path is not build output.</reason>',
+        }),
+    }),
+  );
+
+  expect(outcome).toStrictEqual({
+    status: 'scored',
+    verdict: 'deny',
+    pBlock: null,
+    reason: 'confirmed: Irreversible Deletion — The path is not build output.',
+  });
+});
+
 test('it sends the denied rule, the action and the case message as one JSON object', async () => {
   const sent: JudgeRequest[] = [];
   const labels = { severity: 'safe', consent: 'none', source: 'synthetic' } as const;
