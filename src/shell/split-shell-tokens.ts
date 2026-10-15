@@ -85,6 +85,15 @@ interface Level {
   balance: number;
 }
 
+// What one `$(` read added to its level, and the first construct in it that
+// never closes, when none was found before it.
+interface CommandSubstitutionScan {
+  readonly end: number;
+  readonly isUnterminated: boolean;
+  readonly substitutions: readonly string[];
+  readonly unclosedAt: number | null;
+}
+
 // Every helper reads and updates the state of one scan, so each closes over
 // it. `literals` holds the offsets read as plain characters, and `unclosedAt`
 // the first construct that never closes.
@@ -95,6 +104,8 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
   let level = top;
   let hasSubstitution = false;
   let unclosedAt: number | null = null;
+
+  const commandSubstitutions = new Map<string, CommandSubstitutionScan>();
 
   const withLevel = <T>(
     limit: number,
@@ -370,26 +381,7 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
         return collectExpansionBody(index, bodyStart, findBacktickEnd(bodyStart));
       }
 
-      // Bash reads `$((…))` as arithmetic, which runs only the substitutions
-      // inside it, when the inner parenthesis closes right before the outer
-      // one; otherwise the body is a command that starts with a subshell.
-      if (text.charAt(bodyStart) === '(') {
-        const arithmetic = withLevel(
-          level.limit,
-          ')',
-          () => collectTokens(bodyStart + 1, true).end,
-        );
-
-        if (arithmetic.result !== -1 && text.charAt(arithmetic.result + 1) === ')') {
-          level.substitutions.push(...arithmetic.substitutions);
-
-          return { end: arithmetic.result + 2, isUnterminated: false };
-        }
-      }
-
-      const end = withLevel(level.limit, ')', () => collectTokens(bodyStart).end).result;
-
-      return collectExpansionBody(index, bodyStart, end);
+      return readCommandSubstitution(index, bodyStart);
     }
 
     if (text.startsWith('${', index)) {
@@ -397,6 +389,59 @@ function collectTextTokens(text: string, literalOffsets: readonly number[]): Tex
     }
 
     return null;
+  };
+
+  // A `$(` read depends only on its offset and the level's limit, so a second
+  // read replays the first. Without the replay, each ambiguous `$((` reads its
+  // body twice and nested ones double the scan per level.
+  const readCommandSubstitution = (
+    index: number,
+    bodyStart: number,
+  ): { end: number; isUnterminated: boolean } => {
+    const key = `${index}:${level.limit}`;
+    const scan = commandSubstitutions.get(key);
+
+    if (scan !== undefined) {
+      level.substitutions.push(...scan.substitutions);
+
+      unclosedAt ??= scan.unclosedAt;
+
+      return { end: scan.end, isUnterminated: scan.isUnterminated };
+    }
+
+    const collected = level.substitutions.length;
+    const wasUnclosed = unclosedAt !== null;
+    const read = readCommandSubstitutionBody(index, bodyStart);
+
+    commandSubstitutions.set(key, {
+      ...read,
+      substitutions: level.substitutions.slice(collected),
+      unclosedAt: wasUnclosed ? null : unclosedAt,
+    });
+
+    return read;
+  };
+
+  // Bash reads `$((…))` as arithmetic, which runs only the substitutions
+  // inside it, when the inner parenthesis closes right before the outer
+  // one; otherwise the body is a command that starts with a subshell.
+  const readCommandSubstitutionBody = (
+    index: number,
+    bodyStart: number,
+  ): { end: number; isUnterminated: boolean } => {
+    if (text.charAt(bodyStart) === '(') {
+      const arithmetic = withLevel(level.limit, ')', () => collectTokens(bodyStart + 1, true).end);
+
+      if (arithmetic.result !== -1 && text.charAt(arithmetic.result + 1) === ')') {
+        level.substitutions.push(...arithmetic.substitutions);
+
+        return { end: arithmetic.result + 2, isUnterminated: false };
+      }
+    }
+
+    const end = withLevel(level.limit, ')', () => collectTokens(bodyStart).end).result;
+
+    return collectExpansionBody(index, bodyStart, end);
   };
 
   const collectExpansionBody = (
