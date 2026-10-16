@@ -52,6 +52,10 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
         return { status: 'skipped', reason: 'Jev named no rule to review.' };
       }
 
+      if ('status' in denied) {
+        return denied;
+      }
+
       const reply = await context.sendJudge({
         user: buildJudgeMessage({
           rule: denied.rule,
@@ -96,7 +100,7 @@ const JEV_DENY = /^(?:deny|all-allow-ask): (?<rule>.+)$/u;
 function findJevDeny(
   entry: Readonly<MeasurementCase>,
   context: Readonly<StageContext>,
-): { readonly rule: DecisionRule; readonly basis: 'matched' | 'unresolved' } | null {
+): { readonly rule: DecisionRule; readonly basis: 'matched' | 'unresolved' } | StageOutcome | null {
   const jev = context.previous.find((record) => record.stage === JEV_STAGE);
 
   const name =
@@ -120,8 +124,10 @@ function findJevDeny(
 
   const rule = Object.values(request.rules).find((candidate) => candidate.name === name);
 
+  // A recorded deny under a rule the shipped policy dropped is a deny the
+  // judge never sees, so the run reports it rather than skipping it unseen.
   if (rule === undefined) {
-    return null;
+    return { status: 'not-scorable', reason: 'jev-rule-not-shipped' };
   }
 
   return { rule, basis: (jev.pBlock ?? 1) > 0.5 ? 'matched' : 'unresolved' };
