@@ -1,6 +1,22 @@
-import type { ClaudeRules } from '../config/types.ts';
-import type { DecisionContext } from '../request/types.ts';
-import type { DecisionRule, MCPServerFact, RepositoryContext } from '../types.ts';
+import type { ClaudeRules, EvaluationOptions } from '../config/types.ts';
+import type { CheckoutFacts, CheckoutFinder } from '../git/types.ts';
+import type { DecisionContext, Verdict } from '../request/types.ts';
+import type { DecisionRule, JudgeEvidence, MCPServerFact, RepositoryContext } from '../types.ts';
+
+export interface ModelOutcome {
+  readonly verdict: Verdict | null;
+  readonly note: string;
+  readonly unavailable?: boolean;
+  readonly diagnostics?: DecisionDiagnostics;
+
+  // Only a Jev deny carries the evidence the judge reviews.
+  readonly review?: JudgeEvidence;
+}
+
+export interface ModelOptions extends EvaluationOptions {
+  readonly checkout?: CheckoutFacts | undefined;
+  readonly findCheckout?: CheckoutFinder | undefined;
+}
 
 export type DecisionChoice = 'allow' | 'block';
 

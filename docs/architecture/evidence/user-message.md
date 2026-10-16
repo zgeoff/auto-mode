@@ -39,8 +39,8 @@ as context only:
 - Jev reads it in the task context, never as the current user message, and its guidance gains one
   rule: a stale message cannot grant consent, satisfy an allow exception, or clear a rule, but a
   refusal or a limit in it still applies.
-- The judge and the Messages API classifiers receive no stale message at all, and a stale message
-  names no target for [the user-named grant](../stages/containment.md#the-user-named-grant).
+- The judge receives no stale message at all, and a stale message names no target for
+  [the user-named grant](../stages/containment.md#the-user-named-grant).
 
 ## What consent can and cannot do
 

@@ -5,7 +5,6 @@ and the selected framework combines with the rule file.
 
 - [`policy/rules.md`](../../policy/rules.md) — what is blocked.
 - [`policy/decision.md`](../../policy/decision.md) — how Jev judges the supplied evidence.
-- [`policy/classifier.md`](../../policy/classifier.md) — the Messages API framework.
 
 Each framework carries a `<rules>` marker on its own line, and at run time auto-mode replaces it
 with the whole of `rules.md`. `auto-mode print-prompt` writes the result, which excludes the

@@ -2,12 +2,6 @@ import { expect, test } from 'bun:test';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
 import { buildJevOnlyConfig } from './build-jev-only-config.ts';
 
-test('it refuses a Messages API classifier instead of changing its protocol', () => {
-  expect(
-    buildJevOnlyConfig(buildMockConfig({ provider: { protocol: 'messages', timeoutMs: 45_000 } })),
-  ).toBeNull();
-});
-
 test.each([
   [2000, 2000],
   [5000, 5000],
@@ -78,7 +72,7 @@ test.each([
     },
   });
 
-  expect(buildJevOnlyConfig(config)?.judge?.timeoutMs).toBe(expected);
+  expect(buildJevOnlyConfig(config).judge?.timeoutMs).toBe(expected);
 });
 
 test('it leaves the configuration it was given unchanged', () => {

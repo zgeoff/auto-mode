@@ -4,7 +4,6 @@ export type DecidingStage =
   | 'bypass'
   | 'jev'
   | 'judge'
-  | 'messages'
   | 'retry'
   | 'budget';
 

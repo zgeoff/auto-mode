@@ -58,9 +58,8 @@ An allow entry does not change the local tier. Read-only tools and commands stil
 model call. A `soft_deny` or `hard_deny` entry is different: while any exists, every action goes to
 Jev, reads included.
 
-The Messages API presets (`spark`, `claude`, `glm`) do not import `autoMode` entries. Claude Code's
-built-in auto mode reads the same key, so one entry can serve both classifiers when it describes
-behaviour rather than naming a rule.
+Claude Code's built-in auto mode reads the same key, so one entry can serve both classifiers when it
+describes behaviour rather than naming a rule.
 
 ## When to use each
 

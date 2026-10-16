@@ -2,7 +2,7 @@
 
 The mod is how auto-mode runs in Claude Code. It judges a permission request before the dialog
 appears. It uses `tool.check` in Claude Code 2.1.292 and runs the auto-mode CLI from the same
-release as a child process. The generative presets remain available to library callers.
+release as a child process.
 
 The mod calls `next(e)` first and keeps an existing allow or deny unchanged, including its reason
 and rule. It evaluates only ask decisions. Every classifier decision is an allow or a denial with a
@@ -96,16 +96,15 @@ limit still applies.
 
 ## Time limits
 
-The mod passes `--jev-only`, which refuses a Messages API classifier and caps Jev's API timeout at 5
-seconds; the judge role keeps its own provider and timeout. The child process has a 10-minute limit,
-Claude Code's own limit for one subprocess. The hook's budget stands still while the child runs, so
-the limit is not taken from it. A shared deadline ends evaluation 500 ms before the outer limit. The
-key helper uses the remaining deadline, and Jev uses the time left after the helper, up to 5
-seconds. The judge uses its configured `timeoutMs`, 120 seconds by default, bounded by the same
-deadline. A slow judge holds the tool call for that long, because auto-mode serves unattended work.
-Cancellation stops the owned key helper and its process group. The mod declines evaluation when
-fewer than 750 ms of the hook's own budget remain. It discards child stderr and does not copy
-invalid output into diagnostics.
+The mod passes `--jev-only`, which caps Jev's API timeout at 5 seconds; the judge role keeps its own
+provider and timeout. The child process has a 10-minute limit, Claude Code's own limit for one
+subprocess. The hook's budget stands still while the child runs, so the limit is not taken from it.
+A shared deadline ends evaluation 500 ms before the outer limit. The key helper uses the remaining
+deadline, and Jev uses the time left after the helper, up to 5 seconds. The judge uses its
+configured `timeoutMs`, 120 seconds by default, bounded by the same deadline. A slow judge holds the
+tool call for that long, because auto-mode serves unattended work. Cancellation stops the owned key
+helper and its process group. The mod declines evaluation when fewer than 750 ms of the hook's own
+budget remain. It discards child stderr and does not copy invalid output into diagnostics.
 
 ## Check the mod
 

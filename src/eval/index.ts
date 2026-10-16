@@ -5,7 +5,6 @@ export { findEnclosingWorkTree } from '../capture/find-enclosing-work-tree.ts';
 export {
   DEFAULT_BLOCK_THRESHOLD,
   DEFAULT_JUDGE_OVERTURNS,
-  PRESETS,
   resolveApiKey,
   type ProviderConfig,
 } from '../config/config.ts';
@@ -32,9 +31,6 @@ export type { ScopeFinding } from '../containment/types.ts';
 export { findUserNamedGrant } from '../containment/find-user-named-grant.ts';
 export { findCurrentDirectUserMessage } from '../../mods/auto-mode/contract/find-current-direct-user-message.ts';
 export { MESSAGE_ORIGINS } from '../../mods/auto-mode/contract/message-origins.ts';
-export { sendMessage } from '../messages/anthropic-client.ts';
-export { buildUserMessage } from '../model/build-request.ts';
-export { formatClassifierNote } from '../model/format-classifier-note.ts';
 export { loadRepositoryContext } from '../git/load-repository-context.ts';
 export { pickDecisionVerdict } from '../model/pick-decision-verdict.ts';
 export { probabilitySchema } from '../model/probability-schema.ts';

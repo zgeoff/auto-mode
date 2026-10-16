@@ -83,14 +83,12 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
 
     printWarnings(io.stderr, config.warnings);
 
-    const framework = config.provider.protocol === 'system-one' ? 'decision.md' : 'classifier.md';
-
     const prompt = await loadPolicy(
       {
         classifierPath: args.values.classifier ?? config.classifierPath,
         rulesPath: args.values.rules ?? config.rulesPath,
       },
-      framework,
+      'decision.md',
     );
 
     io.stdout.write(`${prompt}\n`);
@@ -178,13 +176,6 @@ async function run(
   printWarnings(io.stderr, loaded.warnings);
 
   const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
-
-  if (config === null) {
-    await writeActionFailure(request, host, io.stderr);
-
-    return printNote(io.stderr, true, 'Jev-only evaluation requires system-one; no verdict');
-  }
-
   const deadlineAt = deadline === undefined ? undefined : Number(deadline);
 
   if (

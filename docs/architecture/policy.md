@@ -10,14 +10,13 @@ how a rule becomes a question.
 
 ## The files
 
-| File             | Read by                      | Holds                                                            |
-| ---------------- | ---------------------------- | ---------------------------------------------------------------- |
-| `rules.md`       | every model                  | the hard block rules, the soft block rules, the allow exceptions |
-| `decision.md`    | Jev                          | the framework for typed questions                                |
-| `classifier.md`  | the Messages API classifiers | the generative framework                                         |
-| `judge.md`       | the judge                    | the framework for reviewing a deny                               |
-| `containment.md` | the judge                    | the Outside Task Scope rule for reviewing a containment deny     |
-| `denial.md`      | the agent                    | the instruction every deny reason ends with                      |
+| File             | Read by     | Holds                                                            |
+| ---------------- | ----------- | ---------------------------------------------------------------- |
+| `rules.md`       | every model | the hard block rules, the soft block rules, the allow exceptions |
+| `decision.md`    | Jev         | the framework for typed questions                                |
+| `judge.md`       | the judge   | the framework for reviewing a deny                               |
+| `containment.md` | the judge   | the Outside Task Scope rule for reviewing a containment deny     |
+| `denial.md`      | the agent   | the instruction every deny reason ends with                      |
 
 Each framework holds a `<rules>` marker, and the policy loader replaces the first marker with the
 rule list, so one rule list serves every model. A framework with no marker fails to load, because

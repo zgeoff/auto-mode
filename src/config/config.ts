@@ -189,8 +189,10 @@ function buildConfig(json: unknown, path: string, home: string): Config {
     path,
   );
 
-  if (provider.protocol === 'claude-code') {
-    throw new Error(`${path}: decision.classifier names a claude-code kind, which only judges`);
+  if (provider.protocol !== 'system-one') {
+    throw new Error(
+      `${path}: decision.classifier names a ${provider.protocol} kind, which only judges`,
+    );
   }
 
   const judge =

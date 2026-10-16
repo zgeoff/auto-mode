@@ -30,7 +30,7 @@ import { classifyWithJudge } from './judge/classify-with-judge.ts';
 import type { JudgeOutcome } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
-import { classifyWithModel } from './model/classify-with-model.ts';
+import { classifyWithJev } from './model/classify-with-jev.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
 import { buildUnavailableVerdict } from './policy/build-unavailable-verdict.ts';
 import { readContainmentRule } from './policy/read-containment-rule.ts';
@@ -155,7 +155,7 @@ async function classifyStages(
   const host = options.host;
   let claudeSettings = options.claudeSettings;
 
-  if (config.provider.protocol === 'system-one' && claudeSettings === undefined) {
+  if (claudeSettings === undefined) {
     try {
       claudeSettings = await loadClaudeSettings(config.claudeSettingsPath, host);
     } catch {
@@ -298,7 +298,7 @@ async function classifyPastContainment(
   const taskScope = scope === null ? undefined : buildTaskScopeSummary(scope);
 
   const [outcome, guidance] = await Promise.all([
-    classifyWithModel(request, config, {
+    classifyWithJev(request, config, {
       ...options,
       taskScope,
       host,
@@ -338,7 +338,7 @@ async function classifyPastContainment(
 
   return {
     ...rest,
-    decidingStage: config.provider.protocol === 'system-one' ? 'jev' : 'messages',
+    decidingStage: 'jev',
     verdict:
       outcome.verdict?.kind === 'deny'
         ? buildGuidedDeny(outcome.verdict.rule, outcome.verdict.reason, guidance)

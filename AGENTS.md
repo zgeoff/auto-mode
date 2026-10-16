@@ -75,7 +75,7 @@ bot added later is named here with its config, and these rules cover it too.
 The root package is the published `auto-mode`; `evals/` is a private Bun workspace package beside
 it. `src/` groups modules by concern, one primary export per file: `request/` parses a mod request
 and renders a verdict; `rules/` is the deterministic first tier; `model/` is the second tier and its
-decision API client; `messages/` is the Messages API client that the model tier and the judge share;
+decision API client; `messages/` is the Messages API client that a Messages API judge sends through;
 `shell/` splits a shell command into words, segments and redirections, once, for the local rules,
 the containment check and the session scope; `git/` reads a checkout from its git directory, with
 one walk up to `.git` per action; `types.ts` holds the types more than one stage reads; `policy/`
@@ -103,8 +103,8 @@ resumes and compares one experiment, measures live use from the action log, and 
 capture into a candidate corpus behind a gitleaks scan; `experiments/` holds one `defineExperiment`
 file per experiment (its corpora, its ordered stages, its measurements, the recordings it can
 replay) and the registry that lists them; `runners/` are the older `eval:*` scripts, kept for the
-live runs no experiment covers: the guidance variant, the generative second judge and its Messages
-presets, the question-shape threshold sweep, and the containment evidence, relay, stale-consent,
+live runs no experiment covers: the guidance variant and the summary of the recorded second judges,
+the question-shape threshold sweep, and the containment evidence, relay, stale-consent,
 answer-guidance and applicability corpora; `corpora/` the committed corpora, with the recorded model
 answers the replays read under `corpora/recorded/`; `lib/` the helpers they and the suites share,
 including the run, plan, result schemas and interval statistics; and `replay/` the suites that
@@ -149,16 +149,16 @@ Everything under `policy/` is verbatim model input. It is not prose for a reader
 is configured to leave it alone: its bytes are the prompt and the cache prefix, so a reflow is a
 prompt change and belongs in a commit that reviews it as one.
 
-- `decision.md` is the Jev framework, `classifier.md` is the generative framework, `judge.md` is the
-  judge's framework, and `rules.md` is the rule list. `containment.md` is the Outside Task Scope
-  rule the judge reads when it reviews a containment deny the user named. `denial.md` is the
-  instruction every deny reason ends with; it reaches the agent, not a classifier. `loadPolicy`
-  splices the rules at the `<rules>` marker. `auto-mode print-prompt` prints the selected base
-  policy; configured rules and action evidence are separate request fields.
+- `decision.md` is the Jev framework, `judge.md` is the judge's framework, and `rules.md` is the
+  rule list. `containment.md` is the Outside Task Scope rule the judge reads when it reviews a
+  containment deny the user named. `denial.md` is the instruction every deny reason ends with; it
+  reaches the agent, not a classifier. `loadPolicy` splices the rules at the `<rules>` marker.
+  `auto-mode print-prompt` prints the selected base policy; configured rules and action evidence are
+  separate request fields.
 - Every instruction to block must terminate at a rule name that exists in `rules.md` or an explicit
-  configured deny entry. An evaluation rule in `classifier.md` may never order a block on its own —
-  a block the model cannot name is one the user cannot read or appeal. A block that cannot be named
-  is an allow.
+  configured deny entry. An evaluation rule in a framework may never order a block on its own — a
+  block the model cannot name is one the user cannot read or appeal. A block that cannot be named is
+  an allow.
 - No evaluation rule may share a name with a rule or exception, or prefix one, because a verdict
   quotes the name back and the reader cannot tell which was meant.
 - The rules that deny are prose that needs a reader, so the local tier never denies on a rule. It
