@@ -42,7 +42,7 @@ function buildBranchPattern(pattern: string): RegExp {
 }
 
 // A class never matches a slash, as fnmatch reads it under FNM_PATHNAME, and
-// a backslash inside it escapes the next character, an endpoint or `]` alike.
+// a backslash inside it escapes the next character, a range end or `]` alike.
 function buildBracketPattern(
   pattern: string,
   start: number,
@@ -57,22 +57,40 @@ function buildBracketPattern(
   let members = '';
 
   while (index < pattern.length) {
-    const char = pattern[index] ?? '';
-
-    if (char === ']') {
+    if (pattern[index] === ']') {
       return { source: buildClassSource(members, negated), end: index + 1 };
     }
 
-    if (char === '\\' && index + 1 < pattern.length) {
-      members += toClassMember(pattern[index + 1] ?? '');
-      index += 2;
+    const low = readClassChar(pattern, index);
+
+    index = low.end;
+
+    if (pattern[index] === '-' && index + 1 < pattern.length && pattern[index + 1] !== ']') {
+      const high = readClassChar(pattern, index + 1);
+
+      index = high.end;
+      members += buildRangeSource(low.char, high.char);
     } else {
-      members += char === '-' ? '-' : toClassMember(char);
-      index += 1;
+      members += toClassMember(low.char);
     }
   }
 
   return null;
+}
+
+function readClassChar(
+  pattern: string,
+  index: number,
+): { readonly char: string; readonly end: number } {
+  return pattern[index] === '\\' && index + 1 < pattern.length
+    ? { char: pattern[index + 1] ?? '', end: index + 2 }
+    : { char: pattern[index] ?? '', end: index + 1 };
+}
+
+// fnmatch reads a range whose ends are out of order as one that matches
+// nothing, where a RegExp would throw on it.
+function buildRangeSource(low: string, high: string): string {
+  return low <= high ? `${toClassMember(low)}-${toClassMember(high)}` : '';
 }
 
 function buildClassSource(members: string, negated: boolean): string {

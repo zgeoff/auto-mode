@@ -23,6 +23,10 @@ test.each([
   ['release/]', [String.raw`release/[\]]`], true],
   ['release/a/b', ['release[/]a/b'], false],
   ['release/[x', ['release/[x'], true],
+  ['feat/x', ['release/[z-a]*'], false],
+  ['release/m', ['release/[z-a]*', 'release/*'], true],
+  ['release/b', ['release/[!z-a]'], true],
+  ['release/-', ['release/[-a]'], true],
 ])('it reads %s against the patterns %j as protected: %p', (branch, patterns, expected) => {
   expect(isProtectedBranch(branch, patterns)).toBe(expected);
 });
