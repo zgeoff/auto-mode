@@ -1,7 +1,7 @@
 import { join, normalize } from 'node:path';
 import { PROTECTED_BRANCH_NAMES } from '../scope/protected-branch-names.ts';
 import type { NamedTarget } from '../types.ts';
-import type { ScopeFinding } from './collect-scope-findings.ts';
+import type { ScopeFinding } from './types.ts';
 
 export interface GrantContext {
   readonly home: string;

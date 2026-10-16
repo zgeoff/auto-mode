@@ -10,8 +10,10 @@
       "error",
       {
         "ignoreInferredTypes": true,
+        // the program table holds RegExp patterns, which no reader mutates
         "allow": [
           { "from": "lib", "name": "Buffer" },
+          { "from": "lib", "name": "RegExp" },
           { "from": "package", "name": "Buffer", "package": "@types/node" }
         ]
       }

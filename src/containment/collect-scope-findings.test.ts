@@ -1221,3 +1221,22 @@ test('it finds an edit of another pull request even when a milestone holds the n
     { kind: 'remote-write', target: 'gh pr edit', grant: { kind: 'pull-request', number: 40 } },
   ]);
 });
+
+test.each([
+  ['docker --context staging volume prune -f', 'prune', 'docker --context staging volume prune -f'],
+  ['docker compose --profile ci down -v', 'prune', 'docker compose --profile ci down -v'],
+  ['docker -Dc default volume prune -f', 'prune', 'docker -Dc default volume prune -f'],
+  ['scp -rp ./build deploy@host:/srv/app', 'remote-write', 'scp'],
+  [
+    'kubectl --server https://cluster.example delete deployment web',
+    'remote-write',
+    'kubectl write',
+  ],
+] as const)('it finds %s behind an option', (command, kind, target) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([{ kind, target }]);
+});
