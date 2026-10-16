@@ -1,6 +1,6 @@
 import type { ContainmentEvidence, DecisionRule, DenyBasis, RepositoryContext } from '../types.ts';
 
-export interface JudgeDeny {
+interface JudgeDeny {
   readonly rule: DecisionRule;
   readonly basis: DenyBasis;
   readonly containment?: ContainmentEvidence | undefined;
