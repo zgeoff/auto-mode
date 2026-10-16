@@ -219,3 +219,81 @@ test('it does not flag models that hold the same entries in a different order', 
 
   expect(text).toInclude('Config: the same in every compared field.');
 });
+
+test('it flags runs limited to different cases, and reads a run without the field as every case', () => {
+  const text = formatComparison(
+    {
+      run: {
+        summary: {
+          runID: 'run-a',
+          config: {
+            schemaVersion: 2,
+            experiment: 'containment-replay',
+            publicCommit: 'c1',
+            dirtyTree: false,
+            policyHash: 'p1',
+            judgePolicyHash: 'j',
+            configuredRulesHash: 'r',
+            corpusHash: 'c',
+            labelsHash: 'l',
+            recording: null,
+            models: { jev: 'jev-1.13.0' },
+            seed: 1,
+            samples: 2,
+            maxRequests: null,
+            live: false,
+            startedAt: '2026-10-10T12:00:00.000Z',
+            completedAt: '2026-10-10T12:01:00.000Z',
+          },
+          notMeasured: [],
+          counts: [],
+          notScorable: [],
+          latency: [],
+          requiredCases: [],
+        },
+        records: [],
+        tornLine: null,
+      },
+      observations: [],
+    },
+    {
+      run: {
+        summary: {
+          runID: 'run-b',
+          config: {
+            schemaVersion: 2,
+            experiment: 'containment-replay',
+            publicCommit: 'c1',
+            dirtyTree: false,
+            policyHash: 'p1',
+            judgePolicyHash: 'j',
+            configuredRulesHash: 'r',
+            corpusHash: 'c',
+            labelsHash: 'l',
+            recording: null,
+            cases: ['decision-rules/rotate-token:near-miss'],
+            models: { jev: 'jev-1.13.0' },
+            seed: 1,
+            samples: 2,
+            maxRequests: null,
+            live: false,
+            startedAt: '2026-10-10T13:00:00.000Z',
+            completedAt: '2026-10-10T13:01:00.000Z',
+          },
+          notMeasured: [],
+          counts: [],
+          notScorable: [],
+          latency: [],
+          requiredCases: [],
+        },
+        records: [],
+        tornLine: null,
+      },
+      observations: [],
+    },
+  );
+
+  expect(text).toInclude(
+    'Config differs in: cases (null → ["decision-rules/rotate-token:near-miss"])',
+  );
+});

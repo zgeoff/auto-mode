@@ -590,6 +590,10 @@ test('it leaves unscored a judge reply to a request that named another model tha
       model: 'claude-opus-5-5',
     },
   ]);
+
+  expect(resumed.summary.fallbacks).toStrictEqual([
+    { stage: 'judge', model: 'claude-sonnet-5-5', answered: 1, fallbacks: 0, models: {} },
+  ]);
 });
 
 test('it refuses a run limited to a case the experiment lacks', async () => {

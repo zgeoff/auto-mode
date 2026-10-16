@@ -54,3 +54,23 @@ test('it reports no stage whose samples hold no answering model', () => {
     }),
   ).toStrictEqual([]);
 });
+
+test('it leaves out a reply to a request that named another model than the stage’s', () => {
+  expect(
+    buildFallbackCounts(
+      [
+        buildMockSampleRecord({ stage: 'judge', model: 'claude-sonnet-5-5' }),
+        buildMockSampleRecord({
+          stage: 'judge',
+          status: 'not-scorable',
+          verdict: null,
+          reason: 'model-changed',
+          model: 'claude-opus-5-5',
+        }),
+      ],
+      { judge: 'claude-sonnet-5-5' },
+    ),
+  ).toStrictEqual([
+    { stage: 'judge', model: 'claude-sonnet-5-5', answered: 1, fallbacks: 0, models: {} },
+  ]);
+});

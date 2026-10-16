@@ -17,6 +17,7 @@ const CONFIG_FIELDS = [
   'corpusHash',
   'labelsHash',
   'recording',
+  'cases',
   'models',
   'seed',
   'samples',
@@ -103,7 +104,13 @@ function formatCount(count: Readonly<MeasurementCount> | undefined): string {
   return parts.join(', ');
 }
 
+// A run from before the case filter holds no cases field, which matches a run
+// of every case.
 function formatField(value: unknown): string {
+  if (value === undefined) {
+    return 'null';
+  }
+
   return typeof value === 'object' && value !== null
     ? JSON.stringify(sortKeys(value))
     : String(value);
