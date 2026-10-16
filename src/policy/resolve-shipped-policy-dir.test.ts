@@ -20,17 +20,17 @@ test('it walks up from a nested directory to the nearest shipped policy', async 
   const ctx = await setupTest();
 
   await mkdir(join(ctx.root, 'policy'));
-  await writeFile(join(ctx.root, 'policy', 'classifier.md'), '<rules>\n');
+  await writeFile(join(ctx.root, 'policy', 'decision.md'), '<rules>\n');
   await mkdir(join(ctx.root, 'dist', 'chunks'), { recursive: true });
 
   expect(resolveShippedPolicyDir(join(ctx.root, 'dist', 'chunks'))).toBe(join(ctx.root, 'policy'));
 });
 
-test('it passes over a policy directory that holds no classifier framework', async () => {
+test('it passes over a policy directory that holds no decision framework', async () => {
   const ctx = await setupTest();
 
   await mkdir(join(ctx.root, 'policy'));
-  await writeFile(join(ctx.root, 'policy', 'classifier.md'), '<rules>\n');
+  await writeFile(join(ctx.root, 'policy', 'decision.md'), '<rules>\n');
   await mkdir(join(ctx.root, 'dist', 'policy'), { recursive: true });
   await writeFile(join(ctx.root, 'dist', 'policy', 'rules.md'), 'RULES\n');
 
@@ -51,7 +51,7 @@ test('it stops at the stop directory before a policy above it', async () => {
   const ctx = await setupTest();
 
   await mkdir(join(ctx.root, 'policy'));
-  await writeFile(join(ctx.root, 'policy', 'classifier.md'), '<rules>\n');
+  await writeFile(join(ctx.root, 'policy', 'decision.md'), '<rules>\n');
   await mkdir(join(ctx.root, 'pkg', 'dist'), { recursive: true });
 
   expect(() =>

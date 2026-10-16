@@ -67,5 +67,4 @@ everyday use.
 
 - [`policy/rules.md`](../policy/rules.md): what is blocked.
 - [`policy/decision.md`](../policy/decision.md): the framework Jev reads.
-- [`policy/classifier.md`](../policy/classifier.md): the generative framework.
 - [`policy/judge.md`](../policy/judge.md): the framework the judge reads.

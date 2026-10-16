@@ -1,11 +1,7 @@
 import { CLI_LIMITS } from '../../mods/auto-mode/contract/cli-limits.ts';
 import type { Config } from './config.ts';
 
-export function buildJevOnlyConfig(config: Config): Config | null {
-  if (config.provider.protocol !== 'system-one') {
-    return null;
-  }
-
+export function buildJevOnlyConfig(config: Config): Config {
   // The mod stops the run at the sum of these limits, so a longer configured
   // judge would leave the second judge call no time.
   const judge =

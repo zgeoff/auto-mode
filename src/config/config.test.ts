@@ -147,7 +147,7 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
     ctx.configFile,
     JSON.stringify({
       classifiers: { glm: { timeoutMs: 45_000 } },
-      decision: { classifier: 'glm' },
+      decision: { judge: 'glm' },
     }),
   );
 
@@ -158,6 +158,16 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
 
   expect(config).toStrictEqual({
     provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: {
       protocol: 'messages',
       baseURL: 'https://api.z.ai/api/anthropic',
       model: 'glm-5.3-flash',
@@ -166,16 +176,6 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
       reasoning: true,
       maxTokens: 3000,
       timeoutMs: 45_000,
-    },
-    judge: {
-      protocol: 'claude-code',
-      baseURL: 'https://api.anthropic.com',
-      model: 'claude-sonnet-5-5',
-      apiKeyEnv: undefined,
-      apiKeyCommand: undefined,
-      reasoning: false,
-      maxTokens: 3000,
-      timeoutMs: 120_000,
     },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
@@ -378,6 +378,19 @@ test('#loadConfig refuses a classifier of the claude-code kind, which only judge
   );
 });
 
+test('#loadConfig refuses a classifier of a Messages API kind, which only judges', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'glm' } }));
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+  ).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile}: decision.classifier names a messages kind, which only judges`,
+  );
+});
+
 test('#loadConfig refuses a judge of the jev kind, which cannot write a reason', async () => {
   const ctx = await setupTest();
 
@@ -394,7 +407,7 @@ test('#loadConfig refuses a judge of the jev kind, which cannot write a reason',
 test('#loadConfig falls back to a built-in kind when the registry has no entry for the role', async () => {
   const ctx = await setupTest();
 
-  await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'glm' } }));
+  await writeFile(ctx.configFile, JSON.stringify({ decision: { judge: 'glm' } }));
 
   const config = await loadConfig(
     ctx.configFile,
@@ -403,6 +416,16 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
 
   expect(config).toStrictEqual({
     provider: {
+      protocol: 'system-one',
+      baseURL: 'https://api.typesafe.ai',
+      model: 'jev-1.13.0',
+      apiKeyEnv: 'TYPESAFE_API_KEY',
+      apiKeyCommand: undefined,
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs: 5000,
+    },
+    judge: {
       protocol: 'messages',
       baseURL: 'https://api.z.ai/api/anthropic',
       model: 'glm-5.3-flash',
@@ -411,16 +434,6 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
       reasoning: true,
       maxTokens: 3000,
       timeoutMs: 60_000,
-    },
-    judge: {
-      protocol: 'claude-code',
-      baseURL: 'https://api.anthropic.com',
-      model: 'claude-sonnet-5-5',
-      apiKeyEnv: undefined,
-      apiKeyCommand: undefined,
-      reasoning: false,
-      maxTokens: 3000,
-      timeoutMs: 120_000,
     },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,

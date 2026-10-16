@@ -10,7 +10,7 @@ export function resolveShippedPolicyDir(
   let dir = startDir;
 
   for (;;) {
-    if (existsSync(join(dir, 'policy', 'classifier.md'))) {
+    if (existsSync(join(dir, 'policy', 'decision.md'))) {
       return join(dir, 'policy');
     }
 

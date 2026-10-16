@@ -11,9 +11,8 @@ import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import { buildJevOutcome } from './build-jev-outcome.ts';
-import type { ModelOptions, ModelOutcome } from './classify-with-model.ts';
 import { sendDecision } from './send-decision.ts';
-import type { DecisionDiagnostics } from './types.ts';
+import type { DecisionDiagnostics, ModelOptions, ModelOutcome } from './types.ts';
 
 export async function classifyWithJev(
   payload: ActionRequest,
@@ -39,6 +38,12 @@ export async function classifyWithJev(
   }
 
   try {
+    // A library caller builds its own config, which the config file's check
+    // never sees, so the classifier refuses a kind that only judges.
+    if (config.provider.protocol !== 'system-one') {
+      throw new Error(`${config.provider.protocol ?? 'messages'} kinds only judge`);
+    }
+
     key = await resolveApiKey(config.provider, options);
 
     if (key === null) {

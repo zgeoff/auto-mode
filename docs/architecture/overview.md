@@ -90,9 +90,7 @@ finishes, the mod starts the CLI a second time to record what the call made.
 
 The CLI is the published `auto-mode` package, built for node, and it keeps no process between calls.
 It reaches Jev over HTTPS, and it runs the judge as a `claude -p` child with no tools, no settings
-and no session of its own. The mod always runs the CLI in its Jev-only mode, so the Messages API
-classifiers that the configuration also defines serve only callers of the library and of the CLI by
-hand.
+and no session of its own. Jev is the only classifier the configuration accepts.
 
 ## Data
 

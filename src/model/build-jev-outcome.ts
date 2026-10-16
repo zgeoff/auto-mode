@@ -1,13 +1,17 @@
 import type { Config } from '../config/config.ts';
 import { buildUnavailableVerdict } from '../policy/build-unavailable-verdict.ts';
 import type { RepositoryContext } from '../types.ts';
-import type { ModelOutcome } from './classify-with-model.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import { findReviewedRule } from './find-reviewed-rule.ts';
 import { formatClassifierNote } from './format-classifier-note.ts';
 import { pickDecisionVerdict } from './pick-decision-verdict.ts';
-import type { DecisionDiagnostics, DecisionRequest, DecisionResult } from './types.ts';
+import type {
+  DecisionDiagnostics,
+  DecisionRequest,
+  DecisionResult,
+  ModelOutcome,
+} from './types.ts';
 
 type JevAttempt =
   | {

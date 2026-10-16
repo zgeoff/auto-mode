@@ -9,8 +9,6 @@ import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 import { readHostEnvironment } from './read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment } from './types.ts';
 
-export { PRESETS } from './presets.ts';
-
 export interface ProviderConfig {
   readonly protocol?: 'messages' | 'system-one' | 'claude-code';
   readonly baseURL: string;
@@ -189,8 +187,10 @@ function buildConfig(json: unknown, path: string, home: string): Config {
     path,
   );
 
-  if (provider.protocol === 'claude-code') {
-    throw new Error(`${path}: decision.classifier names a claude-code kind, which only judges`);
+  if (provider.protocol !== 'system-one') {
+    throw new Error(
+      `${path}: decision.classifier names a ${provider.protocol} kind, which only judges`,
+    );
   }
 
   const judge =

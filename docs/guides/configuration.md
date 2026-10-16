@@ -69,15 +69,13 @@ The `messages` kind starts from `https://api.anthropic.com`, reasoning on, 3,000
 | `apiKeyEnv`     | Environment variable that holds the key         |
 | `apiKeyCommand` | Shell command that prints the key               |
 | `timeoutMs`     | API deadline in milliseconds                    |
-| `reasoning`     | Prompt ending for Messages API providers        |
+| `reasoning`     | Accepted and ignored                            |
 | `maxTokens`     | Output budget for Messages API providers        |
 
 The Jev kind calls TypeSafe's `/v1/systemone` endpoint with a Bearer key and waits up to 5 seconds.
-Set `baseURL` to the API root of a compatible provider. The Messages API kinds use `/v1/messages`
-and the generative framework. Their history is the last direct user message that the mod captured,
-and they do not import Claude's `autoMode` entries. The mod passes `--jev-only`, so as classifiers
-these kinds serve library callers and `auto-mode run` without that flag; as the judge they serve the
-mod too.
+Set `baseURL` to the API root of a compatible provider. Only a Jev kind can classify. The
+`claude-code` kind and the Messages API kinds, which call `/v1/messages`, can only judge, and
+`decision.classifier` refuses them.
 
 The `claude-code` kind can only judge. It runs `claude -p` with no tools, settings, MCP servers or
 session file, through the local `claude` login, so it needs no API key. It drops every `ANTHROPIC_*`
@@ -163,10 +161,9 @@ protection rule here yourself. The list applies in every repository.
 | `denialBudget`   | 3, 20         | Denials allowed in a row and per session before the user is asked |
 
 A role names a registry id. When the registry has no entry by that id and the id is a built-in kind,
-the role uses that kind's defaults, so `"classifier": "glm"` works without a `glm` entry. A role
-that names a dropped entry, or an id that is neither an entry nor a kind, makes the file invalid.
-The classifier cannot be a `claude-code` kind, and the judge cannot be a Jev kind, because Jev
-writes no text.
+the role uses that kind's defaults, so `"judge": "glm"` works without a `glm` entry. A role that
+names a dropped entry, or an id that is neither an entry nor a kind, makes the file invalid. The
+classifier must be a Jev kind, and the judge cannot be one, because Jev writes no text.
 
 ### Judge
 
@@ -185,9 +182,9 @@ answers confirm or overturn with a short reason.
 - A missing key, a timeout, a failed call or an unreadable reply keeps the deny with its fixed
   reason. The judge never turns a failure into an allow, whatever `onFailure` says.
 
-A containment deny, a retry of the action just denied, and a deny from a Messages API classifier
-never reach the judge. The judge's deadline is its entry's `timeoutMs`, bounded by the time the mod
-leaves the CLI.
+A retry of the action just denied never reaches the judge, and neither does a containment deny
+unless the last direct user message names every target. The judge's deadline is its entry's
+`timeoutMs`, bounded by the time the mod leaves the CLI.
 
 ### Denial budget
 
@@ -291,7 +288,7 @@ the five blocks above. Registry entries are parsed one at a time. A bad entry is
 diagnostic line naming it, and the other entries load:
 
 ```text
-auto-mode: /home/you/.config/auto-mode/config.json: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, spark, claude, glm, messages
+auto-mode: /home/you/.config/auto-mode/config.json: classifiers.typo dropped: unknown kind 'gpt'; known kinds are jev, claude-code, spark, claude, glm, messages
 ```
 
 `auto-mode run` and `auto-mode print-prompt` write these lines to stderr. The mod does not show

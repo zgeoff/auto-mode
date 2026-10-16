@@ -20,7 +20,7 @@ test('it finds the mod beside the shipped policy above a flattened dist director
   const ctx = await setupTest();
 
   await mkdir(join(ctx.root, 'policy'));
-  await writeFile(join(ctx.root, 'policy', 'classifier.md'), '<rules>\n');
+  await writeFile(join(ctx.root, 'policy', 'decision.md'), '<rules>\n');
   await mkdir(join(ctx.root, 'mods', 'auto-mode', '.claude-plugin'), { recursive: true });
   await writeFile(join(ctx.root, 'mods', 'auto-mode', '.claude-plugin', 'plugin.json'), '{}\n');
   await mkdir(join(ctx.root, 'dist'));
@@ -32,7 +32,7 @@ test('it throws when the package beside the shipped policy holds no mod', async 
   const ctx = await setupTest();
 
   await mkdir(join(ctx.root, 'policy'));
-  await writeFile(join(ctx.root, 'policy', 'classifier.md'), '<rules>\n');
+  await writeFile(join(ctx.root, 'policy', 'decision.md'), '<rules>\n');
   await mkdir(join(ctx.root, 'mods', 'auto-mode'), { recursive: true });
   await mkdir(join(ctx.root, 'dist'));
 

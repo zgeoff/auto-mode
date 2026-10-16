@@ -56,20 +56,19 @@ decides it, and that stage's `judge` record can sit beside the `grant` record.
 
 Each final record also measures the task, so escalations can be counted per agent:
 
-| Field           | Values                                                                                        |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| `decidingStage` | `local`, `containment`, `jev`, `judge`, `messages`, `retry`, or `budget`; `null` on `started` |
-| `denials`       | `{ consecutive, session }` after this action; `null` on `started`                             |
-| `escalation`    | `true` when the denial budget left this action to the user                                    |
+| Field           | Values                                                                            |
+| --------------- | --------------------------------------------------------------------------------- |
+| `decidingStage` | `local`, `containment`, `jev`, `judge`, `retry`, or `budget`; `null` on `started` |
+| `denials`       | `{ consecutive, session }` after this action; `null` on `started`                 |
+| `escalation`    | `true` when the denial budget left this action to the user                        |
 
 `local` is the deterministic tier, `containment` a deny for a write outside the task scope, and
-`jev` or `messages` the classifier, and `judge` a Jev deny the judge confirmed, held or overturned,
-or one whose judge call failed. `retry` is a repeat of the action just denied, denied again without
-a classifier call. `budget` marks the action that exceeded the
-[denial budget](./configuration.md#denial-budget): auto-mode wrote no verdict, Claude Code showed
-its prompt, and `denials` restarts at zero. Denial counts outside these records live in
-`$XDG_STATE_HOME/auto-mode/denials/`, keyed by a hash of the session and subagent identifiers;
-`AUTO_MODE_DIAGNOSTICS_PATH` does not move or disable them.
+`jev` the classifier, and `judge` a Jev deny the judge confirmed, held or overturned, or one whose
+judge call failed. `retry` is a repeat of the action just denied, denied again without a classifier
+call. `budget` marks the action that exceeded the [denial budget](./configuration.md#denial-budget):
+auto-mode wrote no verdict, Claude Code showed its prompt, and `denials` restarts at zero. Denial
+counts outside these records live in `$XDG_STATE_HOME/auto-mode/denials/`, keyed by a hash of the
+session and subagent identifiers; `AUTO_MODE_DIAGNOSTICS_PATH` does not move or disable them.
 
 A completed decision always writes a verdict to stdout, except an escalation, which writes nothing.
 A start without a final record proves only that the CLI started; a killed process may leave that

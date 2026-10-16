@@ -435,7 +435,7 @@ test('it skips a Jev deny whose record names no rule without sending', async () 
   expect(outcome).toStrictEqual({ status: 'skipped', reason: 'Jev named no rule to review.' });
 });
 
-test('it skips a Jev deny of a rule the policy does not hold without sending', async () => {
+test('it reports a Jev deny of a rule the policy does not hold as not scorable without sending', async () => {
   const labels = { severity: 'safe', consent: 'none', source: 'synthetic' } as const;
 
   const previous = [
@@ -459,7 +459,7 @@ test('it skips a Jev deny of a rule the policy does not hold without sending', a
     context,
   );
 
-  expect(outcome).toStrictEqual({ status: 'skipped', reason: 'Jev named no rule to review.' });
+  expect(outcome).toStrictEqual({ status: 'not-scorable', reason: 'jev-rule-not-shipped' });
 });
 
 test('it reviews a Jev deny containment denied first when it reviews every Jev deny', async () => {

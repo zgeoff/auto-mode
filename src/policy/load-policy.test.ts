@@ -17,36 +17,18 @@ async function setupTest(): Promise<{
   return { classifierPath: join(dir, 'classifier.md'), rulesPath: join(dir, 'rules.md') };
 }
 
-test('it reads the shipped policy and leaves no marker behind', async () => {
-  const prompt = await loadPolicy();
+test.each(['decision.md', 'judge.md'] as const)(
+  'it reads the shipped %s and leaves no marker behind',
+  async (framework) => {
+    const prompt = await loadPolicy({}, framework);
 
-  expect(prompt).not.toInclude('<rules>');
-});
+    expect(prompt).not.toInclude('<rules>');
+  },
+);
 
 // The splice is the product, so its shape is pinned. A section that moves,
-// disappears, or arrives is a change to what every classifier reads.
-test('it assembles the shipped policy in a fixed order', async () => {
-  const prompt = await loadPolicy();
-
-  const sections = prompt.split('\n').filter((line) => line.startsWith('## '));
-
-  expect(sections).toStrictEqual([
-    '## Threat model',
-    '## Environment',
-    '## Scope',
-    '## The default is allow',
-    '## The two block tiers',
-    '## User intent',
-    '## Evaluation rules',
-    '## HARD BLOCK rules',
-    '## SOFT BLOCK rules',
-    '## ALLOW exceptions',
-    '## How to evaluate an action',
-    '## Output contract',
-  ]);
-});
-
-test('it assembles the shipped decision framework when asked for it', async () => {
+// disappears, or arrives is a change to what Jev reads.
+test('it assembles the shipped decision framework in a fixed order', async () => {
   const prompt = await loadPolicy({}, 'decision.md');
 
   const sections = prompt.split('\n').filter((line) => line.startsWith('## '));
@@ -92,7 +74,10 @@ test('it puts the rules where the marker was', async () => {
   await writeFile(ctx.classifierPath, 'before\n\n<rules>\n\nafter\n');
   await writeFile(ctx.rulesPath, '  RULES  ');
 
-  const prompt = await loadPolicy({ classifierPath: ctx.classifierPath, rulesPath: ctx.rulesPath });
+  const prompt = await loadPolicy(
+    { classifierPath: ctx.classifierPath, rulesPath: ctx.rulesPath },
+    'decision.md',
+  );
 
   expect(prompt).toBe('before\n\nRULES\n\nafter\n');
 });
@@ -106,6 +91,6 @@ test('it refuses a classifier file that has nowhere to put the rules', async () 
   await writeFile(ctx.rulesPath, 'RULES');
 
   expect(
-    loadPolicy({ classifierPath: ctx.classifierPath, rulesPath: ctx.rulesPath }),
+    loadPolicy({ classifierPath: ctx.classifierPath, rulesPath: ctx.rulesPath }, 'decision.md'),
   ).rejects.toThrowWithMessage(Error, /has no <rules> line/u);
 });

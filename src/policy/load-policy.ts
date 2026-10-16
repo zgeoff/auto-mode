@@ -10,8 +10,8 @@ interface PolicyPaths {
 }
 
 export async function loadPolicy(
-  paths: PolicyPaths = {},
-  framework: 'classifier.md' | 'decision.md' | 'judge.md' = 'classifier.md',
+  paths: PolicyPaths,
+  framework: 'decision.md' | 'judge.md',
 ): Promise<string> {
   const shipped = resolveShippedPolicyDir();
   const classifierPath = paths.classifierPath ?? join(shipped, framework);

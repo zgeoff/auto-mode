@@ -208,7 +208,7 @@ Options:
   });
 });
 
-test('it refuses a traditional evaluator in Jev-only mode before a local allowance', async () => {
+test('it refuses a Messages API classifier before a local allowance', async () => {
   const ctx = await setupTest();
 
   await mkdir(join(ctx.dir, 'auto-mode'));
@@ -235,7 +235,7 @@ test('it refuses a traditional evaluator in Jev-only mode before a local allowan
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
     stdout: '',
-    stderr: 'auto-mode: Jev-only evaluation requires system-one; no verdict\n',
+    stderr: 'auto-mode: configuration unreadable; no verdict\n',
   });
 });
 
