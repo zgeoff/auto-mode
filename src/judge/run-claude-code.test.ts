@@ -110,6 +110,24 @@ test('it reports the model that wrote the most output beside a background model'
   expect(reply.model).toBe('claude-sonnet-5-5');
 });
 
+test('it keeps a reply whose model usage and safety stops are malformed, with the configured model', async () => {
+  const ctx = await setupTest();
+
+  const reply = await runClaudeCode(
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-sonnet-5-5' }),
+    { system: 'the judge policy', user: 'the evidence' },
+    {
+      PATH: ctx.binDir,
+      STUB_CLAUDE_REPLY: 'ok',
+      STUB_CLAUDE_MODEL_USAGE: JSON.stringify({ 'claude-sonnet-5': { outputTokens: 'many' } }),
+      STUB_CLAUDE_SAFETY_STOPS: 'several',
+    },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply).toStrictEqual({ text: 'ok', model: 'claude-sonnet-5-5', safetyStops: null });
+});
+
 test('it runs claude -p with the model, the system prompt, no tools, no settings, and the evidence on stdin', async () => {
   const ctx = await setupTest();
 

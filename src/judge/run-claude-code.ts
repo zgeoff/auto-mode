@@ -47,7 +47,8 @@ export async function runClaudeCode(
     },
   );
 
-  const body = CLAUDE_OUTPUT.safeParse(parseOutputJSON(result.stdout));
+  const output = parseOutputJSON(result.stdout);
+  const body = CLAUDE_OUTPUT.safeParse(output);
 
   if (
     result.exitCode !== 0 ||
@@ -58,10 +59,13 @@ export async function runClaudeCode(
     throw new Error(`claude -p failed with exit code ${String(result.exitCode)}`);
   }
 
+  const usage = MODEL_USAGE_OUTPUT.safeParse(output).data?.modelUsage;
+  const stops = SAFETY_STOPS_OUTPUT.safeParse(output).data?.safety_stops;
+
   return {
     text: body.data.result,
-    model: pickAnsweringModel(body.data.modelUsage, provider.model),
-    safetyStops: body.data.safety_stops ?? null,
+    model: pickAnsweringModel(usage, provider.model),
+    safetyStops: stops ?? null,
   };
 }
 
@@ -85,14 +89,13 @@ const PROVIDER_SWITCHES = new Set([
   'CLAUDE_CODE_USE_FOUNDRY',
 ]);
 
-const MODEL_USAGE = z.record(z.string(), z.object({ outputTokens: z.number() }));
+const CLAUDE_OUTPUT = z.object({ is_error: z.boolean(), result: z.string().optional() });
 
-const CLAUDE_OUTPUT = z.object({
-  is_error: z.boolean(),
-  result: z.string().optional(),
-  modelUsage: MODEL_USAGE.optional(),
-  safety_stops: z.number().optional(),
-});
+// The usage and the stop count are parsed apart from the result, so a malformed
+// one keeps a readable reply on the configured model.
+const MODEL_USAGE = z.record(z.string(), z.object({ outputTokens: z.number() }));
+const MODEL_USAGE_OUTPUT = z.object({ modelUsage: MODEL_USAGE });
+const SAFETY_STOPS_OUTPUT = z.object({ safety_stops: z.number() });
 
 function parseOutputJSON(text: string): unknown {
   try {
