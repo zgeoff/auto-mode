@@ -5,8 +5,12 @@ import { tryWriteRequestCapture } from './capture/try-write-request-capture.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { loadConfig } from './config/config.ts';
+import type { Config } from './config/config.ts';
 import { resolveShippedModDir } from './config/resolve-shipped-mod-dir.ts';
 import type { HostEnvironment, OutputStream } from './config/types.ts';
+import { makeJudgeServerSession } from './judge/make-judge-server-session.ts';
+import { resolveJudgeSocketPath } from './judge/resolve-judge-socket-path.ts';
+import type { JudgeSession } from './judge/types.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { recordScope } from './record-scope.ts';
 import { parseActionRequest } from './request/parse-action-request.ts';
@@ -22,6 +26,10 @@ interface CLIIO {
   readonly stderr: Readonly<OutputStream>;
   readonly host: Readonly<HostEnvironment>;
   readonly subscribeToStopSignals: (onStop: () => void) => () => void;
+
+  // The program and script that run this CLI, so a run can start the judge
+  // server; without it, each judge review starts its own process.
+  readonly judgeServerCommand?: readonly [string, ...string[]] | undefined;
 }
 
 const USAGE = `auto-mode — a permission classifier for the auto-mode Claude Code mod
@@ -31,6 +39,7 @@ Usage:
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
   auto-mode mod-path         Print the directory of the Claude Code mod this package ships
+  auto-mode judge-server <socket>  Serve one agent session's judge reviews on a unix socket
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -96,6 +105,10 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
     return 0;
   }
 
+  if (command === 'judge-server') {
+    return runJudgeServer(io, args.positionals[1]);
+  }
+
   if (command === 'mod-path') {
     try {
       io.stdout.write(`${resolveShippedModDir()}\n`);
@@ -112,6 +125,59 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
 
   return 2;
 }
+
+// A Claude Code judge reaches the session's judge server when the CLI knows the
+// command that runs itself; a Messages API judge needs no process of its own.
+function buildJudgeServerSession(
+  io: Readonly<CLIIO>,
+  config: Readonly<Config>,
+  sessionID: string,
+): JudgeSession | undefined {
+  const judge = config.judge ?? null;
+
+  if (io.judgeServerCommand === undefined || judge?.protocol !== 'claude-code') {
+    return undefined;
+  }
+
+  const command = io.judgeServerCommand;
+  const entry = command[1] ?? command[0];
+
+  return makeJudgeServerSession({
+    socketPath: resolveJudgeSocketPath(io.host, sessionID, entry),
+    command: io.judgeServerCommand,
+    env: io.host.env,
+    timeoutMs: judge.timeoutMs,
+  });
+}
+
+// The server loads the Agent SDK, which a run that reaches a warm server never
+// needs, so it loads only here.
+async function runJudgeServer(
+  io: Readonly<CLIIO>,
+  socketPath: string | undefined,
+): Promise<number> {
+  if (socketPath === undefined) {
+    io.stderr.write(`auto-mode: judge-server needs a socket path\n\n${USAGE}`);
+
+    return 2;
+  }
+
+  const serverModule = await import('./judge/start-judge-server.ts');
+
+  const server = await serverModule.startJudgeServer({
+    socketPath,
+    env: io.host.env,
+    idleMs: JUDGE_IDLE_MS,
+  });
+
+  await server?.closed;
+
+  return 0;
+}
+
+// Nothing tells the server that its agent session ended, so it ends after this
+// long without a review, and a finished session leaves no judge process behind.
+const JUDGE_IDLE_MS = 900_000;
 
 // parseArgs throws on an unknown option or a missing value, and a usage error
 // is the caller's to fix, so it exits 2 with the usage instead of a stack trace.
@@ -204,6 +270,7 @@ async function run(
       stderr: io.stderr,
       budget: true,
       actionLog: true,
+      judgeSession: buildJudgeServerSession(io, config, request.sessionID),
     });
 
     if (outcome.verdict !== null) {

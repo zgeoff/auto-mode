@@ -28,7 +28,7 @@ import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
 import type { Checkout, CheckoutFacts, CheckoutFinder } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
 import type { JudgeOutcome } from './judge/classify-with-judge.ts';
-import type { JudgeDiagnostics } from './judge/types.ts';
+import type { JudgeDiagnostics, JudgeSession } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithJev } from './model/classify-with-jev.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
@@ -62,6 +62,10 @@ export interface ClassifyOptions extends EvaluationOptions {
   readonly actionLog?: boolean;
   readonly stderr?: Readonly<OutputStream> | undefined;
   readonly findCheckout?: CheckoutFinder | undefined;
+
+  // A caller that classifies more than one action passes a judge session, so
+  // the judge process stays warm between them.
+  readonly judgeSession?: JudgeSession | undefined;
 }
 
 export async function classifyAction(

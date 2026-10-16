@@ -81,6 +81,7 @@ Usage:
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
   auto-mode mod-path         Print the directory of the Claude Code mod this package ships
+  auto-mode judge-server <socket>  Serve one agent session's judge reviews on a unix socket
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -114,6 +115,7 @@ Usage:
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
   auto-mode mod-path         Print the directory of the Claude Code mod this package ships
+  auto-mode judge-server <socket>  Serve one agent session's judge reviews on a unix socket
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -157,6 +159,7 @@ Usage:
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
   auto-mode mod-path         Print the directory of the Claude Code mod this package ships
+  auto-mode judge-server <socket>  Serve one agent session's judge reviews on a unix socket
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one

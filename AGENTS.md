@@ -83,13 +83,14 @@ assembles the prompt; `config/` holds configuration and presets; `budget/` count
 session; `containment/` denies a write outside the task scope; `scope/` builds that scope from the
 configured scope sources and keeps what each session created; `bypass/` lets an in-scope file edit
 skip Jev; `judge/` reviews each Jev deny, confirming it with a written reason or overturning it,
-through `claude -p` or the Messages API; `secrets/` scans edit content with the bundled Betterleaks
-rule set, which `scripts/build-secret-rules.ts` generates; `capture/` appends each judged request to
-the opt-in capture, never inside a git work tree; `state/` resolves the XDG directories and reads
-and updates the state files, each update under a lock; `process/` runs every child process, capped
-in time and output, and alone imports `node:child_process`. `classify-action.ts` runs both tiers
-with the containment check and the edit bypass between them and the judge after Jev, applies the
-denial budget and writes the action log when its caller asks, and is the library entry point;
+through Claude Code over the Agent SDK, from a judge server per agent session, or the Messages API;
+`secrets/` scans edit content with the bundled Betterleaks rule set, which
+`scripts/build-secret-rules.ts` generates; `capture/` appends each judged request to the opt-in
+capture, never inside a git work tree; `state/` resolves the XDG directories and reads and updates
+the state files, each update under a lock; `process/` runs every child process, capped in time and
+output, and alone imports `node:child_process`. `classify-action.ts` runs both tiers with the
+containment check and the edit bypass between them and the judge after Jev, applies the denial
+budget and writes the action log when its caller asks, and is the library entry point;
 `record-scope.ts` adds what a finished Bash call created to the session scope;
 `write-action-failure.ts` logs a run that fails before the classifier starts; `index.ts` is the
 public API; `eval/index.ts` is the unpublished `auto-mode/eval` subpath; `cli.ts` is the entrypoint

@@ -6,7 +6,7 @@ with probabilities and no explanation, and its threshold is set low on purpose, 
 denies come from doubt rather than a match. The judge reads the denied rule, the call and the user's
 last message, and either confirms the deny with a reason written for this call, or overturns it to
 an allow when the user asked for exactly this or when the facts show that no rule covers the action.
-It is a generative model, `claude -p` on a Claude model by default, with its own framework in the
+It is a generative model, Claude Code on a Claude model by default, with its own framework in the
 [policy](../policy.md). The judge can only change a deny into an allow on a soft rule, and it fails
 closed: whatever goes wrong, the deny stands. It also reviews a containment deny whose every target
 the user named ([a containment deny](#a-containment-deny)).
@@ -20,21 +20,32 @@ closing tag cannot end its own field early. The judge reads no stale user messag
 the user typed before a relayed turn cannot grant consent
 ([the user message](../evidence/user-message.md)).
 
-The default judge runs as a `claude -p` child with no tools, no settings, no MCP servers and no
-session file, in a scratch directory, so it cannot act and no hook of the user's session runs inside
-it. The CLI strips the variables that point Claude Code at another provider from the child's
-environment, because the agent's own session often runs a non-Claude model through such a gateway,
-and the judge must reach Claude through the user's own Claude login. When a request trips a safety
-stop, `claude -p` answers it on a fallback model, so the judge reads the model that wrote the reply
-from the run's per-model usage: the model with the most output tokens, which passes over a
-background model and a model that wrote nothing. The configuration can name a Messages API model as
-the judge instead. Jev itself can never be the judge, because it writes no reasons.
+The default judge is one Claude Code process per agent session, which the Agent SDK drives over
+streaming input. The process runs with no tools, no settings, no MCP servers and no session file, in
+a scratch directory, so it cannot act and no hook of the user's session runs inside it. The judge
+framework is its system prompt, which Claude caches across reviews. The judge answers in plain text
+rather than through Claude Code's schema output, because a schema answer costs further model turns
+on every review. Each review sends one user turn and then clears the conversation, so one review's
+evidence never reaches the next. A change of model or framework starts a new process. The judge
+server owns the process, because each CLI run ends with its call: the
+[overview](../overview.md#topology) covers the topology. The CLI strips the variables that point
+Claude Code at another provider from the child's environment, because the agent's own session often
+runs a non-Claude model through such a gateway, and the judge must reach Claude through the user's
+own Claude login.
+
+When a request trips a safety stop, Claude Code answers it on a fallback model, so the judge reads
+the model that wrote the reply from the turn's per-model usage: the model with the most output
+tokens, which passes over a background model and a model that wrote nothing. A fallback that Claude
+Code keeps for the rest of the session ends the process, so the next review starts again on the
+configured model. The configuration can name a Messages API model as the judge instead. Jev itself
+can never be the judge, because it writes no reasons.
 
 ## Confirm or overturn
 
 The judge's reply must hold exactly one verdict and one non-empty reason, and an overturn must also
 hold exactly one basis. Any other reply is unreadable, because a second tag could disagree with the
-first. The CLI turns the reply into one of four outcomes:
+first. The CLI reads the same fields from a reply written as one JSON object. The CLI turns the
+reply into one of four outcomes:
 
 | Outcome    | When                                                                     | The agent receives                     |
 | ---------- | ------------------------------------------------------------------------ | -------------------------------------- |

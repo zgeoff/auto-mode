@@ -452,8 +452,7 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Routine cleanup.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Routine cleanup."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -534,7 +533,7 @@ test('it denies a push to a configured protected branch that the task works on, 
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for it.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"The user asked for it."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -582,7 +581,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for the release on main.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"The user asked for the release on main."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -605,6 +604,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Default Branch Write',
       tier: 'soft',
       elapsedMs: expect.toBeWithin(0, Math.ceil(elapsedMs) + 1),
@@ -640,7 +640,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns as a misr
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>misread</basis><reason>main is the task branch.</reason>',
+            '{"verdict":"overturn","basis":"misread","reason":"main is the task branch."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -679,7 +679,7 @@ test('it keeps a soft-rule Jev deny the judge overturns as a misread when only a
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>misread</basis><reason>main is the task branch.</reason>',
+            '{"verdict":"overturn","basis":"misread","reason":"main is the task branch."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -721,7 +721,7 @@ test('it denies with the judge’s reason and the safer-path instruction when th
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_REPLY:
-            '<verdict>confirm</verdict><reason>The user asked for a branch, not main.</reason>',
+            '{"verdict":"confirm","basis":null,"reason":"The user asked for a branch, not main."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -764,7 +764,7 @@ test('it keeps a hard-rule Jev deny with its template reason when the judge over
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>The value is a test literal.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"The value is a test literal."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -820,7 +820,7 @@ test('it keeps a Jev deny the judge overturns on consent when a configured hard 
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for the release.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"The user asked for the release."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -876,7 +876,7 @@ test('it denies a stored-password change the user only asked to check at the con
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY:
-            '<verdict>confirm</verdict><reason>The user asked to check that the item exists; this replaces its password.</reason>',
+            '{"verdict":"confirm","basis":null,"reason":"The user asked to check that the item exists; this replaces its password."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -1389,7 +1389,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY:
-            '<verdict>confirm</verdict><reason>You would write into the export-csv worktree, which the user named only as the source to port from.</reason>',
+            '{"verdict":"confirm","basis":null,"reason":"You would write into the export-csv worktree, which the user named only as the source to port from."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -1414,6 +1414,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Outside Task Scope',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -1468,8 +1469,7 @@ test('it denies the own-worktree cleanup that also removes another worktree the 
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -1532,7 +1532,7 @@ test('it clears a containment finding the judge confirms the user asked for, and
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked to create this exact file.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"The user asked to create this exact file."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -1553,6 +1553,7 @@ test('it clears a containment finding the judge confirms the user asked for, and
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Outside Task Scope',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -1594,7 +1595,7 @@ test('it still denies on a hard rule after the judge clears the containment find
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for this file.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"The user asked for this file."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -1640,8 +1641,7 @@ test('it denies a write the message names without asking the judge when the mess
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -1708,8 +1708,7 @@ test.each([
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
         home: ctx.dir,
         scratchPaths: [],

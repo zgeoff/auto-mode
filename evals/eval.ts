@@ -7,8 +7,10 @@ import {
   resolveApiKey,
   sendDecision,
   sendJudgeMessage,
+  startJudgeSession,
   toTimerDelay,
 } from 'auto-mode/eval';
+import type { JudgeSession } from 'auto-mode/eval';
 import { experiments } from './experiments/index.ts';
 import { assertShippedJevConfig } from './lib/assert-shipped-jev-config.ts';
 import { readPublicCommit } from './lib/read-public-commit.ts';
@@ -18,6 +20,10 @@ import { sendEvaluationDecision } from './lib/send-evaluation-decision.ts';
 async function main(): Promise<void> {
   const repoRoot = resolve(import.meta.dirname, '..');
   const host = readHostEnvironment();
+
+  // One run holds one judge session, as an agent session holds one judge
+  // server, so the run measures the warm process the mod reaches.
+  let judgeSession: JudgeSession | undefined;
 
   process.exitCode = await runEvalCommand(process.argv.slice(2), {
     stdout: (text) => process.stdout.write(text),
@@ -80,6 +86,10 @@ async function main(): Promise<void> {
           ? null
           : await resolveApiKey(judge, { host });
 
+      if (judge?.protocol === 'claude-code') {
+        judgeSession ??= startJudgeSession(host.env);
+      }
+
       return {
         ...base,
         judgeModel: judge?.model ?? null,
@@ -106,7 +116,7 @@ async function main(): Promise<void> {
                 const reply = await sendJudgeMessage(
                   judge,
                   { system: judgePolicy, user: request.user },
-                  { apiKey: judgeKey, env: host.env },
+                  { apiKey: judgeKey, env: host.env, session: judgeSession },
                   AbortSignal.timeout(toTimerDelay(judge.timeoutMs)),
                 );
 
@@ -115,6 +125,8 @@ async function main(): Promise<void> {
       };
     },
   });
+
+  judgeSession?.stop();
 }
 
 await main();

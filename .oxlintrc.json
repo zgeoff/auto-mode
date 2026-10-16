@@ -10,11 +10,18 @@
       "error",
       {
         "ignoreInferredTypes": true,
-        // the program table holds RegExp patterns, which no reader mutates
+        // the program table holds RegExp patterns, which no reader mutates; a
+        // socket, a server and the Agent SDK's stream and messages are library
+        // objects whose nested fields Readonly cannot reach
         "allow": [
           { "from": "lib", "name": "Buffer" },
           { "from": "lib", "name": "RegExp" },
-          { "from": "package", "name": "Buffer", "package": "@types/node" }
+          { "from": "package", "name": ["Buffer", "Socket", "Server"], "package": "@types/node" },
+          {
+            "from": "package",
+            "name": ["Query", "SDKMessage", "SDKResultMessage"],
+            "package": "@anthropic-ai/claude-agent-sdk"
+          }
         ]
       }
     ],

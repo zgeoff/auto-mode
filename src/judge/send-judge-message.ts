@@ -1,20 +1,15 @@
 import type { ProviderConfig } from '../config/config.ts';
 import { sendMessage } from '../messages/anthropic-client.ts';
 import type { ModelRequest } from '../messages/anthropic-client.ts';
-import { runClaudeCode } from './run-claude-code.ts';
+import type { JudgeMessageReply, JudgeSession } from './types.ts';
 
 export interface JudgeTransport {
   readonly apiKey: string | null;
   readonly env: Readonly<Record<string, string | undefined>>;
-}
 
-// The model is the one that wrote the reply, which a claude -p fallback makes
-// another model than the configured one.
-export interface JudgeMessageReply {
-  readonly text: string;
-  readonly model: string;
-  readonly safetyStops: number | null;
-  readonly fallback: boolean;
+  // A caller that judges more than once holds a session, so its later reviews
+  // reuse the judge process; without one, each review starts and stops its own.
+  readonly session?: JudgeSession | undefined;
 }
 
 export async function sendJudgeMessage(
@@ -24,7 +19,21 @@ export async function sendJudgeMessage(
   signal: Readonly<AbortSignal>,
 ): Promise<JudgeMessageReply> {
   if (provider.protocol === 'claude-code') {
-    return runClaudeCode(provider, request, transport.env, signal);
+    if (transport.session !== undefined) {
+      return transport.session.review(provider.model, request, signal);
+    }
+
+    // The Agent SDK loads only for a review without a session, so a CLI run
+    // that reaches a warm judge server never parses it.
+    const sessionModule = await import('./start-judge-session.ts');
+
+    const session = sessionModule.startJudgeSession(transport.env);
+
+    try {
+      return await session.review(provider.model, request, signal);
+    } finally {
+      session.stop();
+    }
   }
 
   if (provider.protocol === 'system-one') {
@@ -37,5 +46,11 @@ export async function sendJudgeMessage(
 
   const result = await sendMessage(provider, transport.apiKey, request, signal);
 
-  return { text: result.text, model: provider.model, safetyStops: null, fallback: false };
+  return {
+    text: result.text,
+    model: provider.model,
+    safetyStops: null,
+    fallback: false,
+    warm: null,
+  };
 }
