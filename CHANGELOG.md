@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.0.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.21.0...auto-mode-v1.0.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **geo-1065:** the package root no longer exports DEFAULT_CONFIG, PRESETS, resolveConfigPath, resolveApiKey, loadClaudeRules, checkContainment, buildDecisionRequest, classifyWithModel, DecisionRequestError, parseModelVerdict, sendDecision, loadPolicy, recordScope, parseScopeRecordRequest, renderVerdict, classifyLocally, buildTaskScope or tryClassifyEdit, and the auto-mode/policy/classifier.md and auto-mode/policy/rules.md subpaths are gone.
+
+### Features
+
+* **geo-1064:** read the file codex exec writes its last message to ([#182](https://github.com/zgeoff/auto-mode/issues/182)) ([64e648d](https://github.com/zgeoff/auto-mode/commit/64e648da47d95f42bbb086ebeafe8e96a2ec0b28))
+* **geo-1065:** publish one entry point, the secret rules and mod-path ([#178](https://github.com/zgeoff/auto-mode/issues/178)) ([92ff11f](https://github.com/zgeoff/auto-mode/commit/92ff11f9107a352cd18cb42d961585df94d4bc7d))
+* **geo-1113:** record the model that wrote each judge reply ([#190](https://github.com/zgeoff/auto-mode/issues/190)) ([f08499e](https://github.com/zgeoff/auto-mode/commit/f08499e021cfa13822a31144ab4322a345a6fed7))
+* **geo-967:** add a held-out-only catastrophic-allows experiment ([#172](https://github.com/zgeoff/auto-mode/issues/172)) ([800ca66](https://github.com/zgeoff/auto-mode/commit/800ca66b10fe4e5a500e341a5c34ba2d3e1ba82b))
+* **geo-972:** count benign denials through the judge in judge-alone ([#187](https://github.com/zgeoff/auto-mode/issues/187)) ([c828df7](https://github.com/zgeoff/auto-mode/commit/c828df737fefd9b979b799405595edb7c3e9a3b8))
+* **geo-972:** deny writes to configured protected branches ([#185](https://github.com/zgeoff/auto-mode/issues/185)) ([c696562](https://github.com/zgeoff/auto-mode/commit/c696562d2c29a0c974d2b45676a7df120913f13f))
+
+
+### Bug Fixes
+
+* **geo-1029:** read an abbreviated commit option's value as git does ([#177](https://github.com/zgeoff/auto-mode/issues/177)) ([3d58d02](https://github.com/zgeoff/auto-mode/commit/3d58d02a240231cda53828096c3b08471a3d1773))
+* **geo-1047:** stop the mod's cli run at the cli's own limits ([#186](https://github.com/zgeoff/auto-mode/issues/186)) ([af1eafe](https://github.com/zgeoff/auto-mode/commit/af1eafe027162dc11c670b617c89d8a814b1ca59))
+* **geo-1077:** stop denying heredocs that run no outside write ([#174](https://github.com/zgeoff/auto-mode/issues/174)) ([18c6260](https://github.com/zgeoff/auto-mode/commit/18c62603b424187b766094314b1d6c97707975b6))
+* **geo-1085:** read each nested $(( substitution once ([#175](https://github.com/zgeoff/auto-mode/issues/175)) ([e78ce7a](https://github.com/zgeoff/auto-mode/commit/e78ce7a92e34345b083ed2bbdb4396dd44a82d45))
+* **geo-1093:** count only the requests a live replay run sends ([#176](https://github.com/zgeoff/auto-mode/issues/176)) ([bd73dd1](https://github.com/zgeoff/auto-mode/commit/bd73dd10c8d69bda861afe5059fe73510daa7389))
+* **geo-1112:** read a confirm whose reason the judge left unclosed ([#188](https://github.com/zgeoff/auto-mode/issues/188)) ([e979ac9](https://github.com/zgeoff/auto-mode/commit/e979ac943ec6aed35c4cfe71f6a79de78b911644))
+* **geo-1131:** read code points in protected-branch bracket classes ([#189](https://github.com/zgeoff/auto-mode/issues/189)) ([bd49240](https://github.com/zgeoff/auto-mode/commit/bd49240bb83fc792736a2340286f21e601d3aaa0))
+
 ## [0.21.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.20.1...auto-mode-v0.21.0) (2026-10-15)
 
 
