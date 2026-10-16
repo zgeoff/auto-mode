@@ -45,7 +45,9 @@ A call that runs `auto-mode record`, through whatever program, is read beside it
 An entry splits the words this way:
 
 - **Options:** every word that starts with a dash. A value option takes the next word as its value,
-  or an attached value written as `--name=value` or `-Xvalue`. Any other option is a flag.
+  or an attached value written as `--name=value` or `-Xvalue`. A short cluster such as `-Dc` sets
+  each flag before its first value option, which takes the rest of the cluster or the next word. Any
+  other option is a flag.
 - **Operands:** every other word, and every word after `--`. An entry that ends its options at the
   first operand, as `ssh` does for the command it runs on the host, reads every later word as an
   operand.

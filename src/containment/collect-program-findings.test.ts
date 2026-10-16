@@ -374,3 +374,24 @@ test.each([
     ),
   ).toStrictEqual([...findings]);
 });
+
+test.each([
+  ['a value option that ends the cluster', ['-vo', '/other/a', 'x'], ['/other/a']],
+  ['a value option with its value attached', ['-vo/other/a', 'x'], ['/other/a']],
+  ['flags alone', ['-vq', '/other/b'], []],
+] as const)('it splits a short option cluster with %s', (_label, args, targets) => {
+  const findings = collectProgramFindings(
+    'tool',
+    args,
+    {
+      directory: '/work',
+      scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
+      scratchPaths: [],
+    },
+    { tool: { valueOptions: ['-o'], writes: [{ options: ['-o'] }] } },
+  );
+
+  expect(findings).toStrictEqual(
+    targets.map((target) => ({ kind: 'path', target, grant: { kind: 'path' } })),
+  );
+});

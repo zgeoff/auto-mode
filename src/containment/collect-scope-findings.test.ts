@@ -1225,6 +1225,7 @@ test('it finds an edit of another pull request even when a milestone holds the n
 test.each([
   ['docker --context staging volume prune -f', 'prune', 'docker --context staging volume prune -f'],
   ['docker compose --profile ci down -v', 'prune', 'docker compose --profile ci down -v'],
+  ['docker -Dc default volume prune -f', 'prune', 'docker -Dc default volume prune -f'],
   [
     'kubectl --server https://cluster.example delete deployment web',
     'remote-write',

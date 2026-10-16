@@ -104,11 +104,11 @@ function splitProgramCall(entry: Readonly<ProgramEntry>, words: readonly string[
     } else if (word === '--') {
       isOptionsEnd = true;
     } else {
-      const option = splitOption(entry.valueOptions ?? [], word, words[index + 1]);
+      const split = splitOption(entry.valueOptions ?? [], word, words[index + 1]);
 
-      options.push({ name: option.name, value: option.value });
+      options.push(...split.options);
 
-      index += option.isValueNext ? 1 : 0;
+      index += split.isValueNext ? 1 : 0;
     }
   }
 
@@ -128,26 +128,50 @@ function splitOption(
   valueOptions: readonly OptionPattern[],
   word: string,
   next: string | undefined,
-): CallOption & { readonly isValueNext: boolean } {
+): { readonly options: readonly CallOption[]; readonly isValueNext: boolean } {
   for (const pattern of valueOptions) {
     if (typeof pattern !== 'string') {
       if (pattern.test(word)) {
-        return { name: word, value: next, isValueNext: true };
+        return { options: [{ name: word, value: next }], isValueNext: true };
       }
     } else if (word === pattern) {
-      return { name: pattern, value: next, isValueNext: true };
+      return { options: [{ name: pattern, value: next }], isValueNext: true };
     } else if (
       pattern.startsWith('--') ? word.startsWith(`${pattern}=`) : word.startsWith(pattern)
     ) {
-      return {
-        name: pattern,
-        value: word.slice(pattern.length).replace(/^=/u, ''),
-        isValueNext: false,
-      };
+      const value = word.slice(pattern.length).replace(/^=/u, '');
+
+      return { options: [{ name: pattern, value }], isValueNext: false };
     }
   }
 
-  return { name: word, value: undefined, isValueNext: false };
+  return splitOptionCluster(valueOptions, word, next);
+}
+
+// A short cluster such as `-Dc` sets each flag before its first value option,
+// which takes the rest of the cluster, or the next word when nothing follows.
+function splitOptionCluster(
+  valueOptions: readonly OptionPattern[],
+  word: string,
+  next: string | undefined,
+): { readonly options: readonly CallOption[]; readonly isValueNext: boolean } {
+  const letters = /^-[^-]./u.test(word) ? [...word].slice(1) : [];
+  const at = letters.findIndex((letter) => valueOptions.includes(`-${letter}`));
+
+  if (at === -1) {
+    return { options: [{ name: word, value: undefined }], isValueNext: false };
+  }
+
+  const attached = word.slice(at + 2);
+  const flags = letters.slice(0, at).map((letter) => ({ name: `-${letter}`, value: undefined }));
+
+  return {
+    options: [
+      ...flags,
+      { name: `-${letters[at] ?? ''}`, value: attached === '' ? next : attached },
+    ],
+    isValueNext: attached === '',
+  };
 }
 
 function isRuleApplied(
