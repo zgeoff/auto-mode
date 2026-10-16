@@ -11,6 +11,7 @@ export interface TaskScopeRequest {
   readonly sessionID: string;
   readonly cwd: string;
   readonly stateDir: string;
+  readonly protectedBranches?: readonly string[] | undefined;
   readonly checkout?: CheckoutFacts | undefined;
   readonly findCheckout?: CheckoutFinder | undefined;
 }
@@ -54,6 +55,7 @@ export async function loadTaskScope(
     home: host.home,
     currentBranch: branch,
     defaultBranch: facts.head?.defaultBranch ?? null,
+    protectedBranches: request.protectedBranches,
     remotes: facts.remotes,
     facts: sourceFacts,
   });

@@ -634,6 +634,29 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
   });
 });
 
+test('#loadConfig reads the protected branch patterns', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ protectedBranches: ['release/*', 'staging'] }));
+
+  const config = await loadConfig(
+    ctx.configFile,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+  );
+
+  expect(config.protectedBranches).toStrictEqual(['release/*', 'staging']);
+});
+
+test('#loadConfig rejects an empty protected branch pattern', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, JSON.stringify({ protectedBranches: [''] }));
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+  ).rejects.toThrow('is not a valid config');
+});
+
 test('#loadConfig reads the capture block, expanding a leading tilde in its dir', async () => {
   const ctx = await setupTest();
 

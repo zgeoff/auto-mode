@@ -52,6 +52,36 @@ test('it owns no protected branch name when the default branch is unknown', () =
   });
 });
 
+test('it owns no configured protected branch, nor its PRs, even when the default branch is known', () => {
+  const scope = buildTaskScope({
+    home: '/home/dev',
+    currentBranch: 'release/2.0',
+    defaultBranch: 'main',
+    protectedBranches: ['release/*', 'staging'],
+    remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    facts: [
+      buildMockScopeFacts({
+        worktrees: ['/repo/.worktrees/release'],
+        branches: ['release/2.0', 'release/2.0/hotfix', 'staging', 'feat/x'],
+        pullRequests: [
+          { number: 7, head: 'release/2.0', repository: 'github.com/dev/app' },
+          { number: 8, head: 'feat/x', repository: 'github.com/dev/app' },
+        ],
+      }),
+    ],
+  });
+
+  expect(scope).toStrictEqual({
+    home: '/home/dev',
+    worktrees: ['/repo/.worktrees/release'],
+    branches: ['release/2.0/hotfix', 'feat/x'],
+    currentBranch: 'release/2.0',
+    remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+    pullRequests: [{ number: 8, repository: 'github.com/dev/app' }],
+    pathGlobs: [],
+  });
+});
+
 test('it owns no PR whose head branch is outside the scope or whose repository is another', () => {
   const scope = buildTaskScope({
     home: '/home/dev',

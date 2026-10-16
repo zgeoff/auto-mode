@@ -20,6 +20,7 @@ leaves the action without a verdict and writes a diagnostic.
     "cwd": {},
     "scratch": { "kind": "globs", "paths": ["~/scratch/**"] }
   },
+  "protectedBranches": ["release/*"],
   "decision": {
     "classifier": "jev",
     "judge": "claude-code",
@@ -36,11 +37,11 @@ leaves the action without a verdict and writes a diagnostic.
 }
 ```
 
-The file has five blocks. `classifiers` and `scopeSources` are registries keyed by an id you choose.
-`decision` assigns roles by pointing at registry ids. `policy` selects the prompt files and the
-Claude settings to import. `capture` turns the request capture on. Every block is optional; an empty
-file `{}` runs Jev with the shipped policy, reviews each Jev deny with the `claude-code` judge, and
-captures nothing.
+The file has five blocks and one list. `classifiers` and `scopeSources` are registries keyed by an
+id you choose. `protectedBranches` lists the branches no task owns. `decision` assigns roles by
+pointing at registry ids. `policy` selects the prompt files and the Claude settings to import.
+`capture` turns the request capture on. Every block is optional; an empty file `{}` runs Jev with
+the shipped policy, reviews each Jev deny with the `claude-code` judge, and captures nothing.
 
 ## Classifiers
 
@@ -138,6 +139,15 @@ sources name.
 
 No source can hand a task the default branch, or `main`, `master`, `trunk` or `develop` when the
 default branch is unknown. `/tmp` is scratch space that every task owns.
+
+### Protected branches
+
+`protectedBranches` lists the branches your forge protects beyond the default branch, as patterns. A
+pattern matches a branch name as a forge's branch protection rule does: `*` stops at a slash, so
+`release/*` protects `release/2.0` and not `release/2.0/hotfix`, which `release/**` covers. No
+source can hand a task a branch that matches, so a push to it, a delete of it, and a pull request
+from it are always containment findings, and no direct message can grant one. auto-mode reads no
+forge, so list each protection rule here yourself. The list applies in every repository.
 
 ## Decision
 

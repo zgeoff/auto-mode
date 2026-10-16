@@ -1,4 +1,5 @@
 import { join, normalize } from 'node:path';
+import { isProtectedBranch } from '../scope/is-protected-branch.ts';
 import { PROTECTED_BRANCH_NAMES } from '../scope/protected-branch-names.ts';
 import type { NamedTarget } from '../types.ts';
 import type { ScopeFinding } from './types.ts';
@@ -6,6 +7,7 @@ import type { ScopeFinding } from './types.ts';
 export interface GrantContext {
   readonly home: string;
   readonly defaultBranch: string | null;
+  readonly protectedBranches?: readonly string[] | undefined;
 }
 
 // A name is necessary and never sufficient: "port the formatter from the
@@ -63,7 +65,11 @@ function findNamingWord(
     return findPathWord(finding.target, words, context.home);
   }
 
-  if (PROTECTED_BRANCH_NAMES.has(finding.target) || finding.target === context.defaultBranch) {
+  if (
+    PROTECTED_BRANCH_NAMES.has(finding.target) ||
+    finding.target === context.defaultBranch ||
+    isProtectedBranch(finding.target, context.protectedBranches ?? [])
+  ) {
     return null;
   }
 

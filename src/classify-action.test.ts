@@ -476,6 +476,87 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
   expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
 });
 
+test('it denies a push to a configured protected branch that the task works on, and no message can grant it', async () => {
+  const ctx = await setupTest();
+
+  const received = mock();
+
+  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  runGit(ctx.dir, [
+    '-C',
+    join(ctx.dir, 'repo'),
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
+
+  runGit(ctx.dir, [
+    '-C',
+    join(ctx.dir, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/release',
+    '-b',
+    'release/2.0',
+  ]);
+
+  server.use(
+    http.post(DECISION_URL, (info) => {
+      received();
+
+      return sendDecisionReply(info);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.dir, 'repo', '.worktrees', 'release'),
+      toolName: 'Bash',
+      toolInput: { command: 'git push origin release/2.0' },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Push release/2.0 to origin.' },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code' },
+      claudeSettingsPath: null,
+      protectedBranches: ['release/*'],
+    }),
+    {
+      host: buildMockHostEnvironment({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for it.</reason>',
+        },
+        home: ctx.dir,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outside Task Scope',
+      reason: `This action writes outside the task scope: branch release/2.0. The task owns the worktree ${join(ctx.dir, 'repo', '.worktrees', 'release')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
+    },
+    decidingStage: 'containment',
+    note: 'denied by the containment check: release/2.0',
+    status: 'deny',
+  });
+
+  expect(received).not.toHaveBeenCalled();
+  expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
 test('it allows an action whose soft-rule Jev deny the judge overturns', async () => {
   const ctx = await setupTest();
 
