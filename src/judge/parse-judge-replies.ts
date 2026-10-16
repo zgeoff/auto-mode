@@ -41,7 +41,7 @@ export function parseJudgeReplies(text: string, rules: readonly string[]): reado
 }
 
 const REVIEWS_START = /\{\s*"reviews"\s*:/u;
-const VERDICT_TAG = /<\/?(?:verdict|basis|reason)>/u;
+const VERDICT_TAG = /<\s*\/?\s*(?:verdict|basis|reason)\b[^>]*>/iu;
 const CLOSING_FENCE = /\s*```\s*$/u;
 
 // On a long case the judge often writes prose or a stray tool-call fragment
