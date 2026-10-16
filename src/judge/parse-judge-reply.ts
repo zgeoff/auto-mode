@@ -6,9 +6,8 @@ const REASON = /<reason>(?<reason>[\s\S]*?)<\/reason>/giu;
 const BASIS = /<basis>\s*(?<basis>[^<]*?)\s*<\/basis>/giu;
 const JSON_FENCE = /^```(?:json)?\s*(?<body>[\s\S]*?)\s*```$/u;
 
-// The judge answers one JSON verdict. The recorded replies the evaluations
-// replay predate it and hold tags, so a reply that is no JSON object is read as
-// tags instead.
+// The judge answers in tags or as one JSON verdict, so a reply that opens with
+// a JSON object reads as JSON and any other reply reads as tags.
 export function parseJudgeReply(text: string): JudgeReply {
   const trimmed = text.trim();
   const body = JSON_FENCE.exec(trimmed)?.groups?.['body'] ?? trimmed;

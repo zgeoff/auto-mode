@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import invariant from 'tiny-invariant';
 
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-stub-claude-'));
@@ -12,7 +13,7 @@ async function setupTest() {
   return { dir, recordPath: join(dir, 'calls.jsonl') };
 }
 
-test('it answers initialize with a control response and a review with an init and a result that holds the reply as structured output', () => {
+test('it answers initialize with a control response and a review with an init and a result that holds the reply', () => {
   const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-claude.ts')], {
     input: [
       JSON.stringify({
@@ -62,12 +63,11 @@ test('it answers initialize with a control response and a review with an init an
       permission_denials: [],
       uuid: '00000000-0000-4000-8000-000000000001',
       result: '{"verdict":"confirm"}',
-      structured_output: { verdict: 'confirm' },
     },
   ]);
 });
 
-test('it answers a /clear line with a result that holds no structured output', () => {
+test('it answers a /clear line with an empty result', () => {
   const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-claude.ts')], {
     input: JSON.stringify({ type: 'user', message: { role: 'user', content: '/clear' } }),
     encoding: 'utf8',
@@ -76,22 +76,9 @@ test('it answers a /clear line with a result that holds no structured output', (
 
   const [, cleared] = result.stdout.trim().split('\n');
 
-  expect(cleared).toBeDefined();
-  expect(JSON.parse(cleared ?? '')).not.toContainKey('structured_output');
-});
+  invariant(cleared);
 
-test('it holds a reply that is no JSON as result text with no structured output', () => {
-  const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-claude.ts')], {
-    input: JSON.stringify({ type: 'user', message: { role: 'user', content: 'the evidence' } }),
-    encoding: 'utf8',
-    env: { STUB_CLAUDE_REPLY: 'plain words' },
-  });
-
-  const [, reply] = result.stdout.trim().split('\n');
-  const body: unknown = JSON.parse(reply ?? '');
-
-  expect(body).toMatchObject({ result: 'plain words' });
-  expect(body).not.toContainKey('structured_output');
+  expect(JSON.parse(cleared)).toMatchObject({ type: 'result', result: '' });
 });
 
 test('it adds the model usage and the safety stops its controls name to the result', () => {
@@ -187,7 +174,7 @@ test('it appends each review with its process, its count, the clears before it, 
   ]);
 });
 
-test('it prints an error result with no structured output when the error control is set', () => {
+test('it prints an error result when the error control is set', () => {
   const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-claude.ts')], {
     input: JSON.stringify({ type: 'user', message: { role: 'user', content: 'the evidence' } }),
     encoding: 'utf8',
@@ -195,10 +182,10 @@ test('it prints an error result with no structured output when the error control
   });
 
   const [, reply] = result.stdout.trim().split('\n');
-  const body: unknown = JSON.parse(reply ?? '');
 
-  expect(body).toMatchObject({ subtype: 'error_during_execution', is_error: true });
-  expect(body).not.toContainKey('structured_output');
+  invariant(reply);
+
+  expect(JSON.parse(reply)).toMatchObject({ subtype: 'error_during_execution', is_error: true });
 });
 
 test('it exits during its first review when the crash control is set', () => {

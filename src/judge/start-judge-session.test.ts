@@ -42,7 +42,7 @@ const RECORD = z.object({
   env: z.record(z.string(), z.string().optional()),
 });
 
-test('it answers a review with the structured verdict on the configured model', async () => {
+test('it answers a review with the judge’s text on the configured model', async () => {
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It sends the key."}',
   });
@@ -242,8 +242,10 @@ test('it reports a fallback from the usage when the result holds no stop count',
   });
 });
 
-test('it returns empty text for a turn that ends with no structured output', async () => {
-  const ctx = await setupTest({ STUB_CLAUDE_REPLY: 'I would rather explain in prose.' });
+test('it returns the text of a tagged reply as the judge wrote it', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '<verdict>confirm</verdict>\n<reason>It rewrites main.</reason>',
+  });
 
   const reply = await ctx.session.review(
     'claude-haiku-5-5',
@@ -251,7 +253,7 @@ test('it returns empty text for a turn that ends with no structured output', asy
     AbortSignal.timeout(10_000),
   );
 
-  expect(reply.text).toBe('');
+  expect(reply.text).toBe('<verdict>confirm</verdict>\n<reason>It rewrites main.</reason>');
 });
 
 test('it rejects a turn that ends in an error', async () => {

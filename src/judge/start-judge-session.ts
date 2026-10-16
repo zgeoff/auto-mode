@@ -4,7 +4,6 @@ import type { Query, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-age
 import * as z from 'zod';
 import type { ModelRequest } from '../messages/anthropic-client.ts';
 import { findExecutable } from '../process/find-executable.ts';
-import { judgeVerdictSchema } from './judge-verdict-schema.ts';
 import type { JudgeMessageReply, JudgeSession } from './types.ts';
 
 // One process answers every review, so only the first pays its start. Each
@@ -147,8 +146,6 @@ interface Turn {
   readonly sessionFallback: boolean;
 }
 
-const JUDGE_OUTPUT_SCHEMA = z.toJSONSchema(judgeVerdictSchema, { target: 'draft-07' });
-
 function startLiveProcess(
   model: string,
   system: string,
@@ -174,7 +171,6 @@ function startLiveProcess(
       strictMcpConfig: true,
       persistSession: false,
       thinking: { type: 'disabled' },
-      outputFormat: { type: 'json_schema', schema: JUDGE_OUTPUT_SCHEMA },
       pathToClaudeCodeExecutable: executable,
       cwd: tmpdir(),
       env: buildChildEnv(env),
@@ -365,8 +361,7 @@ function buildReply(
   const stops = SAFETY_STOPS.safeParse(result).data?.safety_stops;
 
   return {
-    // A success with no structured output is no verdict, so it parses as unreadable.
-    text: result.structured_output === undefined ? '' : JSON.stringify(result.structured_output),
+    text: result.result,
     model: pickAnsweringModel(usage, requested),
     safetyStops: stops ?? null,
     fallback: fallbacks > 0 || isFallbackReply(usage, stops),

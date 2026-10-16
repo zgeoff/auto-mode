@@ -107,12 +107,9 @@ for await (const line of createInterface({ input: process.stdin })) {
     });
   }
 
-  const structured = parseStructured(reply);
-
   printLine(
     buildResult({
       result: reply,
-      ...(structured === undefined || isError ? {} : { structured_output: structured }),
       ...(modelUsage === undefined ? {} : { modelUsage: JSON.parse(modelUsage) as unknown }),
       ...(safetyStops === undefined ? {} : { safety_stops: Number(safetyStops) }),
     }),
@@ -140,12 +137,4 @@ function buildResult(fields: Readonly<Record<string, unknown>>): Record<string, 
     uuid: '00000000-0000-4000-8000-000000000001',
     ...fields,
   };
-}
-
-function parseStructured(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
 }

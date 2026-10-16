@@ -23,10 +23,11 @@ the user typed before a relayed turn cannot grant consent
 The default judge is one Claude Code process per agent session, which the Agent SDK drives over
 streaming input. The process runs with no tools, no settings, no MCP servers and no session file, in
 a scratch directory, so it cannot act and no hook of the user's session runs inside it. The judge
-framework is its system prompt, which Claude caches across reviews, and a JSON schema fixes the
-shape of its answer. Each review sends one user turn and then clears the conversation, so one
-review's evidence never reaches the next. A change of model or framework starts a new process. The
-judge server owns the process, because each CLI run ends with its call: the
+framework is its system prompt, which Claude caches across reviews. The judge answers in plain text
+rather than through Claude Code's schema output, because a schema answer costs further model turns
+on every review. Each review sends one user turn and then clears the conversation, so one review's
+evidence never reaches the next. A change of model or framework starts a new process. The judge
+server owns the process, because each CLI run ends with its call: the
 [overview](../overview.md#topology) covers the topology. The CLI strips the variables that point
 Claude Code at another provider from the child's environment, because the agent's own session often
 runs a non-Claude model through such a gateway, and the judge must reach Claude through the user's
@@ -41,10 +42,10 @@ can never be the judge, because it writes no reasons.
 
 ## Confirm or overturn
 
-The judge's reply is one JSON object with a verdict, a basis and a non-empty reason, and an overturn
-must name its basis. Any other reply is unreadable. A reply in the older tagged form, which recorded
-evaluation answers hold, must hold exactly one verdict tag and one non-empty reason tag, because a
-second tag could disagree with the first. The CLI turns the reply into one of four outcomes:
+The judge's reply must hold exactly one verdict and one non-empty reason, and an overturn must also
+hold exactly one basis. Any other reply is unreadable, because a second tag could disagree with the
+first. The CLI reads the same fields from a reply written as one JSON object. The CLI turns the
+reply into one of four outcomes:
 
 | Outcome    | When                                                                     | The agent receives                     |
 | ---------- | ------------------------------------------------------------------------ | -------------------------------------- |
