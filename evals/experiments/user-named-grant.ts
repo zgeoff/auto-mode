@@ -48,7 +48,8 @@ export const userNamedGrant = defineExperiment<MeasurementCase>({
   recordings: [
     {
       name: 'geo-163-sonnet',
-      description: 'the GEO-163 live run: the shipped judge on the grant stage through claude -p',
+      description:
+        'the GEO-163 cases with the shipped judge on the grant stage through the Agent SDK',
     },
   ],
   selectCase: (label, key) =>
