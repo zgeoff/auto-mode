@@ -169,7 +169,7 @@ remotes, by name or by repository.
 
 A user can hand the task a target on the spot by asking for the action on it in a direct message,
 such as "create `.worktrees/label-check/label.test.ts` with one test". When the current direct
-message names every target of a finding, the check hands the deny to
+message names every target of a finding, the check leaves the deny pending for
 [the judge](./judge.md#a-containment-deny) instead of returning it, and the judge clears the finding
 only when the message asks for this operation on these targets. A name is necessary and never
 sufficient, because a name cannot tell a target to write from a source to read: "port the formatter
@@ -195,11 +195,12 @@ forge's own branch protection. A stale message, one a relayed turn left behind, 
 neither does the message of a subagent's call ([the user message](../evidence/user-message.md)). A
 run that skips the models and a configuration with the judge turned off keep every containment deny.
 
-A judge overturn clears the scope finding and nothing else. The call continues down the path as a
-call with no finding would, and the [edit bypass](./edit-bypass.md) passes it on, because the target
-still lies outside the task scope, so Jev and the judge still deny it on a hard rule or a secret in
-the new content. A confirmed deny carries the judge's reason; a held or failed review keeps the
-check's own reason.
+The call continues down the path with the deny pending, as a call with no finding would, and the
+[edit bypass](./edit-bypass.md) passes it on, because the target still lies outside the task scope.
+Jev then reads the call, and one judge review reads the pending deny beside any Jev deny, so a
+prompted call never waits on two judge reviews. An overturn of the pending deny clears the scope
+finding and nothing else, so a hard rule or a secret in the new content still denies the call. A
+confirmed deny carries the judge's reason; a held or failed review keeps the check's own reason.
 
 ## When the check does not run
 
