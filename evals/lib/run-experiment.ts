@@ -98,6 +98,17 @@ export async function runExperiment<Case>(
     );
   }
 
+  const getLabelledCase = (caseKey: string): LabelledCase<Case> => {
+    const labels = selected.labels.get(caseKey);
+    const boxed = selected.cases.get(caseKey);
+
+    if (labels === undefined || boxed === undefined) {
+      throw new Error(`The run lacks the planned case ${caseKey}.`);
+    }
+
+    return { key: caseKey, labels, case: boxed.value };
+  };
+
   const stages = pickStages(experiment, recording, options.live);
   const notMeasured = [...loaded.notMeasured, ...stages.notMeasured];
 
@@ -131,7 +142,7 @@ export async function runExperiment<Case>(
 
   const records: SampleRecord[] = previous === null ? [] : [...previous.records];
 
-  const plan = planExperimentRun({
+  const planInput = {
     caseKeys,
     samples: options.samples,
     stages: stages.active.map((stage) => ({ name: stage.name, sends: stage.sends })),
@@ -139,9 +150,22 @@ export async function runExperiment<Case>(
     recorded: records.map((record) =>
       buildStageRunKey(record.caseKey, record.sample, record.stage),
     ),
-  });
+  };
 
-  printPlan(plan, stages.active, notMeasured, options.print);
+  const bounds = planExperimentRun(planInput);
+  const isCounted = options.live && recording !== null;
+
+  const plan = isCounted
+    ? planExperimentRun({
+        ...planInput,
+        sending: await collectSendingRuns(bounds, stages.active, getLabelledCase, records, {
+          ...options,
+          models: previous?.summary.config.models ?? {},
+        }),
+      })
+    : bounds;
+
+  printPlan(plan, stages.active, notMeasured, isCounted, options.print);
 
   if (!options.live && plan.requests > 0) {
     options.print('Nothing was sent. Pass --live --max-requests <n> to send these requests.');
@@ -204,22 +228,10 @@ export async function runExperiment<Case>(
   const spent = { requests: 0 };
 
   for (const unit of plan.units) {
-    const labels = selected.labels.get(unit.caseKey);
-    const boxed = selected.cases.get(unit.caseKey);
-
-    if (labels === undefined || boxed === undefined) {
-      throw new Error(`The run lacks the planned case ${unit.caseKey}.`);
-    }
-
-    const labelled: LabelledCase<Case> = { key: unit.caseKey, labels, case: boxed.value };
+    const labelled = getLabelledCase(unit.caseKey);
 
     for (const planned of unit.stages) {
-      const stage = stages.active.find((entry) => entry.name === planned.name);
-
-      if (stage === undefined) {
-        throw new Error(`The plan names a stage the experiment lacks: ${planned.name}`);
-      }
-
+      const stage = getActiveStage(stages.active, planned.name);
       const exchange: Exchange = { requestHash: null, answerHash: null, model: null };
 
       const requireSend = (): void => {
@@ -320,20 +332,15 @@ export async function runExperiment<Case>(
         await writeReport(join(runDir, 'summary.json'), buildCurrentSummary(null));
       }
 
-      const record: SampleRecord = {
-        caseKey: unit.caseKey,
-        labels: labelled.labels,
-        sample: unit.sample,
-        stage: stage.name,
-        status: checked.status,
-        verdict: checked.status === 'scored' ? checked.verdict : null,
-        pBlock: checked.status === 'scored' ? checked.pBlock : null,
-        reason: checked.reason,
-        latencyMs: recorded === undefined ? measuredMs : recorded.latencyMs,
+      const latencyMs = recorded === undefined ? measuredMs : recorded.latencyMs;
+
+      const answerHash =
+        recorded === undefined ? exchange.answerHash : toHash(JSON.stringify(recorded.answer));
+
+      const record = buildSampleRecord(labelled, unit.sample, stage.name, checked, latencyMs, {
         requestHash: exchange.requestHash,
-        answerHash:
-          recorded === undefined ? exchange.answerHash : toHash(JSON.stringify(recorded.answer)),
-      };
+        answerHash,
+      });
 
       records.push(record);
 
@@ -352,6 +359,144 @@ interface Exchange {
   requestHash: string | null;
   answerHash: string | null;
   model: string | null;
+}
+
+function getActiveStage<Case>(
+  active: readonly ActiveStage<Case>[],
+  name: string,
+): ActiveStage<Case> {
+  const stage = active.find((entry) => entry.name === name);
+
+  if (stage === undefined) {
+    throw new Error(`The plan names a stage the experiment lacks: ${name}`);
+  }
+
+  return stage;
+}
+
+interface CheckedOutcome {
+  readonly status: StageOutcome['status'];
+  readonly verdict: 'allow' | 'deny' | null;
+  readonly pBlock: number | null;
+  readonly reason: string | null;
+}
+
+function buildSampleRecord<Case>(
+  labelled: Readonly<LabelledCase<Case>>,
+  sample: number,
+  stage: string,
+  checked: Readonly<CheckedOutcome>,
+  latencyMs: number | null,
+  exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash'>>,
+): SampleRecord {
+  return {
+    caseKey: labelled.key,
+    labels: labelled.labels,
+    sample,
+    stage,
+    status: checked.status,
+    verdict: checked.status === 'scored' ? checked.verdict : null,
+    pBlock: checked.status === 'scored' ? checked.pBlock : null,
+    reason: checked.reason,
+    latencyMs,
+    requestHash: exchange.requestHash,
+    answerHash: exchange.answerHash,
+  };
+}
+
+class PlannedSendError extends Error {
+  override name = 'PlannedSendError';
+}
+
+// A replayed answer is known before the run, so each unit runs once with sends
+// that only note the attempt. After a unit's first send its later records are
+// unknown, so each later stage that sends counts as sending.
+async function collectSendingRuns<Case>(
+  bounds: Readonly<ExperimentPlan>,
+  active: readonly ActiveStage<Case>[],
+  getLabelledCase: (caseKey: string) => LabelledCase<Case>,
+  records: readonly SampleRecord[],
+  options: Readonly<RunOptions & { readonly models: Readonly<Record<string, string>> }>,
+): Promise<string[]> {
+  const sending: string[] = [];
+  const models: Record<string, string> = { ...options.models };
+
+  for (const unit of bounds.units) {
+    const labelled = getLabelledCase(unit.caseKey);
+
+    const previous = records.filter(
+      (record) => record.caseKey === unit.caseKey && record.sample === unit.sample,
+    );
+
+    let isUnknown = false;
+
+    for (const planned of unit.stages) {
+      const stage = getActiveStage(active, planned.name);
+      const key = buildStageRunKey(unit.caseKey, unit.sample, stage.name);
+
+      if (isUnknown) {
+        if (stage.sends) {
+          sending.push(key);
+        }
+
+        continue;
+      }
+
+      const probe = { sent: false };
+
+      const sendProbe = (): Promise<never> => {
+        if (!stage.sends) {
+          throw new Error(`The ${stage.name} stage sent a request outside live mode.`);
+        }
+
+        probe.sent = true;
+        throw new PlannedSendError();
+      };
+
+      const outcome = await tryRunStage(() =>
+        stage.run(labelled, {
+          seed: options.seed,
+          sample: unit.sample,
+          offline: !options.live,
+          policy: options.environment.policy,
+          configuredRules: options.environment.configuredRules,
+          previous: [...previous],
+          send: sendProbe,
+          sendWithChoices: sendProbe,
+          sendJudge: sendProbe,
+        }),
+      ).catch((error: unknown) => {
+        if (error instanceof PlannedSendError) {
+          return null;
+        }
+
+        throw error;
+      });
+
+      if (probe.sent || outcome === null) {
+        sending.push(key);
+
+        isUnknown = true;
+        continue;
+      }
+
+      const responseModel = outcome.recorded?.model ?? null;
+      const checked = checkModel(outcome, models[stage.name] ?? null, responseModel);
+
+      if (models[stage.name] === undefined && responseModel !== null) {
+        models[stage.name] = responseModel;
+      }
+
+      previous.push(
+        buildSampleRecord(labelled, unit.sample, stage.name, checked, null, {
+          requestHash: null,
+          answerHash: null,
+        }),
+      );
+    }
+  }
+
+  return sending;
 }
 
 function requireRecording<Case>(
@@ -498,6 +643,7 @@ function printPlan<Case>(
   plan: Readonly<ExperimentPlan>,
   stages: readonly ActiveStage<Case>[],
   notMeasured: readonly string[],
+  isCounted: boolean,
   print: (line: string) => unknown,
 ): void {
   print(
@@ -508,11 +654,11 @@ function printPlan<Case>(
 
   for (const stage of stages.filter((entry) => entry.sends)) {
     const requests = plan.units.filter((unit) =>
-      unit.stages.some((planned) => planned.name === stage.name),
+      unit.stages.some((planned) => planned.name === stage.name && planned.sends),
     ).length;
 
     const line =
-      stage.reviews === undefined
+      stage.reviews === undefined || isCounted
         ? `  ${stage.name}: ${requests} model requests`
         : `  ${stage.name}: at most ${requests} model requests, one for each ${stage.reviews} deny`;
 
@@ -641,13 +787,6 @@ function pickJudgeFailure(error: unknown): JudgeRequestError['reason'] {
     error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
 
   return isTimeout ? 'timeout' : 'request';
-}
-
-interface CheckedOutcome {
-  readonly status: StageOutcome['status'];
-  readonly verdict: 'allow' | 'deny' | null;
-  readonly pBlock: number | null;
-  readonly reason: string | null;
 }
 
 // An answer from a different model than the stage's first is not scored.

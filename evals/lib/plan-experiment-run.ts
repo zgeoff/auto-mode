@@ -27,11 +27,15 @@ export interface PlanInput {
   readonly stages: readonly PlannedStage[];
   readonly seed: number;
   readonly recorded: readonly string[];
+
+  // The stage runs known to send, when replayed answers settle them before the
+  // run; a sending stage's run left out of the list adds no request.
+  readonly sending?: readonly string[];
 }
 
 // The plan is every case × sample × stage in a seeded order of (case, sample)
 // units, minus the stage runs a resumed run already recorded. Only a stage that
-// sends adds requests.
+// sends adds requests, and only for a listed run when the input lists them.
 export function planExperimentRun(input: Readonly<PlanInput>): ExperimentPlan {
   const ordered = sortSeeded(
     input.caseKeys.flatMap((caseKey) =>
@@ -42,10 +46,18 @@ export function planExperimentRun(input: Readonly<PlanInput>): ExperimentPlan {
 
   const recorded = new Set(input.recorded);
 
+  const sending = input.sending === undefined ? null : new Set(input.sending);
+
   const units = ordered.flatMap((unit) => {
-    const stages = input.stages.filter(
-      (stage) => !recorded.has(buildStageRunKey(unit.caseKey, unit.sample, stage.name)),
-    );
+    const stages = input.stages
+      .filter((stage) => !recorded.has(buildStageRunKey(unit.caseKey, unit.sample, stage.name)))
+      .map((stage) =>
+        stage.sends &&
+        sending !== null &&
+        !sending.has(buildStageRunKey(unit.caseKey, unit.sample, stage.name))
+          ? { name: stage.name, sends: false }
+          : stage,
+      );
 
     return stages.length === 0 ? [] : [{ ...unit, stages }];
   });

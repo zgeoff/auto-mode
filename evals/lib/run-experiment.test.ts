@@ -637,6 +637,305 @@ test('it replays the recorded stages and sends only the recording’s live stage
   );
 });
 
+test('it caps a live replay run at the judge requests its recorded Jev denies need', async () => {
+  const ctx = await setupTest();
+
+  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+  const printed: string[] = [];
+
+  const result = await runExperiment(
+    defineExperiment({
+      name: 'judge-only-check',
+      description: 'A recorded Jev stage that denies only sample 0 and a live judge.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: (_entry, context) => {
+            const outcome: StageOutcome =
+              context.sample === 0
+                ? {
+                    status: 'scored',
+                    verdict: 'deny',
+                    pBlock: 0.9,
+                    reason: 'deny: Data Exfiltration',
+                  }
+                : { status: 'scored', verdict: 'allow', pBlock: 0.1, reason: null };
+
+            return Promise.resolve(outcome);
+          },
+        },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: async (_entry, context) => {
+            const jev = context.previous.find((record) => record.stage === 'jev');
+
+            if (jev?.verdict !== 'deny') {
+              return { status: 'skipped', reason: 'Jev did not deny this sample.' };
+            }
+
+            const reply = await context.sendJudge({ user: 'review' });
+
+            return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'jev-only',
+      seed: 1,
+      samples: 2,
+      live: true,
+      maxRequests: 13,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: (line) => printed.push(line),
+    },
+  );
+
+  invariant(result.kind === 'completed');
+
+  expect(result.plan.requests).toBe(13);
+  expect(sendJudge).toHaveBeenCalledTimes(13);
+
+  expect(printed).toStrictEqual([
+    'Plan: 13 cases × 2 samples × 2 stages; 52 stage runs to go, 0 already recorded, 13 model requests.',
+    '  judge: 13 model requests',
+  ]);
+
+  const run = await loadRun(result.runDir);
+
+  expect(run.records.filter((record) => record.requestHash !== null)).toHaveLength(13);
+});
+
+test('it refuses a live replay run whose recorded Jev denies need more judge requests than the cap', async () => {
+  const ctx = await setupTest();
+
+  const sendJudge = mock(() => Promise.reject(new Error('unreachable')));
+
+  const run = runExperiment(
+    defineExperiment({
+      name: 'judge-only-check',
+      description: 'A recorded Jev stage that denies only sample 0 and a live judge.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: (_entry, context) => {
+            const outcome: StageOutcome =
+              context.sample === 0
+                ? {
+                    status: 'scored',
+                    verdict: 'deny',
+                    pBlock: 0.9,
+                    reason: 'deny: Data Exfiltration',
+                  }
+                : { status: 'scored', verdict: 'allow', pBlock: 0.1, reason: null };
+
+            return Promise.resolve(outcome);
+          },
+        },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: async (_entry, context) => {
+            const jev = context.previous.find((record) => record.stage === 'jev');
+
+            if (jev?.verdict !== 'deny') {
+              return { status: 'skipped', reason: 'Jev did not deny this sample.' };
+            }
+
+            const reply = await context.sendJudge({ user: 'review' });
+
+            return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'jev-only',
+      seed: 1,
+      samples: 2,
+      live: true,
+      maxRequests: 12,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        sendJudge,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(run).rejects.toThrowWithMessage(
+    Error,
+    'Refusing to run: the plan needs 13 model requests and --max-requests is 12.',
+  );
+
+  expect(sendJudge).not.toHaveBeenCalled();
+});
+
+test('it counts each live stage after a unit’s first live send in a live replay run', async () => {
+  const ctx = await setupTest();
+
+  const send = mock(() => Promise.reject(new Error('unreachable')));
+  const sendJudge = mock(() => Promise.reject(new Error('unreachable')));
+
+  const run = runExperiment(
+    defineExperiment({
+      name: 'two-live-check',
+      description: 'A recorded containment stage and two live stages.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [
+        {
+          name: 'containment-only',
+          description: 'the containment answers',
+          liveStages: ['jev', 'judge'],
+        },
+      ],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'containment',
+          sends: false,
+          run: () =>
+            Promise.resolve({ status: 'scored', verdict: 'allow', pBlock: null, reason: null }),
+        },
+        {
+          name: 'jev',
+          sends: true,
+          run: async (_entry, context) => {
+            await context.send(buildMockDecisionRequest());
+
+            return { status: 'scored', verdict: 'allow', pBlock: 0, reason: null };
+          },
+        },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: () => Promise.resolve({ status: 'skipped', reason: 'Jev allowed.' }),
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: 'containment-only',
+      seed: 1,
+      samples: 1,
+      live: true,
+      maxRequests: 25,
+      resumeDir: null,
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send,
+        sendWithChoices: null,
+        sendJudge,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  expect(run).rejects.toThrowWithMessage(
+    Error,
+    'Refusing to run: the plan needs 26 model requests and --max-requests is 25.',
+  );
+
+  expect(send).not.toHaveBeenCalled();
+});
+
 test('it refuses a live run against a recording that names no live stage', async () => {
   const ctx = await setupTest();
 
@@ -1119,6 +1418,162 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
   expect(new Set(reloaded.records.map((record) => `${record.caseKey}/${record.sample}`)).size).toBe(
     26,
   );
+});
+
+test('it counts a resumed live replay run with the model each stage answered with first', async () => {
+  const ctx = await setupTest();
+
+  const deny: StageOutcome = {
+    status: 'scored',
+    verdict: 'deny',
+    pBlock: 0.9,
+    reason: 'deny: Data Exfiltration',
+  };
+
+  const options = {
+    corporaDir: ctx.corporaDir,
+    resultsDir: ctx.resultsDir,
+    recording: 'jev-only',
+    seed: 1,
+    samples: 1,
+    live: true,
+    maxRequests: 13,
+    environment: {
+      publicCommit: 'test',
+      dirtyTree: false,
+      policy: 'policy',
+      judgePolicy: 'judge policy',
+      configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+      send: null,
+      sendWithChoices: null,
+      sendJudge: () => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }),
+    },
+    now: () => new Date('2026-10-10T12:00:00.000Z'),
+    print: () => {},
+  };
+
+  const first = await runExperiment(
+    defineExperiment({
+      name: 'judge-only-check',
+      description: 'A recorded Jev stage that denies every case and a live judge.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: () =>
+            Promise.resolve({
+              ...deny,
+              recorded: { answer: { status: 'deny' }, latencyMs: 412, model: 'jev-1.13.0' },
+            }),
+        },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: async (_entry, context) => {
+            const reply = await context.sendJudge({ user: 'review' });
+
+            return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    { ...options, resumeDir: null },
+  );
+
+  invariant(first.kind === 'completed');
+
+  await writeFile(join(first.runDir, 'samples.jsonl'), '');
+
+  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+
+  const resumed = await runExperiment(
+    defineExperiment({
+      name: 'judge-only-check',
+      description: 'A recorded Jev stage that denies every case and a live judge.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: () =>
+            Promise.resolve({
+              ...deny,
+              recorded: { answer: { status: 'deny' }, latencyMs: 412, model: 'jev-1.14.0' },
+            }),
+        },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: async (_entry, context) => {
+            const jev = context.previous.find((record) => record.stage === 'jev');
+
+            if (jev?.status !== 'scored') {
+              return { status: 'skipped', reason: 'Jev did not deny this sample.' };
+            }
+
+            const reply = await context.sendJudge({ user: 'review' });
+
+            return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      ...options,
+      resumeDir: first.runDir,
+      environment: { ...options.environment, sendJudge },
+    },
+  );
+
+  invariant(resumed.kind === 'completed');
+
+  expect(resumed.plan.requests).toBe(0);
+  expect(sendJudge).not.toHaveBeenCalled();
 });
 
 test('it resumes a run whose last samples line is torn, says so, and runs that stage run again', async () => {
