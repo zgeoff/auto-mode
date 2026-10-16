@@ -1,0 +1,40 @@
+{
+  "firstStartTime": "2026-10-16T08:04:58.950Z",
+  "firstStartVersion": "2.1.301",
+  "machineID": "0000000000000000000000000000000000000000000000000000000000000001",
+  "opusProMigrationComplete": true,
+  "sonnet1m45MigrationComplete": true,
+  "seenNotifications": {},
+  "hasResetAutoModeOptInForDefaultOffer": true,
+  "migrationVersion": 14,
+  "userID": "0000000000000000000000000000000000000000000000000000000000000002",
+  "mcpServers": {
+    "notes-api": {
+      "type": "http",
+      "url": "https://notes.example.test/mcp"
+    },
+    "tasks-cli": {
+      "type": "stdio",
+      "command": "/opt/tasks/bin/tasks-mcp",
+      "args": ["--stdio"],
+      "env": {}
+    }
+  },
+  "projects": {
+    "/home/sample/projects/sample-repo": {
+      "allowedTools": [],
+      "mcpContextUris": [],
+      "mcpServers": {
+        "wiki-feed": {
+          "type": "sse",
+          "url": "https://wiki.example.test/sse"
+        }
+      },
+      "enabledMcpjsonServers": ["repo-docs", "lint-server"],
+      "disabledMcpjsonServers": ["lint-server"],
+      "hasTrustDialogAccepted": false,
+      "hasClaudeMdExternalIncludesApproved": false,
+      "hasClaudeMdExternalIncludesWarningShown": false
+    }
+  }
+}

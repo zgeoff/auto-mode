@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
+import { readFixture } from '../../test-utils/read-fixture.ts';
 import { loadMCPServers } from './load-mcp-servers.ts';
 
 async function setupTest() {
@@ -17,6 +18,33 @@ async function setupTest() {
 
   return { dir, repo };
 }
+
+// `claude mcp add` in Claude Code 2.1.301 wrote both fixtures' servers, and the
+// approval lists name its project entry's fields, so a renamed field drops a server.
+test('it reads every scope from the files that Claude Code writes', async () => {
+  const ctx = await setupTest();
+
+  const recorded = JSON.stringify(readFixture('claude-json')).replaceAll(
+    '/home/sample/projects/sample-repo',
+    ctx.repo,
+  );
+
+  await writeFile(join(ctx.dir, '.claude.json'), recorded);
+  await writeFile(join(ctx.repo, '.mcp.json'), JSON.stringify(readFixture('mcp-json')));
+
+  const servers = await loadMCPServers(
+    ctx.repo,
+    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    null,
+  );
+
+  expect(servers).toStrictEqual([
+    { name: 'wiki-feed', scope: 'local', transport: 'sse', host: 'wiki.example.test' },
+    { name: 'repo-docs', scope: 'project', transport: 'http', host: 'docs.example.test' },
+    { name: 'notes-api', scope: 'user', transport: 'http', host: 'notes.example.test' },
+    { name: 'tasks-cli', scope: 'user', transport: 'stdio', host: null },
+  ]);
+});
 
 test('it lists user and local servers by name, scope, transport and host, and drops every credential', async () => {
   const ctx = await setupTest();

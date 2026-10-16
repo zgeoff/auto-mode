@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "repo-docs": {
+      "type": "http",
+      "url": "https://docs.example.test/mcp"
+    },
+    "lint-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["lint-mcp"],
+      "env": {}
+    }
+  }
+}
