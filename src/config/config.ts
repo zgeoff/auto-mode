@@ -41,6 +41,7 @@ export interface Config {
   readonly judge?: ProviderConfig | null;
   readonly judgeOverturns?: JudgeOverturns;
   readonly scopeSources?: Readonly<Record<string, ScopeSource>>;
+  readonly protectedBranches?: readonly string[];
   readonly classifierPath?: string | undefined;
   readonly rulesPath?: string | undefined;
   readonly onFailure: 'defer' | 'deny';
@@ -124,6 +125,7 @@ const denialBudgetSchema = z.strictObject({
 const configFileSchema = z.strictObject({
   classifiers: z.record(text, z.unknown()).optional(),
   scopeSources: z.record(text, z.unknown()).optional(),
+  protectedBranches: z.array(text).optional(),
   decision: z
     .strictObject({
       classifier: text.optional(),
@@ -205,6 +207,7 @@ function buildConfig(json: unknown, path: string, home: string): Config {
     judge,
     judgeOverturns: decision.judgeOverturns ?? DEFAULT_JUDGE_OVERTURNS,
     scopeSources: configuredSources ?? DEFAULT_SCOPE_SOURCES,
+    ...(file.protectedBranches === undefined ? {} : { protectedBranches: file.protectedBranches }),
     classifierPath: expandHomePath(policy.frameworkPath ?? undefined, home),
     rulesPath: expandHomePath(policy.rulesPath ?? undefined, home),
     onFailure: decision.onFailure ?? DEFAULT_CONFIG.onFailure,

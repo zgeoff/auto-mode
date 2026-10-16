@@ -8,12 +8,6 @@ the evidence and the rejected alternatives: the
 and the
 [evaluation toolset record](https://linear.app/zgeoff/document/geo-88-decision-record-auto-mode-evaluation-toolset-eb866dbc021e).
 
-## Protected branches
-
-No scope source can hand a task the default branch, and when the default branch is unknown, the
-conventional default names stand in for it. The design widens that to every protected branch of the
-repository, so a task can never own a branch the forge protects, whatever its name.
-
 ## Benign denials on real traffic from more than one repository
 
 Measurement 2 counts benign denials per action, and the design takes it from a replay of recorded

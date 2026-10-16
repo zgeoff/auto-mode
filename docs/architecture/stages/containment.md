@@ -159,10 +159,11 @@ parent checkout never puts it in the parent's scope. Any other checkout nested i
 worktree counts as part of that worktree here, and the
 [edit bypass](./edit-bypass.md#which-target-counts) sends an edit into it to Jev.
 
-A branch is in scope when the task scope lists it, and the default branch never is. A push with no
-branch named pushes the current branch, which is known only for the call's own directory, so a push
-run with `git -C` elsewhere and no branch named yields no branch finding and goes to Jev. A remote
-is in scope when it is one of the checkout's own remotes, by name or by repository.
+A branch is in scope when the task scope lists it, and the default branch and the configured
+protected branches never are. A push with no branch named pushes the current branch, which is known
+only for the call's own directory, so a push run with `git -C` elsewhere and no branch named yields
+no branch finding and goes to Jev. A remote is in scope when it is one of the checkout's own
+remotes, by name or by repository.
 
 ## The user-named grant
 
@@ -188,11 +189,11 @@ A message names a target in one of four ways:
   another checkout, whose branch the text does not show, and a remote write with no pull request
   number.
 
-The grant never covers the default branch or a protected branch name, whatever the message says, and
-never an admin merge, because an admin merge bypasses the forge's own branch protection. A stale
-message, one a relayed turn left behind, names nothing, and neither does the message of a subagent's
-call ([the user message](../evidence/user-message.md)). A run that skips the models and a
-configuration with the judge turned off keep every containment deny.
+The grant never covers the default branch, a conventional default name or a configured protected
+branch, whatever the message says, and never an admin merge, because an admin merge bypasses the
+forge's own branch protection. A stale message, one a relayed turn left behind, names nothing, and
+neither does the message of a subagent's call ([the user message](../evidence/user-message.md)). A
+run that skips the models and a configuration with the judge turned off keep every containment deny.
 
 A judge overturn clears the scope finding and nothing else. The call continues down the path as a
 call with no finding would, and the [edit bypass](./edit-bypass.md) passes it on, because the target

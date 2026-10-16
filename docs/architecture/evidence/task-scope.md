@@ -6,7 +6,7 @@ push, the pull requests it may change, and the checkout's own remotes. The
 the call, the [edit bypass](../stages/edit-bypass.md) allows edits inside it, and Jev reads its
 summary as evidence. auto-mode builds the scope afresh for every call, as the union of the scope
 sources the configuration lists, and each source answers from the call's context alone. No source
-can hand a task the default branch, so a push to it is always a finding.
+can hand a task the default branch or a protected branch, so a push to one is always a finding.
 
 ## The scope sources
 
@@ -34,10 +34,11 @@ current branch and its default branch. Every task also owns the system's scratch
 
 A branch name means nothing outside its repository, so the session and atc sources count a branch
 only when it belongs to the same repository as the call's directory. The union then drops the
-default branch. When the checkout's default branch is unknown, it drops the conventional names for
-one, such as `main` and `develop`, instead. A pull request stays in scope only while its head branch
-does and its repository is one of the checkout's remotes, so dropping a branch drops its pull
-requests with it.
+default branch and every branch that matches a protected branch pattern the configuration lists,
+because a branch the forge protects belongs to the repository, never to one task. When the
+checkout's default branch is unknown, it drops the conventional names for one, such as `main` and
+`develop`, instead. A pull request stays in scope only while its head branch does and its repository
+is one of the checkout's remotes, so dropping a branch drops its pull requests with it.
 
 The scope is read from files, never by running git or `gh`, so loading it costs no process. When
 loading it fails, the call has no scope: the containment check and the edit bypass both stand aside,

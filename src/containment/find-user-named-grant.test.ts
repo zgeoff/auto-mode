@@ -151,6 +151,16 @@ test('it finds no grant for the default branch of the checkout, even when the me
   ).toBeNull();
 });
 
+test('it finds no grant for a configured protected branch, even when the message names it', () => {
+  expect(
+    findUserNamedGrant(
+      [{ kind: 'branch', target: 'release/2.0', grant: { kind: 'branch' } }],
+      'Push the fix straight to release/2.0.',
+      { home: '/home/dev', defaultBranch: 'main', protectedBranches: ['release/*'] },
+    ),
+  ).toBeNull();
+});
+
 test.each([
   ['#512', 'Merge #512 once it is green.'],
   ['PR 512', 'Merge PR 512 once it is green.'],

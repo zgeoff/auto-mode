@@ -372,6 +372,7 @@ async function classifyUserNamedGrant(
   const targets = findUserNamedGrant(containment.findings, message, {
     home: facts.scope.home,
     defaultBranch: facts.checkout?.head?.defaultBranch ?? null,
+    protectedBranches: config.protectedBranches,
   });
 
   if (targets === null) {
@@ -420,6 +421,7 @@ async function tryLoadTaskScope(
         ...request,
         checkout: request.checkout ?? undefined,
         stateDir: resolveXDGDir(host, 'state'),
+        protectedBranches: config.protectedBranches,
       },
       config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
       host,
