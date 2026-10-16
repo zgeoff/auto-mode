@@ -6,7 +6,13 @@ import * as z from 'zod';
 // Agent SDK drives over stream-json. Its controls avoid the ANTHROPIC_ prefix,
 // which the judge removes from the child environment.
 const recordPath = process.env['STUB_CLAUDE_RECORD'];
-const reply = process.env['STUB_CLAUDE_REPLY'] ?? '';
+
+// An environment string cannot hold a reply past the kernel's argument limit,
+// so a byte count pads the reply with spaces to that size.
+const reply = (process.env['STUB_CLAUDE_REPLY'] ?? '').padEnd(
+  Number(process.env['STUB_CLAUDE_REPLY_BYTES'] ?? 0),
+);
+
 const isError = process.env['STUB_CLAUDE_IS_ERROR'] === 'true';
 const crashes = process.env['STUB_CLAUDE_CRASH'] === 'true';
 const modelUsage = process.env['STUB_CLAUDE_MODEL_USAGE'];

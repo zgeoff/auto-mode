@@ -9,6 +9,7 @@ import type {
 import * as z from 'zod';
 import type { ModelRequest } from '../messages/anthropic-client.ts';
 import { findExecutable } from '../process/find-executable.ts';
+import { startCappedProcess } from '../process/start-capped-process.ts';
 import type { JudgeMessageReply, JudgeSession } from './types.ts';
 
 // One process answers every review, so only the first pays its start. Each
@@ -160,6 +161,10 @@ interface Turn {
   readonly sessionFallback: boolean;
 }
 
+// Claude Code writes each reply as one stream-json line, and the judge server
+// holds the process for the whole agent session, so the cap bounds each line.
+const MAX_LINE_BYTES = 1024 * 1024;
+
 function startLiveProcess(
   model: string,
   system: string,
@@ -188,6 +193,13 @@ function startLiveProcess(
       pathToClaudeCodeExecutable: executable,
       cwd: tmpdir(),
       env: buildChildEnv(env),
+      spawnClaudeCodeProcess: (spawned) =>
+        startCappedProcess(spawned.command, spawned.args, {
+          maxLineBytes: MAX_LINE_BYTES,
+          cwd: spawned.cwd,
+          env: spawned.env,
+          signal: spawned.signal,
+        }),
     },
   });
 

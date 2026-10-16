@@ -174,6 +174,20 @@ test('it appends each review with its process, its count, the clears before it, 
   ]);
 });
 
+test('it pads the reply with spaces to the byte count its control names', () => {
+  const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-claude.ts')], {
+    input: JSON.stringify({ type: 'user', message: { role: 'user', content: 'the evidence' } }),
+    encoding: 'utf8',
+    env: { STUB_CLAUDE_REPLY: '{}', STUB_CLAUDE_REPLY_BYTES: '6' },
+  });
+
+  const [, reply] = result.stdout.trim().split('\n');
+
+  invariant(reply !== undefined);
+
+  expect(JSON.parse(reply)).toMatchObject({ result: '{}    ' });
+});
+
 test('it prints an error result when the error control is set', () => {
   const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-claude.ts')], {
     input: JSON.stringify({ type: 'user', message: { role: 'user', content: 'the evidence' } }),

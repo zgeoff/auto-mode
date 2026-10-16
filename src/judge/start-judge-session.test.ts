@@ -256,6 +256,21 @@ test('it returns the text of a tagged reply as the judge wrote it', async () => 
   expect(reply.text).toBe('<verdict>confirm</verdict>\n<reason>It rewrites main.</reason>');
 });
 
+test('it rejects a review whose reply passes the output cap', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
+    STUB_CLAUDE_REPLY_BYTES: String(1024 * 1024 + 1),
+  });
+
+  await expect(
+    ctx.session.review(
+      'claude-sonnet-5-5',
+      { system: 'the judge policy', user: 'the evidence' },
+      AbortSignal.timeout(10_000),
+    ),
+  ).toReject();
+});
+
 test('it rejects a turn that ends in an error', async () => {
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
