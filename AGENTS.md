@@ -50,10 +50,10 @@ The rules a task needs are not repeated here. Load the skill for the work before
 
 ## Review bots
 
-CodeRabbit reviews every PR. Its shared config lives in the zgeoff/coderabbit repo, and a repo-root
-`.coderabbit.yaml` with `inheritance: true` layers repo-specific settings on top. CodeRabbit reads
-this file as its guidelines. A review bot added later is named here with its config, and these rules
-cover it too.
+CodeRabbit reviews every PR. Its config lives in the zgeoff/coderabbit repo, and this repo has no
+`.coderabbit.yaml` of its own: a repo-specific setting goes in a repo-root `.coderabbit.yaml` with
+`inheritance: true`, which layers it on top. CodeRabbit reads this file as its guidelines. A review
+bot added later is named here with its config, and these rules cover it too.
 
 - A PR is ready only after every bot review is read and every finding is answered: a fixed finding's
   reply cites the commit that fixed it; a declined finding's reply states the reason — when a
@@ -103,27 +103,26 @@ resumes and compares one experiment, measures live use from the action log, and 
 capture into a candidate corpus behind a gitleaks scan; `experiments/` holds one `defineExperiment`
 file per experiment (its corpora, its ordered stages, its measurements, the recordings it can
 replay) and the registry that lists them; `runners/` are the older `eval:*` scripts, kept for the
-live runs no experiment covers: the guidance variant and the `claude -p` judge transport, the
-question-shape threshold sweep, and the containment evidence, relay, stale-consent, answer-guidance
-and applicability corpora; `corpora/` the committed corpora, with the recorded model answers the
-replays read under `corpora/recorded/`; `lib/` the helpers they and the suites share, including the
-run, plan, result schemas and interval statistics; and `replay/` the suites that replay the corpora
-offline. Evaluation reports live in the private zgeoff/auto-mode-evals repository, not here. Evals
-import auto-mode code by package name: `auto-mode` for the public API and `auto-mode/eval` for
-internals. Both resolve to `src/` under the `auto-mode-eval` export condition, which `bun run test`,
-the `eval:*` scripts and `evals/tsconfig.json` set; without it the subpath does not resolve. Evals
-also reuse the root `test-utils/` helpers by path, and those import `src/` directly. Bun cannot
-install a workspace's dependency on the root package, so `prepare` links
+live runs no experiment covers: the guidance variant, the generative second judge and its Messages
+presets, the question-shape threshold sweep, and the containment evidence, relay, stale-consent,
+answer-guidance and applicability corpora; `corpora/` the committed corpora, with the recorded model
+answers the replays read under `corpora/recorded/`; `lib/` the helpers they and the suites share,
+including the run, plan, result schemas and interval statistics; and `replay/` the suites that
+replay the corpora offline. Evaluation reports live in the private zgeoff/auto-mode-evals
+repository, not here. Evals import auto-mode code by package name: `auto-mode` for the public API
+and `auto-mode/eval` for internals. Both resolve to `src/` under the `auto-mode-eval` export
+condition, which `bun run test`, the `eval:*` scripts and `evals/tsconfig.json` set; without it the
+subpath does not resolve. Evals also reuse the root `test-utils/` helpers by path, and those import
+`src/` directly. Bun cannot install a workspace's dependency on the root package, so `prepare` links
 `evals/node_modules/auto-mode` to the root instead.
 
 The `zgeoff/import-zones` lint rule enforces the module boundaries, in the editor and wherever lint
 runs; `.oxlintrc.json` holds its zones and boundaries. Every file under `src/` belongs to a zone: an
 orchestrator file, `request/`, a support module or a stage. A new `src/` folder joins a zone there,
-in the same PR that adds it. Each import that breaks a zone today carries an
-`oxlint-disable-next-line zgeoff/import-zones` comment naming the ticket that removes it.
-`lint:full` fails on a disable comment that no longer covers a report, so the exemptions only
-shrink. Never add one to make a new import pass. `e2e/import-zones.test.ts` checks that each
-boundary still fails a forbidden import.
+in the same PR that adds it. No import breaks a zone, so the code holds no
+`oxlint-disable-next-line zgeoff/import-zones` comment. Never add one to make a new import pass:
+change the import, or change the zones in a PR that reviews the boundary. `e2e/import-zones.test.ts`
+checks that each boundary still fails a forbidden import.
 
 ## Runtime rules
 
