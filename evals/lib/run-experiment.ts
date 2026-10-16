@@ -1,7 +1,7 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { DecisionRequestError } from 'auto-mode';
-import type { ClaudeRules, DecisionRequest, DecisionResult } from 'auto-mode';
+import { DecisionRequestError } from 'auto-mode/eval';
+import type { ClaudeRules, DecisionRequest, DecisionResult } from 'auto-mode/eval';
 import { buildMeasurementCounts } from './build-measurement-counts.ts';
 import { buildRequiredCaseOutcomes } from './build-required-case-outcomes.ts';
 import { buildStageFailureCounts } from './build-stage-failure-counts.ts';

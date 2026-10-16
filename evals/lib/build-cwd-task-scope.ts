@@ -1,6 +1,5 @@
-import { buildTaskScope } from 'auto-mode';
-import type { OwnedScope } from 'auto-mode';
-import { pickScopeSourceReader } from 'auto-mode/eval';
+import { buildTaskScope, pickScopeSourceReader } from 'auto-mode/eval';
+import type { OwnedScope } from 'auto-mode/eval';
 
 export interface RecordedRepository {
   readonly branch: string | null;

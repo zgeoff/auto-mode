@@ -1,4 +1,4 @@
-import type { DecisionRequest } from 'auto-mode';
+import type { DecisionRequest } from 'auto-mode/eval';
 import { toHash } from './to-hash.ts';
 
 // The hash leaves out the last direct user message, and the marked guidance

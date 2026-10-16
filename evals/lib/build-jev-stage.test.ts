@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import type { DecisionRequest } from 'auto-mode';
+import type { DecisionRequest } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';

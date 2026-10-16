@@ -1,5 +1,26 @@
+export { tryClassifyEdit } from '../bypass/try-classify-edit.ts';
+export type { EditClassification } from '../bypass/classify-edit.ts';
 export { findEnclosingWorkTree } from '../capture/find-enclosing-work-tree.ts';
-export { DEFAULT_BLOCK_THRESHOLD, DEFAULT_JUDGE_OVERTURNS } from '../config/config.ts';
+
+export {
+  DEFAULT_BLOCK_THRESHOLD,
+  DEFAULT_JUDGE_OVERTURNS,
+  PRESETS,
+  resolveApiKey,
+  type ProviderConfig,
+} from '../config/config.ts';
+
+export { loadClaudeRules } from '../config/load-claude-rules.ts';
+export type { ClaudeRules } from '../config/types.ts';
+export { checkContainment, type ContainmentDeny } from '../containment/check-containment.ts';
+export { buildDecisionRequest } from '../model/build-decision-request.ts';
+export { DecisionRequestError } from '../model/decision-request-error.ts';
+export { sendDecision } from '../model/send-decision.ts';
+export type { DecisionRequest, DecisionResult, RecordedDecisionChoice } from '../model/types.ts';
+export type { DecisionRule, RepositoryContext } from '../types.ts';
+export { loadPolicy } from '../policy/load-policy.ts';
+export { buildTaskScope } from '../scope/build-task-scope.ts';
+export type { OwnedScope, ScopeEvent, SessionScope } from '../scope/types.ts';
 export { readHostEnvironment } from '../config/read-host-environment.ts';
 export { toTimerDelay } from '../config/to-timer-delay.ts';
 export { buildJudgeMessage } from '../judge/build-judge-message.ts';

@@ -1,7 +1,11 @@
 import { join } from 'node:path';
-import { buildTaskScope, checkContainment } from 'auto-mode';
-import type { ContainmentDeny } from 'auto-mode';
-import { pickScopeSourceReader, updateSessionScope } from 'auto-mode/eval';
+import {
+  buildTaskScope,
+  checkContainment,
+  pickScopeSourceReader,
+  updateSessionScope,
+} from 'auto-mode/eval';
+import type { ContainmentDeny } from 'auto-mode/eval';
 import { buildStubCheckoutFinder } from '../../test-utils/build-stub-checkout-finder.ts';
 import { buildStubSessionScope } from './build-stub-session-scope.ts';
 import type { TaskScopeSessions } from './corpora/task-scope-sessions-schema.ts';

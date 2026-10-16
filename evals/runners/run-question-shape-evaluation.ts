@@ -1,17 +1,17 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { loadConfig } from 'auto-mode';
 import {
   DecisionRequestError,
   buildDecisionRequest,
   loadClaudeRules,
-  loadConfig,
   loadPolicy,
+  readHostEnvironment,
   resolveApiKey,
   sendDecision,
-} from 'auto-mode';
-import type { DecisionRequest, DecisionRule, ProviderConfig } from 'auto-mode';
-import { readHostEnvironment } from 'auto-mode/eval';
+} from 'auto-mode/eval';
+import type { DecisionRequest, DecisionRule, ProviderConfig } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';

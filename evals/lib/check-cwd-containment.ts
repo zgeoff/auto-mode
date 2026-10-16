@@ -1,5 +1,5 @@
-import { checkContainment } from 'auto-mode';
-import type { ContainmentDeny } from 'auto-mode';
+import { checkContainment } from 'auto-mode/eval';
+import type { ContainmentDeny } from 'auto-mode/eval';
 import type { RecordedRepository } from './build-cwd-task-scope.ts';
 import { buildCwdTaskScope } from './build-cwd-task-scope.ts';
 

@@ -1,5 +1,5 @@
-import type { DecisionRequest, DecisionResult } from 'auto-mode';
 import { DEFAULT_BLOCK_THRESHOLD, pickDecisionVerdict } from 'auto-mode/eval';
+import type { DecisionRequest, DecisionResult } from 'auto-mode/eval';
 
 export type JevClass =
   | { readonly kind: 'allow'; readonly rule: null; readonly pBlock: number }

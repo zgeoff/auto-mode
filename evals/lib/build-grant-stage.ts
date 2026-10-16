@@ -1,7 +1,7 @@
-import { checkContainment } from 'auto-mode';
 import {
   buildJudgeMessage,
   buildJudgedVerdict,
+  checkContainment,
   findUserNamedGrant,
   parseJudgeReply,
   readContainmentRule,

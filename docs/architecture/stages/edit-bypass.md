@@ -44,10 +44,11 @@ excluded name an ordinary target, or an ordinary name an excluded one.
 The bypass scans the new content with the Betterleaks rule set, and any match sends the edit to Jev.
 The rule set is Betterleaks' own, compiled from its rule file into a bundled JSON file by a script
 in the repo, because the CLI runs under node with bundled dependencies and cannot ship the
-Betterleaks binary. Rules that backtrack badly on hostile input run on a linear-time regex engine
-instead of V8's. The CLI loads the rule set only for a file edit that reaches the bypass, so every
-other call starts without it. The scan never sends a match to its provider to validate it, because
-validation would send the secret to a third party.
+Betterleaks binary. The package publishes the same compiled file as `dist/secret-rules.json`, so a
+tool outside auto-mode scans with the rules auto-mode scans with. Rules that backtrack badly on
+hostile input run on a linear-time regex engine instead of V8's. The CLI loads the rule set only for
+a file edit that reaches the bypass, so every other call starts without it. The scan never sends a
+match to its provider to validate it, because validation would send the secret to a third party.
 
 The bypass scans a Write or NotebookEdit call as its whole new content, and an Edit call in the file
 it produces: the bypass reads the current file, applies the replacement, and scans the lines around

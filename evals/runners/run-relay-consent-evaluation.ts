@@ -2,16 +2,18 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { loadConfig } from 'auto-mode';
+import type { ActionRequest } from 'auto-mode';
 import {
   DecisionRequestError,
   buildDecisionRequest,
+  findCurrentDirectUserMessage,
   loadClaudeRules,
-  loadConfig,
   loadPolicy,
+  readHostEnvironment,
   resolveApiKey,
-} from 'auto-mode';
-import type { ActionRequest, ClaudeRules, DecisionRequest, RepositoryContext } from 'auto-mode';
-import { findCurrentDirectUserMessage, readHostEnvironment } from 'auto-mode/eval';
+} from 'auto-mode/eval';
+import type { ClaudeRules, DecisionRequest, RepositoryContext } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';

@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { loadPolicy } from 'auto-mode';
+import { loadPolicy } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import { defaultBranchWrite } from '../experiments/default-branch-write.ts';
 import { loadRun } from '../lib/load-run.ts';

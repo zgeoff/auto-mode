@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'bun:test';
-import { DecisionRequestError } from 'auto-mode';
+import { DecisionRequestError } from 'auto-mode/eval';
 import { HttpResponse, delay, http } from 'msw';
 import { DECISION_URL } from '../../mocks/handlers.ts';
 import { server } from '../../mocks/node.ts';

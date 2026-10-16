@@ -1,4 +1,4 @@
-import { buildDecisionRequest } from 'auto-mode';
+import { buildDecisionRequest } from 'auto-mode/eval';
 import { buildCategoricalQuestions } from './build-categorical-questions.ts';
 import type { Stage } from './define-experiment.ts';
 import type { MeasurementCase } from './load-measurement-sets.ts';

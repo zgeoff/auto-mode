@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
-import { tryClassifyEdit } from 'auto-mode';
-import type { EditClassification } from 'auto-mode';
+import { tryClassifyEdit } from 'auto-mode/eval';
+import type { EditClassification } from 'auto-mode/eval';
 import { buildStubEditFileReader } from '../../test-utils/build-stub-edit-file-reader.ts';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import type { RecordedRepository } from './build-cwd-task-scope.ts';

@@ -1,4 +1,4 @@
-import type { DecisionRequest } from 'auto-mode';
+import type { DecisionRequest } from 'auto-mode/eval';
 import { match } from 'ts-pattern';
 import type { ScoredDecisionResult } from './classify-recorded-answers.ts';
 import { classifyRecordedAnswers } from './classify-recorded-answers.ts';

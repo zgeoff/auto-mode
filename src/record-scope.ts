@@ -9,7 +9,7 @@ import { EMPTY_SESSION_SCOPE } from './scope/types.ts';
 import { updateSessionScope } from './scope/update-session-scope.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
 
-export interface RecordScopeOptions {
+interface RecordScopeOptions {
   readonly host?: Readonly<HostEnvironment>;
   readonly now?: number;
 }

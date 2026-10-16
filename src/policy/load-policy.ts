@@ -4,7 +4,7 @@ import { resolveShippedPolicyDir } from './resolve-shipped-policy-dir.ts';
 
 const RULES_MARKER = '<rules>';
 
-export interface PolicyPaths {
+interface PolicyPaths {
   readonly classifierPath?: string | undefined;
   readonly rulesPath?: string | undefined;
 }

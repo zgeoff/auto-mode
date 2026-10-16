@@ -1,5 +1,5 @@
-import { buildDecisionRequest, loadPolicy } from 'auto-mode';
-import type { DecisionRule } from 'auto-mode';
+import { buildDecisionRequest, loadPolicy } from 'auto-mode/eval';
+import type { DecisionRule } from 'auto-mode/eval';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
 

@@ -3,7 +3,7 @@ import type {
   DecisionResult,
   DecisionRule,
   RecordedDecisionChoice,
-} from 'auto-mode';
+} from 'auto-mode/eval';
 import type { RecordedAnswer } from './corpora/recorded-answer-schema.ts';
 
 export interface RecordedDecision {

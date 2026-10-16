@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import type { EditClassification } from 'auto-mode';
+import type { EditClassification } from 'auto-mode/eval';
 import { classifyRecordedEdit } from '../lib/classify-recorded-edit.ts';
 import { countValues } from '../lib/count-values.ts';
 import { loadDecisionRulesCases } from '../lib/load-decision-rules-cases.ts';

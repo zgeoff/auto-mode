@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import type { ClaudeRules, RepositoryContext } from 'auto-mode';
 import { repositoryContextSchema } from 'auto-mode/eval';
+import type { ClaudeRules, RepositoryContext } from 'auto-mode/eval';
 import * as z from 'zod';
 import { toHash } from './to-hash.ts';
 

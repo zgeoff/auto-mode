@@ -1,4 +1,4 @@
-import type { ClaudeRules, DecisionRequest, DecisionResult } from 'auto-mode';
+import type { ClaudeRules, DecisionRequest, DecisionResult } from 'auto-mode/eval';
 import type { CaseLabel } from './case-labels-schema.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
