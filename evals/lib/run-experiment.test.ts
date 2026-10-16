@@ -1420,6 +1420,162 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
   );
 });
 
+test('it counts a resumed live replay run with the model each stage answered with first', async () => {
+  const ctx = await setupTest();
+
+  const deny: StageOutcome = {
+    status: 'scored',
+    verdict: 'deny',
+    pBlock: 0.9,
+    reason: 'deny: Data Exfiltration',
+  };
+
+  const options = {
+    corporaDir: ctx.corporaDir,
+    resultsDir: ctx.resultsDir,
+    recording: 'jev-only',
+    seed: 1,
+    samples: 1,
+    live: true,
+    maxRequests: 13,
+    environment: {
+      publicCommit: 'test',
+      dirtyTree: false,
+      policy: 'policy',
+      judgePolicy: 'judge policy',
+      configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+      send: null,
+      sendWithChoices: null,
+      sendJudge: () => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }),
+    },
+    now: () => new Date('2026-10-10T12:00:00.000Z'),
+    print: () => {},
+  };
+
+  const first = await runExperiment(
+    defineExperiment({
+      name: 'judge-only-check',
+      description: 'A recorded Jev stage that denies every case and a live judge.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: () =>
+            Promise.resolve({
+              ...deny,
+              recorded: { answer: { status: 'deny' }, latencyMs: 412, model: 'jev-1.13.0' },
+            }),
+        },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: async (_entry, context) => {
+            const reply = await context.sendJudge({ user: 'review' });
+
+            return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    { ...options, resumeDir: null },
+  );
+
+  invariant(first.kind === 'completed');
+
+  await writeFile(join(first.runDir, 'samples.jsonl'), '');
+
+  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+
+  const resumed = await runExperiment(
+    defineExperiment({
+      name: 'judge-only-check',
+      description: 'A recorded Jev stage that denies every case and a live judge.',
+      corpora: ['containment'],
+      samples: 1,
+      recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'jev',
+          sends: true,
+          run: () => Promise.reject(new Error('unreachable')),
+          replay: () =>
+            Promise.resolve({
+              ...deny,
+              recorded: { answer: { status: 'deny' }, latencyMs: 412, model: 'jev-1.14.0' },
+            }),
+        },
+        {
+          name: 'judge',
+          sends: true,
+          reviews: 'jev',
+          run: async (_entry, context) => {
+            const jev = context.previous.find((record) => record.stage === 'jev');
+
+            if (jev?.status !== 'scored') {
+              return { status: 'skipped', reason: 'Jev did not deny this sample.' };
+            }
+
+            const reply = await context.sendJudge({ user: 'review' });
+
+            return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      ...options,
+      resumeDir: first.runDir,
+      environment: { ...options.environment, sendJudge },
+    },
+  );
+
+  invariant(resumed.kind === 'completed');
+
+  expect(resumed.plan.requests).toBe(0);
+  expect(sendJudge).not.toHaveBeenCalled();
+});
+
 test('it resumes a run whose last samples line is torn, says so, and runs that stage run again', async () => {
   const ctx = await setupTest();
 

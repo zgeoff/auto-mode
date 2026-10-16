@@ -147,7 +147,10 @@ export async function runExperiment<Case>(
   const plan = isCounted
     ? planExperimentRun({
         ...planInput,
-        sending: await collectSendingRuns(bounds, stages.active, selected, records, options),
+        sending: await collectSendingRuns(bounds, stages.active, selected, records, {
+          ...options,
+          models: previous?.summary.config.models ?? {},
+        }),
       })
     : bounds;
 
@@ -416,10 +419,10 @@ async function collectSendingRuns<Case>(
   active: readonly ActiveStage<Case>[],
   selected: Readonly<SelectedCases<Case>>,
   records: readonly SampleRecord[],
-  options: Readonly<RunOptions>,
+  options: Readonly<RunOptions & { readonly models: Readonly<Record<string, string>> }>,
 ): Promise<string[]> {
   const sending: string[] = [];
-  const models: Record<string, string> = {};
+  const models: Record<string, string> = { ...options.models };
 
   for (const unit of bounds.units) {
     const labelled = getLabelledCase(selected, unit.caseKey);
