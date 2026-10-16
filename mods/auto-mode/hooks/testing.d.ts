@@ -1,6 +1,5 @@
-// Ambient modules cannot use relative import declarations for the host's test API,
-// and these signatures copy the host's own, which take a RegExp and a class.
-/* oxlint-disable typescript/consistent-type-imports, typescript/prefer-readonly-parameter-types */
+// Ambient modules cannot use relative import declarations for the host's test API.
+/* oxlint-disable typescript/consistent-type-imports */
 declare module 'claude-code/testing' {
   interface AsymmetricMatcher {
     readonly text: string;
