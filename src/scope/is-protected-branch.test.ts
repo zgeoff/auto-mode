@@ -18,6 +18,11 @@ test.each([
   ['hotfix-c', ['hotfix-[!ab]'], true],
   ['hotfix-a', ['hotfix-[!ab]'], false],
   ['v1x0', ['v1.0'], false],
+  ['release/-', [String.raw`release/[a\-z]`], true],
+  ['release/m', [String.raw`release/[a-\z]`], true],
+  ['release/]', [String.raw`release/[\]]`], true],
+  ['release/a/b', ['release[/]a/b'], false],
+  ['release/[x', ['release/[x'], true],
 ])('it reads %s against the patterns %j as protected: %p', (branch, patterns, expected) => {
   expect(isProtectedBranch(branch, patterns)).toBe(expected);
 });

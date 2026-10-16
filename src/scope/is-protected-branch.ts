@@ -25,19 +25,10 @@ function buildBranchPattern(pattern: string): RegExp {
       source += '[^/]';
       index += 1;
     } else if (char === '[') {
-      const close = pattern.indexOf(']', index + 2);
+      const bracket = buildBracketPattern(pattern, index);
 
-      if (close === -1) {
-        source += String.raw`\[`;
-        index += 1;
-      } else {
-        const body = pattern.slice(index + 1, close);
-        const negated = body.startsWith('!') || body.startsWith('^');
-        const members = (negated ? body.slice(1) : body).replaceAll(/[\\\]^]/gu, String.raw`\$&`);
-
-        source += `[${negated ? '^' : ''}${members}]`;
-        index = close + 1;
-      }
+      source += bracket?.source ?? String.raw`\[`;
+      index = bracket?.end ?? index + 1;
     } else if (char === '\\' && index + 1 < pattern.length) {
       source += toLiteralPattern(pattern[index + 1] ?? '');
       index += 2;
@@ -48,6 +39,52 @@ function buildBranchPattern(pattern: string): RegExp {
   }
 
   return new RegExp(`^${source}$`, 'u');
+}
+
+// A class never matches a slash, as fnmatch reads it under FNM_PATHNAME, and
+// a backslash inside it escapes the next character, an endpoint or `]` alike.
+function buildBracketPattern(
+  pattern: string,
+  start: number,
+): { readonly source: string; readonly end: number } | null {
+  let index = start + 1;
+  const negated = pattern[index] === '!' || pattern[index] === '^';
+
+  if (negated) {
+    index += 1;
+  }
+
+  let members = '';
+
+  while (index < pattern.length) {
+    const char = pattern[index] ?? '';
+
+    if (char === ']') {
+      return { source: buildClassSource(members, negated), end: index + 1 };
+    }
+
+    if (char === '\\' && index + 1 < pattern.length) {
+      members += toClassMember(pattern[index + 1] ?? '');
+      index += 2;
+    } else {
+      members += char === '-' ? '-' : toClassMember(char);
+      index += 1;
+    }
+  }
+
+  return null;
+}
+
+function buildClassSource(members: string, negated: boolean): string {
+  if (negated) {
+    return `[^/${members}]`;
+  }
+
+  return members === '' ? '(?!)' : `(?!/)[${members}]`;
+}
+
+function toClassMember(char: string): string {
+  return /[\\\][^-]/u.test(char) ? `\\${char}` : char;
 }
 
 function toLiteralPattern(char: string): string {
