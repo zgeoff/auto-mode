@@ -155,7 +155,7 @@ function splitOptionCluster(
   word: string,
   next: string | undefined,
 ): { readonly options: readonly CallOption[]; readonly isValueNext: boolean } {
-  const letters = /^-[^-]./u.test(word) ? [...word].slice(1) : [];
+  const letters = /^-[^-]./u.test(word) ? (word.slice(1).match(/./gu) ?? []) : [];
   const at = letters.findIndex((letter) => valueOptions.includes(`-${letter}`));
 
   if (at === -1) {

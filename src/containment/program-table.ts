@@ -71,6 +71,8 @@ const SSH_VALUE_OPTIONS = [
   '-w',
 ];
 
+const SCP_VALUE_OPTIONS = ['-c', '-D', '-F', '-i', '-J', '-l', '-o', '-P', '-S', '-X'];
+
 const SSH_READS = [
   'cat',
   'df',
@@ -143,7 +145,7 @@ export const PROGRAM_TABLE: Readonly<Record<string, ProgramEntry>> = {
     ],
   },
   scp: {
-    valueOptions: SSH_VALUE_OPTIONS,
+    valueOptions: SCP_VALUE_OPTIONS,
     optionsEndAtOperand: true,
     writes: [{ operands: ['destination'], role: 'remote-path', finding: { kind: 'remote-write' } }],
   },
