@@ -27,6 +27,14 @@ test.each([
   ['release/m', ['release/[z-a]*', 'release/*'], true],
   ['release/b', ['release/[!z-a]'], true],
   ['release/-', ['release/[-a]'], true],
+  ['release/😀', ['release/[😀-🙏]'], true],
+  ['release/🙂', ['release/[😀-🙏]'], true],
+  ['release/🚀', ['release/[😀-🙏]'], false],
+  ['release/a', ['release/[😀-🙏]'], false],
+  ['release/a', ['release/[!😀-🙏]'], true],
+  ['release/🙂', ['release/[!😀-🙏]'], false],
+  ['release/🙂', ['release/[\\\u{1F600}-🙏]'], true],
+  ['release/ｚ', ['release/[Ｚ-😀]'], true],
 ])('it reads %s against the patterns %j as protected: %p', (branch, patterns, expected) => {
   expect(isProtectedBranch(branch, patterns)).toBe(expected);
 });

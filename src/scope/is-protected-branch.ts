@@ -78,19 +78,25 @@ function buildBracketPattern(
   return null;
 }
 
+// fnmatch reads a class member as a whole code point, where indexing a string
+// would split a character outside the Basic Multilingual Plane in two.
 function readClassChar(
   pattern: string,
   index: number,
 ): { readonly char: string; readonly end: number } {
-  return pattern[index] === '\\' && index + 1 < pattern.length
-    ? { char: pattern[index + 1] ?? '', end: index + 2 }
-    : { char: pattern[index] ?? '', end: index + 1 };
+  const start = pattern[index] === '\\' && index + 1 < pattern.length ? index + 1 : index;
+  const char = String.fromCodePoint(pattern.codePointAt(start) ?? 0);
+
+  return { char, end: start + char.length };
 }
 
 // fnmatch reads a range whose ends are out of order as one that matches
-// nothing, where a RegExp would throw on it.
+// nothing, where a RegExp would throw on it. It orders the ends by code point,
+// which UTF-16 string order breaks for a character outside the BMP.
 function buildRangeSource(low: string, high: string): string {
-  return low <= high ? `${toClassMember(low)}-${toClassMember(high)}` : '';
+  return (low.codePointAt(0) ?? 0) <= (high.codePointAt(0) ?? 0)
+    ? `${toClassMember(low)}-${toClassMember(high)}`
+    : '';
 }
 
 function buildClassSource(members: string, negated: boolean): string {
