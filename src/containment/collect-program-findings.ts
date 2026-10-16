@@ -296,34 +296,32 @@ function collectRoleFindings(
   const resolve = (target: string): ScopeFinding[] =>
     collectTargetFindings(context.directory, target, scope, context.scratchPaths);
 
-  switch (rule.role ?? 'path') {
-    case 'path': {
-      return targets.flatMap((target) => resolve(target));
-    }
+  const role = rule.role ?? 'path';
 
-    case 'branch': {
-      return targets
-        .filter((branch) => !scope.branches.includes(branch))
-        .map((branch) => ({ kind: 'branch', target: branch, grant: { kind: 'branch' } }));
-    }
-
-    case 'remote': {
-      return targets
-        .filter((remote) => !isUnresolvedWord(remote) && !isOwnedRemote(remote, scope))
-        .map((remote) => ({ kind: 'remote-write', target: remote }));
-    }
-
-    case 'refspec': {
-      // The checkout's current branch is known only for the action's own cwd.
-      const current = context.directory === context.cwd ? scope.currentBranch : null;
-
-      return targets.flatMap((refspec) => collectRefspecFindings(refspec, current, scope));
-    }
-
-    default: {
-      return finding === null ? [] : collectNamedFindings(rule, targets, finding, call, context);
-    }
+  if (role === 'path') {
+    return targets.flatMap((target) => resolve(target));
   }
+
+  if (role === 'branch') {
+    return targets
+      .filter((branch) => !scope.branches.includes(branch))
+      .map((branch) => ({ kind: 'branch', target: branch, grant: { kind: 'branch' } }));
+  }
+
+  if (role === 'remote') {
+    return targets
+      .filter((remote) => !isUnresolvedWord(remote) && !isOwnedRemote(remote, scope))
+      .map((remote) => ({ kind: 'remote-write', target: remote }));
+  }
+
+  if (role === 'refspec') {
+    // The checkout's current branch is known only for the action's own cwd.
+    const current = context.directory === context.cwd ? scope.currentBranch : null;
+
+    return targets.flatMap((refspec) => collectRefspecFindings(refspec, current, scope));
+  }
+
+  return finding === null ? [] : collectNamedFindings(role, rule, targets, finding, call, context);
 }
 
 function isOwnedRemote(remote: string, scope: Readonly<OwnedScope>): boolean {
@@ -353,49 +351,54 @@ function collectRefspecFindings(
     : [{ kind: 'branch', target: branch, grant: { kind: 'branch' } }];
 }
 
+type NamedRole =
+  | 'remote-path'
+  | 'url'
+  | 'remote-command'
+  | 'commit'
+  | 'pull-request'
+  | 'pull-request-merge'
+  | 'forge-path';
+
 // The roles that yield the rule's own finding, or nothing when the target is
 // one the task owns or one that writes nothing.
 function collectNamedFindings(
+  role: NamedRole,
   rule: Readonly<WriteRule>,
   targets: readonly string[],
   finding: ScopeFinding,
   call: Readonly<ProgramCall>,
   context: Readonly<EntryContext>,
 ): ScopeFinding[] {
-  switch (rule.role) {
-    case 'remote-path': {
-      return targets.flatMap((target) =>
-        /^[^/]+:/u.test(target)
-          ? [finding]
-          : collectTargetFindings(context.directory, target, context.scope, context.scratchPaths),
-      );
-    }
-
-    case 'url': {
-      return isLocalUpload(targets) ? [] : [finding];
-    }
-
-    case 'remote-command': {
-      return isRemoteRead(targets, rule.reads ?? []) ? [] : [finding];
-    }
-
-    case 'commit': {
-      // A hard reset onto another commit drops the commits after it and every
-      // uncommitted change, and the text cannot tell whose work those were.
-      return targets
-        .filter((commit) => commit !== 'HEAD' && commit !== '@' && !isUnresolvedWord(commit))
-        .map((commit) => ({ kind: finding.kind, target: `${finding.target} ${commit}` }));
-    }
-
-    case 'pull-request':
-    case 'pull-request-merge': {
-      return collectPullRequestFindings(rule, targets[0], finding, call, context.scope);
-    }
-
-    default: {
-      return collectForgeFindings(rule, targets[0] ?? '', finding, context.scope);
-    }
+  if (role === 'remote-path') {
+    return targets.flatMap((target) =>
+      /^[^/]+:/u.test(target)
+        ? [finding]
+        : collectTargetFindings(context.directory, target, context.scope, context.scratchPaths),
+    );
   }
+
+  if (role === 'url') {
+    return isLocalUpload(targets) ? [] : [finding];
+  }
+
+  if (role === 'remote-command') {
+    return isRemoteRead(targets, rule.reads ?? []) ? [] : [finding];
+  }
+
+  if (role === 'commit') {
+    // A hard reset onto another commit drops the commits after it and every
+    // uncommitted change, and the text cannot tell whose work those were.
+    return targets
+      .filter((commit) => commit !== 'HEAD' && commit !== '@' && !isUnresolvedWord(commit))
+      .map((commit) => ({ kind: finding.kind, target: `${finding.target} ${commit}` }));
+  }
+
+  if (role === 'pull-request' || role === 'pull-request-merge') {
+    return collectPullRequestFindings(rule, targets[0], finding, call, context.scope);
+  }
+
+  return collectForgeFindings(rule, targets[0] ?? '', finding, context.scope);
 }
 
 // gh selects the pull request by its first positional word: a number, a pull
