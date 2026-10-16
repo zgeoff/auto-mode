@@ -14,10 +14,10 @@ No scope source can hand a task the default branch, and when the default branch 
 conventional default names stand in for it. The design widens that to every protected branch of the
 repository, so a task can never own a branch the forge protects, whatever its name.
 
-## Benign denials on real traffic
+## Benign denials on real traffic from more than one repository
 
 Measurement 2 counts benign denials per action, and the design takes it from a replay of recorded
-real traffic from more than one repository, through every stage. The containment replay produces it
-for the containment stage and for recorded Jev answers, so the judge's share of benign denials on
-real traffic is unbuilt. Jev's threshold, the denial budget defaults and any release bar are set
-from the measurements once each one exists.
+real traffic from more than one repository, through every stage. The containment replay and the
+judge-alone experiment produce it for every stage, but the recorded real traffic comes from one
+repository, so the count across repositories is unbuilt. Jev's threshold, the denial budget defaults
+and any release bar are set from the measurements once each one exists.
