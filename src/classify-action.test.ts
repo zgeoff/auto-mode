@@ -1665,6 +1665,11 @@ test.each([
     'Merge #512 now, with --admin if you must.',
   ],
   [
+    'an admin merge that follows a merge of the pull request the message names',
+    'gh pr merge 512 && gh pr merge 513 --admin',
+    'Merge #512 now.',
+  ],
+  [
     'a push to the default branch the message names',
     'git push origin HEAD:main',
     'Push this straight to main.',

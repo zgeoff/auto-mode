@@ -3,8 +3,9 @@ import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 
-// The words of a shell command that turn off the repository's git hooks for a
-// commit or a push, as the command writes them.
+// The switches in a shell command that turn off the repository's git hooks for
+// a commit or a push. Each is a fixed label, never the command's own text,
+// because the labels reach the classifier's trusted instructions.
 export function collectHookBypasses(command: string): readonly string[] {
   return splitShellCommand(command).segments.flatMap((segment) =>
     collectSegmentBypasses(segment.text),
@@ -102,7 +103,7 @@ function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'pus
 
       // git accepts an unambiguous prefix of a long option, such as `--no-veri`.
       if (option.startsWith('no-ve') && 'no-verify'.startsWith(option)) {
-        found = arg;
+        found = '--no-verify';
       } else if (option.startsWith('veri') && 'verify'.startsWith(option)) {
         found = null;
       }
@@ -119,7 +120,7 @@ function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'pus
       const cluster = parseCommitCluster(arg);
 
       if (cluster.hasNoVerify) {
-        found = arg;
+        found = '-n';
       }
 
       if (cluster.takesNextWord) {

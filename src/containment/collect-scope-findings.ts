@@ -37,10 +37,15 @@ export function collectScopeFindings(
       : []),
   ];
 
+  // Two merges share a target and differ in their grant, so a finding with
+  // another grant, or with none, stays for the grant check.
   return findings.filter(
     (finding, index) =>
       findings.findIndex(
-        (other) => other.kind === finding.kind && other.target === finding.target,
+        (other) =>
+          other.kind === finding.kind &&
+          other.target === finding.target &&
+          JSON.stringify(other.grant) === JSON.stringify(finding.grant),
       ) === index,
   );
 }

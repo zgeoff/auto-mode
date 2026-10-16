@@ -39,9 +39,11 @@ A git commit or push that turns off the repository's hooks gets guidance of its 
 what an agent commits and pushes, so turning them off disables a guard on the agent, and the Policy
 Tampering text names only the hook that installs auto-mode. When a shell command commits or pushes
 with lefthook or husky switched off by a leading environment assignment, or with git's no-verify
-option, the Policy Tampering question names the words that turn the hooks off and asks Jev to judge
-the call under that rule. No earlier stage allows such a call: the local rules never allow a commit
-or a push, and containment passes an in-scope one on.
+option, the Policy Tampering question names each switch and asks Jev to judge the call under that
+rule. The question names a switch by a fixed label, never by the command's own text, because the
+question is trusted instruction and the command is written by the agent under review. No earlier
+stage allows such a call: the local rules never allow a commit or a push, and containment passes an
+in-scope one on.
 
 The request never truncates the action or the user's message. When the request is larger than the
 client's request cap, the client drops the delegated task first, then the original task, each with
