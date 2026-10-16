@@ -37,6 +37,15 @@ test('it reads a reviews object inside a json fence', () => {
   ).toStrictEqual([{ kind: 'confirm', reason: 'You would push to main.' }]);
 });
 
+test('it reads the reviews object after a stray tool-call fragment', () => {
+  expect(
+    parseJudgeReplies(
+      '\n<invoke name="noop"></invoke>\n{"reviews":[{"rule":"Default Branch Write","verdict":"confirm","basis":null,"reason":"You would push to main."}]}',
+      ['Default Branch Write'],
+    ),
+  ).toStrictEqual([{ kind: 'confirm', reason: 'You would push to main.' }]);
+});
+
 test('it reads every review as unreadable when the reviews name the rules in another order', () => {
   expect(
     parseJudgeReplies(

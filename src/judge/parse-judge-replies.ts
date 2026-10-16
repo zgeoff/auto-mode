@@ -11,7 +11,7 @@ export function parseJudgeReplies(text: string, rules: readonly string[]): reado
   const unreadable = rules.map((): JudgeReply => ({ kind: 'unreadable' }));
   const trimmed = text.trim();
   const body = JSON_FENCE.exec(trimmed)?.groups?.['body'] ?? trimmed;
-  const parsed = judgeReviewsSchema.safeParse(parseJSON(body));
+  const parsed = judgeReviewsSchema.safeParse(parseJSON(findReviewsObject(body)));
 
   if (!parsed.success) {
     return rules.length === 1 ? [parseJudgeReply(text)] : unreadable;
@@ -35,6 +35,17 @@ export function parseJudgeReplies(text: string, rules: readonly string[]): reado
       ? { kind: 'unreadable' }
       : { kind: 'overturn', basis: review.basis, reason: review.reason };
   });
+}
+
+const REVIEWS_START = /\{\s*"reviews"\s*:/u;
+
+// A judge with no tools still writes a stray tool-call fragment before its
+// answer in about one reply in three, so the answer is the reviews object
+// wherever it starts.
+function findReviewsObject(text: string): string {
+  const start = text.search(REVIEWS_START);
+
+  return start === -1 ? text : text.slice(start, text.lastIndexOf('}') + 1);
 }
 
 function parseJSON(text: string): unknown {
