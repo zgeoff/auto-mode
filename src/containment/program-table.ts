@@ -4,14 +4,31 @@ import type { ScopeFinding } from './types.ts';
 // how the reader interprets it.
 export type OptionPattern = string | RegExp;
 
-export type OperandSelector = 'all' | 'first' | 'after-script' | 'destination' | 'sources';
+export type OperandSelector =
+  | 'all'
+  | 'first'
+  | 'after-first'
+  | 'after-script'
+  | 'destination'
+  | 'sources';
 
-type TargetRole = 'path' | 'remote-path' | 'url' | 'remote-command';
+type TargetRole =
+  | 'path'
+  | 'remote-path'
+  | 'url'
+  | 'remote-command'
+  | 'branch'
+  | 'remote'
+  | 'refspec'
+  | 'commit'
+  | 'pull-request'
+  | 'pull-request-merge'
+  | 'forge-path';
 
 export interface RuleFinding {
   readonly kind: ScopeFinding['kind'];
   readonly target?: string;
-  readonly quote?: 'call';
+  readonly quote?: 'call' | 'operand';
 }
 
 export interface WriteRule {
@@ -19,15 +36,21 @@ export interface WriteRule {
   readonly readFlags?: readonly OptionPattern[];
   readonly words?: readonly RegExp[];
   readonly optionValue?: { readonly options: readonly string[]; readonly value: RegExp };
+  readonly directory?: boolean;
   readonly options?: readonly string[];
   readonly operands?: readonly OperandSelector[];
   readonly scriptOptions?: readonly OptionPattern[];
   readonly role?: TargetRole;
+  readonly whenNone?: string;
   readonly reads?: readonly string[];
+  readonly repoOptions?: readonly string[];
+  readonly ungrantFlags?: readonly OptionPattern[];
+  readonly credentialPattern?: RegExp;
   readonly finding?: RuleFinding;
 }
 
 export interface ProgramEntry {
+  readonly directoryOptions?: readonly string[];
   readonly valueOptions?: readonly OptionPattern[];
   readonly optionsEndAtOperand?: boolean;
   readonly subcommands?: Readonly<Record<string, ProgramEntry>>;
@@ -110,7 +133,219 @@ const PRODUCTION_DEPLOY: WriteRule = {
   finding: { kind: 'remote-write', target: 'production deploy' },
 };
 
+const CHECKOUT_WRITE: ProgramEntry = { writes: [{ directory: true }] };
+const REFSPEC_WRITE: WriteRule = { operands: ['after-first'], role: 'refspec' };
+
+const GIT: ProgramEntry = {
+  directoryOptions: ['-C'],
+  valueOptions: ['-c'],
+  subcommands: {
+    clean: CHECKOUT_WRITE,
+    checkout: CHECKOUT_WRITE,
+    switch: CHECKOUT_WRITE,
+    merge: CHECKOUT_WRITE,
+    commit: CHECKOUT_WRITE,
+    rm: CHECKOUT_WRITE,
+    stash: CHECKOUT_WRITE,
+    reset: {
+      writes: [
+        { directory: true },
+        {
+          flags: ['--hard'],
+          operands: ['first'],
+          role: 'commit',
+          finding: { kind: 'discard', target: 'git reset --hard' },
+        },
+      ],
+    },
+    push: {
+      writes: [
+        { directory: true },
+        { flags: ['--all', '--mirror'], finding: { kind: 'branch', target: '--all' } },
+        { operands: ['first'], role: 'remote' },
+        { ...REFSPEC_WRITE, readFlags: ['--tags'], whenNone: 'HEAD' },
+        { ...REFSPEC_WRITE, flags: ['--tags'] },
+      ],
+    },
+    worktree: { subcommands: { remove: { writes: [{ operands: ['first'] }] } } },
+    branch: { writes: [{ flags: ['-d', '-D', '--delete'], operands: ['all'], role: 'branch' }] },
+    config: {
+      writes: [
+        {
+          flags: ['--global'],
+          readFlags: ['--get', '--get-all', '--get-regexp', '--list', '-l'],
+          finding: { kind: 'credential', quote: 'operand' },
+        },
+      ],
+    },
+  },
+};
+
+const GH_REPO_OPTIONS = ['-R', '--repo'];
+
+const PULL_REQUEST_WRITE: WriteRule = {
+  operands: ['first'],
+  role: 'pull-request',
+  repoOptions: GH_REPO_OPTIONS,
+  finding: { kind: 'remote-write' },
+};
+
+// The value options of each gh pr write command, from gh 2.102. A short flag can
+// take a value under one command and none under another: `-m` names a milestone
+// for `edit` and picks the merge method for `merge`.
+const GH_PULL_REQUEST: ProgramEntry = {
+  subcommands: {
+    comment: {
+      valueOptions: [...GH_REPO_OPTIONS, '-b', '--body', '-F', '--body-file', '--attach'],
+      writes: [PULL_REQUEST_WRITE],
+    },
+    merge: {
+      valueOptions: [
+        ...GH_REPO_OPTIONS,
+        '-A',
+        '--author-email',
+        '-b',
+        '--body',
+        '-F',
+        '--body-file',
+        '--match-head-commit',
+        '-t',
+        '--subject',
+      ],
+      writes: [
+        {
+          ...PULL_REQUEST_WRITE,
+          role: 'pull-request-merge',
+          ungrantFlags: [/^--admin(?:=|$)/u],
+        },
+      ],
+    },
+    edit: {
+      valueOptions: [
+        ...GH_REPO_OPTIONS,
+        '--add-assignee',
+        '--add-label',
+        '--add-project',
+        '--add-reviewer',
+        '--attach',
+        '-B',
+        '--base',
+        '-b',
+        '--body',
+        '-F',
+        '--body-file',
+        '-m',
+        '--milestone',
+        '--remove-assignee',
+        '--remove-label',
+        '--remove-project',
+        '--remove-reviewer',
+        '-t',
+        '--title',
+      ],
+      writes: [PULL_REQUEST_WRITE],
+    },
+    close: { valueOptions: [...GH_REPO_OPTIONS, '-c', '--comment'], writes: [PULL_REQUEST_WRITE] },
+    review: {
+      valueOptions: [...GH_REPO_OPTIONS, '-b', '--body', '-F', '--body-file'],
+      writes: [PULL_REQUEST_WRITE],
+    },
+    ready: { valueOptions: GH_REPO_OPTIONS, writes: [PULL_REQUEST_WRITE] },
+    reopen: { valueOptions: [...GH_REPO_OPTIONS, '-c', '--comment'], writes: [PULL_REQUEST_WRITE] },
+  },
+};
+
+const GH_API_FIELDS = ['-f', '-F', '--field', '--raw-field', '--input'];
+
+const FORGE_WRITE: WriteRule = {
+  operands: ['first'],
+  role: 'forge-path',
+  credentialPattern: /secret|collaborator|protection|key|permission/u,
+  finding: { kind: 'remote-write' },
+};
+
+// gh api sends fields as a POST body unless the method is GET, which turns them
+// into query parameters.
+const GH_API: ProgramEntry = {
+  valueOptions: [
+    ...GH_API_FIELDS,
+    '-X',
+    '--method',
+    '-H',
+    '--header',
+    '-q',
+    '--jq',
+    '-t',
+    '--template',
+    '--hostname',
+    '-p',
+    '--preview',
+    '--cache',
+  ],
+  subcommands: {
+    graphql: {
+      writes: [
+        {
+          words: [/\bmutation\b/u],
+          finding: { kind: 'remote-write', target: 'gh api graphql mutation' },
+        },
+      ],
+    },
+  },
+  writes: [
+    {
+      ...FORGE_WRITE,
+      optionValue: { options: ['-X', '--method'], value: /^(?:POST|PUT|PATCH|DELETE)$/iu },
+    },
+    { ...FORGE_WRITE, flags: GH_API_FIELDS, readFlags: ['-X', '--method'] },
+  ],
+};
+
+const GH_READS: Readonly<Record<string, ProgramEntry>> = {
+  list: {},
+  view: {},
+  clone: {},
+  status: {},
+  checks: {},
+  diff: {},
+};
+
+const REMOTE_WRITE: ProgramEntry = { writes: [{ finding: { kind: 'remote-write' } }] };
+
+const GH_REMOTE_GROUP: ProgramEntry = {
+  subcommands: GH_READS,
+  otherSubcommand: { entry: REMOTE_WRITE },
+};
+
+const GH_CREDENTIAL_GROUP: ProgramEntry = {
+  subcommands: GH_READS,
+  otherSubcommand: { entry: CREDENTIAL_WRITE },
+};
+
+const GH: ProgramEntry = {
+  subcommands: {
+    pr: GH_PULL_REQUEST,
+    issue: GH_REMOTE_GROUP,
+    api: GH_API,
+    auth: {
+      subcommands: { refresh: CREDENTIAL_WRITE, login: CREDENTIAL_WRITE, logout: CREDENTIAL_WRITE },
+    },
+    secret: GH_CREDENTIAL_GROUP,
+    variable: GH_CREDENTIAL_GROUP,
+    'ssh-key': GH_CREDENTIAL_GROUP,
+    'gpg-key': GH_CREDENTIAL_GROUP,
+    gist: GH_REMOTE_GROUP,
+    release: GH_REMOTE_GROUP,
+    repo: GH_REMOTE_GROUP,
+    ruleset: GH_REMOTE_GROUP,
+    label: GH_REMOTE_GROUP,
+    workflow: GH_REMOTE_GROUP,
+  },
+};
+
 export const PROGRAM_TABLE: Readonly<Record<string, ProgramEntry>> = {
+  git: GIT,
+  gh: GH,
   rm: PATH_OPERANDS,
   rmdir: PATH_OPERANDS,
   shred: PATH_OPERANDS,

@@ -37,42 +37,60 @@ a body, and the body itself only when it holds none.
 The check reads each program call through one table entry per program, so a program it learns to
 read is a new entry with its tests, never a new branch of code. A program the table does not list
 yields no finding and goes to Jev. The reader splits the call's words by the entry, then applies the
-entry's write rules to them. Three readings stay outside the table, because each reads more than one
-program call: `git` and `gh` read their own subcommands in code, an `xargs` whose command takes no
-listed name runs that command as written, and a branch list piped into a branch deletion is a sweep.
-A call that runs `auto-mode record`, through whatever program, is read beside its entry.
+entry's write rules to them. Two readings stay outside the table, because each reads more than one
+program call: an `xargs` whose command takes no listed name runs that command as written, and a
+branch list piped into a branch deletion is a sweep. A call that runs `auto-mode record`, through
+whatever program, is read beside its entry.
 
 An entry splits the words this way:
 
 - **Options:** every word that starts with a dash. A value option takes the next word as its value,
   or an attached value written as `--name=value` or `-Xvalue`. A short cluster such as `-Dc` sets
-  each flag before its first value option, which takes the rest of the cluster or the next word. Any
-  other option is a flag.
+  each flag before its first value option, which takes the rest of the cluster or the next word. A
+  directory option, such as `git -C`, also moves the directory every later relative path resolves
+  against. Any other option is a flag.
 - **Operands:** every other word, and every word after `--`. An entry that ends its options at the
   first operand, as `ssh` does for the command it runs on the host, reads every later word as an
   operand.
-- **Subcommands:** when the first operand names a subcommand, that subcommand's entry reads the
-  words after it and the outer entry's rules do not apply. An entry can also take any other
-  subcommand whose word matches a pattern, as `aws iam` takes each verb that changes an identity.
+- **Subcommands:** when the first operand is a subcommand, that subcommand's entry reads the words
+  after it and the outer entry's rules do not apply. An entry can also take any other subcommand
+  whose word matches a pattern, as `aws iam` takes each verb that changes an identity.
 
 A write rule applies when one of its write flags is given, none of its read flags is, each of its
-word patterns matches an argument, and its option value condition, such as a write method, holds. A
-condition the rule leaves out holds. The rule then writes the values of its write options and the
-operands it selects:
+word patterns matches a word of the call, and its option value condition, such as a write method,
+holds. A condition the rule leaves out holds. A rule that writes the directory it runs in, as
+`git commit` does, yields a path finding for that directory when it lies outside the scope. Any
+other rule writes the values of its write options and the operands it selects:
 
-- **All** operands, or the **first**.
+- **All** operands, the **first**, or every operand **after the first**.
 - **After the script:** every operand after the first, which is the script, or every operand when a
   script option gives the script, as `sed -e` does.
 - **The destination:** the last of two or more operands, unless a write option such as
-  `--target-directory` names it.
+  `--target-directory` gives it.
 - **The sources:** the operands that are not the destination, which a move writes too.
 
-The rule reads each target in a role. A path is checked against the task scope. A remote path, as
-`scp` writes, yields the rule's finding when it names another host and is a path otherwise. A URL
-target yields the rule's finding unless every URL names this machine. A remote command yields the
-rule's finding unless the host runs one program of the rule's reads with no shell operator. A rule
-with no target yields its finding as it stands. The finding's target is the program and its
-subcommands, unless the rule gives a text of its own or quotes the whole call.
+A rule can name a default target for a call that gives none, as a push with no refspec pushes
+`HEAD`. The rule reads each target in a role, which decides the finding:
+
+| Role           | A target yields                                                                  |
+| -------------- | -------------------------------------------------------------------------------- |
+| Path           | a path or credential finding when it lies outside the scope                      |
+| Remote path    | the rule's finding for a `host:path`, and a path reading otherwise               |
+| URL            | the rule's finding, unless every URL points at this machine                      |
+| Remote command | the rule's finding, unless the host runs one listed read with no shell operator  |
+| Branch         | a branch finding for a branch the task does not own                              |
+| Remote         | a remote-target finding for a remote the checkout does not have                  |
+| Refspec        | a branch finding for a destination branch the task does not own                  |
+| Commit         | the rule's finding for any commit but the current one                            |
+| Pull request   | the rule's finding with the number to grant, unless the task owns it             |
+| Merge          | the rule's finding with the number to grant, whoever owns the pull request       |
+| Forge path     | the rule's finding, unless the path writes an owned pull request without merging |
+
+A pull request target takes its repository from the rule's repository options, and a flag the rule
+lists as ungranting, such as `--admin`, drops the number a message could grant. A forge path that
+matches the rule's credential pattern yields a credential finding instead. A rule with no target
+yields its finding as it stands. The finding's target is the program and its subcommands, unless the
+rule gives a text of its own, quotes the first operand, or quotes the whole call.
 
 ## What counts as a write target
 

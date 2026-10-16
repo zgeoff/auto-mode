@@ -8,6 +8,7 @@ test('it finds nothing in a program the table does not list', () => {
     ['/other/a'],
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -30,6 +31,7 @@ test.each([
     args,
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -47,6 +49,7 @@ test('it reads every operand as a source once an option names the destination', 
     ['-t', '/other/dir', '/other/a', '/other/b'],
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -71,6 +74,7 @@ test('it reads every operand after a script option as a file', () => {
     ['-e', 's/a/b/', '/other/a'],
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -95,6 +99,7 @@ test.each([
     args,
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -115,6 +120,7 @@ test('it skips the value of a value option when it collects operands', () => {
     ['-m', 'note', '/other/a'],
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -130,6 +136,7 @@ test('it reads a word after -- as an operand', () => {
     ['--', '-f'],
     {
       directory: '/other',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -145,6 +152,7 @@ test('it reads every word after the first operand as an operand when options end
     ['/other/a', '-r', '/other/b'],
     {
       directory: '/other',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -168,6 +176,7 @@ test.each([
     args,
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -189,6 +198,7 @@ test.each([
       args,
       {
         directory: '/work',
+        cwd: '/work',
         scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
         scratchPaths: [],
       },
@@ -210,6 +220,7 @@ test.each([
         args,
         {
           directory: '/work',
+          cwd: '/work',
           scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
           scratchPaths: [],
         },
@@ -235,6 +246,7 @@ test('it reads the words after a subcommand through the subcommand entry alone',
     ['--verbose', 'purge', '-f'],
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -263,6 +275,7 @@ test.each([
       args,
       {
         directory: '/work',
+        cwd: '/work',
         scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
         scratchPaths: [],
       },
@@ -284,6 +297,7 @@ test('it finds nothing in a subcommand named by an inherited object key', () => 
     ['constructor'],
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -307,6 +321,7 @@ test.each([
       args,
       {
         directory: '/work',
+        cwd: '/work',
         scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
         scratchPaths: [],
       },
@@ -332,6 +347,7 @@ test.each([
       args,
       {
         directory: '/work',
+        cwd: '/work',
         scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
         scratchPaths: [],
       },
@@ -356,6 +372,7 @@ test.each([
       args,
       {
         directory: '/work',
+        cwd: '/work',
         scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
         scratchPaths: [],
       },
@@ -385,6 +402,7 @@ test.each([
     args,
     {
       directory: '/work',
+      cwd: '/work',
       scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
       scratchPaths: [],
     },
@@ -394,4 +412,322 @@ test.each([
   expect(findings).toStrictEqual(
     targets.map((target) => ({ kind: 'path', target, grant: { kind: 'path' } })),
   );
+});
+
+test('it resolves a path against the directory a directory option moves to', () => {
+  const findings = collectProgramFindings(
+    'tool',
+    ['-C', '../other', 'remove', 'a'],
+    {
+      directory: '/repo/work',
+      cwd: '/repo/work',
+      scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/repo/work'] }),
+      scratchPaths: [],
+    },
+    {
+      tool: {
+        directoryOptions: ['-C'],
+        subcommands: { remove: { writes: [{ operands: ['first'] }] } },
+      },
+    },
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/repo/other/a', grant: { kind: 'path' } },
+  ]);
+});
+
+test('it finds a directory write run outside the task scope, which no message can grant', () => {
+  const findings = collectProgramFindings(
+    'tool',
+    ['-C', '/repo/other', 'commit'],
+    {
+      directory: '/repo/work',
+      cwd: '/repo/work',
+      scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/repo/work'] }),
+      scratchPaths: [],
+    },
+    {
+      tool: {
+        directoryOptions: ['-C'],
+        subcommands: { commit: { writes: [{ directory: true }] } },
+      },
+    },
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'path', target: '/repo/other' }]);
+});
+
+test('it quotes the program, its subcommands and the first operand in a finding target', () => {
+  const findings = collectProgramFindings(
+    'tool',
+    ['set', '--global', 'user.email', 'dev@example.com'],
+    {
+      directory: '/work',
+      cwd: '/work',
+      scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
+      scratchPaths: [],
+    },
+    {
+      tool: {
+        subcommands: {
+          set: {
+            writes: [{ flags: ['--global'], finding: { kind: 'credential', quote: 'operand' } }],
+          },
+        },
+      },
+    },
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'credential', target: 'tool set user.email' }]);
+});
+
+test.each([
+  [
+    'an unowned branch',
+    ['delete', 'spike', 'feature'],
+    [{ kind: 'branch', target: 'spike', grant: { kind: 'branch' } }],
+  ],
+  ['only owned branches', ['delete', 'feature'], []],
+] as const)('it reads branch targets naming %s', (_label, args, findings) => {
+  expect(
+    collectProgramFindings(
+      'tool',
+      args,
+      {
+        directory: '/work',
+        cwd: '/work',
+        scope: buildMockOwnedScope({
+          home: '/home/dev',
+          worktrees: ['/work'],
+          branches: ['feature'],
+        }),
+        scratchPaths: [],
+      },
+      { tool: { subcommands: { delete: { writes: [{ operands: ['all'], role: 'branch' }] } } } },
+    ),
+  ).toStrictEqual([...findings]);
+});
+
+test.each([
+  ['an owned remote by name', 'origin', []],
+  ['an owned remote by URL', 'https://github.com/dev/app.git', []],
+  ['a remote held in a variable', '$REMOTE', []],
+  [
+    'another remote',
+    'git@github.com:dev/fork.git',
+    [{ kind: 'remote-write', target: 'git@github.com:dev/fork.git' }],
+  ],
+] as const)('it reads a remote target naming %s', (_label, remote, findings) => {
+  expect(
+    collectProgramFindings(
+      'tool',
+      [remote],
+      {
+        directory: '/work',
+        cwd: '/work',
+        scope: buildMockOwnedScope({
+          home: '/home/dev',
+          worktrees: ['/work'],
+          remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+        }),
+        scratchPaths: [],
+      },
+      { tool: { writes: [{ operands: ['first'], role: 'remote' }] } },
+    ),
+  ).toStrictEqual([...findings]);
+});
+
+test.each([
+  [
+    'the current branch in the cwd',
+    '/work',
+    [{ kind: 'branch', target: 'main', grant: { kind: 'branch' } }],
+  ],
+  ['an unknown current branch in another directory', '/elsewhere', []],
+] as const)('it reads a missing refspec as %s', (_label, directory, findings) => {
+  expect(
+    collectProgramFindings(
+      'tool',
+      ['origin'],
+      {
+        directory,
+        cwd: '/work',
+        scope: buildMockOwnedScope({
+          home: '/home/dev',
+          worktrees: ['/work'],
+          currentBranch: 'main',
+        }),
+        scratchPaths: [],
+      },
+      { tool: { writes: [{ operands: ['after-first'], role: 'refspec', whenNone: 'HEAD' }] } },
+    ),
+  ).toStrictEqual([...findings]);
+});
+
+test.each([
+  [
+    'a force push to another branch',
+    '+HEAD:refs/heads/release',
+    [{ kind: 'branch', target: 'release', grant: { kind: 'branch' } }],
+  ],
+  ['a tag', 'refs/tags/v1', []],
+  ['an owned branch', 'local:feature', []],
+] as const)('it reads a refspec naming %s', (_label, refspec, findings) => {
+  expect(
+    collectProgramFindings(
+      'tool',
+      ['origin', refspec],
+      {
+        directory: '/work',
+        cwd: '/work',
+        scope: buildMockOwnedScope({
+          home: '/home/dev',
+          worktrees: ['/work'],
+          branches: ['feature'],
+        }),
+        scratchPaths: [],
+      },
+      { tool: { writes: [{ operands: ['after-first'], role: 'refspec' }] } },
+    ),
+  ).toStrictEqual([...findings]);
+});
+
+test.each([
+  ['another commit', ['origin/main'], [{ kind: 'discard', target: 'reset origin/main' }]],
+  ['the current commit', ['HEAD'], []],
+  ['no commit', [], []],
+] as const)('it reads a commit target naming %s', (_label, args, findings) => {
+  expect(
+    collectProgramFindings(
+      'tool',
+      args,
+      {
+        directory: '/work',
+        cwd: '/work',
+        scope: buildMockOwnedScope({ home: '/home/dev', worktrees: ['/work'] }),
+        scratchPaths: [],
+      },
+      {
+        tool: {
+          writes: [
+            {
+              operands: ['first'],
+              role: 'commit',
+              finding: { kind: 'discard', target: 'reset' },
+            },
+          ],
+        },
+      },
+    ),
+  ).toStrictEqual([...findings]);
+});
+
+test.each([
+  ['a write to the owned pull request', 'pull-request', ['12'], []],
+  [
+    'a merge of the owned pull request',
+    'pull-request-merge',
+    ['12'],
+    [{ kind: 'remote-write', target: 'tool', grant: { kind: 'pull-request', number: 12 } }],
+  ],
+  [
+    'a merge with an ungranting flag',
+    'pull-request-merge',
+    ['12', '--admin'],
+    [{ kind: 'remote-write', target: 'tool' }],
+  ],
+  [
+    'a write to an owned number in another repository',
+    'pull-request',
+    ['12', '--repo', 'other/app'],
+    [{ kind: 'remote-write', target: 'tool', grant: { kind: 'pull-request', number: 12 } }],
+  ],
+  [
+    'a write to the owned pull request by its URL',
+    'pull-request',
+    ['https://github.com/dev/app/pull/12'],
+    [],
+  ],
+  [
+    'a write to a pull request named by its branch',
+    'pull-request',
+    ['feat/x'],
+    [{ kind: 'remote-write', target: 'tool' }],
+  ],
+] as const)('it reads %s', (_label, role, args, findings) => {
+  expect(
+    collectProgramFindings(
+      'tool',
+      args,
+      {
+        directory: '/work',
+        cwd: '/work',
+        scope: buildMockOwnedScope({
+          home: '/home/dev',
+          worktrees: ['/work'],
+          remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
+          pullRequests: [{ number: 12, repository: 'github.com/dev/app' }],
+        }),
+        scratchPaths: [],
+      },
+      {
+        tool: {
+          valueOptions: ['--repo'],
+          writes: [
+            {
+              operands: ['first'],
+              role,
+              repoOptions: ['--repo'],
+              ungrantFlags: ['--admin'],
+              finding: { kind: 'remote-write' },
+            },
+          ],
+        },
+      },
+    ),
+  ).toStrictEqual([...findings]);
+});
+
+test.each([
+  ['a comment on the owned pull request', 'repos/dev/app/issues/12/comments', []],
+  [
+    'a merge of the owned pull request',
+    'repos/dev/app/pulls/12/merge',
+    [{ kind: 'remote-write', target: 'tool repos/dev/app/pulls/12/merge' }],
+  ],
+  [
+    'a path the credential pattern matches',
+    'repos/dev/app/keys',
+    [{ kind: 'credential', target: 'tool repos/dev/app/keys' }],
+  ],
+] as const)('it reads a forge path for %s', (_label, path, findings) => {
+  expect(
+    collectProgramFindings(
+      'tool',
+      [path],
+      {
+        directory: '/work',
+        cwd: '/work',
+        scope: buildMockOwnedScope({
+          home: '/home/dev',
+          worktrees: ['/work'],
+          pullRequests: [{ number: 12, repository: 'github.com/dev/app' }],
+        }),
+        scratchPaths: [],
+      },
+      {
+        tool: {
+          writes: [
+            {
+              operands: ['first'],
+              role: 'forge-path',
+              credentialPattern: /keys/u,
+              finding: { kind: 'remote-write' },
+            },
+          ],
+        },
+      },
+    ),
+  ).toStrictEqual([...findings]);
 });

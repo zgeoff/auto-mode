@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { PROGRAM_TABLE } from './program-table.ts';
 import type { ProgramEntry, WriteRule } from './program-table.ts';
 
-test('it names a finding for every rule that reads its targets as other than paths', () => {
+test('it names a finding for every rule whose role yields the rule finding', () => {
   const entries: ProgramEntry[] = Object.values(PROGRAM_TABLE);
   const rules: WriteRule[] = [];
 
@@ -17,7 +17,17 @@ test('it names a finding for every rule that reads its targets as other than pat
     rules.push(...(entry?.writes ?? []));
   }
 
-  expect(rules.filter((rule) => rule.role !== undefined && rule.role !== 'path')).toSatisfyAll(
+  const roles = new Set([
+    'remote-path',
+    'url',
+    'remote-command',
+    'commit',
+    'pull-request',
+    'pull-request-merge',
+    'forge-path',
+  ]);
+
+  expect(rules.filter((rule) => roles.has(rule.role ?? 'path'))).toSatisfyAll(
     (rule: WriteRule) => rule.finding !== undefined,
   );
 });
