@@ -365,8 +365,12 @@ test('it scores a fallback judge reply under the configured judge model and coun
   const ctx = await setupTest();
 
   const sendJudge = mock()
-    .mockResolvedValueOnce({ model: 'claude-sonnet-5', text: 'fallback reply' })
-    .mockResolvedValueOnce({ model: 'claude-sonnet-5-5', text: 'configured reply' });
+    .mockResolvedValueOnce({ model: 'claude-sonnet-5', text: 'fallback reply', fallback: true })
+    .mockResolvedValueOnce({
+      model: 'claude-sonnet-5-5',
+      text: 'configured reply',
+      fallback: false,
+    });
 
   const result = await runExperiment(
     defineExperiment({
@@ -440,6 +444,7 @@ test('it scores a fallback judge reply under the configured judge model and coun
       status: record.status,
       reason: record.reason,
       model: record.model,
+      fallback: record.fallback,
     })),
   ).toStrictEqual([
     {
@@ -447,12 +452,14 @@ test('it scores a fallback judge reply under the configured judge model and coun
       status: 'scored',
       reason: 'fallback reply',
       model: 'claude-sonnet-5',
+      fallback: true,
     },
     {
       caseKey: 'containment/twin-02',
       status: 'scored',
       reason: 'configured reply',
       model: 'claude-sonnet-5-5',
+      fallback: false,
     },
   ]);
 
@@ -546,7 +553,11 @@ test('it leaves unscored a judge reply to a request that named another model tha
       environment: {
         ...environment,
         judgeModel: 'claude-sonnet-5-5',
-        sendJudge: mock().mockResolvedValue({ model: 'claude-sonnet-5-5', text: 'first' }),
+        sendJudge: mock().mockResolvedValue({
+          model: 'claude-sonnet-5-5',
+          text: 'first',
+          fallback: false,
+        }),
       },
     }),
   ).rejects.toThrowWithMessage(Error, 'interrupted');
@@ -561,7 +572,11 @@ test('it leaves unscored a judge reply to a request that named another model tha
     environment: {
       ...environment,
       judgeModel: 'claude-opus-5-5',
-      sendJudge: mock().mockResolvedValue({ model: 'claude-opus-5-5', text: 'second' }),
+      sendJudge: mock().mockResolvedValue({
+        model: 'claude-opus-5-5',
+        text: 'second',
+        fallback: false,
+      }),
     },
   });
 
@@ -852,7 +867,9 @@ test('it replays a recording through the stages that can, names the stage that c
 test('it replays the recorded stages and sends only the recording’s live stages in a live run', async () => {
   const ctx = await setupTest();
 
-  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+  const sendJudge = mock(() =>
+    Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm', fallback: false }),
+  );
 
   const result = await runExperiment(
     defineExperiment({
@@ -954,7 +971,10 @@ test('it replays the recorded stages and sends only the recording’s live stage
 test('it caps a live replay run at the judge requests its recorded Jev denies need', async () => {
   const ctx = await setupTest();
 
-  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+  const sendJudge = mock(() =>
+    Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm', fallback: false }),
+  );
+
   const printed: string[] = [];
 
   const result = await runExperiment(
@@ -1783,7 +1803,8 @@ test('it counts a resumed live replay run with the model each stage answered wit
       send: null,
       sendWithChoices: null,
       judgeModel: null,
-      sendJudge: () => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }),
+      sendJudge: () =>
+        Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm', fallback: false }),
     },
     now: () => new Date('2026-10-10T12:00:00.000Z'),
     print: () => {},
@@ -1844,7 +1865,9 @@ test('it counts a resumed live replay run with the model each stage answered wit
 
   await writeFile(join(first.runDir, 'samples.jsonl'), '');
 
-  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+  const sendJudge = mock(() =>
+    Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm', fallback: false }),
+  );
 
   const resumed = await runExperiment(
     defineExperiment({

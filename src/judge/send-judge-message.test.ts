@@ -47,7 +47,12 @@ test('it returns the claude run’s text and answering model for a claude-code j
     AbortSignal.timeout(10_000),
   );
 
-  expect(reply).toStrictEqual({ text: 'from claude', model: 'claude-sonnet-5', safetyStops: 1 });
+  expect(reply).toStrictEqual({
+    text: 'from claude',
+    model: 'claude-sonnet-5',
+    safetyStops: 1,
+    fallback: true,
+  });
 });
 
 test('it returns the Messages reply text for a Messages judge', async () => {
@@ -70,6 +75,7 @@ test('it returns the Messages reply text for a Messages judge', async () => {
     text: 'from messages',
     model: 'claude-haiku-5-5',
     safetyStops: null,
+    fallback: false,
   });
 });
 

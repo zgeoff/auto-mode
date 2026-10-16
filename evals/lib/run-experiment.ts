@@ -246,6 +246,7 @@ export async function runExperiment<Case>(
         answerHash: null,
         model: null,
         requestedModel: null,
+        fallback: null,
       };
 
       const requireSend = (): void => {
@@ -324,6 +325,7 @@ export async function runExperiment<Case>(
           });
 
           exchange.model = reply.model;
+          exchange.fallback = reply.fallback;
           exchange.answerHash = toHash(JSON.stringify(reply));
 
           return reply;
@@ -357,6 +359,7 @@ export async function runExperiment<Case>(
         requestHash: exchange.requestHash,
         answerHash,
         model: responseModel,
+        fallback: recorded === undefined ? exchange.fallback : null,
       });
 
       records.push(record);
@@ -377,6 +380,7 @@ interface Exchange {
   answerHash: string | null;
   model: string | null;
   requestedModel: string | null;
+  fallback: boolean | null;
 }
 
 function getActiveStage<Case>(
@@ -405,7 +409,7 @@ function buildSampleRecord<Case>(
   stage: string,
   checked: Readonly<CheckedOutcome>,
   latencyMs: number | null,
-  exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash' | 'model'>>,
+  exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash' | 'model' | 'fallback'>>,
 ): SampleRecord {
   return {
     caseKey: labelled.key,
@@ -420,6 +424,7 @@ function buildSampleRecord<Case>(
     requestHash: exchange.requestHash,
     answerHash: exchange.answerHash,
     model: exchange.model,
+    fallback: exchange.fallback,
   };
 }
 
@@ -511,6 +516,7 @@ async function collectSendingRuns<Case>(
           requestHash: null,
           answerHash: null,
           model: responseModel,
+          fallback: null,
         }),
       );
     }

@@ -13,9 +13,12 @@ export interface JudgeRequest {
   readonly user: string;
 }
 
+// The fallback flag holds the transport's evidence that a safety stop moved the
+// reply off the requested model, which an alias keeps the model name from showing.
 export interface JudgeReply {
   readonly model: string;
   readonly text: string;
+  readonly fallback: boolean;
 }
 
 export interface StageContext {

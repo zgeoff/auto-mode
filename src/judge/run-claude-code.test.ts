@@ -44,6 +44,7 @@ test('it returns the result text with the configured model when the result holds
     text: '<verdict>confirm</verdict><reason>It sends the key.</reason>',
     model: 'claude-haiku-5-5',
     safetyStops: null,
+    fallback: false,
   });
 });
 
@@ -69,6 +70,7 @@ test('it reports the fallback model that wrote the output when the requested mod
     text: '<verdict>confirm</verdict><reason>It posts the token.</reason>',
     model: 'claude-sonnet-5',
     safetyStops: 2,
+    fallback: true,
   });
 });
 
@@ -87,7 +89,60 @@ test('it reports the one model the usage holds', async () => {
     AbortSignal.timeout(10_000),
   );
 
-  expect(reply).toStrictEqual({ text: 'ok', model: 'claude-sonnet-5-5', safetyStops: 0 });
+  expect(reply).toStrictEqual({
+    text: 'ok',
+    model: 'claude-sonnet-5-5',
+    safetyStops: 0,
+    fallback: false,
+  });
+});
+
+test('it reports no fallback for a model alias whose usage holds the canonical model ID', async () => {
+  const ctx = await setupTest();
+
+  const reply = await runClaudeCode(
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'sonnet' }),
+    { system: 'the judge policy', user: 'the evidence' },
+    {
+      PATH: ctx.binDir,
+      STUB_CLAUDE_REPLY: 'ok',
+      STUB_CLAUDE_MODEL_USAGE: JSON.stringify({ 'claude-sonnet-5-5': { outputTokens: 64 } }),
+      STUB_CLAUDE_SAFETY_STOPS: '0',
+    },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply).toStrictEqual({
+    text: 'ok',
+    model: 'claude-sonnet-5-5',
+    safetyStops: 0,
+    fallback: false,
+  });
+});
+
+test('it reports a fallback from a model that wrote nothing when the result holds no safety stops', async () => {
+  const ctx = await setupTest();
+
+  const reply = await runClaudeCode(
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'sonnet' }),
+    { system: 'the judge policy', user: 'the evidence' },
+    {
+      PATH: ctx.binDir,
+      STUB_CLAUDE_REPLY: 'ok',
+      STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
+        'claude-sonnet-5-5': { outputTokens: 0 },
+        'claude-sonnet-5': { outputTokens: 77 },
+      }),
+    },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply).toStrictEqual({
+    text: 'ok',
+    model: 'claude-sonnet-5',
+    safetyStops: null,
+    fallback: true,
+  });
 });
 
 test('it reports the model that wrote the most output beside a background model', async () => {
@@ -125,7 +180,12 @@ test('it keeps a reply whose model usage and safety stops are malformed, with th
     AbortSignal.timeout(10_000),
   );
 
-  expect(reply).toStrictEqual({ text: 'ok', model: 'claude-sonnet-5-5', safetyStops: null });
+  expect(reply).toStrictEqual({
+    text: 'ok',
+    model: 'claude-sonnet-5-5',
+    safetyStops: null,
+    fallback: false,
+  });
 });
 
 test('it runs claude -p with the model, the system prompt, no tools, no settings, and the evidence on stdin', async () => {

@@ -8,6 +8,7 @@ export interface ClaudeCodeReply {
   readonly text: string;
   readonly model: string;
   readonly safetyStops: number | null;
+  readonly fallback: boolean;
 }
 
 // A judge reply is a verdict and a short reason; this much output is not one.
@@ -66,6 +67,7 @@ export async function runClaudeCode(
     text: body.data.result,
     model: pickAnsweringModel(usage, provider.model),
     safetyStops: stops ?? null,
+    fallback: isFallbackReply(usage, stops),
   };
 }
 
@@ -116,4 +118,23 @@ function pickAnsweringModel(
   const [top] = writers.toSorted(([, left], [, right]) => right.outputTokens - left.outputTokens);
 
   return top === undefined ? requested : top[0];
+}
+
+// A model alias resolves to a canonical model ID in the usage, so a reply's model
+// cannot show a fallback by name. A safety stop does; without the count, a model
+// that wrote nothing beside the one that wrote the reply does.
+function isFallbackReply(
+  usage: Readonly<z.output<typeof MODEL_USAGE>> | undefined,
+  stops: number | undefined,
+): boolean {
+  if (stops !== undefined) {
+    return stops > 0;
+  }
+
+  const entries = Object.values(usage ?? {});
+
+  return (
+    entries.some((entry) => entry.outputTokens === 0) &&
+    entries.some((entry) => entry.outputTokens > 0)
+  );
 }

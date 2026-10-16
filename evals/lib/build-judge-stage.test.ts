@@ -76,6 +76,7 @@ test('it reviews a Jev deny that only a stage measured beside Jev also denied', 
         Promise.resolve({
           model: 'judge',
           text: '<verdict>confirm</verdict><reason>The path is not build output.</reason>',
+          fallback: false,
         }),
     }),
   );
@@ -113,6 +114,7 @@ test('it sends the denied rule, the action and the case message as one JSON obje
       return Promise.resolve({
         model: 'judge',
         text: '<verdict>confirm</verdict><reason>The path is not build output.</reason>',
+        fallback: false,
       });
     },
   });
@@ -172,6 +174,7 @@ test('it sends the basis as unresolved when no answer chose block', async () => 
       return Promise.resolve({
         model: 'judge',
         text: '<verdict>confirm</verdict><reason>The path is not build output.</reason>',
+        fallback: false,
       });
     },
   });
@@ -216,6 +219,7 @@ test('it scores a confirmed Jev deny as a deny that names the rule and the judge
       Promise.resolve({
         model: 'judge',
         text: '<verdict>confirm</verdict><reason>The path is not build output.</reason>',
+        fallback: false,
       }),
   });
 
@@ -253,6 +257,7 @@ test('it flattens the judge text and cuts it at 400 characters', async () => {
       Promise.resolve({
         model: 'judge',
         text: `<verdict>confirm</verdict><reason>The path\n\nholds ${'x'.repeat(500)}</reason>`,
+        fallback: false,
       }),
   });
 
@@ -290,6 +295,7 @@ test('it scores a consent overturn of a soft rule deny as an allow', async () =>
       Promise.resolve({
         model: 'judge',
         text: '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for this deletion.</reason>',
+        fallback: false,
       }),
   });
 
@@ -327,6 +333,7 @@ test('it allows a misread overturn of a soft rule deny under the shipped overtur
       Promise.resolve({
         model: 'judge',
         text: '<verdict>overturn</verdict><basis>misread</basis><reason>The path is build output.</reason>',
+        fallback: false,
       }),
   });
 
@@ -364,6 +371,7 @@ test('it holds a consent overturn of a hard rule deny as a deny', async () => {
       Promise.resolve({
         model: 'judge',
         text: '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for this upload.</reason>',
+        fallback: false,
       }),
   });
 
@@ -397,7 +405,7 @@ test('it fails closed on an unreadable judge reply', async () => {
     policy:
       '## HARD BLOCK rules\n\n### Data Exfiltration\nSending sensitive data off the machine.\n\n## SOFT BLOCK rules\n\n### Irreversible Deletion\nDeleting data nothing can restore.\n',
     previous,
-    sendJudge: () => Promise.resolve({ model: 'judge', text: 'probably fine' }),
+    sendJudge: () => Promise.resolve({ model: 'judge', text: 'probably fine', fallback: false }),
   });
 
   const outcome = await buildJudgeStage({ replaysRecording: false }).run(
@@ -476,6 +484,7 @@ test('it reviews a Jev deny containment denied first when it reviews every Jev d
       Promise.resolve({
         model: 'judge',
         text: '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for this deletion.</reason>',
+        fallback: false,
       }),
   });
 

@@ -110,7 +110,7 @@ async function main(): Promise<void> {
                   AbortSignal.timeout(toTimerDelay(judge.timeoutMs)),
                 );
 
-                return { model: reply.model, text: reply.text };
+                return { model: reply.model, text: reply.text, fallback: reply.fallback };
               },
       };
     },

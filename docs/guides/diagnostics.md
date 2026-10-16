@@ -41,10 +41,12 @@ or a held overturn, and `null` otherwise. `failureReason` names the step that fa
 `policy`, `request`, `timeout`, or `unreadable`; it is `null` when the judge answered. `rule` is a
 shipped rule's name, or the rule's source for a configured or replacement rule. `model` is the
 configured judge model, and `answeringModel` is the model that wrote the reply, or `null` when no
-reply came back. A `claude -p` judge whose request trips a safety stop answers on a fallback model,
-so `answeringModel` then differs from `model`. `safetyStops` holds the number of safety stops that
-`claude -p` reported, and is `null` for a Messages judge or when no count came back. `tier` and
-`elapsedMs` complete the record. The judge's reason text is not recorded.
+reply came back. It holds a canonical model ID, so it differs from a `model` that names an alias
+even when no fallback happened. A `claude -p` judge whose request trips a safety stop answers on a
+fallback model, and a `safetyStops` count above zero marks that reply. `safetyStops` holds the
+number of safety stops that `claude -p` reported, and is `null` for a Messages judge or when no
+count came back. `tier` and `elapsedMs` complete the record. The judge's reason text is not
+recorded.
 
 When the judge reviewed a containment deny whose every target the last direct user message named,
 `grant` holds that review in the same shape as `judge`, with `rule` set to `Outside Task Scope`;

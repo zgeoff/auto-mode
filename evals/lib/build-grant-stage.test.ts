@@ -74,6 +74,7 @@ test('it sends a containment deny whose target the message names, and allows it 
     Promise.resolve({
       model: 'judge-model',
       text: '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked for this file.</reason>',
+      fallback: false,
     }),
   );
 
@@ -142,6 +143,7 @@ test('it keeps a containment deny the judge overturns as a misread', async () =>
         Promise.resolve({
           model: 'judge-model',
           text: '<verdict>overturn</verdict><basis>misread</basis><reason>Looks owned.</reason>',
+          fallback: false,
         }),
     }),
   );

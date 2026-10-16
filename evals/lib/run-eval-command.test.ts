@@ -401,7 +401,8 @@ test('it runs only the named cases and prints the judge replies another model wr
           send: null,
           sendWithChoices: null,
           judgeModel: 'claude-sonnet-5-5',
-          sendJudge: () => Promise.resolve({ model: 'claude-sonnet-5', text: 'confirmed' }),
+          sendJudge: () =>
+            Promise.resolve({ model: 'claude-sonnet-5', text: 'confirmed', fallback: true }),
         }),
       now: () => new Date('2026-10-10T12:00:00.000Z'),
     },

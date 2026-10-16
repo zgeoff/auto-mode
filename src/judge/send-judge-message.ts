@@ -14,6 +14,7 @@ export interface JudgeMessageReply {
   readonly text: string;
   readonly model: string;
   readonly safetyStops: number | null;
+  readonly fallback: boolean;
 }
 
 export async function sendJudgeMessage(
@@ -36,5 +37,5 @@ export async function sendJudgeMessage(
 
   const result = await sendMessage(provider, transport.apiKey, request, signal);
 
-  return { text: result.text, model: provider.model, safetyStops: null };
+  return { text: result.text, model: provider.model, safetyStops: null, fallback: false };
 }
