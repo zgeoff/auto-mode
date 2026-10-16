@@ -107,13 +107,15 @@ function formatCount(count: Readonly<MeasurementCount> | undefined): string {
 // A run from before the case filter holds no cases field, which matches a run
 // of every case.
 function formatField(value: unknown): string {
-  if (value === undefined) {
-    return 'null';
+  if (typeof value === 'object' && value !== null) {
+    return JSON.stringify(sortKeys(value));
   }
 
-  return typeof value === 'object' && value !== null
-    ? JSON.stringify(sortKeys(value))
-    : String(value);
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return 'null';
 }
 
 function sortKeys(value: unknown): unknown {
