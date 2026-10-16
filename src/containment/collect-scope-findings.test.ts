@@ -1240,3 +1240,41 @@ test.each([
 
   expect(findings).toStrictEqual([{ kind, target }]);
 });
+
+test('it finds the file codex exec writes its last message to outside the worktree', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: {
+        command:
+          'codex exec -s read-only -o ../other/review.md "$(cat /tmp/packet.md)" < /dev/null',
+      },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    {
+      kind: 'path',
+      target: '/home/dev/src/app/.worktrees/other/review.md',
+      grant: { kind: 'path' },
+    },
+  ]);
+});
+
+test.each([
+  ['a last message written to scratch', 'codex exec -s read-only -o /tmp/review.md "review"'],
+  [
+    'a last message written inside the worktree',
+    'codex exec --output-last-message=notes/review.md "review"',
+  ],
+  ['a run that writes no last message', 'codex exec -s read-only "review"'],
+])('it finds nothing in %s by codex exec', (_label, command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});

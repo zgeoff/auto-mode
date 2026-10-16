@@ -487,6 +487,14 @@ export const PROGRAM_TABLE: Readonly<Record<string, ProgramEntry>> = {
   terraform: {
     subcommands: { apply: TERRAFORM_WRITE, destroy: TERRAFORM_WRITE, import: TERRAFORM_WRITE },
   },
+  codex: {
+    subcommands: {
+      exec: {
+        valueOptions: ['-o', '--output-last-message'],
+        writes: [{ options: ['-o', '--output-last-message'] }],
+      },
+    },
+  },
   psql: {
     writes: [
       {
