@@ -11,8 +11,8 @@ OIDC npm publish step in `.github/workflows/main.yml`. No npm token lives in CI.
    per conventional-commit type, `CHANGELOG.md`, and the manifest. Then it auto-merges. No lockfile
    repair is needed: `bun.lock` records dependency versions but not the package's own, so the bump
    leaves it valid.
-3. That merge triggers `main.yml` again: release-please tags `vX.Y.Z`, creates the GitHub release,
-   and the publish step runs `npm publish --provenance` under OIDC.
+3. That merge triggers `main.yml` again: release-please tags `auto-mode-vX.Y.Z`, creates the GitHub
+   release, and the publish step runs `npm publish --provenance` under OIDC.
 
 ## One-time setup
 
