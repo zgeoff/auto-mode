@@ -411,15 +411,18 @@ test('it runs only the named cases and prints the judge replies another model wr
 
   const runs = await readdir(join(ctx.resultsDir, 'runs/judge-check'));
 
-  expect(ctx.stdout.read().split('\n')).toStrictEqual([
+  const lines = ctx.stdout.read().split('\n');
+
+  expect(lines.filter((line) => !line.startsWith('latency / '))).toStrictEqual([
     'Plan: 2 cases × 1 samples × 1 stages; 2 stage runs to go, 0 already recorded, 2 model requests.',
     '  judge: 2 model requests',
     `Wrote ${join(ctx.resultsDir, 'runs/judge-check', runs[0] ?? '')}`,
     'not scorable / judge: 0/2 (0 skipped)',
     'answered off claude-sonnet-5-5 / judge: 2/2: claude-sonnet-5 2',
-    expect.stringMatching(/^latency \/ judge: median \d+ ms, p90 \d+ ms over 2$/u),
     '',
   ]);
+
+  expect(lines[5]).toMatch(/^latency \/ judge: median \d+ ms, p90 \d+ ms over 2$/u);
 });
 
 test.each([
