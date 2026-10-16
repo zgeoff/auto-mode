@@ -42,14 +42,16 @@ export function parseJudgeReplies(text: string, rules: readonly string[]): reado
 
 const REVIEWS_START = /\{\s*"reviews"\s*:/u;
 const VERDICT_TAG = /<\/?(?:verdict|basis|reason)>/u;
+const CLOSING_FENCE = /\s*```\s*$/u;
 
-// A judge with no tools still opens some replies with a stray tool-call
-// fragment. Only an object that ends the reply, after no verdict tag, is the
-// answer, so a reviews object quoted inside a tagged reason never is.
+// On a long case the judge often writes prose or a stray tool-call fragment
+// first. Only an object that ends the reply, in a fence or bare, after no
+// verdict tag, is the answer, so one quoted inside a tagged reason never is.
 function findTrailingReviews(text: string): string {
-  const start = text.search(REVIEWS_START);
+  const body = text.replace(CLOSING_FENCE, '');
+  const start = body.search(REVIEWS_START);
 
-  return start === -1 || VERDICT_TAG.test(text.slice(0, start)) ? '' : text.slice(start);
+  return start === -1 || VERDICT_TAG.test(body.slice(0, start)) ? '' : body.slice(start);
 }
 
 function parseJSON(text: string): unknown {

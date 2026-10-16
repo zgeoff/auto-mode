@@ -46,6 +46,15 @@ test('it reads the reviews object after a stray tool-call fragment', () => {
   ).toStrictEqual([{ kind: 'confirm', reason: 'You would push to main.' }]);
 });
 
+test('it reads the reviews object in a json fence that ends a prose reply', () => {
+  expect(
+    parseJudgeReplies(
+      'You would push to main without a pull request.\n\n```json\n{"reviews":[{"rule":"Default Branch Write","verdict":"confirm","basis":null,"reason":"You would push to main."}]}\n```',
+      ['Default Branch Write'],
+    ),
+  ).toStrictEqual([{ kind: 'confirm', reason: 'You would push to main.' }]);
+});
+
 test('it reads a tagged confirm whose reason quotes an overturning reviews object as a confirm', () => {
   expect(
     parseJudgeReplies(
