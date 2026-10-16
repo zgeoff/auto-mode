@@ -7,7 +7,7 @@ export interface CappedProcessOptions {
   readonly maxLineBytes: number;
   readonly cwd?: string | undefined;
   readonly env?: Readonly<Record<string, string | undefined>> | undefined;
-  readonly signal?: AbortSignal | undefined;
+  readonly signal?: Readonly<AbortSignal> | undefined;
 }
 
 export type CappedProcess = ChildProcess & { readonly stdin: Writable; readonly stdout: Readable };
