@@ -1407,6 +1407,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
     decidingStage: 'containment',
     note: expect.toBeString(),
     status: 'deny',
+    diagnostics: expect.objectContaining({ status: 'allow' }),
     grant: {
       status: 'confirmed',
       overturnBasis: null,
@@ -1425,7 +1426,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
     new RegExp(`^denied by the containment check: ${target}; judge confirmed \\(\\d+ms\\)$`, 'u'),
   );
 
-  expect(received).not.toHaveBeenCalled();
+  expect(received).toHaveBeenCalledOnce();
 });
 
 test('it denies the own-worktree cleanup that also removes another worktree the message never names, without asking the judge', async () => {
@@ -1567,7 +1568,7 @@ test('it clears a containment finding the judge confirms the user asked for, and
   expect(received).toHaveBeenCalledOnce();
 });
 
-test('it still denies on a hard rule after the judge clears the containment finding the user named', async () => {
+test('it reviews the containment finding the user named and a hard-rule Jev deny in one judge call, and still denies', async () => {
   const ctx = await setupTest();
 
   decisionAnswers.set('rule_1', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
@@ -1594,8 +1595,23 @@ test('it still denies on a hard rule after the judge clears the containment find
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
-          STUB_CLAUDE_REPLY:
-            '{"verdict":"overturn","basis":"consent","reason":"The user asked for this file."}',
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY: JSON.stringify({
+            reviews: [
+              {
+                rule: 'Outside Task Scope',
+                verdict: 'overturn',
+                basis: 'consent',
+                reason: 'The user asked for this file.',
+              },
+              {
+                rule: 'Secret Persistence',
+                verdict: 'confirm',
+                basis: null,
+                reason: 'You would write a secret into a tracked file.',
+              },
+            ],
+          }),
         },
         home: ctx.dir,
         scratchPaths: [],
@@ -1607,9 +1623,13 @@ test('it still denies on a hard rule after the judge clears the containment find
     verdict: { kind: 'deny', rule: 'Secret Persistence' },
     decidingStage: 'judge',
     status: 'deny',
-    judge: { status: 'held', rule: 'Secret Persistence', tier: 'hard' },
+    judge: { status: 'confirmed', rule: 'Secret Persistence', tier: 'hard' },
     grant: { status: 'overturned', rule: 'Outside Task Scope' },
   });
+
+  const calls = await readFile(ctx.recordPath, 'utf8');
+
+  expect(calls.trim().split('\n')).toHaveLength(1);
 });
 
 test('it denies a write the message names without asking the judge when the message is stale after a relayed turn', async () => {

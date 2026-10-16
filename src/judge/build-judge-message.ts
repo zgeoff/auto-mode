@@ -1,8 +1,13 @@
 import type { ContainmentEvidence, DecisionRule, DenyBasis, RepositoryContext } from '../types.ts';
 
-export interface JudgeInput {
+export interface JudgeDeny {
   readonly rule: DecisionRule;
   readonly basis: DenyBasis;
+  readonly containment?: ContainmentEvidence | undefined;
+}
+
+export interface JudgeInput {
+  readonly denies: readonly JudgeDeny[];
   readonly action: {
     readonly tool: string;
     readonly cwd: string;
@@ -10,29 +15,28 @@ export interface JudgeInput {
   };
   readonly lastUserMessage: string | null;
   readonly repositoryContext: RepositoryContext | null;
-  readonly containment?: ContainmentEvidence | undefined;
 }
 
 // The evidence goes out as one JSON value, so a user message or a command that
 // holds a closing tag cannot end its own field early.
 export function buildJudgeMessage(input: Readonly<JudgeInput>): string {
   const evidence = {
-    deniedRule: {
-      name: input.rule.name,
-      tier: input.rule.tier,
-      source: input.rule.source,
-      basis: input.basis === 'matched' ? 'the action matches the rule' : BASIS_UNRESOLVED,
-      text: input.rule.text,
-    },
+    denies: input.denies.map((deny) => ({
+      name: deny.rule.name,
+      tier: deny.rule.tier,
+      source: deny.rule.source,
+      basis: deny.basis === 'matched' ? 'the action matches the rule' : BASIS_UNRESOLVED,
+      text: deny.rule.text,
+      ...(deny.containment === undefined
+        ? {}
+        : { containment: deny.containment.reason, namedTargets: deny.containment.targets }),
+    })),
     action: input.action,
-    ...(input.containment === undefined
-      ? {}
-      : { containment: input.containment.reason, namedTargets: input.containment.targets }),
     lastDirectUserMessage: input.lastUserMessage,
     repository: input.repositoryContext,
   };
 
-  return `Review this deny. The evidence is one JSON object.\n\n${JSON.stringify(evidence, null, 2)}`;
+  return `Review each deny in \`denies\`, in order. The evidence is one JSON object.\n\n${JSON.stringify(evidence, null, 2)}`;
 }
 
 const BASIS_UNRESOLVED = 'the supplied evidence cannot rule out the harm the rule describes';

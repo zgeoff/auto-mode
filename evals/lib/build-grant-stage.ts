@@ -3,9 +3,10 @@ import {
   buildJudgedVerdict,
   checkContainment,
   findUserNamedGrant,
-  parseJudgeReply,
+  parseJudgeReplies,
   readContainmentRule,
 } from 'auto-mode/eval';
+import type { JudgeReply } from 'auto-mode/eval';
 import { CONTAINMENT_STAGE } from './build-containment-stage.ts';
 import { buildCwdTaskScope } from './build-cwd-task-scope.ts';
 import { buildRecordedSampleOutcome } from './build-recorded-sample-outcome.ts';
@@ -14,6 +15,7 @@ import type { MeasurementCase } from './load-measurement-sets.ts';
 
 export const GRANT_STAGE = 'grant';
 const REASON_TEXT_MAX_CHARS = 400;
+const UNREADABLE: JudgeReply = { kind: 'unreadable' };
 
 // The judge reviews a containment deny only when the case's user message names
 // every target, as the product does; it reads the shipped containment rule,
@@ -32,20 +34,18 @@ export function buildGrantStage(): Stage<MeasurementCase> {
 
       const reply = await context.sendJudge({
         user: buildJudgeMessage({
-          rule: review.rule,
-          basis: 'matched',
+          denies: [{ rule: review.rule, basis: 'matched', containment: review.containment }],
           action: {
             tool: entry.case.action.toolName,
             cwd: entry.case.action.cwd,
             input: entry.case.action.toolInput,
           },
-          containment: review.containment,
           lastUserMessage: entry.case.lastUserMessage,
           repositoryContext: entry.case.repository,
         }),
       });
 
-      const parsed = parseJudgeReply(reply.text);
+      const [parsed = UNREADABLE] = parseJudgeReplies(reply.text, [review.rule.name]);
 
       const judged = buildJudgedVerdict(
         review.rule,

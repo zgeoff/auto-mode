@@ -27,7 +27,6 @@ import { findCheckout } from './git/find-checkout.ts';
 import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
 import type { Checkout, CheckoutFacts, CheckoutFinder } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
-import type { JudgeOutcome } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics, JudgeSession } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithJev } from './model/classify-with-jev.ts';
@@ -41,7 +40,7 @@ import type { LocalVerdict } from './rules/classify-locally.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
 import type { OwnedScope } from './scope/types.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
-import type { DecidingStage } from './types.ts';
+import type { DecidingStage, JudgeEvidence } from './types.ts';
 
 export interface ActionOutcome {
   readonly verdict: Verdict | null;
@@ -218,38 +217,31 @@ async function classifyStages(
 
   const containmentNote = `denied by the containment check: ${containment.findings.map((finding) => finding.target).join(', ')}`;
 
-  const [grant, guidance] = await Promise.all([
-    classifyUserNamedGrant(request, config, options, { containment, scope, checkout }),
-    tryReadDenialGuidance(),
-  ]);
+  const grant = await loadGrantEvidence(request, config, options, { containment, scope, checkout });
 
-  if (grant === null || grant.verdict.kind === 'deny') {
-    const deny =
-      grant?.verdict.kind === 'deny'
-        ? grant.verdict
-        : { rule: containment.rule, reason: containment.reason };
+  if (grant === null) {
+    const guidance = await tryReadDenialGuidance();
 
     return {
-      verdict: buildGuidedDeny(deny.rule, deny.reason, guidance),
+      verdict: buildGuidedDeny(containment.rule, containment.reason, guidance),
       decidingStage: 'containment',
-      note:
-        grant === null
-          ? containmentNote
-          : `${containmentNote}; judge ${grant.status} (${grant.diagnostics.elapsedMs}ms)`,
+      note: containmentNote,
       status: 'deny',
-      ...(grant === null ? {} : { grant: grant.diagnostics }),
     };
   }
 
-  // The grant clears the scope finding alone: the call still meets Jev and the
-  // judge, so a hard rule or a secret in the content still denies it.
-  const outcome = await classifyPastContainment(request, config, stageOptions, facts);
+  // The grant clears the scope finding alone: the call still meets Jev, and
+  // the judge reviews the grant and any Jev deny in one call, so a hard rule or
+  // a secret in the content still denies it.
+  return classifyPastContainment(request, config, stageOptions, facts, {
+    evidence: grant,
+    note: containmentNote,
+  });
+}
 
-  return {
-    ...outcome,
-    note: `containment cleared by the judge for the targets the user named (${grant.diagnostics.elapsedMs}ms); ${outcome.note}`,
-    grant: grant.diagnostics,
-  };
+interface PendingGrant {
+  readonly evidence: JudgeEvidence;
+  readonly note: string;
 }
 
 async function classifyPastContainment(
@@ -263,6 +255,7 @@ async function classifyPastContainment(
     checkout: CheckoutFacts | null;
     hasConfiguredDenies: boolean;
   }>,
+  grant: PendingGrant | null = null,
 ): Promise<ActionOutcome> {
   const host = options.host;
   const scope = facts.scope;
@@ -272,7 +265,13 @@ async function classifyPastContainment(
   // Only a regenerable-output allow reaches here, and it deletes files, so
   // without a task scope no containment check has cleared it.
   if (facts.local.kind === 'allow' && scope !== null) {
-    return buildLocalAllow(facts.local.exception);
+    return classifyWithGrant(
+      request,
+      config,
+      options,
+      grant,
+      buildLocalAllow(facts.local.exception),
+    );
   }
 
   // A configured deny entry is the user's own rule, and only Jev reads it.
@@ -282,12 +281,12 @@ async function classifyPastContainment(
       : await tryClassifyEdit(request, scope, host, { findCheckout: findActionCheckout });
 
   if (edit?.kind === 'bypass') {
-    return {
+    return classifyWithGrant(request, config, options, grant, {
       verdict: { kind: 'allow' },
       decidingStage: 'bypass',
       note: `allowed by the edit bypass: ${edit.target}`,
       status: 'allow',
-    };
+    });
   }
 
   if (options.localOnly === true) {
@@ -314,33 +313,9 @@ async function classifyPastContainment(
   ]);
 
   const judge = config.judge ?? null;
+  const { review, ...rest } = outcome;
 
-  if (outcome.verdict?.kind === 'deny' && outcome.review !== undefined && judge !== null) {
-    const judged = await classifyWithJudge(request, outcome.review, judge, {
-      ...options,
-      host,
-      rulesPath: config.rulesPath,
-      overturns: config.judgeOverturns ?? DEFAULT_JUDGE_OVERTURNS,
-    });
-
-    const { review: _review, ...rest } = outcome;
-
-    return {
-      ...rest,
-      decidingStage: 'judge',
-      note: `${outcome.note}; judge ${judged.status} (${judged.diagnostics.elapsedMs}ms)`,
-      verdict:
-        judged.verdict.kind === 'deny'
-          ? buildGuidedDeny(judged.verdict.rule, judged.verdict.reason, guidance)
-          : judged.verdict,
-      status: judged.verdict.kind,
-      judge: judged.diagnostics,
-    };
-  }
-
-  const { review: _review, ...rest } = outcome;
-
-  return {
+  const jevOutcome: ActionOutcome = {
     ...rest,
     decidingStage: 'jev',
     verdict:
@@ -349,13 +324,86 @@ async function classifyPastContainment(
         : outcome.verdict,
     status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
   };
+
+  const denied = outcome.verdict?.kind === 'deny' && judge !== null ? (review ?? null) : null;
+
+  return classifyWithGrant(request, config, options, grant, jevOutcome, denied);
+}
+
+// One judge call reviews the user-named grant and the Jev deny together, so a
+// prompted call never waits on two judge processes. Without either, the
+// outcome stands as it is.
+async function classifyWithGrant(
+  request: ActionRequest,
+  config: Config,
+  options: ClassifyOptions & Readonly<{ host: HostEnvironment }>,
+  grant: PendingGrant | null,
+  outcome: ActionOutcome,
+  denied: JudgeEvidence | null = null,
+): Promise<ActionOutcome> {
+  const judge = config.judge ?? null;
+  const evidence = [grant?.evidence, denied ?? undefined].filter((entry) => entry !== undefined);
+
+  if (judge === null || evidence.length === 0) {
+    return outcome;
+  }
+
+  const [judged, guidance] = await Promise.all([
+    classifyWithJudge(request, evidence, judge, {
+      ...options,
+      rulesPath: config.rulesPath,
+      overturns: config.judgeOverturns ?? DEFAULT_JUDGE_OVERTURNS,
+    }),
+    tryReadDenialGuidance(),
+  ]);
+
+  const granted = grant === null ? null : (judged[0] ?? null);
+  const reviewed = denied === null ? null : (judged.at(-1) ?? null);
+  const elapsedMs = judged[0]?.diagnostics.elapsedMs ?? 0;
+
+  const judgedOutcome: ActionOutcome =
+    reviewed === null
+      ? outcome
+      : {
+          ...outcome,
+          decidingStage: 'judge',
+          note: `${outcome.note}; judge ${reviewed.status} (${String(elapsedMs)}ms)`,
+          verdict:
+            reviewed.verdict.kind === 'deny'
+              ? buildGuidedDeny(reviewed.verdict.rule, reviewed.verdict.reason, guidance)
+              : reviewed.verdict,
+          status: reviewed.verdict.kind,
+          judge: reviewed.diagnostics,
+        };
+
+  if (grant === null || granted === null) {
+    return judgedOutcome;
+  }
+
+  if (granted.verdict.kind === 'deny') {
+    return {
+      ...(reviewed === null ? {} : { judge: reviewed.diagnostics }),
+      ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
+      verdict: buildGuidedDeny(granted.verdict.rule, granted.verdict.reason, guidance),
+      decidingStage: 'containment',
+      note: `${grant.note}; judge ${granted.status} (${String(elapsedMs)}ms)`,
+      status: 'deny',
+      grant: granted.diagnostics,
+    };
+  }
+
+  return {
+    ...judgedOutcome,
+    note: `containment cleared by the judge for the targets the user named (${String(elapsedMs)}ms); ${judgedOutcome.note}`,
+    grant: granted.diagnostics,
+  };
 }
 
 const READ_ONLY_EXCEPTION = 'Read-only actions';
 
 // The judge reviews a containment deny only when the current direct user
 // message names every target, and never in a run that skips the models.
-async function classifyUserNamedGrant(
+async function loadGrantEvidence(
   request: ActionRequest,
   config: Config,
   options: ClassifyOptions & Readonly<{ host: HostEnvironment }>,
@@ -364,7 +412,7 @@ async function classifyUserNamedGrant(
     scope: OwnedScope;
     checkout: CheckoutFacts | null;
   }>,
-): Promise<JudgeOutcome | null> {
+): Promise<JudgeEvidence | null> {
   const containment = facts.containment;
   const judge = config.judge ?? null;
   const message = findCurrentDirectUserMessage(request.decisionContext?.lastDirectUserMessage);
@@ -390,20 +438,15 @@ async function classifyUserNamedGrant(
     return null;
   }
 
-  return classifyWithJudge(
-    request,
-    {
-      rule: { name: containment.rule, tier: 'soft', source: 'shipped', text },
-      basis: 'matched',
-      repositoryContext:
-        facts.checkout === null
-          ? null
-          : buildRepositoryEvidence(facts.checkout, buildTaskScopeSummary(facts.scope)),
-      containment: { reason: containment.reason, targets },
-    },
-    judge,
-    { ...options, rulesPath: config.rulesPath, overturns: 'consent' },
-  );
+  return {
+    rule: { name: containment.rule, tier: 'soft', source: 'shipped', text },
+    basis: 'matched',
+    repositoryContext:
+      facts.checkout === null
+        ? null
+        : buildRepositoryEvidence(facts.checkout, buildTaskScopeSummary(facts.scope)),
+    containment: { reason: containment.reason, targets },
+  };
 }
 
 // A scope that cannot be read leaves the action to the classifier, the same as

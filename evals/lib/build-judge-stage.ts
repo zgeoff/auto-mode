@@ -3,9 +3,9 @@ import {
   buildDecisionRequest,
   buildJudgeMessage,
   buildJudgedVerdict,
-  parseJudgeReply,
+  parseJudgeReplies,
 } from 'auto-mode/eval';
-import type { DecisionRule } from 'auto-mode/eval';
+import type { DecisionRule, JudgeReply } from 'auto-mode/eval';
 import { JEV_STAGE } from './build-jev-stage.ts';
 import { buildRecordedSampleOutcome } from './build-recorded-sample-outcome.ts';
 import { classifyJevRecord } from './classify-jev-record.ts';
@@ -14,6 +14,7 @@ import type { MeasurementCase } from './load-measurement-sets.ts';
 import type { JudgeVerdict } from './parse-judge-verdict.ts';
 
 export const JUDGE_STAGE = 'judge';
+const UNREADABLE: JudgeReply = { kind: 'unreadable' };
 
 export interface JudgeStageOptions {
   // The recorded judges reviewed the asks of the shipped reading, so a stage
@@ -58,8 +59,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
 
       const reply = await context.sendJudge({
         user: buildJudgeMessage({
-          rule: denied.rule,
-          basis: denied.basis,
+          denies: [{ rule: denied.rule, basis: denied.basis }],
           action: {
             tool: entry.case.action.toolName,
             cwd: entry.case.action.cwd,
@@ -70,7 +70,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
         }),
       });
 
-      const parsed = parseJudgeReply(reply.text);
+      const [parsed = UNREADABLE] = parseJudgeReplies(reply.text, [denied.rule.name]);
       const judged = buildJudgedVerdict(denied.rule, denied.basis, parsed, DEFAULT_JUDGE_OVERTURNS);
 
       if (judged.status === 'failed') {
