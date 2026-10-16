@@ -32,6 +32,46 @@ descriptor its script comes from: standard input, or the descriptor that a scrip
 a substitution's output can be any script text. The check therefore reads the substitutions of such
 a body, and the body itself only when it holds none.
 
+## The program table
+
+The check reads each program call through one table entry per program, so a program it learns to
+read is a new entry with its tests, never a new branch of code. A program the table does not list
+yields no finding and goes to Jev. The reader splits the call's words by the entry, then applies the
+entry's write rules to them. Three readings stay outside the table, because each reads more than one
+program call: `git` and `gh` read their own subcommands in code, an `xargs` whose command takes no
+listed name runs that command as written, and a branch list piped into a branch deletion is a sweep.
+A call that runs `auto-mode record`, through whatever program, is read beside its entry.
+
+An entry splits the words this way:
+
+- **Options:** every word that starts with a dash. A value option takes the next word as its value,
+  or an attached value written as `--name=value` or `-Xvalue`. Any other option is a flag.
+- **Operands:** every other word, and every word after `--`. An entry that ends its options at the
+  first operand, as `ssh` does for the command it runs on the host, reads every later word as an
+  operand.
+- **Subcommands:** when the first operand names a subcommand, that subcommand's entry reads the
+  words after it and the outer entry's rules do not apply. An entry can also take any other
+  subcommand whose word matches a pattern, as `aws iam` takes each verb that changes an identity.
+
+A write rule applies when one of its write flags is given, none of its read flags is, each of its
+word patterns matches an argument, and its option value condition, such as a write method, holds. A
+condition the rule leaves out holds. The rule then writes the values of its write options and the
+operands it selects:
+
+- **All** operands, or the **first**.
+- **After the script:** every operand after the first, which is the script, or every operand when a
+  script option gives the script, as `sed -e` does.
+- **The destination:** the last of two or more operands, unless a write option such as
+  `--target-directory` names it.
+- **The sources:** the operands that are not the destination, which a move writes too.
+
+The rule reads each target in a role. A path is checked against the task scope. A remote path, as
+`scp` writes, yields the rule's finding when it names another host and is a path otherwise. A URL
+target yields the rule's finding unless every URL names this machine. A remote command yields the
+rule's finding unless the host runs one program of the rule's reads with no shell operator. A rule
+with no target yields its finding as it stands. The finding's target is the program and its
+subcommands, unless the rule gives a text of its own or quotes the whole call.
+
 ## What counts as a write target
 
 Each finding has one of six kinds, and the deny reason holds the kind and the target:

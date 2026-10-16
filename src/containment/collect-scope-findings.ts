@@ -1,4 +1,3 @@
-import { join, matchesGlob } from 'node:path';
 import { SCRATCH_PATHS } from '../config/scratch-paths.ts';
 import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import type { OwnedScope } from '../scope/types.ts';
@@ -6,23 +5,13 @@ import { collectShellCommands } from '../shell/collect-shell-commands.ts';
 import type { ShellCommand } from '../shell/collect-shell-commands.ts';
 import { collectShellScripts } from '../shell/collect-shell-scripts.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
-import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
-
-// What a direct user message must name to hand a finding to the judge: the
-// path or branch the target holds, or a pull request by number. A finding
-// without one, such as a credential or a push to another remote, stays final.
-type ScopeGrant =
-  | { readonly kind: 'path' | 'branch' }
-  | { readonly kind: 'pull-request'; readonly number: number };
-
-export interface ScopeFinding {
-  readonly kind: 'path' | 'branch' | 'remote-write' | 'credential' | 'prune' | 'discard';
-  readonly target: string;
-  readonly grant?: ScopeGrant;
-}
+import { collectProgramFindings } from './collect-program-findings.ts';
+import { collectTargetFindings } from './collect-target-findings.ts';
+import { isInScope } from './is-in-scope.ts';
+import type { ScopeFinding } from './types.ts';
 
 interface ScopeAction {
   readonly tool: string;
@@ -66,33 +55,6 @@ const FILE_WRITE_TOOLS: ReadonlySet<string> = new Set([
   'NotebookEdit',
 ]);
 
-function collectTargetFindings(
-  directory: string | null,
-  target: string,
-  scope: Readonly<OwnedScope>,
-  scratchPaths: readonly string[],
-): ScopeFinding[] {
-  const path = resolveShellPath(directory, target, scope.home);
-
-  return path === null ? [] : collectPathFindings(path, scope, scratchPaths);
-}
-
-const CREDENTIAL_PATHS = ['.ssh', '.aws', '.gnupg', '.gitconfig', '.netrc', '.npmrc', '.config/gh'];
-
-function collectPathFindings(
-  path: string,
-  scope: Readonly<OwnedScope>,
-  scratchPaths: readonly string[],
-): ScopeFinding[] {
-  if (CREDENTIAL_PATHS.some((entry) => isUnder(path, join(scope.home, entry)))) {
-    return [{ kind: 'credential', target: path }];
-  }
-
-  return isInScope(path, scope, scratchPaths)
-    ? []
-    : [{ kind: 'path', target: path, grant: { kind: 'path' } }];
-}
-
 function collectToolFindings(
   action: Readonly<ScopeAction>,
   scope: Readonly<OwnedScope>,
@@ -126,9 +88,6 @@ function collectToolFindings(
     : [{ kind: 'remote-write', target: action.tool }];
 }
 
-const PATH_WRITERS = new Set(['rm', 'rmdir', 'shred', 'truncate', 'chmod', 'chown']);
-const DESTINATION_WRITERS = new Set(['cp', 'mv', 'rsync', 'ln']);
-
 // A substitution or a shell's heredoc script runs commands of its own, so the
 // check reads each one from the directory its segment runs in.
 function collectCommandFindings(
@@ -150,14 +109,7 @@ function collectCommandFindings(
 
     if (fixed !== null) {
       findings.push(
-        ...collectProgramFindings(
-          fixed.name,
-          fixed.args,
-          entry.directory,
-          cwd,
-          scope,
-          scratchPaths,
-        ),
+        ...collectCallFindings(fixed.name, fixed.args, entry.directory, cwd, scope, scratchPaths),
       );
     } else if (isBranchSweep(entries.slice(0, index + 1), piped.slice(0, index + 1))) {
       findings.push({ kind: 'discard', target: 'git branch delete by exclusion' });
@@ -168,9 +120,7 @@ function collectCommandFindings(
     }
 
     if (name !== undefined && name !== 'cd') {
-      findings.push(
-        ...collectProgramFindings(name, args, entry.directory, cwd, scope, scratchPaths),
-      );
+      findings.push(...collectCallFindings(name, args, entry.directory, cwd, scope, scratchPaths));
     }
 
     for (const script of scripts.filter((candidate) => candidate.segment === index)) {
@@ -394,7 +344,7 @@ function isSubstitutionOnly(args: readonly string[]): boolean {
   );
 }
 
-function collectProgramFindings(
+function collectCallFindings(
   name: string,
   args: readonly string[],
   directory: string | null,
@@ -402,11 +352,6 @@ function collectProgramFindings(
   scope: Readonly<OwnedScope>,
   scratchPaths: readonly string[],
 ): ScopeFinding[] {
-  const resolve = (path: string): ScopeFinding[] =>
-    collectTargetFindings(directory, path, scope, scratchPaths);
-
-  const operands = args.filter((word) => !word.startsWith('-'));
-
   if (name === 'git') {
     return collectGitFindings(args, directory, cwd, scope, scratchPaths);
   }
@@ -415,180 +360,21 @@ function collectProgramFindings(
     return collectGhFindings(args, scope);
   }
 
-  if (PATH_WRITERS.has(name)) {
-    return operands.flatMap((path) => resolve(path));
-  }
-
-  if (DESTINATION_WRITERS.has(name)) {
-    return collectCopyFindings(name, args, operands).flatMap((path) => resolve(path));
-  }
-
-  if (name === 'find' && args.some((word) => word === '-delete' || word === '-exec')) {
-    return operands.slice(0, 1).flatMap((path) => resolve(path));
-  }
-
-  if ((name === 'perl' || name === 'sed') && args.some((word) => /^-\w*i/u.test(word))) {
-    return collectInPlaceFiles(args).flatMap((path) => resolve(path));
-  }
-
-  if (name === 'ssh-keygen') {
-    return collectKeygenFiles(args).flatMap((path) => resolve(path));
-  }
-
-  if (name === 'ssh') {
-    const logIndex = args.indexOf('-E');
-    const log = logIndex === -1 ? undefined : args[logIndex + 1];
-
-    return [...(log === undefined ? [] : resolve(log)), ...collectSSHFindings(args)];
-  }
-
-  if (name === 'scp') {
-    const destination = collectSSHOperands(args).at(-1);
-
-    if (destination === undefined || /^[^/]+:/u.test(destination)) {
-      return destination === undefined ? [] : [{ kind: 'remote-write', target: 'scp' }];
-    }
-
-    return resolve(destination);
-  }
-
-  if (name === 'curl') {
-    return collectCurlFindings(args);
-  }
-
-  // The mod alone reports finished calls; a record the agent sends is a claim
-  // on scope it did not make, whether it names the bin, a runner, or the script.
-  const launcher = [name, ...args].findIndex((word) => word.includes('auto-mode'));
-
-  if (launcher !== -1 && [name, ...args].slice(launcher + 1).includes('record')) {
-    return [{ kind: 'credential', target: 'auto-mode record' }];
-  }
-
-  const finding = findProgramFinding(name, args);
-
-  return finding === null ? [] : [finding];
+  return [
+    ...collectProgramFindings(name, args, { directory, scope, scratchPaths }),
+    ...collectRecordFindings(name, args),
+  ];
 }
 
-// `-t DIR` and `--target-directory=DIR` name the destination before the
-// sources, so the last operand is then a source.
-function collectCopyFindings(
-  name: string,
-  args: readonly string[],
-  operands: readonly string[],
-): string[] {
-  const optionIndex = args.findIndex((word) => word === '-t' || word === '--target-directory');
-  const attached = args.find((word) => word.startsWith('--target-directory='));
-  let targetDirectory = attached?.slice('--target-directory='.length);
+// The mod alone reports finished calls; a record the agent sends is a claim
+// on scope it did not make, whether it names the bin, a runner, or the script.
+function collectRecordFindings(name: string, args: readonly string[]): ScopeFinding[] {
+  const words = [name, ...args];
+  const launcher = words.findIndex((word) => word.includes('auto-mode'));
 
-  if (targetDirectory === undefined && optionIndex !== -1) {
-    targetDirectory = args[optionIndex + 1];
-  }
-
-  if (targetDirectory !== undefined) {
-    const sources = operands.filter((word) => word !== targetDirectory);
-
-    return [targetDirectory, ...(name === 'mv' ? sources : [])];
-  }
-
-  if (operands.length < 2) {
-    return [];
-  }
-
-  return [operands.at(-1) ?? '', ...(name === 'mv' ? operands.slice(0, -1) : [])];
-}
-
-const KEYGEN_READ_OPTIONS = new Set(['-l', '-y', '-F', '-B', '-R']);
-
-function collectKeygenFiles(args: readonly string[]): string[] {
-  if (args.some((word) => KEYGEN_READ_OPTIONS.has(word))) {
-    return [];
-  }
-
-  const index = args.indexOf('-f');
-  const file = index === -1 ? undefined : args[index + 1];
-
-  return file === undefined ? [] : [file];
-}
-
-const SSH_VALUE_OPTIONS = new Set(['-b', '-c', '-D', '-E', '-F', '-i', '-J', '-l', '-L', '-m']);
-const SSH_MORE_VALUE_OPTIONS = new Set(['-o', '-p', '-P', '-Q', '-R', '-S', '-W', '-w']);
-
-function collectSSHOperands(args: readonly string[]): string[] {
-  const operands: string[] = [];
-
-  for (let index = 0; index < args.length; index += 1) {
-    const word = args[index] ?? '';
-
-    if (operands.length > 0 || !word.startsWith('-')) {
-      operands.push(word);
-    } else if (SSH_VALUE_OPTIONS.has(word) || SSH_MORE_VALUE_OPTIONS.has(word)) {
-      index += 1;
-    }
-  }
-
-  return operands;
-}
-
-const SSH_READS = new Set([
-  'cat',
-  'df',
-  'du',
-  'free',
-  'head',
-  'id',
-  'ls',
-  'ps',
-  'pwd',
-  'stat',
-  'tail',
-  'uname',
-  'uptime',
-  'whoami',
-]);
-
-// A remote command that is one read-only program, with no shell operators or
-// newlines, changes nothing on the host. Every other remote session counts as a write.
-function collectSSHFindings(args: readonly string[]): ScopeFinding[] {
-  const [host, ...remote] = collectSSHOperands(args);
-
-  if (host === undefined) {
-    return [];
-  }
-
-  const command = remote.join(' ');
-  const [program] = command.trim().split(/\s+/u);
-  const isRead = SSH_READS.has(program ?? '') && !/[;&|<>`\n\r]|\$\(/u.test(command);
-
-  return isRead ? [] : [{ kind: 'remote-write', target: 'ssh' }];
-}
-
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
-
-function collectCurlFindings(args: readonly string[]): ScopeFinding[] {
-  const joined = args.join(' ');
-
-  const isUpload = args.some((word) =>
-    /^-[a-zA-Z]*[dFT]$|^--(?:data\S*|form|upload-file|json)$/u.test(word),
-  );
-
-  const isWriteMethod = /(?:-X\s*|--request\s+)(?:POST|PUT|PATCH|DELETE)/u.test(joined);
-
-  if (!isUpload && !isWriteMethod) {
-    return [];
-  }
-
-  const hosts = args
-    .filter((word) => /^(?:https?:\/\/|localhost\b|127\.)/u.test(word))
-    .map(
-      (word) =>
-        /^(?:https?:\/\/)?(?<host>\[[^\]]+\]|[^/:?#\s]+)/u
-          .exec(word)
-          ?.groups?.['host']?.toLowerCase() ?? '',
-    );
-
-  const isLocal = hosts.length > 0 && hosts.every((host) => LOCAL_HOSTS.has(host));
-
-  return isLocal ? [] : [{ kind: 'remote-write', target: 'curl upload' }];
+  return launcher !== -1 && words.slice(launcher + 1).includes('record')
+    ? [{ kind: 'credential', target: 'auto-mode record' }]
+    : [];
 }
 
 const GIT_DIRECTORY_WRITES = new Set([
@@ -906,102 +692,4 @@ function collectGhAPIFindings(
   const isCredential = /secret|collaborator|protection|key|permission/u.test(endpoint);
 
   return [{ kind: isCredential ? 'credential' : 'remote-write', target: `gh api ${endpoint}` }];
-}
-
-const IAM_WRITE =
-  /^(?:add|attach|change|create|deactivate|delete|detach|enable|put|remove|reset|set|tag|untag|update|upload)-/u;
-
-function findProgramFinding(name: string, args: readonly string[]): ScopeFinding | null {
-  const joined = args.join(' ');
-
-  if (name === 'op' && /^(?:item|vault|document) (?:edit|create|delete)\b/u.test(joined)) {
-    return { kind: 'credential', target: `op ${args[0] ?? ''} ${args[1] ?? ''}` };
-  }
-
-  if (name === 'aws' && args[0] === 'iam' && IAM_WRITE.test(args[1] ?? '')) {
-    return { kind: 'credential', target: `aws iam ${args[1] ?? ''}` };
-  }
-
-  if (
-    name === 'docker' &&
-    /\b(?:volume|system|image|container) prune\b|\bvolume rm\b|\bdown\b.*(?:-v|--volumes)\b/u.test(
-      joined,
-    )
-  ) {
-    return { kind: 'prune', target: `docker ${joined}` };
-  }
-
-  if (name === 'npm' && args[0] === 'publish') {
-    return { kind: 'remote-write', target: 'npm publish' };
-  }
-
-  if (name === 'kubectl' && /\b(?:apply|delete|replace|patch|scale)\b/u.test(joined)) {
-    return { kind: 'remote-write', target: 'kubectl write' };
-  }
-
-  if (name === 'terraform' && /\b(?:apply|destroy|import)\b/u.test(joined)) {
-    return { kind: 'remote-write', target: 'terraform write' };
-  }
-
-  if (name === 'psql' && /\b(?:UPDATE|DELETE|DROP|INSERT|TRUNCATE|ALTER)\b/iu.test(joined)) {
-    return { kind: 'remote-write', target: 'database write' };
-  }
-
-  if (/^(?:bun|npm|pnpm|yarn)$/u.test(name) && /\bdeploy\b/u.test(joined) && /prod/u.test(joined)) {
-    return { kind: 'remote-write', target: 'production deploy' };
-  }
-
-  return null;
-}
-
-function collectInPlaceFiles(args: readonly string[]): string[] {
-  const files: string[] = [];
-  let skipNext = false;
-  let sawScript = false;
-
-  for (const word of args) {
-    if (skipNext) {
-      skipNext = false;
-      sawScript = true;
-    } else if (/^-\w*e$/u.test(word)) {
-      skipNext = true;
-    } else if (!word.startsWith('-')) {
-      if (sawScript) {
-        files.push(word);
-      } else {
-        sawScript = true;
-      }
-    }
-  }
-
-  return files;
-}
-
-// A worktree nested under another, as `.worktrees/<name>` is, belongs to its own
-// task: being inside the parent checkout does not put it in the parent's scope.
-function isInScope(
-  path: string,
-  scope: Readonly<OwnedScope>,
-  scratchPaths: readonly string[],
-): boolean {
-  if (
-    scratchPaths.some((entry) => isUnder(path, entry)) ||
-    scope.pathGlobs.some((glob) => matchesGlob(path, glob))
-  ) {
-    return true;
-  }
-
-  return scope.worktrees.some((worktree) => {
-    const isNested = isUnder(path, join(worktree, '.worktrees'));
-
-    const isOtherOwned = scope.worktrees.some(
-      (other) => other !== worktree && isUnder(path, other),
-    );
-
-    return isUnder(path, worktree) && (!isNested || isOtherOwned);
-  });
-}
-
-function isUnder(path: string, root: string): boolean {
-  return path === root || path.startsWith(`${root}/`);
 }
