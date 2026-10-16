@@ -1111,6 +1111,41 @@ test('it separates missing credentials from a classifier ask without calling the
   });
 });
 
+test('it refuses a provider kind that only judges without calling any service', async () => {
+  const ctx = await setupTest();
+
+  const requested = mock();
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      requested();
+    }),
+  );
+
+  const outcome = await classifyWithJev(
+    buildMockActionRequest({
+      cwd: ctx.dir,
+      toolName: 'Bash',
+      toolInput: { command: 'git commit' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'claude-code', model: 'claude-sonnet-5-5' },
+      onFailure: 'defer',
+      claudeSettingsPath: null,
+    }),
+    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
+  );
+
+  expect(requested).not.toHaveBeenCalled();
+
+  expect(outcome).toMatchObject({
+    verdict: null,
+    note: 'claude-sonnet-5-5 unavailable: claude-code kinds only judge',
+    unavailable: true,
+    diagnostics: { status: 'failure', stage: 'credential', keyResolved: false },
+  });
+});
+
 test('it sends checked branch evidence for a routine feature commit and allows it', async () => {
   const ctx = await setupTest();
 

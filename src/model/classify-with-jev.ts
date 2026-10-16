@@ -38,6 +38,12 @@ export async function classifyWithJev(
   }
 
   try {
+    // A library caller builds its own config, which the config file's check
+    // never sees, so the classifier refuses a kind that only judges.
+    if (config.provider.protocol !== 'system-one') {
+      throw new Error(`${config.provider.protocol ?? 'messages'} kinds only judge`);
+    }
+
     key = await resolveApiKey(config.provider, options);
 
     if (key === null) {

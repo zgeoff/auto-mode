@@ -9,8 +9,6 @@ import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 import { readHostEnvironment } from './read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment } from './types.ts';
 
-export { PRESETS } from './presets.ts';
-
 export interface ProviderConfig {
   readonly protocol?: 'messages' | 'system-one' | 'claude-code';
   readonly baseURL: string;
