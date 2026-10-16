@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.0.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v1.0.1...auto-mode-v2.0.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **geo-1063:** decision.classifier no longer accepts the spark, claude, glm or messages kinds, and policy/classifier.md is gone.
+
+### Features
+
+* **geo-1063:** review every deny of a prompted call in one judge call ([#196](https://github.com/zgeoff/auto-mode/issues/196)) ([843df5c](https://github.com/zgeoff/auto-mode/commit/843df5c32698c3e54295f3a64f907004759e812c))
+* **geo-1063:** run the judge through a warm agent sdk session ([#193](https://github.com/zgeoff/auto-mode/issues/193)) ([4d08bd2](https://github.com/zgeoff/auto-mode/commit/4d08bd2612725532c6d4e51f1c2625a6a11901f2))
+
+
+### Code Refactoring
+
+* **geo-1063:** remove the generative classifier path ([#191](https://github.com/zgeoff/auto-mode/issues/191)) ([f9d7ab4](https://github.com/zgeoff/auto-mode/commit/f9d7ab497c7f2daec1b420ff4c385d5ddb34eeea))
+
 ## [1.0.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v1.0.0...auto-mode-v1.0.1) (2026-10-16)
 
 
