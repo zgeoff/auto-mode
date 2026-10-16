@@ -29,12 +29,14 @@ the session scope by that identity.
 ## Judging a prompt
 
 For a call the chain would prompt for, the mod builds the request and runs the CLI as a child
-process, in its Jev-only mode, with the request on stdin. The child's time limit is Claude Code's
-own limit for one subprocess, and the mod passes the CLI a deadline just inside it, so the CLI can
-still write its verdict, or decide to write none, before the mod kills it. Claude Code's budget for
-the hook stands still while the subprocess runs, so a long Jev and judge exchange costs the session
-no hook time. The CLI caps Jev and the judge by their own time limits inside that deadline
-([Jev](./stages/jev.md#failure), [the judge](./stages/judge.md#time-and-failure)).
+process, in its Jev-only mode, with the request on stdin. The CLI stops each step of a run at its
+own time limit ([Jev](./stages/jev.md#failure), [the judge](./stages/judge.md#time-and-failure)),
+and the child's time limit is the sum of those limits over the longest run: the key command, Jev,
+and two judge calls. The contract holds the step limits, so the CLI and the mod read the same ones,
+and the Jev-only mode lowers a configured judge limit to the shared one. The mod passes the CLI a
+deadline just inside the child's limit, so the CLI can still write its verdict, or decide to write
+none, before the mod kills it. Claude Code's budget for the hook stands still while the subprocess
+runs, so a long Jev and judge exchange costs the session no hook time.
 
 The mod keeps the prompt without asking the CLI when the call is cancelled, when it has no session
 identity, when too little of the hook budget is left to run the CLI, when the call is one it is not

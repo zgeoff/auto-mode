@@ -1,8 +1,9 @@
+import { CLI_LIMITS } from '../../mods/auto-mode/contract/cli-limits.ts';
 import { runCapped } from '../process/run-capped.ts';
 import { toTimerDelay } from './to-timer-delay.ts';
 import type { EvaluationOptions } from './types.ts';
 
-const KEY_COMMAND_TIMEOUT_MS = 5000;
+const KEY_COMMAND_TIMEOUT_MS = CLI_LIMITS.keyCommandMs;
 const MAX_KEY_OUTPUT_BYTES = 65_536;
 
 export async function readApiKeyFromCommand(

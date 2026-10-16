@@ -1,3 +1,4 @@
+import { CLI_LIMITS } from '../contract/cli-limits.ts';
 import type { ModScopeRecord } from '../contract/types.ts';
 import { buildActionRequest } from './build-action-request.ts';
 import { buildPromptContext } from './build-prompt-context.ts';
@@ -9,10 +10,6 @@ import type { ModOn, ModOptions, PromptContext } from './types.ts';
 // The record may look up a created PR's head branch with gh, which the CLI
 // bounds at 5 seconds.
 const RECORD_TIMEOUT_MS = 8000;
-
-// Claude Code's own limit for one subprocess. The hook's budget stands still
-// while the subprocess runs, and the CLI bounds Jev and the judge by its config.
-const EVALUATION_TIMEOUT_MS = 600_000;
 
 export function register(on: ModOn, options: ModOptions): void {
   let sessionID: string | null = null;
@@ -156,7 +153,7 @@ export function register(on: ModOn, options: ModOptions): void {
       }
 
       const command = typeof options.command === 'string' ? options.command : 'auto-mode';
-      const childTimeoutMs = EVALUATION_TIMEOUT_MS;
+      const childTimeoutMs = CLI_LIMITS.evaluationMs;
       const deadlineAt = Date.now() + childTimeoutMs - 500;
 
       $.ui.log(`${logPrefix} evaluator invoked`, { to: 'debug' });
