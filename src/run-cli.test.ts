@@ -95,6 +95,7 @@ Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+  auto-mode mod-path         Print the directory of the Claude Code mod this package ships
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -130,6 +131,7 @@ Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+  auto-mode mod-path         Print the directory of the Claude Code mod this package ships
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -139,6 +141,24 @@ Options:
   --jev-only            With run: require Jev and cap its API timeout at 5 seconds
   --evaluation-deadline <unix-ms>  With --jev-only: share the helper and API deadline
 `,
+  });
+});
+
+test('it prints the directory of the shipped mod', async () => {
+  const ctx = await setupTest();
+
+  const exitCode = await runCLI(['mod-path'], {
+    stdin: () => Promise.resolve(''),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: `${join(import.meta.dirname, '..', 'mods', 'auto-mode')}\n`,
+    stderr: '',
   });
 });
 
@@ -175,6 +195,7 @@ Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+  auto-mode mod-path         Print the directory of the Claude Code mod this package ships
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one

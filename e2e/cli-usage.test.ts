@@ -80,6 +80,7 @@ Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+  auto-mode mod-path         Print the directory of the Claude Code mod this package ships
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -112,6 +113,7 @@ Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+  auto-mode mod-path         Print the directory of the Claude Code mod this package ships
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -154,6 +156,7 @@ Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+  auto-mode mod-path         Print the directory of the Claude Code mod this package ships
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one

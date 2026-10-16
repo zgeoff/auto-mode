@@ -18,7 +18,7 @@ auto-mode needs node 24 or later, Claude Code, and a TypeSafe API key for Jev.
 
 ```sh
 npm i -g auto-mode
-claude --plugin-dir "$(npm root -g)/auto-mode/mods/auto-mode"
+claude --plugin-dir "$(auto-mode mod-path)"
 ```
 
 Export your key as `TYPESAFE_API_KEY`, or point the configuration at a command that prints it.
@@ -54,8 +54,7 @@ You can call auto-mode's core APIs from your own code. `parseActionRequest` read
 mod sends the CLI ([the contract](./docs/architecture/mod.md#the-contract)), and `classifyAction`
 runs it through [the stages](./docs/architecture/overview.md#the-path-of-a-prompted-call) from the
 local rules to the judge. The two options in the example apply the denial budget and write the
-action log, as the CLI does, and `recordScope` adds what a finished Bash call created to the
-session's scope.
+action log, as the CLI does.
 
 ```ts
 import { classifyAction, loadConfig, parseActionRequest } from 'auto-mode';

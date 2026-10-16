@@ -1,4 +1,4 @@
-import type { DecisionRule } from 'auto-mode';
+import type { DecisionRule } from 'auto-mode/eval';
 
 interface CategoricalAnswer {
   readonly choice: string;

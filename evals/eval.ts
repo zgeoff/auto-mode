@@ -1,6 +1,14 @@
 import { resolve } from 'node:path';
-import { loadClaudeRules, loadConfig, loadPolicy, resolveApiKey, sendDecision } from 'auto-mode';
-import { readHostEnvironment, sendJudgeMessage, toTimerDelay } from 'auto-mode/eval';
+import { loadConfig } from 'auto-mode';
+import {
+  loadClaudeRules,
+  loadPolicy,
+  readHostEnvironment,
+  resolveApiKey,
+  sendDecision,
+  sendJudgeMessage,
+  toTimerDelay,
+} from 'auto-mode/eval';
 import { experiments } from './experiments/index.ts';
 import { assertShippedJevConfig } from './lib/assert-shipped-jev-config.ts';
 import { readPublicCommit } from './lib/read-public-commit.ts';

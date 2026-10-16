@@ -1,5 +1,4 @@
-import type { DecisionRequest, OwnedScope } from 'auto-mode';
-import type { ScopeFinding } from 'auto-mode/eval';
+import type { DecisionRequest, OwnedScope, ScopeFinding } from 'auto-mode/eval';
 
 interface ScopeEvidence {
   readonly ownedWorktrees: readonly string[];

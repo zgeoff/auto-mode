@@ -1,11 +1,11 @@
-import { buildDecisionRequest } from 'auto-mode';
-import type { DecisionRule } from 'auto-mode';
 import {
   DEFAULT_JUDGE_OVERTURNS,
+  buildDecisionRequest,
   buildJudgeMessage,
   buildJudgedVerdict,
   parseJudgeReply,
 } from 'auto-mode/eval';
+import type { DecisionRule } from 'auto-mode/eval';
 import { JEV_STAGE } from './build-jev-stage.ts';
 import { buildRecordedSampleOutcome } from './build-recorded-sample-outcome.ts';
 import { classifyJevRecord } from './classify-jev-record.ts';

@@ -1,16 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { loadConfig } from 'auto-mode';
+import type { ActionRequest } from 'auto-mode';
 import {
   DecisionRequestError,
   buildDecisionRequest,
   loadClaudeRules,
-  loadConfig,
   loadPolicy,
+  readHostEnvironment,
   resolveApiKey,
-} from 'auto-mode';
-import type { ActionRequest } from 'auto-mode';
-import { readHostEnvironment } from 'auto-mode/eval';
+} from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { pickLiveEvaluationVerdict } from '../lib/pick-live-evaluation-verdict.ts';

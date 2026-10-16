@@ -1,4 +1,4 @@
-import type { DecisionRequest } from 'auto-mode';
+import type { DecisionRequest } from 'auto-mode/eval';
 
 export interface CategoricalQuestion {
   readonly type: 'choice';

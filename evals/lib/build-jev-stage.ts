@@ -1,4 +1,4 @@
-import { buildDecisionRequest } from 'auto-mode';
+import { buildDecisionRequest } from 'auto-mode/eval';
 import { buildRecordedSampleOutcome } from './build-recorded-sample-outcome.ts';
 import { classifyJevRecord } from './classify-jev-record.ts';
 import type { JevClass } from './classify-live-jev-answers.ts';

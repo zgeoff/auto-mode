@@ -1,5 +1,5 @@
-import type { ScopeEvent, SessionScope } from 'auto-mode';
 import { EMPTY_SESSION_SCOPE, collectPullRequestAddresses } from 'auto-mode/eval';
+import type { ScopeEvent, SessionScope } from 'auto-mode/eval';
 
 export interface ScopeRecording {
   readonly commonDir: string;

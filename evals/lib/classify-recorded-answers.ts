@@ -1,4 +1,4 @@
-import type { DecisionRequest, DecisionRule } from 'auto-mode';
+import type { DecisionRequest, DecisionRule } from 'auto-mode/eval';
 
 // A live two-choice result and a recorded three-choice one both fit this shape.
 export interface ScoredDecisionResult {

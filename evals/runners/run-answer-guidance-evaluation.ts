@@ -1,14 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { loadConfig } from 'auto-mode';
 import {
   buildDecisionRequest,
   loadClaudeRules,
-  loadConfig,
   loadPolicy,
+  loadRepositoryContext,
+  readHostEnvironment,
   resolveApiKey,
-} from 'auto-mode';
-import { loadRepositoryContext, readHostEnvironment } from 'auto-mode/eval';
+} from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import { answerGuidanceCorpusSchema } from '../lib/answer-guidance-corpus-schema.ts';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';

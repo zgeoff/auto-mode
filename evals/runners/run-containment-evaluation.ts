@@ -2,15 +2,17 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { loadConfig } from 'auto-mode';
 import {
   DecisionRequestError,
+  EMPTY_SCOPE_FACTS,
   buildTaskScope,
-  loadConfig,
+  collectScopeFindings,
   loadPolicy,
+  repositoryContextSchema,
   resolveApiKey,
-} from 'auto-mode';
-import type { OwnedScope } from 'auto-mode';
-import { EMPTY_SCOPE_FACTS, collectScopeFindings, repositoryContextSchema } from 'auto-mode/eval';
+} from 'auto-mode/eval';
+import type { OwnedScope } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';

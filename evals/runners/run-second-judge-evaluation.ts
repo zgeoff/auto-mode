@@ -5,8 +5,17 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { DecisionRequestError, PRESETS, loadConfig, loadPolicy, resolveApiKey } from 'auto-mode';
-import { buildUserMessage, formatClassifierNote, sendMessage, toTimerDelay } from 'auto-mode/eval';
+import { loadConfig } from 'auto-mode';
+import {
+  DecisionRequestError,
+  PRESETS,
+  buildUserMessage,
+  formatClassifierNote,
+  loadPolicy,
+  resolveApiKey,
+  sendMessage,
+  toTimerDelay,
+} from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';

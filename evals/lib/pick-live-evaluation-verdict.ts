@@ -1,5 +1,5 @@
-import type { DecisionRequest, DecisionResult } from 'auto-mode';
 import { pickDecisionVerdict } from 'auto-mode/eval';
+import type { DecisionRequest, DecisionResult } from 'auto-mode/eval';
 import type { EvaluationVerdict } from './pick-evaluation-verdict.ts';
 
 // A live answer set gets the verdict the shipped classifier gives it at the

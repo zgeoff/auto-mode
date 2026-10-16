@@ -1,5 +1,5 @@
-import { buildDecisionRequest } from 'auto-mode';
-import type { ClaudeRules, DecisionRequest } from 'auto-mode';
+import { buildDecisionRequest } from 'auto-mode/eval';
+import type { ClaudeRules, DecisionRequest } from 'auto-mode/eval';
 import { buildEvaluationPayload } from './build-evaluation-payload.ts';
 import type { EvaluationCase } from './load-second-judge-corpus.ts';
 

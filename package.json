@@ -37,8 +37,7 @@
     "./eval": {
       "auto-mode-eval": "./src/eval/index.ts"
     },
-    "./policy/classifier.md": "./policy/classifier.md",
-    "./policy/rules.md": "./policy/rules.md"
+    "./secret-rules.json": "./dist/secret-rules.json"
   },
   "scripts": {
     "audit": "bun audit",

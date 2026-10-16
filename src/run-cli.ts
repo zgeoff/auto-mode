@@ -5,6 +5,7 @@ import { tryWriteRequestCapture } from './capture/try-write-request-capture.ts';
 import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { loadConfig } from './config/config.ts';
+import { resolveShippedModDir } from './config/resolve-shipped-mod-dir.ts';
 import type { HostEnvironment, OutputStream } from './config/types.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { recordScope } from './record-scope.ts';
@@ -29,6 +30,7 @@ Usage:
   auto-mode run              Read an action request on stdin, write a verdict on stdout
   auto-mode print-prompt     Print the system prompt the classifier receives
   auto-mode record           Read a finished Bash call on stdin, add what it created to the session's scope
+  auto-mode mod-path         Print the directory of the Claude Code mod this package ships
 
 Options:
   --classifier <path>   Use this framework file instead of the shipped one
@@ -94,6 +96,18 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
     io.stdout.write(`${prompt}\n`);
 
     return 0;
+  }
+
+  if (command === 'mod-path') {
+    try {
+      io.stdout.write(`${resolveShippedModDir()}\n`);
+
+      return 0;
+    } catch (error) {
+      io.stderr.write(`auto-mode: ${error instanceof Error ? error.message : String(error)}\n`);
+
+      return 1;
+    }
   }
 
   io.stderr.write(`auto-mode: unknown command '${command}'\n\n${USAGE}`);

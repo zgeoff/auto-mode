@@ -1,4 +1,4 @@
-import type { DecisionRequest, DecisionResult, RecordedDecisionChoice } from 'auto-mode';
+import type { DecisionRequest, DecisionResult, RecordedDecisionChoice } from 'auto-mode/eval';
 import type { JevReport } from './jev-report-schema.ts';
 import type { JudgeReport } from './judge-report-schema.ts';
 import type { EvaluationCase } from './load-second-judge-corpus.ts';
