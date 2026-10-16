@@ -56,7 +56,7 @@ test('it allows an action whose soft-rule deny the judge overturns', async () =>
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>The user asked to push to main.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"The user asked to push to main."}',
         },
         home: ctx.dir,
       }),
@@ -74,6 +74,7 @@ test('it allows an action whose soft-rule deny the judge overturns', async () =>
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Default Branch Write',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -81,7 +82,7 @@ test('it allows an action whose soft-rule deny the judge overturns', async () =>
   });
 });
 
-test('it records the fallback model and the safety stops of a reply claude -p moved off the configured model', async () => {
+test('it records the fallback model and the safety stops of a reply moved off the configured model', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyWithJudge(
@@ -103,7 +104,7 @@ test('it records the fallback model and the safety stops of a reply claude -p mo
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
-            '<verdict>confirm</verdict><reason>It sends the token to an outside host.</reason>',
+            '{"verdict":"confirm","basis":null,"reason":"It sends the token to an outside host."}',
           STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
             'claude-sonnet-5-5': { outputTokens: 0 },
             'claude-sonnet-5': { outputTokens: 123 },
@@ -122,6 +123,7 @@ test('it records the fallback model and the safety stops of a reply claude -p mo
     model: 'claude-sonnet-5-5',
     answeringModel: 'claude-sonnet-5',
     safetyStops: 2,
+    warm: false,
     rule: 'Data Exfiltration',
     tier: 'hard',
     elapsedMs: expect.toBeNumber(),
@@ -148,7 +150,7 @@ test('it holds a hard-rule deny the judge overturns, with the template reason', 
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>The host is the user’s.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"The host is the user’s."}',
         },
         home: ctx.dir,
       }),
@@ -171,6 +173,7 @@ test('it holds a hard-rule deny the judge overturns, with the template reason', 
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Data Exfiltration',
       tier: 'hard',
       elapsedMs: expect.toBeNumber(),
@@ -199,7 +202,7 @@ test('it denies with the judge’s reason when the judge confirms', async () => 
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
-            '<verdict>confirm</verdict><reason>The user asked for a branch, not main.</reason>',
+            '{"verdict":"confirm","basis":null,"reason":"The user asked for a branch, not main."}',
         },
         home: ctx.dir,
       }),
@@ -250,7 +253,7 @@ test('it keeps the deny on a stored-password change the user only asked to check
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY:
-            '<verdict>confirm</verdict><reason>The user asked only to check that the item exists; this replaces its password.</reason>',
+            '{"verdict":"confirm","basis":null,"reason":"The user asked only to check that the item exists; this replaces its password."}',
         },
         home: ctx.dir,
       }),
@@ -259,8 +262,8 @@ test('it keeps the deny on a stored-password change the user only asked to check
 
   const recorded = await readFile(ctx.recordPath, 'utf8');
 
-  const record = z.object({ stdin: z.string() }).parse(JSON.parse(recorded));
-  const evidence: unknown = JSON.parse(record.stdin.slice(record.stdin.indexOf('{')));
+  const record = z.object({ user: z.string() }).parse(JSON.parse(recorded));
+  const evidence: unknown = JSON.parse(record.user.slice(record.user.indexOf('{')));
 
   expect(outcome).toStrictEqual({
     verdict: {
@@ -278,6 +281,7 @@ test('it keeps the deny on a stored-password change the user only asked to check
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Credential Exploration',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -315,7 +319,7 @@ test('it records a configured hard_deny rule by its source and holds its deny wh
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Deploys are routine.</reason>',
+            '{"verdict":"overturn","basis":"consent","reason":"Deploys are routine."}',
         },
         home: ctx.dir,
       }),
@@ -349,7 +353,7 @@ test('it records a rule outside the shipped policy by its source, never its name
       host: buildMockHostEnvironment({
         env: {
           PATH: ctx.binDir,
-          STUB_CLAUDE_REPLY: '<verdict>confirm</verdict><reason>Deploys are gated.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Deploys are gated."}',
         },
         home: ctx.dir,
       }),
@@ -382,8 +386,7 @@ test('it keeps the template deny and records a timeout when the judge outlasts i
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Too late.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Too late."}',
           STUB_CLAUDE_DELAY_MS: '60000',
         },
         home: ctx.dir,
@@ -418,6 +421,7 @@ test('it keeps the template deny and records a timeout when the judge outlasts i
       model: 'claude-haiku-5-5',
       answeringModel: null,
       safetyStops: null,
+      warm: null,
       rule: 'Default Branch Write',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -446,8 +450,7 @@ test('it records a timeout without starting claude when the deadline has already
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Fine.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Fine."}',
         },
         home: ctx.dir,
       }),
@@ -505,6 +508,7 @@ test('it keeps the template deny and records an unreadable reply', async () => {
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Default Branch Write',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -512,7 +516,7 @@ test('it keeps the template deny and records an unreadable reply', async () => {
   });
 });
 
-test('it keeps the template deny and records a failed request when claude exits non-zero', async () => {
+test('it keeps the template deny and records a failed request when claude exits during the review', async () => {
   const ctx = await setupTest();
 
   const outcome = await classifyWithJudge(
@@ -532,9 +536,8 @@ test('it keeps the template deny and records a failed request when claude exits 
       host: buildMockHostEnvironment({
         env: {
           PATH: ctx.binDir,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Fine.</reason>',
-          STUB_CLAUDE_EXIT_CODE: '1',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Fine."}',
+          STUB_CLAUDE_CRASH: 'true',
         },
         home: ctx.dir,
       }),
@@ -586,6 +589,7 @@ test('it keeps the template deny and records a missing credential for a Messages
       model: 'claude-haiku-5-5',
       answeringModel: null,
       safetyStops: null,
+      warm: null,
       rule: 'Default Branch Write',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -601,7 +605,7 @@ test('it confirms a deny through a Messages judge with the judge policy as the s
       content: [
         {
           type: 'text',
-          text: '<verdict>confirm</verdict><reason>Nobody asked for main.</reason>',
+          text: '{"verdict":"confirm","basis":null,"reason":"Nobody asked for main."}',
         },
       ],
     }),
@@ -685,8 +689,7 @@ test('it sends the main agent’s last direct user message to the judge', async 
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
         home: ctx.dir,
       }),
@@ -695,8 +698,8 @@ test('it sends the main agent’s last direct user message to the judge', async 
 
   const recorded = await readFile(ctx.recordPath, 'utf8');
 
-  const record = z.object({ stdin: z.string() }).parse(JSON.parse(recorded));
-  const evidence: unknown = JSON.parse(record.stdin.slice(record.stdin.indexOf('{')));
+  const record = z.object({ user: z.string() }).parse(JSON.parse(recorded));
+  const evidence: unknown = JSON.parse(record.user.slice(record.user.indexOf('{')));
 
   expect(evidence).toMatchObject({
     lastDirectUserMessage: 'Push the fix to main.',
@@ -731,7 +734,7 @@ test('it sends no last direct user message to the judge when the message is stal
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY: '<verdict>confirm</verdict><reason>Not asked.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Not asked."}',
         },
         home: ctx.dir,
       }),
@@ -740,8 +743,8 @@ test('it sends no last direct user message to the judge when the message is stal
 
   const recorded = await readFile(ctx.recordPath, 'utf8');
 
-  const record = z.object({ stdin: z.string() }).parse(JSON.parse(recorded));
-  const evidence: unknown = JSON.parse(record.stdin.slice(record.stdin.indexOf('{')));
+  const record = z.object({ user: z.string() }).parse(JSON.parse(recorded));
+  const evidence: unknown = JSON.parse(record.user.slice(record.user.indexOf('{')));
 
   expect(evidence).toMatchObject({
     lastDirectUserMessage: null,
@@ -769,7 +772,7 @@ test('it holds a soft-rule deny the judge overturns as a misread when only conse
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>misread</basis><reason>main is the task branch.</reason>',
+            '{"verdict":"overturn","basis":"misread","reason":"main is the task branch."}',
         },
         home: ctx.dir,
       }),
@@ -792,6 +795,7 @@ test('it holds a soft-rule deny the judge overturns as a misread when only conse
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Default Branch Write',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -820,7 +824,7 @@ test('it allows an action whose soft-rule deny the judge overturns as a misread 
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>misread</basis><reason>main is the task branch.</reason>',
+            '{"verdict":"overturn","basis":"misread","reason":"main is the task branch."}',
         },
         home: ctx.dir,
       }),
@@ -871,7 +875,7 @@ test('it holds a containment deny the judge overturns as a misread, with the con
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>misread</basis><reason>The other worktree looks like the task’s.</reason>',
+            '{"verdict":"overturn","basis":"misread","reason":"The other worktree looks like the task’s."}',
         },
         home: ctx.dir,
       }),
@@ -894,6 +898,7 @@ test('it holds a containment deny the judge overturns as a misread, with the con
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
       safetyStops: null,
+      warm: false,
       rule: 'Outside Task Scope',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
@@ -978,8 +983,7 @@ test('it sends the targets of a containment deny with the words that name them t
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
-          STUB_CLAUDE_REPLY:
-            '<verdict>overturn</verdict><basis>consent</basis><reason>Asked for.</reason>',
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
         home: ctx.dir,
       }),
@@ -988,8 +992,8 @@ test('it sends the targets of a containment deny with the words that name them t
 
   const recorded = await readFile(ctx.recordPath, 'utf8');
 
-  const record = z.object({ stdin: z.string() }).parse(JSON.parse(recorded));
-  const evidence: unknown = JSON.parse(record.stdin.slice(record.stdin.indexOf('{')));
+  const record = z.object({ user: z.string() }).parse(JSON.parse(recorded));
+  const evidence: unknown = JSON.parse(record.user.slice(record.user.indexOf('{')));
 
   expect(evidence).toMatchObject({
     namedTargets: [

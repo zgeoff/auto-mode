@@ -77,7 +77,8 @@ flowchart LR
   MOD -->|"one run per prompted call"| CLI["auto-mode CLI"]
   MOD -->|"one record per finished scope command"| REC["auto-mode CLI"]
   CLI -->|HTTPS| JEV["Jev decision API"]
-  CLI -->|"child process"| JUDGE["the judge: claude -p"]
+  CLI -->|"unix socket"| SERVER["judge server, one per agent session"]
+  SERVER -->|"Agent SDK, stream-json"| JUDGE["the judge: Claude Code"]
   CLI --> STATE[("state directory")]
   REC --> STATE
 ```
@@ -88,9 +89,12 @@ for every call it judges and kills it at its own time limit, so a hung classifie
 never the session. After a Bash call that can create a worktree, a branch or a pull request
 finishes, the mod starts the CLI a second time to record what the call made.
 
-The CLI is the published `auto-mode` package, built for node, and it keeps no process between calls.
-It reaches Jev over HTTPS, and it runs the judge as a `claude -p` child with no tools, no settings
-and no session of its own. Jev is the only classifier the configuration accepts.
+The CLI is the published `auto-mode` package, built for node, and each run ends with the call it
+judges. It reaches Jev over HTTPS. It reaches the judge through a judge server: a detached CLI
+process, one per agent session, that holds a Claude Code process warm between prompted calls and
+ends after a stretch with no review. The first run that needs the judge starts the server, so only
+the first review of a session pays the start of Claude Code. Jev is the only classifier the
+configuration accepts.
 
 ## Data
 

@@ -42,10 +42,12 @@ or a held overturn, and `null` otherwise. `failureReason` names the step that fa
 shipped rule's name, or the rule's source for a configured or replacement rule. `model` is the
 configured judge model, and `answeringModel` is the model that wrote the reply, or `null` when no
 reply came back. It holds a canonical model ID, so it differs from a `model` that names an alias
-even when no fallback happened. A `claude -p` judge whose request trips a safety stop answers on a
+even when no fallback happened. A `claude-code` judge whose request trips a safety stop answers on a
 fallback model, and a `safetyStops` count above zero marks that reply. `safetyStops` holds the
-number of safety stops that `claude -p` reported, and is `null` for a Messages judge or when no
-count came back. `tier` and `elapsedMs` complete the record. The judge's reason text is not
+number of safety stops that Claude Code reported, and is `null` for a Messages judge or when no
+count came back. `warm` is `true` when a judge process that had answered an earlier review answered
+this one, `false` when the review started the process, and `null` for a Messages judge or when no
+reply came back. `tier` and `elapsedMs` complete the record. The judge's reason text is not
 recorded.
 
 When the judge reviewed a containment deny whose every target the last direct user message named,

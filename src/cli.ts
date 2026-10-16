@@ -17,4 +17,5 @@ process.exitCode = await runCLI(process.argv.slice(2), {
       process.off('SIGINT', onStop);
     };
   },
+  judgeServerCommand: [process.execPath, import.meta.filename],
 });

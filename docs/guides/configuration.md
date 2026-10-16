@@ -52,7 +52,7 @@ entry without `kind` uses its own id as the kind. So `"jev": {}` is the shipped 
 | Kind          | Protocol      | Model                        | Key variable        |
 | ------------- | ------------- | ---------------------------- | ------------------- |
 | `jev`         | Jev decisions | `jev-1.13.0`                 | `TYPESAFE_API_KEY`  |
-| `claude-code` | `claude -p`   | `claude-sonnet-5-5`          | none; judge only    |
+| `claude-code` | Agent SDK     | `claude-sonnet-5-5`          | none; judge only    |
 | `spark`       | Messages API  | `muse-spark-1.3-contributor` | `META_API_KEY`      |
 | `claude`      | Messages API  | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
 | `glm`         | Messages API  | `glm-5.3-flash`              | `ZAI_API_KEY`       |
@@ -77,11 +77,12 @@ Set `baseURL` to the API root of a compatible provider. Only a Jev kind can clas
 `claude-code` kind and the Messages API kinds, which call `/v1/messages`, can only judge, and
 `decision.classifier` refuses them.
 
-The `claude-code` kind can only judge. It runs `claude -p` with no tools, settings, MCP servers or
-session file, through the local `claude` login, so it needs no API key. It drops every `ANTHROPIC_*`
-variable and the Bedrock, Vertex and Foundry switches from the child's environment, so a session
-pointed at another provider still reaches Claude. It waits up to 120 seconds. A machine without a
-`claude` login fails the judge call, and the deny keeps its fixed reason.
+The `claude-code` kind can only judge. It drives the `claude` on your `PATH` through the Agent SDK,
+with no tools, settings, MCP servers or session file, and keeps one process per agent session. It
+runs through the local `claude` login, so it needs no API key. It drops every `ANTHROPIC_*` variable
+and the Bedrock, Vertex and Foundry switches from the child's environment, so a session pointed at
+another provider still reaches Claude. It waits up to 120 seconds. A machine without a `claude`
+login fails the judge call, and the deny keeps its fixed reason.
 
 ### Credentials
 

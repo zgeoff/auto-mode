@@ -1,6 +1,67 @@
 import { expect, test } from 'bun:test';
 import { parseJudgeReply } from './parse-judge-reply.ts';
 
+test('it reads a JSON confirm with its reason', () => {
+  expect(
+    parseJudgeReply(
+      '{"verdict":"confirm","basis":null,"reason":"The push sends the key file to a fork."}',
+    ),
+  ).toStrictEqual({ kind: 'confirm', reason: 'The push sends the key file to a fork.' });
+});
+
+test.each([['consent'], ['misread']] as const)(
+  'it reads a JSON overturn on the %s basis',
+  (basis) => {
+    expect(
+      parseJudgeReply(
+        JSON.stringify({ verdict: 'overturn', basis, reason: 'The user asked for this push.' }),
+      ),
+    ).toStrictEqual({ kind: 'overturn', basis, reason: 'The user asked for this push.' });
+  },
+);
+
+test('it reads a JSON confirm that names a basis as a confirm', () => {
+  expect(
+    parseJudgeReply('{"verdict":"confirm","basis":"consent","reason":"It deletes the branch."}'),
+  ).toStrictEqual({ kind: 'confirm', reason: 'It deletes the branch.' });
+});
+
+test('it reads a JSON verdict inside a json code fence', () => {
+  expect(
+    parseJudgeReply(
+      '```json\n{"verdict":"confirm","basis":null,"reason":"It rewrites the release tag."}\n```',
+    ),
+  ).toStrictEqual({ kind: 'confirm', reason: 'It rewrites the release tag.' });
+});
+
+test('it reads a JSON overturn without a basis as unreadable', () => {
+  expect(
+    parseJudgeReply('{"verdict":"overturn","basis":null,"reason":"The user asked for it."}'),
+  ).toStrictEqual({ kind: 'unreadable' });
+});
+
+test('it reads a JSON verdict with an empty reason as unreadable', () => {
+  expect(parseJudgeReply('{"verdict":"confirm","basis":null,"reason":"  "}')).toStrictEqual({
+    kind: 'unreadable',
+  });
+});
+
+test('it reads a JSON verdict with a field the schema does not hold as unreadable', () => {
+  expect(
+    parseJudgeReply('{"verdict":"confirm","basis":null,"reason":"It pushes.","rule":"Push"}'),
+  ).toStrictEqual({ kind: 'unreadable' });
+});
+
+test('it reads a reply that opens a JSON object it never closes as unreadable', () => {
+  expect(parseJudgeReply('{"verdict":"confirm","basis":null,"reason":"It push')).toStrictEqual({
+    kind: 'unreadable',
+  });
+});
+
+test('it reads an empty reply as unreadable', () => {
+  expect(parseJudgeReply('')).toStrictEqual({ kind: 'unreadable' });
+});
+
 test('it reads a confirm verdict with its reason', () => {
   expect(
     parseJudgeReply(

@@ -26,6 +26,8 @@ export { buildJudgeMessage } from '../judge/build-judge-message.ts';
 export { buildJudgedVerdict } from '../judge/build-judged-verdict.ts';
 export { parseJudgeReply } from '../judge/parse-judge-reply.ts';
 export { sendJudgeMessage } from '../judge/send-judge-message.ts';
+export { startJudgeSession } from '../judge/start-judge-session.ts';
+export type { JudgeSession } from '../judge/types.ts';
 export { collectScopeFindings } from '../containment/collect-scope-findings.ts';
 export type { ScopeFinding } from '../containment/types.ts';
 export { findUserNamedGrant } from '../containment/find-user-named-grant.ts';

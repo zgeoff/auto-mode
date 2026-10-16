@@ -34,7 +34,7 @@ const SPARK_PROVIDER: ProviderConfig = {
 };
 
 // The judge runs Claude through the local `claude` login, so it needs no API
-// key. A cold `claude -p` start takes 2-4 s before the model answers.
+// key. A cold Claude Code start takes 2-4 s before the model answers.
 const CLAUDE_CODE_JUDGE: ProviderConfig = {
   protocol: 'claude-code',
   baseURL: 'https://api.anthropic.com',

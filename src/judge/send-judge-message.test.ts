@@ -6,6 +6,7 @@ import { messagesReplies } from '../../mocks/messages-replies.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
 import { sendJudgeMessage } from './send-judge-message.ts';
+import { startJudgeSession } from './start-judge-session.ts';
 
 async function setupTest() {
   const dir = await mkdtemp(join(tmpdir(), 'auto-mode-send-judge-message-'));
@@ -36,7 +37,7 @@ test('it returns the claude run’s text and answering model for a claude-code j
       apiKey: null,
       env: {
         PATH: ctx.binDir,
-        STUB_CLAUDE_REPLY: 'from claude',
+        STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"From claude."}',
         STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
           'claude-sonnet-5-5': { outputTokens: 0 },
           'claude-sonnet-5': { outputTokens: 31 },
@@ -48,11 +49,45 @@ test('it returns the claude run’s text and answering model for a claude-code j
   );
 
   expect(reply).toStrictEqual({
-    text: 'from claude',
+    text: '{"verdict":"confirm","basis":null,"reason":"From claude."}',
     model: 'claude-sonnet-5',
     safetyStops: 1,
     fallback: true,
+    warm: false,
   });
+});
+
+test('it sends a claude-code review through the session the caller holds, whose process stays warm', async () => {
+  const ctx = await setupTest();
+
+  const env = {
+    PATH: ctx.binDir,
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"From claude."}',
+  };
+
+  const session = startJudgeSession(env);
+
+  onTestFinished(() => {
+    session.stop();
+  });
+
+  const provider = buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-sonnet-5-5' });
+
+  await sendJudgeMessage(
+    provider,
+    { system: 'the judge policy', user: 'the first evidence' },
+    { apiKey: null, env, session },
+    AbortSignal.timeout(10_000),
+  );
+
+  const second = await sendJudgeMessage(
+    provider,
+    { system: 'the judge policy', user: 'the second evidence' },
+    { apiKey: null, env, session },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(second.warm).toBeTrue();
 });
 
 test('it returns the Messages reply text for a Messages judge', async () => {
@@ -76,6 +111,7 @@ test('it returns the Messages reply text for a Messages judge', async () => {
     model: 'claude-haiku-5-5',
     safetyStops: null,
     fallback: false,
+    warm: null,
   });
 });
 
