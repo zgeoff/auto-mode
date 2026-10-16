@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v1.0.0...auto-mode-v1.0.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **geo-1145:** keep command text out of jev instructions and keep each merge finding ([#192](https://github.com/zgeoff/auto-mode/issues/192)) ([77ad65b](https://github.com/zgeoff/auto-mode/commit/77ad65b48450f4d243baa28806bf642e4b7b3c32))
+
 ## [1.0.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v0.21.0...auto-mode-v1.0.0) (2026-10-16)
 
 
