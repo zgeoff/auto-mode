@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { chmod, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import type { Server, Socket } from 'node:net';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import type * as z from 'zod';
 import { judgeServerRequestSchema } from './judge-server-request-schema.ts';
 import type { judgeServerResponseSchema } from './judge-server-response-schema.ts';
@@ -34,28 +34,9 @@ export async function startJudgeServer(
   }
 
   const server = createServer();
-  const listenPath = `${options.socketPath}.${randomBytes(4).toString('hex')}`;
-
-  await startListening(server, listenPath);
-  await chmod(listenPath, 0o600);
-
-  const own = await stat(listenPath);
-
-  // A rename replaces the socket path in one step, so two servers that start
-  // together never remove each other's listener: the last rename wins, and
-  // the other stops.
-  await rename(listenPath, options.socketPath);
-
-  const current = await stat(options.socketPath).catch(() => null);
-
-  if (current?.ino !== own.ino) {
-    server.close();
-
-    return null;
-  }
-
   const session = startJudgeSession(options.env);
   const closed = Promise.withResolvers<void>();
+  let ownIno: number | null = null;
   let idleTimer: NodeJS.Timeout | null = null;
   let active = 0;
   let stopped = false;
@@ -74,7 +55,7 @@ export async function startJudgeServer(
     session.stop();
 
     server.close(() => {
-      void removeOwnSocket(options.socketPath, own.ino, closed.resolve);
+      void removeOwnSocket(options.socketPath, ownIno, closed.resolve);
     });
   };
 
@@ -106,6 +87,28 @@ export async function startJudgeServer(
     void runConnection(socket);
   });
 
+  // The listener starts under a short private name, below the socket path's
+  // length limit, and a rename publishes it in one step. Two servers that
+  // start together never remove each other's listener: the last rename wins.
+  const listenPath = join(dirname(options.socketPath), `j-${randomBytes(4).toString('hex')}`);
+
+  await startListening(server, listenPath);
+  await chmod(listenPath, 0o600);
+
+  const own = await stat(listenPath);
+
+  ownIno = own.ino;
+
+  await rename(listenPath, options.socketPath);
+
+  const current = await stat(options.socketPath).catch(() => null);
+
+  if (current?.ino !== own.ino) {
+    stop();
+
+    return null;
+  }
+
   waitIdle();
 
   return { closed: closed.promise, stop };
@@ -114,12 +117,12 @@ export async function startJudgeServer(
 // A server that another replaced leaves the newer socket in place.
 async function removeOwnSocket(
   socketPath: string,
-  ino: number,
+  ino: number | null,
   onRemoved: () => void,
 ): Promise<void> {
   const current = await stat(socketPath).catch(() => null);
 
-  if (current?.ino === ino) {
+  if (ino !== null && current?.ino === ino) {
     await rm(socketPath, { force: true });
   }
 

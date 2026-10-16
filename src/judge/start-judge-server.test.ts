@@ -218,6 +218,36 @@ test('it leaves in place a socket that another server put over its own', async (
   expect(left).toBe('the newer server');
 });
 
+test('it answers a review that connects while the server starts', async () => {
+  const ctx = await setupTest();
+
+  const env = {
+    PATH: ctx.binDir,
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Early."}',
+  };
+
+  const starting = startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
+
+  onTestFinished(async () => {
+    const server = await starting;
+
+    server?.stop();
+  });
+
+  const reply = await makeJudgeServerSession({
+    socketPath: ctx.socketPath,
+    command: [process.execPath, '--eval', ''],
+    env,
+    timeoutMs: 10_000,
+  }).review(
+    'claude-haiku-5-5',
+    { system: 'the judge policy', user: 'the evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply.text).toBe('{"verdict":"confirm","basis":null,"reason":"Early."}');
+});
+
 test('it leaves the socket to a server that already answers on it', async () => {
   const ctx = await setupTest();
 
