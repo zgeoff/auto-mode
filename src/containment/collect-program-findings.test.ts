@@ -194,7 +194,7 @@ test.each([
       },
       { tool: { writes: [{ words: [/^ship$/u, /prod/u], finding: { kind: 'remote-write' } }] } },
     ),
-  ).toStrictEqual(findings);
+  ).toStrictEqual([...findings]);
 });
 
 test.each([
@@ -225,7 +225,7 @@ test.each([
           },
         },
       ),
-    ).toStrictEqual(findings);
+    ).toStrictEqual([...findings]);
   },
 );
 
@@ -275,7 +275,7 @@ test.each([
         },
       },
     ),
-  ).toStrictEqual(findings);
+  ).toStrictEqual([...findings]);
 });
 
 test('it finds nothing in a subcommand named by an inherited object key', () => {
@@ -318,7 +318,7 @@ test.each([
         },
       },
     ),
-  ).toStrictEqual(findings);
+  ).toStrictEqual([...findings]);
 });
 
 test.each([
@@ -337,7 +337,7 @@ test.each([
       },
       { tool: { writes: [{ operands: ['all'], role: 'url', finding: { kind: 'remote-write' } }] } },
     ),
-  ).toStrictEqual(findings);
+  ).toStrictEqual([...findings]);
 });
 
 test.each([
@@ -372,5 +372,5 @@ test.each([
         },
       },
     ),
-  ).toStrictEqual(findings);
+  ).toStrictEqual([...findings]);
 });
