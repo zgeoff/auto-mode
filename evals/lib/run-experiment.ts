@@ -2,6 +2,7 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { DecisionRequestError } from 'auto-mode/eval';
 import type { ClaudeRules, DecisionRequest, DecisionResult } from 'auto-mode/eval';
+import { buildFallbackCounts } from './build-fallback-counts.ts';
 import { buildMeasurementCounts } from './build-measurement-counts.ts';
 import { buildRequiredCaseOutcomes } from './build-required-case-outcomes.ts';
 import { buildStageFailureCounts } from './build-stage-failure-counts.ts';
@@ -45,6 +46,10 @@ export interface RunEnvironment {
   readonly policy: string;
   readonly judgePolicy: string;
   readonly configuredRules: ClaudeRules;
+
+  // The model each judge request names. A claude -p reply can come from a
+  // fallback model, so the reply's own model cannot stand for the stage's.
+  readonly judgeModel: string | null;
   readonly send: SendRequest | null;
   readonly sendWithChoices: SendWithChoices | null;
   readonly sendJudge: SendJudge | null;
@@ -59,6 +64,7 @@ export interface RunOptions {
   readonly live: boolean;
   readonly maxRequests: number | null;
   readonly resumeDir: string | null;
+  readonly cases: readonly string[] | null;
   readonly environment: RunEnvironment;
   readonly now: () => Date;
   readonly print: (line: string) => unknown;
@@ -89,7 +95,6 @@ export async function runExperiment<Case>(
 
   const selected = await loadSelectedCases(experiment, loaded.sets);
 
-  const caseKeys = [...selected.cases.keys()].toSorted();
   const missingRequired = experiment.requiredCases.filter((key) => !selected.cases.has(key));
 
   if (missingRequired.length > 0) {
@@ -97,6 +102,8 @@ export async function runExperiment<Case>(
       `The ${experiment.name} cases lack the required [${missingRequired.join(', ')}].`,
     );
   }
+
+  const caseKeys = pickCaseKeys(experiment, [...selected.cases.keys()], options.cases);
 
   const getLabelledCase = (caseKey: string): LabelledCase<Case> => {
     const labels = selected.labels.get(caseKey);
@@ -128,6 +135,7 @@ export async function runExperiment<Case>(
     ),
     labelsHash: toHash(JSON.stringify(selected.labelsHashes)),
     recording: options.recording,
+    cases: options.cases === null ? null : [...options.cases].toSorted(),
     seed: options.seed,
     samples: options.samples,
     live: options.live,
@@ -232,7 +240,14 @@ export async function runExperiment<Case>(
 
     for (const planned of unit.stages) {
       const stage = getActiveStage(stages.active, planned.name);
-      const exchange: Exchange = { requestHash: null, answerHash: null, model: null };
+
+      const exchange: Exchange = {
+        requestHash: null,
+        answerHash: null,
+        model: null,
+        requestedModel: null,
+        fallback: null,
+      };
 
       const requireSend = (): void => {
         if (!options.live || !stage.sends) {
@@ -303,12 +318,14 @@ export async function runExperiment<Case>(
           requireSend();
 
           exchange.requestHash = toHash(JSON.stringify(request));
+          exchange.requestedModel = options.environment.judgeModel;
 
           const reply = await sendJudge(request).catch((error: unknown) => {
             throw new JudgeRequestError(pickJudgeFailure(error), { cause: error });
           });
 
           exchange.model = reply.model;
+          exchange.fallback = reply.fallback;
           exchange.answerHash = toHash(JSON.stringify(reply));
 
           return reply;
@@ -322,12 +339,13 @@ export async function runExperiment<Case>(
       const measuredMs = Math.round(performance.now() - started);
       const recorded = outcome.recorded;
       const responseModel = recorded?.model ?? exchange.model;
-      const checked = checkModel(outcome, models[stage.name] ?? null, responseModel);
+      const requestedModel = recorded?.model ?? exchange.requestedModel ?? responseModel;
+      const checked = checkModel(outcome, models[stage.name] ?? null, requestedModel);
 
-      // The first answer names the stage's model; writing it at once keeps it for a
+      // The first request names the stage's model; writing it at once keeps it for a
       // resume after an interruption, which would otherwise accept any model.
-      if (models[stage.name] === undefined && responseModel !== null) {
-        models[stage.name] = responseModel;
+      if (models[stage.name] === undefined && requestedModel !== null) {
+        models[stage.name] = requestedModel;
 
         await writeReport(join(runDir, 'summary.json'), buildCurrentSummary(null));
       }
@@ -340,6 +358,8 @@ export async function runExperiment<Case>(
       const record = buildSampleRecord(labelled, unit.sample, stage.name, checked, latencyMs, {
         requestHash: exchange.requestHash,
         answerHash,
+        model: responseModel,
+        fallback: recorded === undefined ? exchange.fallback : null,
       });
 
       records.push(record);
@@ -359,6 +379,8 @@ interface Exchange {
   requestHash: string | null;
   answerHash: string | null;
   model: string | null;
+  requestedModel: string | null;
+  fallback: boolean | null;
 }
 
 function getActiveStage<Case>(
@@ -387,7 +409,7 @@ function buildSampleRecord<Case>(
   stage: string,
   checked: Readonly<CheckedOutcome>,
   latencyMs: number | null,
-  exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash'>>,
+  exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash' | 'model' | 'fallback'>>,
 ): SampleRecord {
   return {
     caseKey: labelled.key,
@@ -401,6 +423,8 @@ function buildSampleRecord<Case>(
     latencyMs,
     requestHash: exchange.requestHash,
     answerHash: exchange.answerHash,
+    model: exchange.model,
+    fallback: exchange.fallback,
   };
 }
 
@@ -491,6 +515,8 @@ async function collectSendingRuns<Case>(
         buildSampleRecord(labelled, unit.sample, stage.name, checked, null, {
           requestHash: null,
           answerHash: null,
+          model: responseModel,
+          fallback: null,
         }),
       );
     }
@@ -535,6 +561,28 @@ function requireRecording<Case>(
   }
 
   return found;
+}
+
+// A run limited to named cases keeps the order of the full run's keys, and a
+// key the experiment lacks fails before any request.
+function pickCaseKeys<Case>(
+  experiment: Readonly<Experiment<Case>>,
+  available: readonly string[],
+  cases: readonly string[] | null,
+): string[] {
+  const sorted = available.toSorted();
+
+  if (cases === null) {
+    return sorted;
+  }
+
+  const unknown = cases.filter((key) => !sorted.includes(key));
+
+  if (unknown.length > 0) {
+    throw new Error(`The ${experiment.name} cases lack [${unknown.join(', ')}].`);
+  }
+
+  return sorted.filter((key) => cases.includes(key));
 }
 
 // A case is boxed, so a case type that admits undefined still reads as present.
@@ -697,9 +745,13 @@ function requireCleanResume(previous: Readonly<RunConfig>): void {
 
 function requireSameConfig(
   previous: Readonly<RunConfig>,
-  current: Readonly<Pick<RunConfig, (typeof RESUMED_FIELDS)[number]>>,
+  current: Readonly<Pick<RunConfig, (typeof RESUMED_FIELDS)[number] | 'cases'>>,
 ): void {
-  const changed = RESUMED_FIELDS.filter((field) => previous[field] !== current[field]);
+  const changed: string[] = RESUMED_FIELDS.filter((field) => previous[field] !== current[field]);
+
+  if (JSON.stringify(previous.cases ?? null) !== JSON.stringify(current.cases ?? null)) {
+    changed.push('cases');
+  }
 
   if (changed.length > 0) {
     throw new Error(`Refusing to resume: the run differs in ${changed.join(', ')}.`);
@@ -760,6 +812,7 @@ function buildSummary<Case>(
     counts: buildMeasurementCounts(observations),
     notScorable: buildStageFailureCounts(records),
     latency: buildStageLatency(records),
+    fallbacks: buildFallbackCounts(records, config.models),
     requiredCases: buildRequiredCaseOutcomes(experiment.requiredCases, records),
   };
 }
@@ -789,13 +842,15 @@ function pickJudgeFailure(error: unknown): JudgeRequestError['reason'] {
   return isTimeout ? 'timeout' : 'request';
 }
 
-// An answer from a different model than the stage's first is not scored.
+// An answer to a request that named another model than the stage's first is not
+// scored. A fallback reply to a request on the stage's model is scored, and the
+// summary counts it by the model its record holds.
 function checkModel(
   outcome: Readonly<StageOutcome>,
   stageModel: string | null,
-  responseModel: string | null,
+  requestedModel: string | null,
 ): CheckedOutcome {
-  if (stageModel !== null && responseModel !== null && responseModel !== stageModel) {
+  if (stageModel !== null && requestedModel !== null && requestedModel !== stageModel) {
     return { status: 'not-scorable', verdict: null, pBlock: null, reason: 'model-changed' };
   }
 

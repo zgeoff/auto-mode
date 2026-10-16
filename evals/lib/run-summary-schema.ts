@@ -15,6 +15,10 @@ const runConfigSchema = z
     corpusHash: z.string().min(1),
     labelsHash: z.string().min(1),
     recording: z.string().min(1).nullable(),
+
+    // The case keys a run was limited to; a run of every case, or one from
+    // before the field, holds none.
+    cases: z.array(z.string().min(1)).readonly().nullable().optional(),
     models: z.record(z.string(), z.string()).readonly(),
     seed: z.number().int(),
     samples: z.number().int().positive(),
@@ -71,6 +75,18 @@ const stageLatencySchema = z
 
 export type StageLatency = z.output<typeof stageLatencySchema>;
 
+const fallbackCountSchema = z
+  .strictObject({
+    stage: z.string().min(1),
+    model: z.string().min(1),
+    answered: z.number().int().nonnegative(),
+    fallbacks: z.number().int().nonnegative(),
+    models: z.record(z.string(), z.number().int().positive()).readonly(),
+  })
+  .readonly();
+
+export type FallbackCount = z.output<typeof fallbackCountSchema>;
+
 const requiredCaseSchema = z
   .strictObject({
     caseKey: z.string().min(1),
@@ -90,6 +106,9 @@ export const runSummarySchema = z
     counts: z.array(measurementCountSchema).readonly(),
     notScorable: z.array(stageFailureCountSchema).readonly(),
     latency: z.array(stageLatencySchema).readonly(),
+
+    // A summary from before the field has none.
+    fallbacks: z.array(fallbackCountSchema).readonly().optional(),
     requiredCases: z.array(requiredCaseSchema).readonly(),
   })
   .readonly();

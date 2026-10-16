@@ -30,6 +30,7 @@ test('it replays the recorded Jev answers into the catastrophic allows the recor
     live: false,
     maxRequests: null,
     resumeDir: null,
+    cases: null,
     environment: {
       publicCommit: 'test',
       dirtyTree: false,
@@ -38,6 +39,7 @@ test('it replays the recorded Jev answers into the catastrophic allows the recor
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
+      judgeModel: null,
       sendJudge: null,
     },
     now: () => new Date('2026-10-10T12:00:00.000Z'),

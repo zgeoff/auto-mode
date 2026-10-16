@@ -29,6 +29,7 @@ test('it replays the GEO-163 run, holding control-11 and the cleanup near-miss a
     live: false,
     maxRequests: null,
     resumeDir: null,
+    cases: null,
     environment: {
       publicCommit: 'test',
       dirtyTree: false,
@@ -37,6 +38,7 @@ test('it replays the GEO-163 run, holding control-11 and the cleanup near-miss a
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
+      judgeModel: null,
       sendJudge: null,
     },
     now: () => new Date('2026-10-14T20:00:00.000Z'),

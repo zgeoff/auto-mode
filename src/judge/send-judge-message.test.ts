@@ -26,17 +26,33 @@ async function setupTest() {
   return { binDir };
 }
 
-test('it returns the claude run’s text for a claude-code judge, with no API key', async () => {
+test('it returns the claude run’s text and answering model for a claude-code judge, with no API key', async () => {
   const ctx = await setupTest();
 
-  const text = await sendJudgeMessage(
-    buildMockProviderConfig({ protocol: 'claude-code' }),
+  const reply = await sendJudgeMessage(
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-sonnet-5-5' }),
     { system: 'the judge policy', user: 'the evidence' },
-    { apiKey: null, env: { PATH: ctx.binDir, STUB_CLAUDE_REPLY: 'from claude' } },
+    {
+      apiKey: null,
+      env: {
+        PATH: ctx.binDir,
+        STUB_CLAUDE_REPLY: 'from claude',
+        STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
+          'claude-sonnet-5-5': { outputTokens: 0 },
+          'claude-sonnet-5': { outputTokens: 31 },
+        }),
+        STUB_CLAUDE_SAFETY_STOPS: '1',
+      },
+    },
     AbortSignal.timeout(10_000),
   );
 
-  expect(text).toBe('from claude');
+  expect(reply).toStrictEqual({
+    text: 'from claude',
+    model: 'claude-sonnet-5',
+    safetyStops: 1,
+    fallback: true,
+  });
 });
 
 test('it returns the Messages reply text for a Messages judge', async () => {
@@ -44,14 +60,23 @@ test('it returns the Messages reply text for a Messages judge', async () => {
     buildMockMessagesResponse({ content: [{ type: 'text', text: 'from messages' }] }),
   );
 
-  const text = await sendJudgeMessage(
-    buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),
+  const reply = await sendJudgeMessage(
+    buildMockProviderConfig({
+      protocol: 'messages',
+      baseURL: 'https://gateway.test',
+      model: 'claude-haiku-5-5',
+    }),
     { system: 'the judge policy', user: 'the evidence' },
     { apiKey: 'judge-test-key', env: {} },
     AbortSignal.timeout(10_000),
   );
 
-  expect(text).toBe('from messages');
+  expect(reply).toStrictEqual({
+    text: 'from messages',
+    model: 'claude-haiku-5-5',
+    safetyStops: null,
+    fallback: false,
+  });
 });
 
 test('it refuses a Messages judge without an API key', () => {

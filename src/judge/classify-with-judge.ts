@@ -11,6 +11,7 @@ import type { JudgedVerdict } from './build-judged-verdict.ts';
 import { buildJudgedVerdict } from './build-judged-verdict.ts';
 import { parseJudgeReply } from './parse-judge-reply.ts';
 import { sendJudgeMessage } from './send-judge-message.ts';
+import type { JudgeMessageReply } from './send-judge-message.ts';
 import type { JudgeDiagnostics, JudgeFailure, JudgeOverturns } from './types.ts';
 
 export interface JudgeOutcome extends JudgedVerdict {
@@ -38,6 +39,7 @@ export async function classifyWithJudge(
   // so only consent clears a containment finding.
   const overturns = evidence.containment === undefined ? options.overturns : 'consent';
   let failure: JudgeFailure | null = null;
+  let answered: JudgeMessageReply | null = null;
   let verdict: JudgedVerdict;
 
   try {
@@ -81,7 +83,7 @@ export async function classifyWithJudge(
 
     failure = 'request';
 
-    const text = await sendJudgeMessage(
+    answered = await sendJudgeMessage(
       judge,
       { system, user },
       { apiKey, env: options.host.env },
@@ -94,7 +96,7 @@ export async function classifyWithJudge(
       throw error;
     });
 
-    const reply = parseJudgeReply(text);
+    const reply = parseJudgeReply(answered.text);
 
     failure = reply.kind === 'unreadable' ? 'unreadable' : null;
 
@@ -122,6 +124,8 @@ export async function classifyWithJudge(
       failureReason: failure,
       overturnBasis: verdict.overturnBasis,
       model: judge.model,
+      answeringModel: answered?.model ?? null,
+      safetyStops: answered?.safetyStops ?? null,
       rule: evidence.rule.source === 'shipped' ? evidence.rule.name : evidence.rule.source,
       tier: evidence.rule.tier,
       elapsedMs: Math.round(performance.now() - start),

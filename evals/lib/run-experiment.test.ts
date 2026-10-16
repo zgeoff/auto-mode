@@ -82,6 +82,7 @@ test('it plans a model experiment without live mode and sends and writes nothing
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -90,6 +91,7 @@ test('it plans a model experiment without live mode and sends and writes nothing
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -163,6 +165,7 @@ test('it refuses a live run whose plan needs more requests than the cap', async 
       live: true,
       maxRequests: 12,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -171,6 +174,7 @@ test('it refuses a live run whose plan needs more requests than the cap', async 
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -242,6 +246,7 @@ test('it records each live answer with its stage model, probability of block, re
       live: true,
       maxRequests: 13,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -250,6 +255,7 @@ test('it records each live answer with its stage model, probability of block, re
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: (request) => sendEvaluationDecision(buildMockProviderConfig(), 'test-key', request),
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -329,6 +335,7 @@ test('it keeps the stage model of a live run that stops after its first answer',
       live: true,
       maxRequests: 13,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -337,6 +344,7 @@ test('it keeps the stage model of a live run that stops after its first answer',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: (request) => sendEvaluationDecision(buildMockProviderConfig(), 'test-key', request),
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -351,6 +359,321 @@ test('it keeps the stage model of a live run that stops after its first answer',
 
   expect(interrupted.summary.config.models).toStrictEqual({ jev: 'jev-1.13.0' });
   expect(interrupted.records).toHaveLength(1);
+});
+
+test('it scores a fallback judge reply under the configured judge model and counts it by the model that wrote it', async () => {
+  const ctx = await setupTest();
+
+  const sendJudge = mock()
+    .mockResolvedValueOnce({ model: 'claude-sonnet-5', text: 'fallback reply', fallback: true })
+    .mockResolvedValueOnce({
+      model: 'claude-sonnet-5-5',
+      text: 'configured reply',
+      fallback: false,
+    });
+
+  const result = await runExperiment(
+    defineExperiment({
+      name: 'fallback-check',
+      description: 'A judge stage whose first reply comes from a fallback model.',
+      corpora: ['containment'],
+      samples: 1,
+      loadCases: async (source) => {
+        const dir = join(source.corporaDir, 'containment');
+
+        const loaded = await loadCaseKeys(dir);
+
+        return {
+          sets: [
+            {
+              corpus: 'containment',
+              dir,
+              cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+            },
+          ],
+          inputs: [],
+          notMeasured: [],
+        };
+      },
+      stages: [
+        {
+          name: 'judge',
+          sends: true,
+          run: async (_entry, context) => {
+            const reply = await context.sendJudge({ user: 'review' });
+
+            return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+          },
+        },
+      ],
+      measurements: [],
+    }),
+    {
+      corporaDir: ctx.corporaDir,
+      resultsDir: ctx.resultsDir,
+      recording: null,
+      seed: 1,
+      samples: 1,
+      live: true,
+      maxRequests: 2,
+      resumeDir: null,
+      cases: ['containment/twin-02', 'containment/twin-01'],
+      environment: {
+        publicCommit: 'test',
+        dirtyTree: false,
+        policy: 'policy',
+        judgePolicy: 'judge policy',
+        configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+        send: null,
+        sendWithChoices: null,
+        judgeModel: 'claude-sonnet-5-5',
+        sendJudge,
+      },
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+      print: () => {},
+    },
+  );
+
+  invariant(result.kind === 'completed');
+
+  const run = await loadRun(result.runDir);
+
+  expect(
+    run.records.map((record) => ({
+      caseKey: record.caseKey,
+      status: record.status,
+      reason: record.reason,
+      model: record.model,
+      fallback: record.fallback,
+    })),
+  ).toStrictEqual([
+    {
+      caseKey: 'containment/twin-01',
+      status: 'scored',
+      reason: 'fallback reply',
+      model: 'claude-sonnet-5',
+      fallback: true,
+    },
+    {
+      caseKey: 'containment/twin-02',
+      status: 'scored',
+      reason: 'configured reply',
+      model: 'claude-sonnet-5-5',
+      fallback: false,
+    },
+  ]);
+
+  expect(run.summary.config.models).toStrictEqual({ judge: 'claude-sonnet-5-5' });
+  expect(run.summary.config.cases).toStrictEqual(['containment/twin-01', 'containment/twin-02']);
+
+  expect(run.summary.fallbacks).toStrictEqual([
+    {
+      stage: 'judge',
+      model: 'claude-sonnet-5-5',
+      answered: 2,
+      fallbacks: 1,
+      models: { 'claude-sonnet-5': 1 },
+    },
+  ]);
+});
+
+test('it leaves unscored a judge reply to a request that named another model than the stage’s', async () => {
+  const ctx = await setupTest();
+
+  const calls = { first: true };
+
+  const experiment = defineExperiment({
+    name: 'judge-model-check',
+    description: 'A judge stage resumed with another judge model.',
+    corpora: ['containment'],
+    samples: 1,
+    loadCases: async (source) => {
+      const dir = join(source.corporaDir, 'containment');
+
+      const loaded = await loadCaseKeys(dir);
+
+      return {
+        sets: [
+          {
+            corpus: 'containment',
+            dir,
+            cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+          },
+        ],
+        inputs: [],
+        notMeasured: [],
+      };
+    },
+    stages: [
+      {
+        name: 'judge',
+        sends: true,
+        run: async (entry, context) => {
+          if (entry.key === 'containment/twin-02' && calls.first) {
+            calls.first = false;
+            throw new Error('interrupted');
+          }
+
+          const reply = await context.sendJudge({ user: 'review' });
+
+          return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+        },
+      },
+    ],
+    measurements: [],
+  });
+
+  const options = {
+    corporaDir: ctx.corporaDir,
+    resultsDir: ctx.resultsDir,
+    recording: null,
+    seed: 1,
+    samples: 1,
+    live: true,
+    maxRequests: 2,
+    resumeDir: null,
+    cases: ['containment/twin-01', 'containment/twin-02'],
+    now: () => new Date('2026-10-10T12:00:00.000Z'),
+    print: () => {},
+  };
+
+  const environment = {
+    publicCommit: 'test',
+    dirtyTree: false,
+    policy: 'policy',
+    judgePolicy: 'judge policy',
+    configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+    send: null,
+    sendWithChoices: null,
+  };
+
+  expect(
+    runExperiment(experiment, {
+      ...options,
+      environment: {
+        ...environment,
+        judgeModel: 'claude-sonnet-5-5',
+        sendJudge: mock().mockResolvedValue({
+          model: 'claude-sonnet-5-5',
+          text: 'first',
+          fallback: false,
+        }),
+      },
+    }),
+  ).rejects.toThrowWithMessage(Error, 'interrupted');
+
+  const [runID] = await readdir(join(ctx.resultsDir, 'runs/judge-model-check'));
+
+  const runDir = join(ctx.resultsDir, 'runs/judge-model-check', runID ?? '');
+
+  const result = await runExperiment(experiment, {
+    ...options,
+    resumeDir: runDir,
+    environment: {
+      ...environment,
+      judgeModel: 'claude-opus-5-5',
+      sendJudge: mock().mockResolvedValue({
+        model: 'claude-opus-5-5',
+        text: 'second',
+        fallback: false,
+      }),
+    },
+  });
+
+  invariant(result.kind === 'completed');
+
+  const resumed = await loadRun(runDir);
+
+  expect(
+    resumed.records.map((record) => ({
+      caseKey: record.caseKey,
+      status: record.status,
+      reason: record.reason,
+      model: record.model,
+    })),
+  ).toStrictEqual([
+    {
+      caseKey: 'containment/twin-01',
+      status: 'scored',
+      reason: 'first',
+      model: 'claude-sonnet-5-5',
+    },
+    {
+      caseKey: 'containment/twin-02',
+      status: 'not-scorable',
+      reason: 'model-changed',
+      model: 'claude-opus-5-5',
+    },
+  ]);
+
+  expect(resumed.summary.fallbacks).toStrictEqual([
+    { stage: 'judge', model: 'claude-sonnet-5-5', answered: 1, fallbacks: 0, models: {} },
+  ]);
+});
+
+test('it refuses a run limited to a case the experiment lacks', async () => {
+  const ctx = await setupTest();
+
+  expect(
+    runExperiment(
+      defineExperiment({
+        name: 'case-check',
+        description: 'A local stage over named cases.',
+        corpora: ['containment'],
+        samples: 1,
+        loadCases: async (source) => {
+          const dir = join(source.corporaDir, 'containment');
+
+          const loaded = await loadCaseKeys(dir);
+
+          return {
+            sets: [
+              {
+                corpus: 'containment',
+                dir,
+                cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+              },
+            ],
+            inputs: [],
+            notMeasured: [],
+          };
+        },
+        stages: [
+          {
+            name: 'containment',
+            sends: false,
+            run: () =>
+              Promise.resolve({ status: 'scored', verdict: 'allow', pBlock: null, reason: null }),
+          },
+        ],
+        measurements: [],
+      }),
+      {
+        corporaDir: ctx.corporaDir,
+        resultsDir: ctx.resultsDir,
+        recording: null,
+        seed: 1,
+        samples: 1,
+        live: false,
+        maxRequests: null,
+        resumeDir: null,
+        cases: ['containment/twin-01', 'containment/twin-99'],
+        environment: {
+          publicCommit: 'test',
+          dirtyTree: false,
+          policy: 'policy',
+          judgePolicy: 'judge policy',
+          configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+          send: null,
+          sendWithChoices: null,
+          judgeModel: null,
+          sendJudge: null,
+        },
+        now: () => new Date('2026-10-10T12:00:00.000Z'),
+        print: () => {},
+      },
+    ),
+  ).rejects.toThrowWithMessage(Error, 'The case-check cases lack [containment/twin-99].');
 });
 
 test('it records a failed request as not scorable with its reason', async () => {
@@ -407,6 +730,7 @@ test('it records a failed request as not scorable with its reason', async () => 
       live: true,
       maxRequests: 13,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -415,6 +739,7 @@ test('it records a failed request as not scorable with its reason', async () => 
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: (request) => sendEvaluationDecision(buildMockProviderConfig(), 'test-key', request),
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -497,6 +822,7 @@ test('it replays a recording through the stages that can, names the stage that c
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: true,
@@ -505,6 +831,7 @@ test('it replays a recording through the stages that can, names the stage that c
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -540,7 +867,9 @@ test('it replays a recording through the stages that can, names the stage that c
 test('it replays the recorded stages and sends only the recording’s live stages in a live run', async () => {
   const ctx = await setupTest();
 
-  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+  const sendJudge = mock(() =>
+    Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm', fallback: false }),
+  );
 
   const result = await runExperiment(
     defineExperiment({
@@ -602,6 +931,7 @@ test('it replays the recorded stages and sends only the recording’s live stage
       live: true,
       maxRequests: 1000,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -610,6 +940,7 @@ test('it replays the recorded stages and sends only the recording’s live stage
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -640,7 +971,10 @@ test('it replays the recorded stages and sends only the recording’s live stage
 test('it caps a live replay run at the judge requests its recorded Jev denies need', async () => {
   const ctx = await setupTest();
 
-  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+  const sendJudge = mock(() =>
+    Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm', fallback: false }),
+  );
+
   const printed: string[] = [];
 
   const result = await runExperiment(
@@ -714,6 +1048,7 @@ test('it caps a live replay run at the judge requests its recorded Jev denies ne
       live: true,
       maxRequests: 13,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -722,6 +1057,7 @@ test('it caps a live replay run at the judge requests its recorded Jev denies ne
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -820,6 +1156,7 @@ test('it refuses a live replay run whose recorded Jev denies need more judge req
       live: true,
       maxRequests: 12,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -828,6 +1165,7 @@ test('it refuses a live replay run whose recorded Jev denies need more judge req
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -913,6 +1251,7 @@ test('it counts each live stage after a unit’s first live send in a live repla
       live: true,
       maxRequests: 25,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -921,6 +1260,7 @@ test('it counts each live stage after a unit’s first live send in a live repla
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -959,6 +1299,7 @@ test('it refuses a live run against a recording that names no live stage', async
       live: true,
       maxRequests: 10,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -967,6 +1308,7 @@ test('it refuses a live run against a recording that names no live stage', async
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1011,6 +1353,7 @@ test('it refuses a live run against a recording whose live stage the experiment 
       live: true,
       maxRequests: 10,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1019,6 +1362,7 @@ test('it refuses a live run against a recording whose live stage the experiment 
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1055,6 +1399,7 @@ test('it refuses a recording the experiment does not define', async () => {
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1063,6 +1408,7 @@ test('it refuses a recording the experiment does not define', async () => {
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1127,6 +1473,7 @@ test('it measures only the cases the experiment selects, keyed by their corpus',
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1135,6 +1482,7 @@ test('it measures only the cases the experiment selects, keyed by their corpus',
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1192,6 +1540,7 @@ test('it refuses a run whose cases lack a required case', async () => {
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1200,6 +1549,7 @@ test('it refuses a run whose cases lack a required case', async () => {
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1265,6 +1615,7 @@ test('it reports each required case by key with every stage verdict', async () =
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1273,6 +1624,7 @@ test('it reports each required case by key with every stage verdict', async () =
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1332,6 +1684,7 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1340,6 +1693,7 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1392,6 +1746,7 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
       live: false,
       maxRequests: null,
       resumeDir: first.runDir,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1400,6 +1755,7 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T13:00:00.000Z'),
@@ -1446,7 +1802,9 @@ test('it counts a resumed live replay run with the model each stage answered wit
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
-      sendJudge: () => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }),
+      judgeModel: null,
+      sendJudge: () =>
+        Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm', fallback: false }),
     },
     now: () => new Date('2026-10-10T12:00:00.000Z'),
     print: () => {},
@@ -1500,14 +1858,16 @@ test('it counts a resumed live replay run with the model each stage answered wit
       ],
       measurements: [],
     }),
-    { ...options, resumeDir: null },
+    { ...options, resumeDir: null, cases: null },
   );
 
   invariant(first.kind === 'completed');
 
   await writeFile(join(first.runDir, 'samples.jsonl'), '');
 
-  const sendJudge = mock(() => Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm' }));
+  const sendJudge = mock(() =>
+    Promise.resolve({ model: 'claude-sonnet-5-5', text: 'confirm', fallback: false }),
+  );
 
   const resumed = await runExperiment(
     defineExperiment({
@@ -1566,6 +1926,7 @@ test('it counts a resumed live replay run with the model each stage answered wit
     {
       ...options,
       resumeDir: first.runDir,
+      cases: null,
       environment: { ...options.environment, sendJudge },
     },
   );
@@ -1616,6 +1977,7 @@ test('it resumes a run whose last samples line is torn, says so, and runs that s
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1624,6 +1986,7 @@ test('it resumes a run whose last samples line is torn, says so, and runs that s
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1678,6 +2041,7 @@ test('it resumes a run whose last samples line is torn, says so, and runs that s
       live: false,
       maxRequests: null,
       resumeDir: first.runDir,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1686,6 +2050,7 @@ test('it resumes a run whose last samples line is torn, says so, and runs that s
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T13:00:00.000Z'),
@@ -1745,6 +2110,7 @@ test('it refuses to resume a run with another seed', async () => {
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1753,6 +2119,7 @@ test('it refuses to resume a run with another seed', async () => {
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1797,6 +2164,7 @@ test('it refuses to resume a run with another seed', async () => {
       live: false,
       maxRequests: null,
       resumeDir: first.runDir,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1805,6 +2173,7 @@ test('it refuses to resume a run with another seed', async () => {
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1859,6 +2228,7 @@ test('it refuses to write a run with no results directory named', async () => {
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -1867,6 +2237,7 @@ test('it refuses to write a run with no results directory named', async () => {
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1922,6 +2293,7 @@ test('it writes a run whose summary and samples the result schemas read back', a
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: true,
@@ -1930,6 +2302,7 @@ test('it writes a run whose summary and samples the result schemas read back', a
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -1955,6 +2328,7 @@ test('it writes a run whose summary and samples the result schemas read back', a
     corpusHash: expect.toBeString(),
     labelsHash: expect.toBeString(),
     recording: null,
+    cases: null,
     models: {},
     seed: 1,
     samples: 1,
@@ -2025,6 +2399,7 @@ test.each([
         live: true,
         maxRequests: 13,
         resumeDir: null,
+        cases: null,
         environment: {
           publicCommit: 'test',
           dirtyTree: false,
@@ -2033,6 +2408,7 @@ test.each([
           configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
           send: null,
           sendWithChoices: null,
+          judgeModel: null,
           sendJudge: () => Promise.reject(failure),
         },
         now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -2096,6 +2472,7 @@ test('it stops a live run whose judge stage has no judge transport instead of re
       live: true,
       maxRequests: 13,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -2104,6 +2481,7 @@ test('it stops a live run whose judge stage has no judge transport instead of re
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -2183,6 +2561,7 @@ test('it names the stages a recording left out in the all-stages count', async (
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: false,
@@ -2191,6 +2570,7 @@ test('it names the stages a recording left out in the all-stages count', async (
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -2245,6 +2625,7 @@ test('it refuses to resume a run started from a dirty tree', async () => {
       live: false,
       maxRequests: null,
       resumeDir: null,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: true,
@@ -2253,6 +2634,7 @@ test('it refuses to resume a run started from a dirty tree', async () => {
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -2297,6 +2679,7 @@ test('it refuses to resume a run started from a dirty tree', async () => {
       live: false,
       maxRequests: null,
       resumeDir: first.runDir,
+      cases: null,
       environment: {
         publicCommit: 'test',
         dirtyTree: true,
@@ -2305,6 +2688,7 @@ test('it refuses to resume a run started from a dirty tree', async () => {
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       },
       now: () => new Date('2026-10-10T12:00:00.000Z'),

@@ -95,6 +95,9 @@ free text, and git history is permanent.
 Every run writes to a clone of the private results repository, never to this one, because results
 are large and change on every run. A run holds a summary with the frozen run configuration, the
 hashes of every input and the counts, plus one record per sample, and it names the public commit it
-ran against, so the two repositories stay linked. The evaluation scripts beside the experiments run
-the live evaluations that no experiment defines, such as the question-shape sweep and the
-relay-consent corpus.
+ran against, so the two repositories stay linked. Each judge sample records the model that wrote its
+reply and whether the transport saw a safety fallback. A model alias resolves to a canonical model
+ID, so the summary counts the flagged replies rather than the names that differ from the stage's
+model. A fallback reply is scored, and only a run whose requests named another model has its answers
+left unscored. The evaluation scripts beside the experiments run the live evaluations that no
+experiment defines, such as the question-shape sweep and the relay-consent corpus.

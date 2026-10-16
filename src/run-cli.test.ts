@@ -1668,6 +1668,8 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
       overturnBasis: 'consent',
       failureReason: null,
       model: 'claude-sonnet-5-5',
+      answeringModel: 'claude-sonnet-5-5',
+      safetyStops: null,
       rule: 'Default Branch Write',
       tier: 'soft',
       elapsedMs: expect.toBeNumber(),
