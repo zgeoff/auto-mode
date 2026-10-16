@@ -145,9 +145,11 @@ default branch is unknown. `/tmp` is scratch space that every task owns.
 `protectedBranches` lists the branches your forge protects beyond the default branch, as patterns. A
 pattern matches a branch name as a forge's branch protection rule does: `*` stops at a slash, so
 `release/*` protects `release/2.0` and not `release/2.0/hotfix`, which `release/**` covers. No
-source can hand a task a branch that matches, so a push to it, a delete of it, and a pull request
-from it are always containment findings, and no direct message can grant one. auto-mode reads no
-forge, so list each protection rule here yourself. The list applies in every repository.
+source can hand a task a branch that matches, so a push to it and a delete of it are always
+containment findings, and no direct message can grant one. A pull request from it leaves the task
+scope too, but a message that names the pull request's number can still clear a write to the pull
+request, because that write does not change the branch. auto-mode reads no forge, so list each
+protection rule here yourself. The list applies in every repository.
 
 ## Decision
 
