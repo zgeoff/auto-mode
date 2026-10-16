@@ -1407,7 +1407,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
     decidingStage: 'containment',
     note: expect.toBeString(),
     status: 'deny',
-    diagnostics: expect.objectContaining({ status: 'allow' }),
+    diagnostics: expect.toBeObject(),
     grant: {
       status: 'confirmed',
       overturnBasis: null,
@@ -1426,6 +1426,9 @@ test('it keeps the containment deny with the judge’s reason when the judge con
     new RegExp(`^denied by the containment check: ${target}; judge confirmed \\(\\d+ms\\)$`, 'u'),
   );
 
+  invariant(outcome.diagnostics);
+
+  expect(outcome.diagnostics.status).toBe('allow');
   expect(received).toHaveBeenCalledOnce();
 });
 
