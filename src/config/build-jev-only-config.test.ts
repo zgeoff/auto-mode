@@ -61,6 +61,26 @@ test.each([
   },
 );
 
+test.each([
+  [45_000, 45_000],
+  [120_000, 120_000],
+  [300_000, 120_000],
+])('it limits a %d ms judge timeout to %d ms', (timeoutMs, expected) => {
+  const config = buildMockConfig({
+    provider: { protocol: 'system-one', timeoutMs: 5000 },
+    judge: {
+      protocol: 'claude-code',
+      baseURL: 'https://api.anthropic.com',
+      model: 'judge-1',
+      reasoning: false,
+      maxTokens: 3000,
+      timeoutMs,
+    },
+  });
+
+  expect(buildJevOnlyConfig(config)?.judge?.timeoutMs).toBe(expected);
+});
+
 test('it leaves the configuration it was given unchanged', () => {
   const config = buildMockConfig({ provider: { protocol: 'system-one', timeoutMs: 45_000 } });
 

@@ -1,3 +1,4 @@
+import { CLI_LIMITS } from '../../mods/auto-mode/contract/cli-limits.ts';
 import type { ProviderConfig } from './config.ts';
 
 // The generic Messages API kind names no model, so an entry of this kind must.
@@ -16,7 +17,7 @@ const JEV_PROVIDER: ProviderConfig = {
   apiKeyEnv: 'TYPESAFE_API_KEY',
   reasoning: false,
   maxTokens: 3000,
-  timeoutMs: 5000,
+  timeoutMs: CLI_LIMITS.jevMs,
 };
 
 const SPARK_PROVIDER: ProviderConfig = {
@@ -40,7 +41,7 @@ const CLAUDE_CODE_JUDGE: ProviderConfig = {
   model: 'claude-sonnet-5-5',
   reasoning: false,
   maxTokens: 3000,
-  timeoutMs: 120_000,
+  timeoutMs: CLI_LIMITS.judgeMs,
 };
 
 export const PRESETS: Readonly<Record<string, ProviderConfig>> = {

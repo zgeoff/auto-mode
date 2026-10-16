@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing';
+import { CLI_LIMITS } from '../contract/cli-limits.ts';
 import { assertDefined } from './test-utils/assert-defined.ts';
 import { buildStubProcessRun } from './test-utils/build-stub-process-run.ts';
 import { buildMockCallResult } from './test-utils/factories/build-mock-call-result.ts';
@@ -142,7 +143,7 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'session-1',
         cwd: '/repo',
@@ -159,8 +160,8 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it refuses an ask after Jev denies the action', async ($, on) => {
@@ -221,7 +222,7 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'session-1',
         cwd: '/repo',
@@ -238,8 +239,8 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it retains manual approval for malformed JSON without copying diagnostics', async ($, on) => {
@@ -302,7 +303,7 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'session-1',
         cwd: '/repo',
@@ -319,8 +320,8 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it retains manual approval for a truncated response', async ($, on) => {
@@ -379,7 +380,7 @@ test('it retains manual approval for a truncated response', async ($, on) => {
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'session-1',
         cwd: '/repo',
@@ -396,8 +397,8 @@ test('it retains manual approval for a truncated response', async ($, on) => {
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it retains manual approval when the child exits nonzero', async ($, on) => {
@@ -453,7 +454,7 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'session-1',
         cwd: '/repo',
@@ -470,8 +471,8 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it retains manual approval when the child run fails', async ($, on) => {
@@ -512,7 +513,7 @@ test('it retains manual approval when the child run fails', async ($, on) => {
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'session-1',
         cwd: '/repo',
@@ -529,8 +530,8 @@ test('it retains manual approval when the child run fails', async ($, on) => {
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it retains manual approval before the session context arrives', async ($, on) => {
@@ -610,7 +611,7 @@ test(
           '--evaluation-deadline',
           expect.stringMatching(/^\d+$/),
         ],
-        timeoutMs: 600_000,
+        timeoutMs: CLI_LIMITS.evaluationMs,
         request: {
           sessionID: 'session-1',
           cwd: '/repo',
@@ -627,8 +628,8 @@ test(
       },
     ]);
 
-    expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-    expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+    expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+    expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
   },
 );
 
@@ -673,7 +674,7 @@ test('it takes the session identity from a user prompt when no session has start
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'new-session',
         cwd: '/new-repo',
@@ -690,8 +691,8 @@ test('it takes the session identity from a user prompt when no session has start
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it carries the session identity and the direct user message', async ($, on) => {
@@ -729,7 +730,7 @@ test('it carries the session identity and the direct user message', async ($, on
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'session-1',
         cwd: '/repo',
@@ -746,8 +747,8 @@ test('it carries the session identity and the direct user message', async ($, on
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it sends the earlier direct message as stale after a relayed plugin prompt', async ($, on) => {
@@ -824,7 +825,7 @@ test('it preserves the complete action without truncation', async ($, on) => {
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'session-1',
         cwd: '/repo',
@@ -841,8 +842,8 @@ test('it preserves the complete action without truncation', async ($, on) => {
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it does not replace the main context with a subagent prompt', async ($, on) => {
@@ -890,7 +891,7 @@ test('it does not replace the main context with a subagent prompt', async ($, on
         '--evaluation-deadline',
         expect.stringMatching(/^\d+$/),
       ],
-      timeoutMs: 600_000,
+      timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
         sessionID: 'main-session',
         cwd: '/main',
@@ -907,8 +908,8 @@ test('it does not replace the main context with a subagent prompt', async ($, on
     },
   ]);
 
-  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + 599_500);
-  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + 599_500);
+  expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
+  expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
 test('it reads the current directory between two calls without a new prompt', async ($, on) => {
@@ -944,7 +945,7 @@ test('it reads the current directory between two calls without a new prompt', as
       '--evaluation-deadline',
       expect.stringMatching(/^\d+$/),
     ],
-    timeoutMs: 600_000,
+    timeoutMs: CLI_LIMITS.evaluationMs,
     request: {
       sessionID: 'session-1',
       cwd: '/second',
