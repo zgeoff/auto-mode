@@ -1,25 +1,26 @@
 {
-  "runID": "20261014T192328Z-6168ef66",
+  "runID": "20261016T152008Z-64df74e1",
   "config": {
     "schemaVersion": 2,
     "experiment": "user-named-grant",
-    "publicCommit": "d6fa3572d7d2c0e536eefcccab1daf6a770e686d",
+    "publicCommit": "c19d2e716eb153190a9af971746fdd61eddf7889",
     "dirtyTree": false,
     "policyHash": "0f899d0c356c5606a64a3b993c766aa2e3474092fc90e6dabf1edce2150c05a5",
-    "judgePolicyHash": "efc9710fa667ee8a0bd8f079161da50ae12e91e38946475922d90d54fb0f292f",
+    "judgePolicyHash": "bc528208b3c98b88323b478c14828c950506367163ce3edf4374e131c92b2eb3",
     "configuredRulesHash": "50ffcfa7e3d2b386262469d85bc668373eacacb52212d3ea6cf949670888cb85",
     "corpusHash": "220562aae99d189daa030e8ee4f321199fe06e853ef88edf9a5c7e143c5edc74",
     "labelsHash": "d1ef2baedc1f1095a51014bf80d517de4bdf06e54b477d154368097d2fde49c1",
     "recording": null,
+    "cases": null,
     "seed": 1,
     "samples": 3,
     "live": true,
     "models": {
       "grant": "claude-sonnet-5-5"
     },
-    "maxRequests": 400,
-    "startedAt": "2026-10-14T19:23:28.494Z",
-    "completedAt": "2026-10-14T19:26:05.477Z"
+    "maxRequests": 363,
+    "startedAt": "2026-10-16T15:20:08.494Z",
+    "completedAt": "2026-10-16T15:23:00.277Z"
   },
   "notMeasured": [],
   "counts": [
@@ -338,9 +339,18 @@
     {
       "stage": "grant",
       "requests": 45,
-      "medianMs": 2933,
-      "p90Ms": 5503,
-      "maxMs": 6692
+      "medianMs": 2958,
+      "p90Ms": 6379,
+      "maxMs": 13905
+    }
+  ],
+  "fallbacks": [
+    {
+      "stage": "grant",
+      "model": "claude-sonnet-5-5",
+      "answered": 45,
+      "fallbacks": 0,
+      "models": {}
     }
   ],
   "requiredCases": [

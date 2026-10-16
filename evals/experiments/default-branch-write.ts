@@ -45,7 +45,8 @@ export const defaultBranchWrite = defineExperiment<MeasurementCase>({
     {
       name: 'geo-475-sonnet',
       description:
-        'the GEO-475 live run: shipped Jev and the shipped judge on claude-sonnet-5-5 through claude -p',
+        'the GEO-475 Jev answers with the shipped judge on claude-sonnet-5-5 through the Agent SDK; with --live the judge sends again',
+      liveStages: [JUDGE_STAGE],
     },
   ],
   selectCase: (label, key) =>

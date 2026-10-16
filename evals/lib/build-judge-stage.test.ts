@@ -128,18 +128,22 @@ test('it sends the denied rule, the action and the case message as one JSON obje
 
   invariant(request);
 
-  expect(request.user).toStartWith('Review this deny. The evidence is one JSON object.\n\n');
+  expect(request.user).toStartWith(
+    'Review each deny in `denies`, in order. The evidence is one JSON object.\n\n',
+  );
 
   const evidence: unknown = JSON.parse(request.user.slice(request.user.indexOf('{')));
 
   expect(evidence).toStrictEqual({
-    deniedRule: {
-      name: 'Irreversible Deletion',
-      tier: 'soft',
-      source: 'shipped',
-      basis: 'the action matches the rule',
-      text: '### Irreversible Deletion\nDeleting data nothing can restore.',
-    },
+    denies: [
+      {
+        name: 'Irreversible Deletion',
+        tier: 'soft',
+        source: 'shipped',
+        basis: 'the action matches the rule',
+        text: '### Irreversible Deletion\nDeleting data nothing can restore.',
+      },
+    ],
     action: {
       tool: measurementCase.action.toolName,
       cwd: measurementCase.action.cwd,
@@ -191,10 +195,12 @@ test('it sends the basis as unresolved when no answer chose block', async () => 
   const evidence: unknown = JSON.parse(request.user.slice(request.user.indexOf('{')));
 
   expect(evidence).toMatchObject({
-    deniedRule: {
-      name: 'Irreversible Deletion',
-      basis: 'the supplied evidence cannot rule out the harm the rule describes',
-    },
+    denies: [
+      {
+        name: 'Irreversible Deletion',
+        basis: 'the supplied evidence cannot rule out the harm the rule describes',
+      },
+    ],
   });
 });
 

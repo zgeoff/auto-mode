@@ -50,16 +50,17 @@ flowchart TD
 4. The containment check reads the write targets it can resolve from the call and denies any that
    lies outside the task scope: the worktrees, branches and pull requests the task owns
    ([containment](./stages/containment.md), [the task scope](./evidence/task-scope.md)). When the
-   user's last message names every target, the judge reviews the deny first, and an overturn clears
-   the finding so the call moves on
+   user's last message names every target, the call moves on with the deny pending, and the judge
+   reviews it beside any Jev deny
    ([the user-named grant](./stages/containment.md#the-user-named-grant)).
 5. The edit bypass allows a file edit inside a worktree the task owns, once a secret scan of the new
    content finds nothing ([the edit bypass](./stages/edit-bypass.md)).
 6. Jev answers one question per block rule in the policy, and the CLI denies when any rule's block
    probability reaches the configured threshold ([Jev](./stages/jev.md)).
-7. The judge, when configured, reads each Jev deny and confirms it with a written reason, or
-   overturns it to an allow when the user's last message asked for exactly this action or when no
-   rule covers the action ([the judge](./stages/judge.md)).
+7. The judge, when configured, reads every deny of the call in one review: the pending containment
+   deny and the Jev deny. It confirms each with a written reason, or overturns it when the user's
+   last message asked for exactly this action or when no rule covers the action. The call is allowed
+   only when every deny is overturned ([the judge](./stages/judge.md)).
 8. The denial budget counts each deny. The deny that would pass the budget becomes no verdict, so
    that call reaches the user.
 

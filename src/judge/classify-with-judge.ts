@@ -9,13 +9,14 @@ import type { JudgeEvidence } from '../types.ts';
 import { buildJudgeMessage } from './build-judge-message.ts';
 import type { JudgedVerdict } from './build-judged-verdict.ts';
 import { buildJudgedVerdict } from './build-judged-verdict.ts';
-import { parseJudgeReply } from './parse-judge-reply.ts';
+import { parseJudgeReplies } from './parse-judge-replies.ts';
 import { sendJudgeMessage } from './send-judge-message.ts';
 import type {
   JudgeDiagnostics,
   JudgeFailure,
   JudgeMessageReply,
   JudgeOverturns,
+  JudgeReply,
   JudgeSession,
 } from './types.ts';
 
@@ -31,22 +32,18 @@ export interface JudgeOptions extends EvaluationOptions {
 }
 
 // The judge fails closed: no key, no policy, a timeout, a failed call or an
-// unreadable reply all keep the deny with its template reason.
+// unreadable review all keep a deny with its template reason.
 export async function classifyWithJudge(
   payload: ActionRequest,
-  evidence: Readonly<JudgeEvidence>,
+  evidence: readonly JudgeEvidence[],
   judge: Readonly<ProviderConfig>,
   options: Readonly<JudgeOptions>,
-): Promise<JudgeOutcome> {
+): Promise<readonly JudgeOutcome[]> {
   const start = performance.now();
   const now = options.now ?? Date.now;
-
-  // The task scope is a fact the judge cannot read better than the check did,
-  // so only consent clears a containment finding.
-  const overturns = evidence.containment === undefined ? options.overturns : 'consent';
   let failure: JudgeFailure | null = null;
   let answered: JudgeMessageReply | null = null;
-  let verdict: JudgedVerdict;
+  let replies: readonly (JudgeReply | null)[] = evidence.map(() => null);
 
   try {
     failure = 'credential';
@@ -66,12 +63,15 @@ export async function classifyWithJudge(
     );
 
     const user = buildJudgeMessage({
-      rule: evidence.rule,
-      basis: evidence.basis,
+      denies: evidence.map((entry) => ({
+        rule: entry.rule,
+        basis: entry.basis,
+        containment: entry.containment,
+      })),
       action: { tool: payload.toolName, cwd: payload.cwd, input: payload.toolInput },
       lastUserMessage: directMessage,
-      repositoryContext: evidence.repositoryContext,
-      containment: evidence.containment,
+      repositoryContext:
+        evidence.find((entry) => entry.repositoryContext !== null)?.repositoryContext ?? null,
     });
 
     const remainingMs =
@@ -102,40 +102,47 @@ export async function classifyWithJudge(
       throw error;
     });
 
-    const reply = parseJudgeReply(answered.text);
-
-    failure = reply.kind === 'unreadable' ? 'unreadable' : null;
-
-    verdict = buildJudgedVerdict(
-      evidence.rule,
-      evidence.basis,
-      reply,
-      overturns,
-      evidence.containment?.reason,
+    replies = parseJudgeReplies(
+      answered.text,
+      evidence.map((entry) => entry.rule.name),
     );
+
+    failure = null;
   } catch {
-    verdict = buildJudgedVerdict(
-      evidence.rule,
-      evidence.basis,
-      null,
-      overturns,
-      evidence.containment?.reason,
-    );
+    // The failure names the step that threw, and every deny keeps its reason.
   }
 
-  return {
-    ...verdict,
-    diagnostics: {
-      status: verdict.status,
-      failureReason: failure,
-      overturnBasis: verdict.overturnBasis,
-      model: judge.model,
-      answeringModel: answered?.model ?? null,
-      safetyStops: answered?.safetyStops ?? null,
-      warm: answered?.warm ?? null,
-      rule: evidence.rule.source === 'shipped' ? evidence.rule.name : evidence.rule.source,
-      tier: evidence.rule.tier,
-      elapsedMs: Math.round(performance.now() - start),
-    },
-  };
+  const elapsedMs = Math.round(performance.now() - start);
+
+  return evidence.map((entry, index) => {
+    const reply = replies[index] ?? null;
+
+    // The task scope is a fact the judge cannot read better than the check
+    // did, so only consent clears a containment finding.
+    const overturns = entry.containment === undefined ? options.overturns : 'consent';
+
+    const verdict = buildJudgedVerdict(
+      entry.rule,
+      entry.basis,
+      reply,
+      overturns,
+      entry.containment?.reason,
+    );
+
+    return {
+      ...verdict,
+      diagnostics: {
+        status: verdict.status,
+        failureReason: failure ?? (reply?.kind === 'unreadable' ? 'unreadable' : null),
+        overturnBasis: verdict.overturnBasis,
+        model: judge.model,
+        answeringModel: answered?.model ?? null,
+        safetyStops: answered?.safetyStops ?? null,
+        warm: answered?.warm ?? null,
+        rule: entry.rule.source === 'shipped' ? entry.rule.name : entry.rule.source,
+        tier: entry.rule.tier,
+        elapsedMs,
+      },
+    };
+  });
 }

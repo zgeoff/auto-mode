@@ -13,11 +13,12 @@ the user named ([a containment deny](#a-containment-deny)).
 
 ## What the judge reads
 
-The judge reads one JSON value holding the denied rule with its tier, its source, its full text and
-the basis of the deny, then the complete action, the last direct user message, and the repository
-facts Jev had. The evidence travels as one JSON value, so a user message or a command that holds a
-closing tag cannot end its own field early. The judge reads no stale user message, because a message
-the user typed before a relayed turn cannot grant consent
+The judge reviews every deny of one prompted call in one turn, so a call never waits on two judge
+reviews. It reads one JSON value holding each denied rule in order, with its tier, its source, its
+full text and the basis of the deny, then the complete action, the last direct user message, and the
+repository facts Jev had. The evidence travels as one JSON value, so a user message or a command
+that holds a closing tag cannot end its own field early. The judge reads no stale user message,
+because a message the user typed before a relayed turn cannot grant consent
 ([the user message](../evidence/user-message.md)).
 
 The default judge is one Claude Code process per agent session, which the Agent SDK drives over
@@ -42,10 +43,11 @@ can never be the judge, because it writes no reasons.
 
 ## Confirm or overturn
 
-The judge's reply must hold exactly one verdict and one non-empty reason, and an overturn must also
-hold exactly one basis. Any other reply is unreadable, because a second tag could disagree with the
-first. The CLI reads the same fields from a reply written as one JSON object. The CLI turns the
-reply into one of four outcomes:
+The judge answers one JSON object that holds one review per deny, in the evidence's order, each
+naming its rule. A review holds a verdict and a non-empty reason, and an overturn also holds a
+basis. A reply that skips, adds or reorders a rule leaves every review unreadable, because it could
+pin one rule's verdict on another. The recorded evaluation replies to a single deny hold one verdict
+in tags, and the CLI reads those too. The CLI turns each review into one of four outcomes:
 
 | Outcome    | When                                                                     | The agent receives                     |
 | ---------- | ------------------------------------------------------------------------ | -------------------------------------- |
@@ -74,15 +76,15 @@ timeout, a failed call and an unreadable reply all end in the failed outcome.
 ## A containment deny
 
 The judge also reviews a [containment](./containment.md) deny when the last direct user message
-names every target of it ([the user-named grant](./containment.md#the-user-named-grant)). That
-review reads the Outside Task Scope rule from its own policy file in place of a rule from the rule
-list, and two more evidence fields: the check's finding, which names every target and what the task
-owns, and each target paired with the word of the message that names it. The rule tells the judge
-that a name alone is not consent, and that a target named as a source to read, a place to look or a
-reference is none.
+names every target of it ([the user-named grant](./containment.md#the-user-named-grant)), in the
+same turn as any Jev deny of the call. That deny reads the Outside Task Scope rule from its own
+policy file in place of a rule from the rule list, and two more evidence fields: the check's
+finding, which names every target and what the task owns, and each target paired with the word of
+the message that names it. The rule tells the judge that a name alone is not consent, and that a
+target named as a source to read, a place to look or a reference is none.
 
 The review is a soft rule that only consent clears. A misread overturn is held whatever the
 configuration accepts, because the task scope is a fact the check read and the judge has no better
 reading of it. A held or failed review keeps the check's own reason, which names the targets, and a
 confirmed one carries the judge's reason behind the fixed prefix. The action log records the review
-in a field of its own, apart from the judge's review of a later Jev deny on the same call.
+of the containment deny in a field of its own, apart from the review of the Jev deny.

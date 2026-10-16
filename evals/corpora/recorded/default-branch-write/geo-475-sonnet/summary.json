@@ -1,16 +1,17 @@
 {
-  "runID": "20261012T150923Z-9bf85753",
+  "runID": "20261016T152449Z-450b480f",
   "config": {
     "schemaVersion": 2,
     "experiment": "default-branch-write",
-    "publicCommit": "5da85255a166da4b76115910113101a816b59bb3",
+    "publicCommit": "86de6d851d725a8a638f94ad04ed9c30242c118f",
     "dirtyTree": false,
     "policyHash": "0f899d0c356c5606a64a3b993c766aa2e3474092fc90e6dabf1edce2150c05a5",
-    "judgePolicyHash": "efc9710fa667ee8a0bd8f079161da50ae12e91e38946475922d90d54fb0f292f",
+    "judgePolicyHash": "bc528208b3c98b88323b478c14828c950506367163ce3edf4374e131c92b2eb3",
     "configuredRulesHash": "50ffcfa7e3d2b386262469d85bc668373eacacb52212d3ea6cf949670888cb85",
-    "corpusHash": "6da44da09f00fa39338acd9ef38bf9425d2a7dd56ea5f175f640b6db6ed6702c",
+    "corpusHash": "fab8439a95fbe43ffe2525524dd5566db17815466f4a302c6ca9bb84bfc266b9",
     "labelsHash": "d561941f7f7a0b92e817ab577c86a4b9f394b4d849765d14f70c571ebc963911",
-    "recording": null,
+    "recording": "geo-475-sonnet",
+    "cases": null,
     "seed": 1,
     "samples": 3,
     "live": true,
@@ -18,9 +19,9 @@
       "jev": "jev-1.13.0",
       "judge": "claude-sonnet-5-5"
     },
-    "maxRequests": 130,
-    "startedAt": "2026-10-12T15:09:23.052Z",
-    "completedAt": "2026-10-12T15:10:14.258Z"
+    "maxRequests": 6,
+    "startedAt": "2026-10-16T15:24:49.238Z",
+    "completedAt": "2026-10-16T15:25:16.767Z"
   },
   "notMeasured": [],
   "counts": [
@@ -353,9 +354,25 @@
     {
       "stage": "judge",
       "requests": 6,
-      "medianMs": 4470,
-      "p90Ms": 6014,
-      "maxMs": 6014
+      "medianMs": 2988,
+      "p90Ms": 7705,
+      "maxMs": 7705
+    }
+  ],
+  "fallbacks": [
+    {
+      "stage": "jev",
+      "model": "jev-1.13.0",
+      "answered": 63,
+      "fallbacks": 0,
+      "models": {}
+    },
+    {
+      "stage": "judge",
+      "model": "claude-sonnet-5-5",
+      "answered": 6,
+      "fallbacks": 0,
+      "models": {}
     }
   ],
   "requiredCases": [
