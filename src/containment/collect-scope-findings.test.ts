@@ -1067,6 +1067,38 @@ test.each([['gh pr merge 512 --admin --squash'], ['gh pr merge 512 --admin=true'
   },
 );
 
+test('it keeps an admin merge that follows a grantable merge of another pull request', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'gh pr merge 512 && gh pr merge 513 --admin' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target: 'gh pr merge', grant: { kind: 'pull-request', number: 512 } },
+    { kind: 'remote-write', target: 'gh pr merge' },
+  ]);
+});
+
+test('it keeps a merge of each pull request a command merges', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'gh pr merge 512 && gh pr merge 513 && gh pr merge 512' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'remote-write', target: 'gh pr merge', grant: { kind: 'pull-request', number: 512 } },
+    { kind: 'remote-write', target: 'gh pr merge', grant: { kind: 'pull-request', number: 513 } },
+  ]);
+});
+
 test('it finds a merge with no pull request number that no message can grant', () => {
   const findings = collectScopeFindings(
     {
