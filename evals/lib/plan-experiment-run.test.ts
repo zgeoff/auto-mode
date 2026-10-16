@@ -90,3 +90,26 @@ test('it orders the units differently for another seed', () => {
 
   expect(seven.units).not.toStrictEqual(eight.units);
 });
+
+test('it counts a request only for each listed stage run when the input lists the runs that send', () => {
+  const plan = planExperimentRun({
+    caseKeys: ['a', 'b'],
+    samples: 1,
+    stages: [
+      { name: 'jev', sends: false },
+      { name: 'judge', sends: true },
+    ],
+    seed: 1,
+    recorded: [],
+    sending: [buildStageRunKey('b', 0, 'judge')],
+  });
+
+  expect(plan.requests).toBe(1);
+
+  expect(
+    plan.units.map((unit) => [unit.caseKey, unit.stages.map((stage) => stage.sends)]),
+  ).toIncludeSameMembers([
+    ['a', [false, false]],
+    ['b', [false, true]],
+  ]);
+});

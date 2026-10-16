@@ -62,9 +62,11 @@ replays the recorded answer for its case and sample, with the recording's latenc
 the recording holds no answers for is left out and named as not measured. A recording kept under
 `legacy/` in the results clone is read from there; without it, that stage is not measured either.
 `--recorded` and `--live` combine only for a recording that names live stages: the run sends those
-stages and replays the rest, so a judge or rule change is measured on recorded Jev answers. The run
-records each answer's hash beside its request hash, and whether the tree was dirty, so an offline
-run from a dirty tree still says so.
+stages and replays the rest, so a judge or rule change is measured on recorded Jev answers. Its plan
+counts only the requests the run will send: the command first runs each case without sending, so the
+judge's line counts the recorded Jev denies it reviews, not an upper bound. The run records each
+answer's hash beside its request hash, and whether the tree was dirty, so an offline run from a
+dirty tree still says so.
 
 ## Run live
 
