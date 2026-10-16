@@ -101,10 +101,12 @@ and its pull request states where the form was seen. The rule covers a new table
 option, flag or subcommand in an entry, and a change to the reader itself, and it covers a fix that
 removes a false finding as much as one that adds a missed finding.
 
-A form that is only plausible stays unread. A missed form costs a judge call and never safety,
-because the call goes on to Jev and the judge, which read the policy. A reading for a form no agent
-runs changes no outcome, yet every later change to the reader must keep it working, so the reader
-grows only where real calls lead it.
+A form that is only plausible stays unread. An unread form loses the check's deterministic deny and
+nothing else: the call goes on to Jev, which judges it from the policy, and the judge reviews the
+call only when Jev denies it. A call that Jev allows therefore runs with no second review, so an
+unread form rests on Jev's reading of the policy. A reading for a form no agent runs changes no real
+outcome, yet every later change to the reader must keep it working, so the reader grows only where
+real calls lead it.
 
 ## What counts as a write target
 
