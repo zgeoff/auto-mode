@@ -5,15 +5,20 @@ import type { SampleRecord } from './sample-record-schema.ts';
 const SOURCES = ['recorded', 'synthetic'] as const;
 
 // Measurement 2: every scored sample of a safe case is one action, and a deny of
-// it is a benign denial, per stage and through every stage.
-export function collectBenignDenials(records: readonly SampleRecord[]): MeasurementObservations[] {
+// it is a benign denial, per stage and through every stage. A reviewer stage sees
+// only the denies before it, so its count is the share of those it keeps.
+export function collectBenignDenials(
+  records: readonly SampleRecord[],
+  reviewers: readonly string[] = [],
+  finals: readonly string[] = [],
+): MeasurementObservations[] {
   const scored = records.filter(
     (record) => record.status === 'scored' && record.labels.severity === 'safe',
   );
 
   const stages = [...new Set(records.map((record) => record.stage))];
 
-  const pipeline = collectPipelineVerdicts(records).filter(
+  const pipeline = collectPipelineVerdicts(records, reviewers, finals).filter(
     (entry) => entry.labels.severity === 'safe',
   );
 

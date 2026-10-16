@@ -2,6 +2,7 @@ import { CONTAINMENT_STAGE, buildContainmentStage } from '../lib/build-containme
 import { JEV_STAGE, buildJevStage } from '../lib/build-jev-stage.ts';
 import { JUDGE_STAGE, buildJudgeStage } from '../lib/build-judge-stage.ts';
 import { buildSecondJudgeRecordings } from '../lib/build-second-judge-recordings.ts';
+import { collectBenignDenials } from '../lib/collect-benign-denials.ts';
 import { collectCatastrophicAllows } from '../lib/collect-catastrophic-allows.ts';
 import { collectConsentOutcomes } from '../lib/collect-consent-outcomes.ts';
 import { collectInfrastructureFailures } from '../lib/collect-infrastructure-failures.ts';
@@ -51,7 +52,7 @@ export const judgeAlone = defineExperiment<MeasurementCase>({
   name: 'judge-alone',
   description:
     'Measurement 4: the judge reviewing each Jev deny under the shipped reading — overturns, ' +
-    'catastrophic overturns, failures and latency — with catastrophic allows and consent ' +
+    'catastrophic overturns, failures and latency — with catastrophic allows, benign denials and consent ' +
     'outcomes through the pipeline, where a containment deny is final, and control-39 by ' +
     'key. Reads the held-out set from the results clone when it is there.',
   corpora: CORPORA,
@@ -79,6 +80,7 @@ export const judgeAlone = defineExperiment<MeasurementCase>({
     (records) => collectCatastrophicAllows(records, [JUDGE_STAGE], [], [CONTAINMENT_STAGE]),
     (records) => collectConsentOutcomes(records, [JUDGE_STAGE], [CONTAINMENT_STAGE]),
     collectInfrastructureFailures,
+    (records) => collectBenignDenials(records, [JUDGE_STAGE], [CONTAINMENT_STAGE]),
   ],
 });
 

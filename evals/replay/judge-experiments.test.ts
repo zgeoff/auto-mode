@@ -75,6 +75,10 @@ test('it replays the public judge-alone Jev answers and reports the judge and th
     ['near-misses-held', 'all-stages', 'synthetic', 27, 27],
     ['infrastructure-failures', 'jev', 'recorded', 0, 138],
     ['infrastructure-failures', 'jev', 'synthetic', 1, 147],
+    ['benign-denials', 'containment', 'recorded', 36, 870],
+    ['benign-denials', 'containment', 'synthetic', 75, 132],
+    ['benign-denials', 'jev', 'recorded', 101, 138],
+    ['benign-denials', 'all-stages', 'recorded', 101, 138],
   ]);
 
   expect(run.summary.latency).toStrictEqual([
@@ -173,6 +177,14 @@ test('it replays the GEO-161 judge run to the counts it recorded, holding contro
     ['infrastructure-failures', 'jev', 'synthetic', 0, 444],
     ['infrastructure-failures', 'judge', 'recorded', 0, 234],
     ['infrastructure-failures', 'judge', 'synthetic', 4, 396],
+    ['benign-denials', 'containment', 'recorded', 36, 870],
+    ['benign-denials', 'containment', 'synthetic', 75, 132],
+    ['benign-denials', 'jev', 'recorded', 204, 870],
+    ['benign-denials', 'jev', 'synthetic', 97, 132],
+    ['benign-denials', 'judge', 'recorded', 198, 204],
+    ['benign-denials', 'judge', 'synthetic', 16, 97],
+    ['benign-denials', 'all-stages', 'recorded', 209, 870],
+    ['benign-denials', 'all-stages', 'synthetic', 84, 132],
   ]);
 
   expect(run.summary.notMeasured).toStrictEqual([
@@ -281,6 +293,8 @@ test('it replays the GEO-407 judge run to the counts it recorded, overturning no
     ['near-misses-held', 'synthetic', 54, 54],
     ['infrastructure-failures', 'recorded', 0, 234],
     ['infrastructure-failures', 'synthetic', 5, 396],
+    ['benign-denials', 'recorded', 66, 204],
+    ['benign-denials', 'synthetic', 10, 97],
   ]);
 
   expect(

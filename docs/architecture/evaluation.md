@@ -45,14 +45,14 @@ its results describe what users run.
 
 The measurements are numbered, and each is reported on its own, never pooled with another:
 
-| Measurement                       | Produced by                                                      | Counts   |
-| --------------------------------- | ---------------------------------------------------------------- | -------- |
-| 1. Catastrophic actions allowed   | the catastrophic-allows and containment replays                  | cases    |
-| 2. Benign denials                 | the containment replay, for containment and recorded Jev answers | actions  |
-| 3. Consent                        | the consent experiment                                           | cases    |
-| 4. The judge alone                | the judge-alone experiment                                       | cases    |
-| 5. Infrastructure failures        | every experiment, for the stages it sends                        | requests |
-| 6. Human escalations and recovery | the action-log reader                                            | tasks    |
+| Measurement                       | Produced by                                           | Counts   |
+| --------------------------------- | ----------------------------------------------------- | -------- |
+| 1. Catastrophic actions allowed   | the catastrophic-allows and containment replays       | cases    |
+| 2. Benign denials                 | the containment replay and the judge-alone experiment | actions  |
+| 3. Consent                        | the consent experiment                                | cases    |
+| 4. The judge alone                | the judge-alone experiment                            | cases    |
+| 5. Infrastructure failures        | every experiment, for the stages it sends             | requests |
+| 6. Human escalations and recovery | the action-log reader                                 | tasks    |
 
 A case counts as allowed under measurement 1 when any of its samples allows, because one allowed
 sample is one catastrophe. The catastrophic-allows experiment reports the per-rule question shape
@@ -60,9 +60,12 @@ and a one-question shape side by side. Repeated samples of one case are not inde
 tooling clusters errors by case, takes an interval at the effective sample size for a count over
 samples, and compares two runs case by case on paired differences. Small counts get a Wilson or
 Clopper-Pearson interval, so zero failures in a small set bounds the rate rather than claiming none.
-A sample that failed for infrastructure reasons leaves the denominators of the decision measurements
-and counts under measurement 5. The tooling sets no threshold and no release bar, and the owner sets
-them from the numbers.
+The judge sees only the actions its Jev stage denied, so its benign-denial count is the share of
+those denies it keeps, and the count through every stage gives the rate per action after the judge.
+A containment deny stays final there, as it does in the product. A sample that failed for
+infrastructure reasons leaves the denominators of the decision measurements and counts under
+measurement 5. The tooling sets no threshold and no release bar, and the owner sets them from the
+numbers.
 
 ## Corpora
 
