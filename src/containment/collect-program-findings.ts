@@ -241,31 +241,27 @@ function pickOperands(
   const operands = call.operands;
   const isNamed = hasOption(call, rule.options ?? []);
 
-  switch (selector) {
-    case 'all': {
-      return operands;
-    }
-
-    case 'first': {
-      return operands.slice(0, 1);
-    }
-
-    case 'after-script': {
-      return hasOption(call, rule.scriptOptions ?? []) ? operands : operands.slice(1);
-    }
-
-    case 'destination': {
-      return isNamed || operands.length < 2 ? [] : operands.slice(-1);
-    }
-
-    case 'sources': {
-      if (isNamed) {
-        return operands;
-      }
-
-      return operands.length < 2 ? [] : operands.slice(0, -1);
-    }
+  if (selector === 'all') {
+    return operands;
   }
+
+  if (selector === 'first') {
+    return operands.slice(0, 1);
+  }
+
+  if (selector === 'after-script') {
+    return hasOption(call, rule.scriptOptions ?? []) ? operands : operands.slice(1);
+  }
+
+  if (isNamed) {
+    return selector === 'sources' ? operands : [];
+  }
+
+  if (operands.length < 2) {
+    return [];
+  }
+
+  return selector === 'destination' ? operands.slice(-1) : operands.slice(0, -1);
 }
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
