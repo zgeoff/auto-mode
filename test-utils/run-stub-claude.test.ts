@@ -76,7 +76,7 @@ test('it answers a /clear line with an empty result', () => {
 
   const [, cleared] = result.stdout.trim().split('\n');
 
-  invariant(cleared);
+  invariant(cleared !== undefined);
 
   expect(JSON.parse(cleared)).toMatchObject({ type: 'result', result: '' });
 });
@@ -183,7 +183,7 @@ test('it prints an error result when the error control is set', () => {
 
   const [, reply] = result.stdout.trim().split('\n');
 
-  invariant(reply);
+  invariant(reply !== undefined);
 
   expect(JSON.parse(reply)).toMatchObject({ subtype: 'error_during_execution', is_error: true });
 });

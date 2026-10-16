@@ -1,6 +1,11 @@
 import { tmpdir } from 'node:os';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import type { Query, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  Query,
+  SDKMessage,
+  SDKResultMessage,
+  SDKUserMessage,
+} from '@anthropic-ai/claude-agent-sdk';
 import * as z from 'zod';
 import type { ModelRequest } from '../messages/anthropic-client.ts';
 import { findExecutable } from '../process/find-executable.ts';
@@ -58,7 +63,7 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
       if (turn.sessionFallback) {
         stop();
       } else {
-        current.cleared = sendClear(current);
+        current.cleared = sendClear(current.send, current.stop);
       }
 
       return buildReply(turn.result, turn.fallbacks, model, warm);
@@ -94,7 +99,10 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
   };
 }
 
-function waitUnlessAborted(previous: Promise<void>, signal: Readonly<AbortSignal>): Promise<void> {
+function waitUnlessAborted(
+  previous: Readonly<Promise<void>>,
+  signal: Readonly<AbortSignal>,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const onAbort = (): void => {
       reject(new DOMException('Judge review aborted', 'AbortError'));
@@ -116,24 +124,30 @@ function waitUnlessAborted(previous: Promise<void>, signal: Readonly<AbortSignal
   });
 }
 
-async function waitThenRelease(previous: Promise<void>, release: () => void): Promise<void> {
+async function waitThenRelease(
+  previous: Readonly<Promise<void>>,
+  release: () => void,
+): Promise<void> {
   await previous;
 
   release();
 }
 
 // A failed clear ends the process, and the next review then starts a new one.
-async function sendClear(live: Readonly<LiveProcess>): Promise<void> {
+async function sendClear(
+  send: (text: string) => Promise<Readonly<Turn>>,
+  stop: () => void,
+): Promise<void> {
   try {
-    await live.send('/clear');
+    await send('/clear');
   } catch {
-    live.stop();
+    stop();
   }
 }
 
 interface LiveProcess {
   readonly key: string;
-  readonly send: (text: string) => Promise<Turn>;
+  readonly send: (text: string) => Promise<Readonly<Turn>>;
   readonly stop: () => void;
   readonly closed: boolean;
   reviews: number;
@@ -141,7 +155,7 @@ interface LiveProcess {
 }
 
 interface Turn {
-  readonly result: Extract<SDKMessage, { type: 'result' }>;
+  readonly result: SDKResultMessage;
   readonly fallbacks: number;
   readonly sessionFallback: boolean;
 }
@@ -241,8 +255,8 @@ function startLiveProcess(
 }
 
 interface TurnWaiter {
-  readonly resolve: (turn: Turn) => void;
-  readonly reject: (error: Error) => void;
+  readonly resolve: (turn: Readonly<Turn>) => void;
+  readonly reject: (error: Readonly<Error>) => void;
   fallbacks: number;
   sessionFallback: boolean;
 }
@@ -269,39 +283,50 @@ function makeInputChannel(): {
   readonly push: (text: string) => void;
   readonly close: () => void;
 } {
-  const state: InputChannelState = { pending: [], wake: null, closed: false };
+  const pending: string[] = [];
+  let wake: (() => void) | null = null;
+  let closed = false;
 
   const emitWake = (): void => {
-    const resume = state.wake;
+    const resume = wake;
 
-    state.wake = null;
+    wake = null;
     resume?.();
   };
 
+  const reader: InputReader = {
+    shift: () => pending.shift(),
+    isClosed: () => closed,
+    waitForPush: () =>
+      new Promise<void>((resolve) => {
+        wake = resolve;
+      }),
+  };
+
   return {
-    messages: readPending(state),
+    messages: readPending(reader),
     push: (text) => {
-      state.pending.push(text);
+      pending.push(text);
 
       emitWake();
     },
     close: () => {
-      state.closed = true;
+      closed = true;
 
       emitWake();
     },
   };
 }
 
-interface InputChannelState {
-  readonly pending: string[];
-  wake: (() => void) | null;
-  closed: boolean;
+interface InputReader {
+  readonly shift: () => string | undefined;
+  readonly isClosed: () => boolean;
+  readonly waitForPush: () => Promise<void>;
 }
 
-async function* readPending(state: InputChannelState): AsyncGenerator<SDKUserMessage> {
+async function* readPending(reader: Readonly<InputReader>): AsyncGenerator<SDKUserMessage> {
   for (;;) {
-    const next = state.pending.shift();
+    const next = reader.shift();
 
     if (next !== undefined) {
       yield {
@@ -314,13 +339,11 @@ async function* readPending(state: InputChannelState): AsyncGenerator<SDKUserMes
       continue;
     }
 
-    if (state.closed) {
+    if (reader.isClosed()) {
       return;
     }
 
-    await new Promise<void>((resolve) => {
-      state.wake = resolve;
-    });
+    await reader.waitForPush();
   }
 }
 
@@ -348,7 +371,7 @@ const MODEL_USAGE = z.record(z.string(), z.object({ outputTokens: z.number() }))
 const SAFETY_STOPS = z.object({ safety_stops: z.number() });
 
 function buildReply(
-  result: Extract<SDKMessage, { type: 'result' }>,
+  result: SDKResultMessage,
   fallbacks: number,
   requested: string,
   warm: boolean,

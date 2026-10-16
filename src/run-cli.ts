@@ -139,7 +139,8 @@ function buildJudgeServerSession(
     return undefined;
   }
 
-  const [runtime, entry = runtime] = io.judgeServerCommand;
+  const command = io.judgeServerCommand;
+  const entry = command[1] ?? command[0];
 
   return makeJudgeServerSession({
     socketPath: resolveJudgeSocketPath(io.host, sessionID, entry),

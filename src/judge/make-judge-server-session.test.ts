@@ -77,7 +77,10 @@ test('it rejects with an AbortError when the server reports an aborted review', 
   const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   expect(
     makeJudgeServerSession({
@@ -105,7 +108,10 @@ test('it rejects with the server’s message when the review fails', async () =>
   const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   expect(
     makeJudgeServerSession({

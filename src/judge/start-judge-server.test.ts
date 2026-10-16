@@ -44,7 +44,10 @@ test('it answers each review on its socket from one warm judge process', async (
   const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   const client = makeJudgeServerSession({
     socketPath: ctx.socketPath,
@@ -93,7 +96,10 @@ test('it keeps its socket and its directory private to the user', async () => {
   });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   const socketStat = await stat(ctx.socketPath);
   const dirStat = await stat(join(ctx.dir, 'run'));
@@ -112,7 +118,10 @@ test('it answers a request that is not a review with a failure', async () => {
   });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   const socket = connect(ctx.socketPath);
 
@@ -139,7 +148,10 @@ test('it fails a review that outlasts its timeout as aborted', async () => {
   const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   const socket = connect(ctx.socketPath);
 
@@ -167,7 +179,10 @@ test('it stops the judge process of a review whose client goes away', async () =
   const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   const socket = connect(ctx.socketPath);
 
@@ -204,7 +219,10 @@ test('it leaves in place a socket that another server put over its own', async (
   });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   await rm(ctx.socketPath);
   await writeFile(ctx.socketPath, 'the newer server');
@@ -258,7 +276,10 @@ test('it leaves the socket to a server that already answers on it', async () => 
   });
 
   invariant(first);
-  onTestFinished(() => first.stop());
+
+  onTestFinished(() => {
+    first.stop();
+  });
 
   const second = await startJudgeServer({
     socketPath: ctx.socketPath,
@@ -283,7 +304,10 @@ test('it replaces a socket file that no server answers on', async () => {
   const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   const reply = await makeJudgeServerSession({
     socketPath: ctx.socketPath,
@@ -309,7 +333,10 @@ test('it closes and removes its socket once it has been idle for the idle period
   });
 
   invariant(server);
-  onTestFinished(() => server.stop());
+
+  onTestFinished(() => {
+    server.stop();
+  });
 
   await server.closed;
 
