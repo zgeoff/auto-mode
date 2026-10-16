@@ -1,4 +1,5 @@
-import { chmod, mkdir, rm } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { chmod, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import type { Server, Socket } from 'node:net';
 import { dirname } from 'node:path';
@@ -26,8 +27,34 @@ export async function startJudgeServer(
 ): Promise<JudgeServer | null> {
   await mkdir(dirname(options.socketPath), { recursive: true, mode: 0o700 });
 
+  const answering = await isAnswering(options.socketPath);
+
+  if (answering) {
+    return null;
+  }
+
+  const server = createServer();
+  const listenPath = `${options.socketPath}.${randomBytes(4).toString('hex')}`;
+
+  await startListening(server, listenPath);
+  await chmod(listenPath, 0o600);
+
+  const own = await stat(listenPath);
+
+  // A rename replaces the socket path in one step, so two servers that start
+  // together never remove each other's listener: the last rename wins, and
+  // the other stops.
+  await rename(listenPath, options.socketPath);
+
+  const current = await stat(options.socketPath).catch(() => null);
+
+  if (current?.ino !== own.ino) {
+    server.close();
+
+    return null;
+  }
+
   const session = startJudgeSession(options.env);
-  const server = createServer({ allowHalfOpen: true });
   const closed = Promise.withResolvers<void>();
   let idleTimer: NodeJS.Timeout | null = null;
   let active = 0;
@@ -47,7 +74,7 @@ export async function startJudgeServer(
     session.stop();
 
     server.close(() => {
-      void removeSocket(options.socketPath, closed.resolve);
+      void removeOwnSocket(options.socketPath, own.ino, closed.resolve);
     });
   };
 
@@ -79,55 +106,24 @@ export async function startJudgeServer(
     void runConnection(socket);
   });
 
-  const listening = await tryStartListening(server, options.socketPath);
-
-  if (!listening) {
-    session.stop();
-
-    return null;
-  }
-
-  await chmod(options.socketPath, 0o600);
-
   waitIdle();
 
   return { closed: closed.promise, stop };
 }
 
-async function removeSocket(socketPath: string, onRemoved: () => void): Promise<void> {
-  await rm(socketPath, { force: true });
+// A server that another replaced leaves the newer socket in place.
+async function removeOwnSocket(
+  socketPath: string,
+  ino: number,
+  onRemoved: () => void,
+): Promise<void> {
+  const current = await stat(socketPath).catch(() => null);
+
+  if (current?.ino === ino) {
+    await rm(socketPath, { force: true });
+  }
 
   onRemoved();
-}
-
-// A socket file that no server answers on is left by one that died, so it is
-// removed; one that answers belongs to a live server, which this one leaves be.
-async function tryStartListening(server: Server, socketPath: string): Promise<boolean> {
-  try {
-    await startListening(server, socketPath);
-
-    return true;
-  } catch (error) {
-    if (!isErrorCode(error, 'EADDRINUSE')) {
-      return false;
-    }
-  }
-
-  const answering = await isAnswering(socketPath);
-
-  if (answering) {
-    return false;
-  }
-
-  await rm(socketPath, { force: true });
-
-  try {
-    await startListening(server, socketPath);
-
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function startListening(server: Server, socketPath: string): Promise<void> {
@@ -167,12 +163,16 @@ async function runReview(socket: Socket, session: JudgeSession): Promise<void> {
 
   let answered = false;
 
-  socket.on('close', () => {
+  // A client keeps its side open until the answer arrives, so its end, as much
+  // as its close, means nobody waits for the review.
+  const stopUnanswered = (): void => {
     if (!answered) {
       controller.abort();
     }
-  });
+  };
 
+  socket.on('end', stopUnanswered);
+  socket.on('close', stopUnanswered);
   socket.on('error', () => {});
 
   const line = await readLine(socket, MAX_REQUEST_BYTES);
@@ -252,8 +252,4 @@ function parseJSON(text: string): unknown {
   } catch {
     return null;
   }
-}
-
-function isErrorCode(error: unknown, code: string): boolean {
-  return error instanceof Error && 'code' in error && error.code === code;
 }

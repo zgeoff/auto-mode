@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { waitFor } from '../../test-utils/wait-for.ts';
 import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
 
@@ -115,7 +116,7 @@ test('it answers a request that is not a review with a failure', async () => {
 
   const socket = connect(ctx.socketPath);
 
-  socket.end('{"model":"claude-haiku-5-5"}\n');
+  socket.write('{"model":"claude-haiku-5-5"}\n');
 
   const answer = await text(socket);
 
@@ -142,13 +143,79 @@ test('it fails a review that outlasts its timeout as aborted', async () => {
 
   const socket = connect(ctx.socketPath);
 
-  socket.end(
+  socket.write(
     `${JSON.stringify({ model: 'claude-haiku-5-5', timeoutMs: 200, system: 'the judge policy', user: 'the evidence' })}\n`,
   );
 
   const answer = await text(socket);
 
   expect(JSON.parse(answer)).toMatchObject({ kind: 'failure', aborted: true });
+});
+
+test('it stops the judge process of a review whose client goes away', async () => {
+  const ctx = await setupTest();
+
+  const recordPath = join(ctx.dir, 'calls.jsonl');
+
+  const env = {
+    PATH: ctx.binDir,
+    STUB_CLAUDE_RECORD: recordPath,
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Slow."}',
+    STUB_CLAUDE_DELAY_MS: '60000',
+  };
+
+  const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
+
+  invariant(server);
+  onTestFinished(() => server.stop());
+
+  const socket = connect(ctx.socketPath);
+
+  socket.write(
+    `${JSON.stringify({ model: 'claude-haiku-5-5', timeoutMs: 60_000, system: 'the judge policy', user: 'the evidence' })}\n`,
+  );
+
+  const recorded = await waitFor(
+    () => (existsSync(recordPath) ? readFile(recordPath, 'utf8') : ''),
+    (content) => content.includes('\n'),
+    { timeoutMs: 10_000 },
+  );
+
+  const pid = z.object({ pid: z.number() }).parse(JSON.parse(recorded)).pid;
+
+  socket.destroy();
+
+  const running = await waitFor(
+    () => existsSync(`/proc/${String(pid)}`),
+    (exists) => !exists,
+    { timeoutMs: 10_000 },
+  );
+
+  expect(running).toBeFalse();
+});
+
+test('it leaves in place a socket that another server put over its own', async () => {
+  const ctx = await setupTest();
+
+  const server = await startJudgeServer({
+    socketPath: ctx.socketPath,
+    env: { PATH: ctx.binDir },
+    idleMs: 60_000,
+  });
+
+  invariant(server);
+  onTestFinished(() => server.stop());
+
+  await rm(ctx.socketPath);
+  await writeFile(ctx.socketPath, 'the newer server');
+
+  server.stop();
+
+  await server.closed;
+
+  const left = await readFile(ctx.socketPath, 'utf8');
+
+  expect(left).toBe('the newer server');
 });
 
 test('it leaves the socket to a server that already answers on it', async () => {

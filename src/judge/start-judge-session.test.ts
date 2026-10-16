@@ -322,6 +322,37 @@ test('it rejects an aborted review with an abort error', async () => {
   expect(review).rejects.toMatchObject({ name: 'AbortError' });
 });
 
+test('it rejects a queued review at its own deadline while an earlier review still runs', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
+    STUB_CLAUDE_DELAY_MS: '1500',
+  });
+
+  const first = ctx.session.review(
+    'claude-sonnet-5-5',
+    { system: 'the judge policy', user: 'the first evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const startedAt = performance.now();
+
+  const [queued] = await Promise.allSettled([
+    ctx.session.review(
+      'claude-sonnet-5-5',
+      { system: 'the judge policy', user: 'the second evidence' },
+      AbortSignal.timeout(100),
+    ),
+  ]);
+
+  const elapsedMs = performance.now() - startedAt;
+
+  const [earlier] = await Promise.allSettled([first]);
+
+  expect(queued).toMatchObject({ status: 'rejected', reason: { name: 'AbortError' } });
+  expect(elapsedMs).toBeLessThan(1000);
+  expect(earlier.status).toBe('fulfilled');
+});
+
 test('it rejects a review before it starts a process when the signal has already aborted', async () => {
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',

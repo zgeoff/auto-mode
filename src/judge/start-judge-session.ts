@@ -81,16 +81,46 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
 
       queue = turn.promise;
 
-      await previous;
-
       try {
+        await waitUnlessAborted(previous, signal);
+
         return await runReview(model, request, signal);
       } finally {
-        turn.resolve();
+        // A review that gave up while queued still holds its place, so the
+        // reviews behind it keep their order.
+        void waitThenRelease(previous, turn.resolve);
       }
     },
     stop,
   };
+}
+
+function waitUnlessAborted(previous: Promise<void>, signal: Readonly<AbortSignal>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onAbort = (): void => {
+      reject(new DOMException('Judge review aborted', 'AbortError'));
+    };
+
+    if (signal.aborted) {
+      onAbort();
+
+      return;
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true });
+
+    void waitThenRelease(previous, () => {
+      signal.removeEventListener('abort', onAbort);
+
+      resolve();
+    });
+  });
+}
+
+async function waitThenRelease(previous: Promise<void>, release: () => void): Promise<void> {
+  await previous;
+
+  release();
 }
 
 // A failed clear ends the process, and the next review then starts a new one.
