@@ -18,6 +18,11 @@ export interface JudgeDiagnostics {
   readonly failureReason: JudgeFailure | null;
   readonly overturnBasis: OverturnBasis | null;
   readonly model: string;
+
+  // The model that wrote the reply, which a claude -p safety fallback makes
+  // differ from the configured one; null when no reply came back.
+  readonly answeringModel: string | null;
+  readonly safetyStops: number | null;
   readonly rule: string;
   readonly tier: 'hard' | 'soft';
   readonly elapsedMs: number;

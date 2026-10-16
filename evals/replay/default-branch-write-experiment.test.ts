@@ -29,6 +29,7 @@ test('it replays the GEO-475 run, allowing both captured edits at Jev and no def
     live: false,
     maxRequests: null,
     resumeDir: null,
+    cases: null,
     environment: {
       publicCommit: 'test',
       dirtyTree: false,
@@ -37,6 +38,7 @@ test('it replays the GEO-475 run, allowing both captured edits at Jev and no def
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
+      judgeModel: null,
       sendJudge: null,
     },
     now: () => new Date('2026-10-12T15:00:00.000Z'),

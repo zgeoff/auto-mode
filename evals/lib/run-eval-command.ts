@@ -30,7 +30,7 @@ const USAGE = `Usage:
   bun run eval list
   bun run eval run <experiment> [--live --max-requests <n>] [--recorded <recording>]
                    [--resume <run-dir>] [--seed <n>] [--samples <n>] [--results <dir>]
-                   [--judge-model <model>]
+                   [--judge-model <model>] [--case <case-key>...]
   bun run eval compare <run-dir-a> <run-dir-b>
   bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
   bun run eval anonymise <capture.jsonl...> --out <dir>
@@ -125,6 +125,7 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
     samples: { type: 'string' },
     results: { type: 'string' },
     'judge-model': { type: 'string' },
+    case: { type: 'string', multiple: true },
   });
 
   const [name, ...extra] = parsed.positionals;
@@ -183,6 +184,7 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
     live,
     maxRequests,
     resumeDir,
+    cases: parsed.values.case === undefined ? null : [parsed.values.case].flat(),
     environment: await io.prepareRun(live, parsed.values['judge-model'] ?? null),
     now: io.now,
     print: (line) => {
@@ -206,6 +208,16 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
 
       io.stdout(
         `not scorable / ${failure.stage}: ${failure.notScorable}/${failure.attempted} (${failure.skipped} skipped)${reasons === '' ? '' : `: ${reasons}`}\n`,
+      );
+    }
+
+    for (const fallback of result.summary.fallbacks ?? []) {
+      const models = Object.entries(fallback.models)
+        .map(([model, count]) => `${model} ${count}`)
+        .join(', ');
+
+      io.stdout(
+        `answered off ${fallback.model} / ${fallback.stage}: ${fallback.fallbacks}/${fallback.answered}${models === '' ? '' : `: ${models}`}\n`,
       );
     }
 

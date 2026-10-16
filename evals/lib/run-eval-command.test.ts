@@ -309,6 +309,7 @@ test('it writes a run into the clone AUTO_MODE_EVALS_DIR names and prints its co
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       }),
     now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -332,6 +333,95 @@ test('it writes a run into the clone AUTO_MODE_EVALS_DIR names and prints its co
   );
 });
 
+test('it runs only the named cases and prints the judge replies another model wrote', async () => {
+  const ctx = await setupTest();
+
+  const code = await runEvalCommand(
+    [
+      'run',
+      'judge-check',
+      '--live',
+      '--max-requests',
+      '2',
+      '--case',
+      'containment/twin-03',
+      '--case',
+      'containment/twin-01',
+    ],
+    {
+      stdout: ctx.stdout.write,
+      stderr: ctx.stderr.write,
+      env: { AUTO_MODE_EVALS_DIR: ctx.resultsDir },
+      home: '/nonexistent',
+      repoRoot: ctx.repoRoot,
+      experiments: [
+        defineExperiment({
+          name: 'judge-check',
+          description: 'A judge stage.',
+          corpora: ['containment'],
+          samples: 1,
+          loadCases: async (source) => {
+            const dir = join(source.corporaDir, 'containment');
+
+            const loaded = await loadCaseKeys(dir);
+
+            return {
+              sets: [
+                {
+                  corpus: 'containment',
+                  dir,
+                  cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
+                },
+              ],
+              inputs: [],
+              notMeasured: [],
+            };
+          },
+          stages: [
+            {
+              name: 'judge',
+              sends: true,
+              run: async (_entry, context) => {
+                const reply = await context.sendJudge({ user: 'review' });
+
+                return { status: 'scored', verdict: 'deny', pBlock: null, reason: reply.text };
+              },
+            },
+          ],
+          measurements: [],
+        }),
+      ],
+      prepareRun: () =>
+        Promise.resolve({
+          publicCommit: 'test',
+          dirtyTree: false,
+          policy: 'policy',
+          judgePolicy: 'judge policy',
+          configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
+          send: null,
+          sendWithChoices: null,
+          judgeModel: 'claude-sonnet-5-5',
+          sendJudge: () => Promise.resolve({ model: 'claude-sonnet-5', text: 'confirmed' }),
+        }),
+      now: () => new Date('2026-10-10T12:00:00.000Z'),
+    },
+  );
+
+  expect(code).toBe(0);
+
+  const runs = await readdir(join(ctx.resultsDir, 'runs/judge-check'));
+
+  expect(ctx.stdout.read().split('\n')).toStrictEqual([
+    'Plan: 2 cases × 1 samples × 1 stages; 2 stage runs to go, 0 already recorded, 2 model requests.',
+    '  judge: 2 model requests',
+    `Wrote ${join(ctx.resultsDir, 'runs/judge-check', runs[0] ?? '')}`,
+    'not scorable / judge: 0/2 (0 skipped)',
+    'answered off claude-sonnet-5-5 / judge: 2/2: claude-sonnet-5 2',
+    expect.stringMatching(/^latency \/ judge: median \d+ ms, p90 \d+ ms over 2$/u),
+    '',
+  ]);
+});
+
 test.each([
   ['the named judge model', ['--judge-model', 'claude-sonnet-5-5'], 'claude-sonnet-5-5'],
   ['no judge model', [], null],
@@ -347,6 +437,7 @@ test.each([
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
+      judgeModel: null,
       sendJudge: null,
     }),
   );
@@ -413,6 +504,7 @@ test('it refuses to compare runs of different experiments', async () => {
         configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
         send: null,
         sendWithChoices: null,
+        judgeModel: null,
         sendJudge: null,
       }),
     now: () => new Date('2026-10-10T12:00:00.000Z'),

@@ -7,6 +7,7 @@ import { runCapped } from '../process/run-capped.ts';
 export interface ClaudeCodeReply {
   readonly text: string;
   readonly model: string;
+  readonly safetyStops: number | null;
 }
 
 // A judge reply is a verdict and a short reason; this much output is not one.
@@ -57,7 +58,11 @@ export async function runClaudeCode(
     throw new Error(`claude -p failed with exit code ${String(result.exitCode)}`);
   }
 
-  return { text: body.data.result, model: provider.model };
+  return {
+    text: body.data.result,
+    model: pickAnsweringModel(body.data.modelUsage, provider.model),
+    safetyStops: body.data.safety_stops ?? null,
+  };
 }
 
 // A session pointed at another provider passes its endpoint and key in these
@@ -80,7 +85,14 @@ const PROVIDER_SWITCHES = new Set([
   'CLAUDE_CODE_USE_FOUNDRY',
 ]);
 
-const CLAUDE_OUTPUT = z.object({ is_error: z.boolean(), result: z.string().optional() });
+const MODEL_USAGE = z.record(z.string(), z.object({ outputTokens: z.number() }));
+
+const CLAUDE_OUTPUT = z.object({
+  is_error: z.boolean(),
+  result: z.string().optional(),
+  modelUsage: MODEL_USAGE.optional(),
+  safety_stops: z.number().optional(),
+});
 
 function parseOutputJSON(text: string): unknown {
   try {
@@ -88,4 +100,17 @@ function parseOutputJSON(text: string): unknown {
   } catch {
     return null;
   }
+}
+
+// A safety stop makes claude -p answer on a fallback model, so the reply's model
+// comes from the usage. A background model writes fewer output tokens than the
+// reply, and a model with none wrote no part of it.
+function pickAnsweringModel(
+  usage: Readonly<z.output<typeof MODEL_USAGE>> | undefined,
+  requested: string,
+): string {
+  const writers = Object.entries(usage ?? {}).filter(([, entry]) => entry.outputTokens > 0);
+  const [top] = writers.toSorted(([, left], [, right]) => right.outputTokens - left.outputTokens);
+
+  return top === undefined ? requested : top[0];
 }

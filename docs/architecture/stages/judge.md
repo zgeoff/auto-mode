@@ -24,9 +24,11 @@ The default judge runs as a `claude -p` child with no tools, no settings, no MCP
 session file, in a scratch directory, so it cannot act and no hook of the user's session runs inside
 it. The CLI strips the variables that point Claude Code at another provider from the child's
 environment, because the agent's own session often runs a non-Claude model through such a gateway,
-and the judge must reach Claude through the user's own Claude login. The configuration can name a
-Messages API model as the judge instead. Jev itself can never be the judge, because it writes no
-reasons.
+and the judge must reach Claude through the user's own Claude login. When a request trips a safety
+stop, `claude -p` answers it on a fallback model, so the judge reads the model that wrote the reply
+from the run's per-model usage: the model with the most output tokens, which passes over a
+background model and a model that wrote nothing. The configuration can name a Messages API model as
+the judge instead. Jev itself can never be the judge, because it writes no reasons.
 
 ## Confirm or overturn
 

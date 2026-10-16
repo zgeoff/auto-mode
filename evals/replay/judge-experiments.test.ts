@@ -35,6 +35,7 @@ test('it replays the public judge-alone Jev answers and reports the judge and th
     live: false,
     maxRequests: null,
     resumeDir: null,
+    cases: null,
     environment: {
       publicCommit: 'test',
       dirtyTree: false,
@@ -43,6 +44,7 @@ test('it replays the public judge-alone Jev answers and reports the judge and th
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
+      judgeModel: null,
       sendJudge: null,
     },
     now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -121,6 +123,7 @@ test('it replays the GEO-161 judge run to the counts it recorded, holding contro
     live: false,
     maxRequests: null,
     resumeDir: null,
+    cases: null,
     environment: {
       publicCommit: 'test',
       dirtyTree: false,
@@ -129,6 +132,7 @@ test('it replays the GEO-161 judge run to the counts it recorded, holding contro
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
+      judgeModel: null,
       sendJudge: null,
     },
     now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -258,6 +262,7 @@ test('it replays the GEO-407 judge run to the counts it recorded, overturning no
     live: false,
     maxRequests: null,
     resumeDir: null,
+    cases: null,
     environment: {
       publicCommit: 'test',
       dirtyTree: false,
@@ -266,6 +271,7 @@ test('it replays the GEO-407 judge run to the counts it recorded, overturning no
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
+      judgeModel: null,
       sendJudge: null,
     },
     now: () => new Date('2026-10-10T12:00:00.000Z'),
@@ -340,6 +346,7 @@ test('it replays the public infrastructure-failures Jev answers and reports the 
     live: false,
     maxRequests: null,
     resumeDir: null,
+    cases: null,
     environment: {
       publicCommit: 'test',
       dirtyTree: false,
@@ -348,6 +355,7 @@ test('it replays the public infrastructure-failures Jev answers and reports the 
       configuredRules: { environment: [], allow: [], soft_deny: [], hard_deny: [] },
       send: null,
       sendWithChoices: null,
+      judgeModel: null,
       sendJudge: null,
     },
     now: () => new Date('2026-10-10T12:00:00.000Z'),

@@ -34,6 +34,42 @@ test('it prints its reply as a successful claude -p JSON result', () => {
   });
 });
 
+test('it adds the model usage and the safety stops its controls name to the result', () => {
+  const result = spawnSync(
+    process.execPath,
+    [join(import.meta.dir, 'run-stub-claude.ts'), '-p', '--output-format', 'json'],
+    {
+      input: 'the prompt',
+      encoding: 'utf8',
+      env: {
+        STUB_CLAUDE_REPLY: 'the answer',
+        STUB_CLAUDE_MODEL_USAGE:
+          '{"claude-opus-9":{"outputTokens":0},"claude-opus-8":{"outputTokens":40}}',
+        STUB_CLAUDE_SAFETY_STOPS: '1',
+      },
+    },
+  );
+
+  expect({ status: result.status, stdout: result.stdout, stderr: result.stderr }).toStrictEqual({
+    status: 0,
+    stdout: `${JSON.stringify({
+      type: 'result',
+      subtype: 'success',
+      is_error: false,
+      duration_ms: 1,
+      num_turns: 1,
+      result: 'the answer',
+      session_id: '00000000-0000-4000-8000-000000000000',
+      modelUsage: {
+        'claude-opus-9': { outputTokens: 0 },
+        'claude-opus-8': { outputTokens: 40 },
+      },
+      safety_stops: 1,
+    })}\n`,
+    stderr: '',
+  });
+});
+
 test('it appends its arguments, stdin, cwd, and provider variables to the record file', async () => {
   const ctx = await setupTest();
 

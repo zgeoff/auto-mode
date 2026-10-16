@@ -47,7 +47,7 @@ async function main(): Promise<void> {
       };
 
       if (!live) {
-        return { ...base, send: null, sendWithChoices: null, sendJudge: null };
+        return { ...base, judgeModel: null, send: null, sendWithChoices: null, sendJudge: null };
       }
 
       assertShippedJevConfig(config);
@@ -82,6 +82,7 @@ async function main(): Promise<void> {
 
       return {
         ...base,
+        judgeModel: judge?.model ?? null,
         send: async (request) => {
           const key = await requireKey();
 
@@ -102,14 +103,14 @@ async function main(): Promise<void> {
           judge === null || (judge.protocol !== 'claude-code' && judgeKey === null)
             ? null
             : async (request) => {
-                const text = await sendJudgeMessage(
+                const reply = await sendJudgeMessage(
                   judge,
                   { system: judgePolicy, user: request.user },
                   { apiKey: judgeKey, env: host.env },
                   AbortSignal.timeout(toTimerDelay(judge.timeoutMs)),
                 );
 
-                return { model: judge.model, text };
+                return { model: reply.model, text: reply.text };
               },
       };
     },

@@ -27,7 +27,7 @@ async function setupTest() {
   return { binDir, recordPath: join(dir, 'calls.jsonl') };
 }
 
-test('it returns the result text of the claude run with the configured model', async () => {
+test('it returns the result text with the configured model when the result holds no model usage', async () => {
   const ctx = await setupTest();
 
   const reply = await runClaudeCode(
@@ -43,7 +43,71 @@ test('it returns the result text of the claude run with the configured model', a
   expect(reply).toStrictEqual({
     text: '<verdict>confirm</verdict><reason>It sends the key.</reason>',
     model: 'claude-haiku-5-5',
+    safetyStops: null,
   });
+});
+
+test('it reports the fallback model that wrote the output when the requested model wrote none', async () => {
+  const ctx = await setupTest();
+
+  const reply = await runClaudeCode(
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-sonnet-5-5' }),
+    { system: 'the judge policy', user: 'the evidence' },
+    {
+      PATH: ctx.binDir,
+      STUB_CLAUDE_REPLY: '<verdict>confirm</verdict><reason>It posts the token.</reason>',
+      STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
+        'claude-sonnet-5-5': { inputTokens: 900, outputTokens: 0 },
+        'claude-sonnet-5': { inputTokens: 910, outputTokens: 123 },
+      }),
+      STUB_CLAUDE_SAFETY_STOPS: '2',
+    },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply).toStrictEqual({
+    text: '<verdict>confirm</verdict><reason>It posts the token.</reason>',
+    model: 'claude-sonnet-5',
+    safetyStops: 2,
+  });
+});
+
+test('it reports the one model the usage holds', async () => {
+  const ctx = await setupTest();
+
+  const reply = await runClaudeCode(
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-sonnet-5-5' }),
+    { system: 'the judge policy', user: 'the evidence' },
+    {
+      PATH: ctx.binDir,
+      STUB_CLAUDE_REPLY: 'ok',
+      STUB_CLAUDE_MODEL_USAGE: JSON.stringify({ 'claude-sonnet-5-5': { outputTokens: 57 } }),
+      STUB_CLAUDE_SAFETY_STOPS: '0',
+    },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply).toStrictEqual({ text: 'ok', model: 'claude-sonnet-5-5', safetyStops: 0 });
+});
+
+test('it reports the model that wrote the most output beside a background model', async () => {
+  const ctx = await setupTest();
+
+  const reply = await runClaudeCode(
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-sonnet-5-5' }),
+    { system: 'the judge policy', user: 'the evidence' },
+    {
+      PATH: ctx.binDir,
+      STUB_CLAUDE_REPLY: 'ok',
+      STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
+        'claude-haiku-5-5': { outputTokens: 12 },
+        'claude-sonnet-5-5': { outputTokens: 88 },
+      }),
+    },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply.model).toBe('claude-sonnet-5-5');
 });
 
 test('it runs claude -p with the model, the system prompt, no tools, no settings, and the evidence on stdin', async () => {

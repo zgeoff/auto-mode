@@ -14,6 +14,9 @@ export const sampleRecordSchema = z
     latencyMs: z.number().nonnegative().nullable(),
     requestHash: z.string().nullable(),
     answerHash: z.string().nullable(),
+
+    // The model that wrote the answer; a record from before the field has none.
+    model: z.string().min(1).nullable().optional(),
   })
   .readonly();
 

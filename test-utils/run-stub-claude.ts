@@ -26,6 +26,8 @@ if (recordPath !== undefined) {
 
 const isError = process.env['STUB_CLAUDE_IS_ERROR'] === 'true';
 const exitCode = Number(process.env['STUB_CLAUDE_EXIT_CODE'] ?? 0);
+const modelUsage = process.env['STUB_CLAUDE_MODEL_USAGE'];
+const safetyStops = process.env['STUB_CLAUDE_SAFETY_STOPS'];
 
 setTimeout(
   () => {
@@ -37,6 +39,8 @@ setTimeout(
       num_turns: 1,
       result: process.env['STUB_CLAUDE_REPLY'] ?? '',
       session_id: '00000000-0000-4000-8000-000000000000',
+      ...(modelUsage === undefined ? {} : { modelUsage: JSON.parse(modelUsage) as unknown }),
+      ...(safetyStops === undefined ? {} : { safety_stops: Number(safetyStops) }),
     };
 
     process.stdout.write(`${JSON.stringify(body)}\n`, () => {

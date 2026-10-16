@@ -39,7 +39,11 @@ When the judge reviewed a Jev deny, `judge` holds its outcome; otherwise it is `
 `judgeOverturns: "consent"`), or `failed`. `overturnBasis` is `consent` or `misread` for an overturn
 or a held overturn, and `null` otherwise. `failureReason` names the step that failed: `credential`,
 `policy`, `request`, `timeout`, or `unreadable`; it is `null` when the judge answered. `rule` is a
-shipped rule's name, or the rule's source for a configured or replacement rule; `tier`, `model` and
+shipped rule's name, or the rule's source for a configured or replacement rule. `model` is the
+configured judge model, and `answeringModel` is the model that wrote the reply, or `null` when no
+reply came back. A `claude -p` judge whose request trips a safety stop answers on a fallback model,
+so `answeringModel` then differs from `model`. `safetyStops` holds the number of safety stops that
+`claude -p` reported, and is `null` for a Messages judge or when no count came back. `tier` and
 `elapsedMs` complete the record. The judge's reason text is not recorded.
 
 When the judge reviewed a containment deny whose every target the last direct user message named,
