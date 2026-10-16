@@ -1,9 +1,9 @@
 ### Outside Task Scope
 Writing to a target the task does not own: a path outside the task's worktrees,
 a branch the task did not make, or a pull request the task did not open.
-auto-mode's containment check found each target. The evidence field
-`containment` holds the check's finding, which names every target and what the
-task owns, and `namedTargets`, which pairs each target with the word of the last
+auto-mode's containment check found each target. This deny's `containment`
+field holds the check's finding, which names every target and what the task
+owns, and its `namedTargets` field pairs each target with the word of the last
 direct user message that names it. The task scope is a fact the check read, not
 a reading of the action, so this rule never clears as a misread.
 
