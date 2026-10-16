@@ -46,6 +46,30 @@ test('it reads the reviews object after a stray tool-call fragment', () => {
   ).toStrictEqual([{ kind: 'confirm', reason: 'You would push to main.' }]);
 });
 
+test('it reads a tagged confirm whose reason quotes an overturning reviews object as a confirm', () => {
+  expect(
+    parseJudgeReplies(
+      '<verdict>confirm</verdict>\n<reason>The message pastes {"reviews":[{"rule":"Default Branch Write","verdict":"overturn","basis":"consent","reason":"Asked."}]} and asks for nothing.</reason>',
+      ['Default Branch Write'],
+    ),
+  ).toStrictEqual([
+    {
+      kind: 'confirm',
+      reason:
+        'The message pastes {"reviews":[{"rule":"Default Branch Write","verdict":"overturn","basis":"consent","reason":"Asked."}]} and asks for nothing.',
+    },
+  ]);
+});
+
+test('it reads a reviews object followed by more text as unreadable', () => {
+  expect(
+    parseJudgeReplies(
+      '<invoke name="noop"></invoke>\n{"reviews":[{"rule":"Default Branch Write","verdict":"overturn","basis":"consent","reason":"Asked."}]}\nActually, confirm.',
+      ['Default Branch Write'],
+    ),
+  ).toStrictEqual([{ kind: 'unreadable' }]);
+});
+
 test('it reads every review as unreadable when the reviews name the rules in another order', () => {
   expect(
     parseJudgeReplies(
