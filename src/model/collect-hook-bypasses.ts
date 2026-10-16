@@ -80,6 +80,7 @@ const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([
   'file',
   'fixup',
   'message',
+  'pathspec-from-file',
   'reedit-message',
   'reuse-message',
   'squash',
@@ -106,7 +107,11 @@ function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'pus
         found = null;
       }
 
-      if (subcommand === 'commit' && value.length === 0 && COMMIT_VALUED_LONG.has(option)) {
+      if (
+        subcommand === 'commit' &&
+        value.length === 0 &&
+        COMMIT_VALUED_LONG.has(findCommitOption(option) ?? '')
+      ) {
         index += 1;
       }
     } else if (subcommand === 'commit' && arg.startsWith('-') && arg !== '-') {
@@ -126,6 +131,53 @@ function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'pus
   }
 
   return found;
+}
+
+// The commit options that take no value. git reads a long option from any
+// prefix that names one option alone, and an exact name wins over a longer
+// one, so `--mess` is `--message` and `--all` is not `--allow-empty`.
+const COMMIT_FLAG_LONG: ReadonlySet<string> = new Set([
+  'ahead-behind',
+  'all',
+  'allow-empty',
+  'allow-empty-message',
+  'amend',
+  'branch',
+  'dry-run',
+  'edit',
+  'gpg-sign',
+  'include',
+  'interactive',
+  'long',
+  'no-post-rewrite',
+  'no-verify',
+  'null',
+  'only',
+  'patch',
+  'pathspec-file-nul',
+  'porcelain',
+  'post-rewrite',
+  'quiet',
+  'reset-author',
+  'short',
+  'signoff',
+  'status',
+  'untracked-files',
+  'verbose',
+  'verify',
+]);
+
+// An ambiguous prefix makes git refuse the commit, so it names no option.
+function findCommitOption(option: string): string | null {
+  const names = [...COMMIT_VALUED_LONG, ...COMMIT_FLAG_LONG];
+
+  if (names.includes(option)) {
+    return option;
+  }
+
+  const matches = names.filter((name) => name.startsWith(option));
+
+  return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
 interface CommitCluster {
