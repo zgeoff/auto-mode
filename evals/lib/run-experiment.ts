@@ -98,6 +98,17 @@ export async function runExperiment<Case>(
     );
   }
 
+  const getLabelledCase = (caseKey: string): LabelledCase<Case> => {
+    const labels = selected.labels.get(caseKey);
+    const boxed = selected.cases.get(caseKey);
+
+    if (labels === undefined || boxed === undefined) {
+      throw new Error(`The run lacks the planned case ${caseKey}.`);
+    }
+
+    return { key: caseKey, labels, case: boxed.value };
+  };
+
   const stages = pickStages(experiment, recording, options.live);
   const notMeasured = [...loaded.notMeasured, ...stages.notMeasured];
 
@@ -147,7 +158,7 @@ export async function runExperiment<Case>(
   const plan = isCounted
     ? planExperimentRun({
         ...planInput,
-        sending: await collectSendingRuns(bounds, stages.active, selected, records, {
+        sending: await collectSendingRuns(bounds, stages.active, getLabelledCase, records, {
           ...options,
           models: previous?.summary.config.models ?? {},
         }),
@@ -217,7 +228,7 @@ export async function runExperiment<Case>(
   const spent = { requests: 0 };
 
   for (const unit of plan.units) {
-    const labelled = getLabelledCase(selected, unit.caseKey);
+    const labelled = getLabelledCase(unit.caseKey);
 
     for (const planned of unit.stages) {
       const stage = getActiveStage(stages.active, planned.name);
@@ -350,20 +361,6 @@ interface Exchange {
   model: string | null;
 }
 
-function getLabelledCase<Case>(
-  selected: Readonly<SelectedCases<Case>>,
-  caseKey: string,
-): LabelledCase<Case> {
-  const labels = selected.labels.get(caseKey);
-  const boxed = selected.cases.get(caseKey);
-
-  if (labels === undefined || boxed === undefined) {
-    throw new Error(`The run lacks the planned case ${caseKey}.`);
-  }
-
-  return { key: caseKey, labels, case: boxed.value };
-}
-
 function getActiveStage<Case>(
   active: readonly ActiveStage<Case>[],
   name: string,
@@ -417,7 +414,7 @@ class PlannedSendError extends Error {
 async function collectSendingRuns<Case>(
   bounds: Readonly<ExperimentPlan>,
   active: readonly ActiveStage<Case>[],
-  selected: Readonly<SelectedCases<Case>>,
+  getLabelledCase: (caseKey: string) => LabelledCase<Case>,
   records: readonly SampleRecord[],
   options: Readonly<RunOptions & { readonly models: Readonly<Record<string, string>> }>,
 ): Promise<string[]> {
@@ -425,7 +422,7 @@ async function collectSendingRuns<Case>(
   const models: Record<string, string> = { ...options.models };
 
   for (const unit of bounds.units) {
-    const labelled = getLabelledCase(selected, unit.caseKey);
+    const labelled = getLabelledCase(unit.caseKey);
 
     const previous = records.filter(
       (record) => record.caseKey === unit.caseKey && record.sample === unit.sample,
