@@ -828,7 +828,10 @@ test('it owns no PR named without a repository when the checkout has two', () =>
 test.each([
   ['the CLI', "echo '{}' | auto-mode record"],
   ['a package runner', 'bunx auto-mode record'],
+  ['bun', 'bun auto-mode record'],
   ['the built script', 'node ~/src/auto-mode/dist/cli.js record < r.json'],
+  ['node and a path to the bin', 'node /home/dev/.bun/bin/auto-mode record < r.json'],
+  ['a path to the bin', '/home/dev/.bun/bin/auto-mode record < r.json'],
 ])('it finds an agent recording scope for itself through %s', (_label, command) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
@@ -836,6 +839,18 @@ test.each([
   );
 
   expect(findings).toStrictEqual([{ kind: 'credential', target: 'auto-mode record' }]);
+});
+
+test.each([
+  ['a rename', 'mv auto-mode record'],
+  ['a copy', 'cp auto-mode record'],
+])('it finds nothing for %s whose operands name auto-mode and record', (_label, command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({ home: '/home/dev', worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([]);
 });
 
 test('it finds nothing for a write under a scratch path the caller supplies', () => {

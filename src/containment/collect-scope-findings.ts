@@ -362,11 +362,29 @@ function collectCallFindings(
 
 // The mod alone reports finished calls; a record the agent sends is a claim
 // on scope it did not make, whether it names the bin, a runner, or the script.
+// Any other program's operands, such as a rename's, run nothing.
 function collectRecordFindings(name: string, args: readonly string[]): ScopeFinding[] {
   const words = [name, ...args];
-  const launcher = words.findIndex((word) => word.includes('auto-mode'));
+  const isLaunched = RECORD_LAUNCHERS.has(name.slice(name.lastIndexOf('/') + 1));
 
-  return launcher !== -1 && words.slice(launcher + 1).includes('record')
+  const program = words.findIndex(
+    (word, index) => (index === 0 || isLaunched) && word.includes('auto-mode'),
+  );
+
+  return program !== -1 && words.slice(program + 1).includes('record')
     ? [{ kind: 'credential', target: 'auto-mode record' }]
     : [];
 }
+
+const RECORD_LAUNCHERS: ReadonlySet<string> = new Set([
+  'bun',
+  'bunx',
+  'deno',
+  'node',
+  'npm',
+  'npx',
+  'pnpm',
+  'pnpx',
+  'tsx',
+  'yarn',
+]);
