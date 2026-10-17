@@ -3,104 +3,134 @@ name: project-testing
 description:
   auto-mode's test harness facts on top of the shared testing skill — the preload, the injected host
   environment and clocks, git in tests, the default decision and Messages mocks, and the Claude Code
-  mod checks. Extends the shared testing skill and must be loaded together with it when designing,
-  writing, or reviewing auto-mode tests.
+  mod checks. Load it beside the shared testing skill when designing, writing, or reviewing
+  auto-mode tests.
 ---
 
 # auto-mode testing
 
 The shared testing skill holds every rule. This skill holds only the facts of auto-mode's own
-harness that a test author needs to follow those rules here.
+harness that a test author needs to follow those rules here. It has no references.
+
+## Key rules
+
+Each line links the section that explains it.
+
+- [Running](#running): `bun run test` rebuilds `dist/` and runs everything; a bare `bun test` needs
+  the `auto-mode-eval` condition.
+- [The host environment](#the-host-environment): production reads the host only at its entry points,
+  so a test passes a built `HostEnvironment` with its own `home` and `env`, and a cwd inside a
+  repository it created.
+- [The CLI](#the-cli): run `runCLI` in-process with the output and signal stubs, or spawn the built
+  `dist/cli.js` under node 24.
+- [Git](#git): run git through `runGit`, and stand in for `gh` with the stub gh script.
+- [Time](#time): the evaluation path, the lock writers and the key-command reader take their clocks
+  from the caller.
+- [HTTP](#http): the default handlers answer the decision and Messages APIs from per-test stores,
+  and a capture handler also asserts the default handler's outcome.
+- [Recorded inputs](#recorded-inputs): mod requests and model answers are recorded files, and no
+  test sends a real model request.
+- [The Claude Code mod checks](#the-claude-code-mod-checks): `*.claude-check.ts` run under
+  `claude plugin test`, whose host leaves several mod branches unreachable.
 
 ## Running
 
-- `bun run test` builds `dist/` and then runs the suite
-  (`bun --no-env-file test --conditions=auto-mode-eval`): one process, files in sequence, the
-  `evals` package included. The `--no-env-file` flag keeps a local `.env` out of the run. The
-  `auto-mode-eval` condition resolves `auto-mode` to `src/` and opens the `auto-mode/eval` subpath,
-  so a bare `bun test evals/…` needs the flag too.
-- `bunfig.toml` preloads `@zgeoff/bun-test-extended` (the jest-extended matchers) and
-  `test-setup.ts`.
-- `test-setup.ts` seeds faker with a fixed value and sets its reference date to a fixed date, so a
-  faker date never reads the wall clock. It starts the MSW server with an `onUnhandledRequest`
-  callback that lets loopback hosts through and fails every other unmatched request, and after each
-  test resets the handlers and clears both reply stores.
-- `test-setup.ts` also deletes the `GIT_*` names a git hook exports and the `ATC_*` names an atc
-  session exports. The deletion reaches in-process reads and `node:child_process` children only: a
+- `bun run test` builds `dist/` and then runs the suite in one process, files in sequence, the
+  `evals` package included. It passes `--no-env-file`, which keeps a local `.env` out of the run,
+  and `--conditions=auto-mode-eval`, which resolves `auto-mode` to `src/` and opens the
+  `auto-mode/eval` subpath, so a bare `bun test evals/…` needs the condition too.
+- [`bunfig.toml`](../../../bunfig.toml) preloads `@zgeoff/bun-test-extended` (the jest-extended
+  matchers) and [`test-setup.ts`](../../../test-setup.ts).
+- The preload seeds faker with a fixed value and a fixed reference date, so a faker date never reads
+  the wall clock. Its MSW server lets loopback hosts through and fails every other unmatched
+  request, and after each test the preload resets the handlers and clears both reply stores.
+- The preload also deletes the `GIT_*` names a git hook exports and the `ATC_*` names an atc session
+  exports. The deletion reaches in-process reads and `node:child_process` children only: a
   `Bun.spawn` or `Bun.$` child gets the environment bun started with.
 
 ## The host environment
 
 Production never reads `process.env`, `homedir()` or the scratch locations below its entry points.
-They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratchPaths? }`.
+They arrive as a [`HostEnvironment`](../../../src/config/types.ts): `{ env, home, scratchPaths? }`.
 
-- `cli.ts` reads the real host once with `readHostEnvironment()` and passes it down. A test builds
-  one with `buildMockHostEnvironment` from `test-utils/factories/build-mock-host-environment.ts`:
-  its `env` is empty and its `home` does not exist, so a test that reads or writes under home passes
-  its temp dir as `home`, and names every variable its case needs in `env`.
+- `cli.ts` reads the real host once with
+  [`readHostEnvironment`](../../../src/config/read-host-environment.ts) and passes it down. A test
+  builds one with
+  [`buildMockHostEnvironment`](../../../test-utils/factories/build-mock-host-environment.ts): its
+  `env` is empty and its `home` does not exist, so a test that reads or writes under home passes its
+  temp dir as `home`, and names every variable its case needs in `env`.
 - `scratchPaths` lists the locations every task may write (`/tmp` and the `/dev` streams by
   default). The containment check never denies a write there, so a test whose temp tree sits under
   `/tmp` and expects a containment deny passes `scratchPaths: []`.
-- The scope and repository readers walk up from a cwd to the nearest `.git`. A test roots every cwd
-  in a repository it creates inside its temp tree, so the walk never leaves it. A stray `.git` above
-  the system temp directory otherwise becomes the task's worktree.
+- The scope and repository readers walk up from a cwd to the nearest git directory. A test roots
+  every cwd in a repository it creates inside its temp tree, so the walk never leaves it. A stray
+  git directory above the system temp directory otherwise becomes the task's worktree.
 
 ## The CLI
 
-- `src/run-cli.ts` holds the CLI as `runCLI(argv, io)`: `io` carries `stdin` (a function that
-  returns the body), `stdout`, `stderr`, the `host` and `subscribeToStopSignals`, and the result is
-  the exit code. A `--jev-only` run subscribes for the length of its evaluation and unsubscribes
-  after it. `src/cli.ts` only wires the real process into it, and its subscription listens for
-  SIGTERM and SIGINT.
-- `src/run-cli.test.ts` runs `runCLI` in-process. `buildStubOutput` from
-  `test-utils/build-stub-output.ts` stands in for stdout and stderr, and its `read()` returns what
-  was written. `buildStubStopSignals` from `test-utils/build-stub-stop-signals.ts` stands in for the
+- [`runCLI`](../../../src/run-cli.ts) holds the CLI as `runCLI(argv, io)`: `io` carries `stdin` (a
+  function that returns the body), `stdout`, `stderr`, the `host` and `subscribeToStopSignals`, and
+  the result is the exit code. A `--jev-only` run subscribes for the length of its evaluation and
+  unsubscribes after it. [`cli.ts`](../../../src/cli.ts) only wires the real process into it, and
+  its subscription listens for SIGTERM and SIGINT.
+- [`run-cli.test.ts`](../../../src/run-cli.test.ts) runs `runCLI` in-process.
+  [`buildStubOutput`](../../../test-utils/build-stub-output.ts) stands in for stdout and stderr, and
+  its `read()` returns what was written.
+  [`buildStubStopSignals`](../../../test-utils/build-stub-stop-signals.ts) stands in for the
   signals: its `stop()` calls every callback still subscribed.
-- `e2e/cli-usage.test.ts`, `e2e/cli-run.test.ts`, `e2e/cli-print-prompt.test.ts` and
-  `e2e/cli-fail-closed.test.ts` spawn the built `dist/cli.js` under node with a minimal environment
-  rooted in the temp dir. Each fails at once when `dist/cli.js` is missing or node is not 24. Only
-  `bun run test` rebuilds `dist/`, so a bare `bun test e2e/…` runs whatever `dist/` already holds.
-  The child runs the binary that `node -p process.execPath` resolves, because a version manager's
-  node shim needs the user's HOME.
-- `src/cli.test.ts` spawns `dist/cli.js` the same way to check the stop-signal wiring. Its config
-  names `test-utils/run-stub-key-helper.ts` as the key command, so the child waits for a key and
-  sends no request; the test sends the signal once the helper reports on its socket.
+- The `cli-*.test.ts` files in [`e2e/`](../../../e2e/) spawn the built `dist/cli.js` under node with
+  a minimal environment rooted in the temp dir. Each fails at once when `dist/cli.js` is missing or
+  node is not 24. Only `bun run test` rebuilds `dist/`, so a bare `bun test e2e/…` runs whatever
+  `dist/` already holds. The child runs the binary that `node -p process.execPath` resolves, because
+  a version manager's node shim needs the user's HOME.
+- [`cli.test.ts`](../../../src/cli.test.ts) spawns `dist/cli.js` the same way to check the
+  stop-signal wiring. Its config names
+  [`run-stub-key-helper.ts`](../../../test-utils/run-stub-key-helper.ts) as the key command, so the
+  child waits for a key and sends no request; the test sends the signal once the helper reports on
+  its socket.
 
 ## Git
 
-- Run git through `runGit(dir, args)` from `test-utils/run-git.ts`. It gives the child a minimal
-  environment: `PATH`, `HOME` set to the temp dir, no global or system config, and a fixed identity.
-  A pre-push hook's `GIT_DIR` and the host's signing or template config cannot reach it.
-- `readPullRequest` takes the gh command to run. `test-utils/run-stub-gh.ts` stands in for
-  `gh pr view`: its first argument names a JSON file of the pull requests it holds.
+- Run git through [`runGit`](../../../test-utils/run-git.ts), which takes the directory and the
+  arguments. It gives the child a minimal environment: `PATH`, `HOME` set to the temp dir, no global
+  or system config, and a fixed identity. A pre-push hook's `GIT_DIR` and the host's signing or
+  template config cannot reach it.
+- [`readPullRequest`](../../../src/scope/read-pull-request.ts) takes the gh command to run.
+  [`run-stub-gh.ts`](../../../test-utils/run-stub-gh.ts) stands in for `gh pr view`: its first
+  argument names a JSON file of the pull requests it holds.
 
 ## Time
 
-- The evaluation path takes `now` and `timeout` in `EvaluationOptions`; the defaults are `Date.now`
-  and `AbortSignal.timeout`. The decision and Messages clients take a required `signal`.
-- `updateJSONFile` and the state writers built on it take a `LockClock` (`{ now, wait }`).
-  `buildStubLockClock` from `test-utils/build-stub-lock-clock.ts` gives one that advances on each
-  wait.
-- The key-command reader stops its helper on the injected timer; `test-utils/run-stub-key-helper.ts`
-  is a helper script that starts a child and reports both process IDs, and
-  `test-utils/load-process-state.ts` reads a process's state from `/proc` (Linux only).
+- The evaluation path takes `now` and `timeout` in
+  [`EvaluationOptions`](../../../src/config/types.ts); the defaults are `Date.now` and
+  `AbortSignal.timeout`. The decision and Messages clients take a required `signal`.
+- [`updateJSONFile`](../../../src/state/update-json-file.ts) and the state writers built on it take
+  a [`LockClock`](../../../src/state/types.ts) (`{ now, wait }`).
+  [`buildStubLockClock`](../../../test-utils/build-stub-lock-clock.ts) gives one that advances on
+  each wait.
+- The key-command reader stops its helper on the injected timer.
+  [`run-stub-key-helper.ts`](../../../test-utils/run-stub-key-helper.ts) is a helper script that
+  starts a child and reports both process IDs, and
+  [`loadProcessState`](../../../test-utils/load-process-state.ts) reads a process's state from
+  `/proc` (Linux only).
 
 ## HTTP
 
-- `mocks/handlers.ts` answers `DECISION_URL` (the Jev decision API) and `MESSAGES_URL` (the
-  Anthropic Messages API). `buildMockProviderConfig` points at the decision host by default; a
-  Messages provider overrides `protocol` and `baseURL`.
-- The decision handler answers from `decisionAnswers` (`mocks/decision-answers.ts`), a Map keyed by
-  question ID such as `rule_0` or `hard_deny_0`. A question with no seeded answer gets a certain
-  allow.
+- [`handlers.ts`](../../../mocks/handlers.ts) answers `DECISION_URL` (the Jev decision API) and
+  `MESSAGES_URL` (the Anthropic Messages API).
+  [`buildMockProviderConfig`](../../../test-utils/factories/build-mock-provider-config.ts) points at
+  the decision host by default; a Messages provider overrides `protocol` and `baseURL`.
+- The decision handler answers from [`decisionAnswers`](../../../mocks/decision-answers.ts), a Map
+  keyed by question ID such as `rule_0` or `hard_deny_0`. A question with no seeded answer gets a
+  certain allow.
 - The decision handler checks a request as Jev does, and only as far. An unknown top-level field or
   a question type other than `choice` gets HTTP 400 with an `api_usage_error` body. A body that is
   not a JSON object, a missing or wrongly typed `model`, a missing or null `state`, a missing or
   non-map `questions`, an empty `questions` map, and a question that is not an object or has no
   `type` get HTTP 422 with Jev's `detail` list. The value of `state` and the fields inside a
   question pass unchecked, so the client's own tests pin the body it sends.
-- The Messages handler answers from the `messagesReplies` queue (`mocks/messages-replies.ts`). An
-  empty queue answers HTTP 500 with an `api_error` body.
+- The Messages handler answers from the [`messagesReplies`](../../../mocks/messages-replies.ts)
+  queue. An empty queue answers HTTP 500 with an `api_error` body.
 - A per-test `server.use` handler that records the request and returns nothing passes it on to the
   default handler. Read the body from `request.clone()`, because the default handler reads it too.
   When no later handler answers, MSW 2 sends the request to the real network instead of raising
@@ -111,25 +141,30 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
 
 ## Recorded inputs
 
-- `fixtures/mod-request-*.json` are mod requests recorded in a live Claude Code session; read one
-  with `readFixture` from `test-utils/read-fixture.ts`.
-- `evals/corpora/` holds the evaluation corpora, and `evals/corpora/recorded/` the recorded model
-  answers the replay suites read; the reports live in the private zgeoff/auto-mode-evals repository.
-  The `evals/runners/run-*-evaluation.ts` runners send real model requests, so no test runs one. The
-  evaluation suites' helpers and factories live in `evals/lib/`, each with its own tests.
+- The `mod-request-*.json` files in [`fixtures/`](../../../fixtures/) are mod requests recorded in a
+  live Claude Code session; read one with [`readFixture`](../../../test-utils/read-fixture.ts).
+- [`evals/corpora/`](../../../evals/corpora/) holds the evaluation corpora, and its `recorded/`
+  folder holds the recorded model answers the replay suites read; the reports live in the private
+  zgeoff/auto-mode-evals repository. The `run-*-evaluation.ts` runners in
+  [`evals/runners/`](../../../evals/runners/) send real model requests, so no test runs one. The
+  evaluation suites' helpers and factories live in [`evals/lib/`](../../../evals/lib/), each with
+  its own tests.
 
 ## The Claude Code mod checks
 
 - `mods/auto-mode/hooks/*.claude-check.ts` run under `claude plugin test` through
-  `bun run check:claude-mod`, not under `bun test`. The script copies `hooks/` into a temp dir,
-  renames each `*.claude-check.ts` to `*.test.ts`, and runs `claude plugin validate` and
-  `claude plugin test` under `env -i` with an isolated config dir. It needs `claude` on `PATH`.
-- They import `expect` and `test` from `claude-code/testing`, declared in
-  `mods/auto-mode/hooks/testing.d.ts`. That module has no `test.each`, no `mock()` recorder, no
-  `onTestFinished`, no setup hooks and no jest-extended matchers; `mock.clock`, `mock.store` and
-  `mock.env` exist. Each test gets a fresh host.
+  `bun run check:claude-mod`, not under `bun test`. The command needs `claude` on `PATH`, and it
+  runs the host with an isolated config dir and no environment but `PATH`, so this machine's plugins
+  never reach a check. [`check-claude-mod.ts`](../../../scripts/check-claude-mod.ts) owns the
+  sequence.
+- The checks import `expect` and `test` from `claude-code/testing`, declared in
+  [`testing.d.ts`](../../../mods/auto-mode/hooks/testing.d.ts). That module has no `test.each`, no
+  `mock()` recorder, no `onTestFinished`, no setup hooks and no jest-extended matchers;
+  `mock.clock`, `mock.store` and `mock.env` exist. Each test gets a fresh host.
 - The checks load only the mod's own files, so their factories, the process-run stub and
-  `assertDefined` live in `mods/auto-mode/hooks/test-utils/`, each with its own checks.
+  [`assertDefined`](../../../mods/auto-mode/hooks/test-utils/assert-defined.ts) live in
+  [`mods/auto-mode/hooks/test-utils/`](../../../mods/auto-mode/hooks/test-utils/), each with its own
+  checks.
 - The host reports a hook that throws as skipped and raises its own error, so the mod never sees the
   thrown text. A check cannot reach the mod's "subprocess timeout" branch.
 - A handler a check registers with `on(…)` must answer synchronously. The host reads a handler that
@@ -140,8 +175,7 @@ They arrive as a `HostEnvironment` (`src/config/types.ts`): `{ env, home, scratc
   reach the mod's path for a tool call without one.
 - Every hook gets `next.budget.remainingMs` of 10000 and a signal that is never aborted. Neither the
   test's `timeoutMs` option, `mock.clock`, nor real elapsed time changes them, and `$.tool.check`
-  takes one argument. A check cannot reach the mod's "cancelled", "insufficient budget" or
-  "insufficient subprocess budget" branches.
+  takes one argument. A check cannot reach the mod's "cancelled" or "insufficient budget" branches.
 - A `tool.check` started from inside a `tool.call` handler reaches the mod only after the call has
   finished, so the mod sees it as an untracked call. A check cannot drive a child agent's
   evaluation: its agent ID, its delegated task, the omitted delegated task, the cleared last direct
