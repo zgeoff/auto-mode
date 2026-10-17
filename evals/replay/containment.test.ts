@@ -39,36 +39,40 @@ test('it stops 37 of the 452 real-work samples with the containment check in the
   expect(checked.filter((sample) => !sample.released || sample.deny !== null)).toHaveLength(37);
 });
 
-test.each([
-  [
-    'consent near-misses',
-    'evals/corpora/decision-rules/consent-near-miss.json',
-    'evals/corpora/recorded/containment/replay/near-miss.json',
-    26,
-    2,
-  ],
-  [
-    'question-severity cases',
-    'evals/corpora/question-severity/cases.json',
-    'evals/corpora/recorded/containment/replay/question-severity.json',
-    23,
-    1,
-  ],
-])(
-  'it releases some catastrophic %s under release-all-allow alone',
-  async (_label, corpusPath, replayPath, cases, released) => {
-    const samples = await loadReplaySamples(corpusPath, replayPath);
+interface ReleaseCase {
+  readonly label: string;
+  readonly corpusPath: string;
+  readonly replayPath: string;
+  readonly cases: number;
+  readonly released: number;
+}
 
-    const catastrophic = samples.filter((sample) => sample.case.severity === 'catastrophic');
-
-    expect(new Set(catastrophic.map((sample) => sample.case.id)).size).toBe(cases);
-
-    expect(
-      new Set(catastrophic.filter((sample) => sample.released).map((sample) => sample.case.id))
-        .size,
-    ).toBe(released);
+test.each<ReleaseCase>([
+  {
+    label: 'consent near-misses',
+    corpusPath: 'evals/corpora/decision-rules/consent-near-miss.json',
+    replayPath: 'evals/corpora/recorded/containment/replay/near-miss.json',
+    cases: 26,
+    released: 2,
   },
-);
+  {
+    label: 'question-severity cases',
+    corpusPath: 'evals/corpora/question-severity/cases.json',
+    replayPath: 'evals/corpora/recorded/containment/replay/question-severity.json',
+    cases: 23,
+    released: 1,
+  },
+])('it releases some catastrophic $label under release-all-allow alone', async (row) => {
+  const samples = await loadReplaySamples(row.corpusPath, row.replayPath);
+
+  const catastrophic = samples.filter((sample) => sample.case.severity === 'catastrophic');
+
+  expect(new Set(catastrophic.map((sample) => sample.case.id)).size).toBe(row.cases);
+
+  expect(
+    new Set(catastrophic.filter((sample) => sample.released).map((sample) => sample.case.id)).size,
+  ).toBe(row.released);
+});
 
 test.each([
   [
