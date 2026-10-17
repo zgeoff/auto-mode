@@ -22,7 +22,7 @@ jobs:
     with:
       include:
         skill-testing, hook-skill-gate, pre-push-baseline, skill-docs-writing, skill-code-style,
-        skill-skill-writing
+        skill-skill-writing, workflow-audit-fix
       skip: agents
     secrets:
       REPO_SYNC_APP_CLIENT_ID: ${{ secrets.REPO_SYNC_APP_CLIENT_ID }}
