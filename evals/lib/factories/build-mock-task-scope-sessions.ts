@@ -7,7 +7,7 @@ export function buildMockTaskScopeSessions(
   overrides: Partial<TaskScopeSessions> = {},
 ): TaskScopeSessions {
   return {
-    home: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
+    home: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     remotes: [],
     worktreeBranches: {},
     pullRequestHeads: {},

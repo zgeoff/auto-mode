@@ -5,7 +5,7 @@ import type { OwnedScope } from '../../src/scope/types.ts';
 // test grants what its scenario needs.
 export function buildMockOwnedScope(overrides: Partial<OwnedScope> = {}): OwnedScope {
   return {
-    home: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
+    home: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     worktrees: [],
     branches: [],
     currentBranch: faker.git.branch(),

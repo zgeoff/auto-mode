@@ -43,7 +43,7 @@ test('it writes the summary under runs/live-use with the run config and the log 
   );
 
   expect(JSON.parse(written)).toStrictEqual({
-    runID: expect.toSatisfy((value: string) => /^20261010T120000Z-[0-9a-f]{8}$/.test(value)),
+    runID: expect.toSatisfy((value: string) => /^20261010T120000Z-[0-9a-f]{8}$/u.test(value)),
     config: {
       schemaVersion: 1,
       experiment: 'live-use',

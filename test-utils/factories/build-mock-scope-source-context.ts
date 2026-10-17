@@ -9,7 +9,8 @@ type ScopeSourceContext = Parameters<ScopeSourceReader>[0];
 export function buildMockScopeSourceContext(
   overrides: Partial<ScopeSourceContext> = {},
 ): ScopeSourceContext {
-  const worktree = overrides.worktree ?? `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`;
+  const worktree =
+    overrides.worktree ?? `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`;
 
   return {
     env: {},
@@ -18,7 +19,7 @@ export function buildMockScopeSourceContext(
     worktree,
     commonDir: `${worktree}/.git`,
     branch: faker.git.branch(),
-    stateDir: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
+    stateDir: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     stderr: { write: () => true },
     ...overrides,
   };

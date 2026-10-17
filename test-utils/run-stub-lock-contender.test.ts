@@ -83,7 +83,7 @@ test('it waits at the barrier once it finds the lock held until every contender 
 
   expect(stateWhileWaiting).toIncludeSameMembers([
     'session.json.lock',
-    expect.stringMatching(/^session\.json\.lock\.[\da-f-]{36}$/),
+    expect.stringMatching(/^session\.json\.lock\.[\da-f-]{36}$/u),
   ]);
 
   expect(exitCode).toBe(0);

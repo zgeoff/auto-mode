@@ -65,14 +65,14 @@ test('it writes the anonymised cases and a labels to-do list outside every check
         id: 'recorded-0001',
         source: 'recorded',
         request: {
-          sessionID: expect.toSatisfy((value: string) => /^session-[0-9a-f]{8}$/.test(value)),
+          sessionID: expect.toSatisfy((value: string) => /^session-[0-9a-f]{8}$/u.test(value)),
           cwd: expect.toSatisfy((value: string) =>
-            /^\/home\/user-[0-9a-f]{8}\/repo-[0-9a-f]{8}$/.test(value),
+            /^\/home\/user-[0-9a-f]{8}\/repo-[0-9a-f]{8}$/u.test(value),
           ),
           toolName: 'Bash',
           toolInput: {
             command: expect.toSatisfy((value: string) =>
-              /^make -C \/home\/user-[0-9a-f]{8}\/repo-[0-9a-f]{8}$/.test(value),
+              /^make -C \/home\/user-[0-9a-f]{8}\/repo-[0-9a-f]{8}$/u.test(value),
             ),
           },
           context: {
@@ -174,7 +174,7 @@ test('it writes nothing when the secret scan cannot run', async () => {
     stagingRoot: ctx.dir,
   });
 
-  expect(written).rejects.toThrow(/secret scan did not pass/);
+  expect(written).rejects.toThrow(/secret scan did not pass/u);
 
   const out = await stat(join(ctx.dir, 'recorded-traffic')).catch(() => null);
   const entries = await readdir(ctx.dir);

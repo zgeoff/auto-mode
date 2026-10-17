@@ -34,7 +34,7 @@ export async function sendMessage(
   request: ModelRequest,
   signal: Readonly<AbortSignal>,
 ): Promise<ModelResult> {
-  const response = await fetch(`${provider.baseURL.replace(/\/$/, '')}/v1/messages`, {
+  const response = await fetch(`${provider.baseURL.replace(/\/$/u, '')}/v1/messages`, {
     method: 'POST',
     signal,
     headers: {

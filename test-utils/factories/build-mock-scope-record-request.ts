@@ -8,7 +8,7 @@ export function buildMockScopeRecordRequest(
 ): ScopeRecordRequest {
   return {
     sessionID: faker.string.uuid(),
-    cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
+    cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     startedAt: faker.date.recent().getTime(),
     command: faker.lorem.words(3),
     resultText: '',

@@ -781,7 +781,7 @@ function requireCap(requests: number, maxRequests: number | null): void {
 }
 
 function buildRunID(startedAt: string, frozen: Readonly<Record<string, unknown>>): string {
-  const stamp = startedAt.replaceAll(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const stamp = startedAt.replaceAll(/[-:]/gu, '').replace(/\.\d+Z$/u, 'Z');
 
   return `${stamp}-${toHash(JSON.stringify(frozen)).slice(0, 8)}`;
 }

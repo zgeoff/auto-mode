@@ -68,7 +68,7 @@ export async function sendDecision(
   let response: Response;
 
   try {
-    response = await sendFetch(`${provider.baseURL.replace(/\/$/, '')}/v1/systemone`, {
+    response = await sendFetch(`${provider.baseURL.replace(/\/$/u, '')}/v1/systemone`, {
       method: 'POST',
       signal,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
