@@ -2,30 +2,26 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { DecisionRequestError } from 'auto-mode/eval';
 import type { ClaudeRules, DecisionRequest, DecisionResult } from 'auto-mode/eval';
-import { buildFallbackCounts } from './build-fallback-counts.ts';
-import { buildMeasurementCounts } from './build-measurement-counts.ts';
-import { buildRequiredCaseOutcomes } from './build-required-case-outcomes.ts';
-import { buildStageFailureCounts } from './build-stage-failure-counts.ts';
-import { buildStageLatency } from './build-stage-latency.ts';
-import type { CaseLabel } from './case-labels-schema.ts';
-import { PIPELINE_STAGE } from './collect-pipeline-verdicts.ts';
+import { buildRunSummary } from './build-run-summary.ts';
 import type {
-  CaseSet,
   Experiment,
   JudgeReply,
   JudgeRequest,
   LabelledCase,
-  MeasurementObservations,
-  Recording,
   StageContext,
   StageOutcome,
 } from './define-experiment.ts';
 import { JudgeRequestError } from './judge-request-error.ts';
-import { loadCaseLabels } from './load-case-labels.ts';
-import { loadCorpusHashes } from './load-corpus-hashes.ts';
 import { loadRun } from './load-run.ts';
+import { loadSelectedCases } from './load-selected-cases.ts';
+import { pickCaseKeys } from './pick-case-keys.ts';
+import { pickStages } from './pick-stages.ts';
+import type { ActiveStage } from './pick-stages.ts';
 import type { ExperimentPlan } from './plan-experiment-run.ts';
 import { buildStageRunKey, planExperimentRun } from './plan-experiment-run.ts';
+import { printPlan } from './print-plan.ts';
+import { requireRecording } from './require-recording.ts';
+import { requireSameConfig } from './require-same-config.ts';
 import type { RunConfig, RunSummary } from './run-summary-schema.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 import { toHash } from './to-hash.ts';
@@ -220,7 +216,7 @@ export async function runExperiment<Case>(
   }
 
   const buildCurrentSummary = (completedAt: string | null): RunSummary =>
-    buildSummary(
+    buildRunSummary(
       runID,
       { ...config, models: { ...models }, completedAt },
       experiment,
@@ -525,214 +521,6 @@ async function collectSendingRuns<Case>(
   return sending;
 }
 
-function requireRecording<Case>(
-  experiment: Readonly<Experiment<Case>>,
-  recording: string | null,
-  live: boolean,
-): Recording | null {
-  if (recording === null) {
-    return null;
-  }
-
-  const found = experiment.recordings.find((entry) => entry.name === recording);
-
-  if (found === undefined) {
-    const known = experiment.recordings.map((entry) => entry.name);
-
-    throw new Error(
-      `The ${experiment.name} experiment has no recording ${recording}. Known: ${known.length === 0 ? 'none' : known.join(', ')}.`,
-    );
-  }
-
-  const liveStages = found.liveStages ?? [];
-
-  if (live && liveStages.length === 0) {
-    throw new Error('A run that replays a recording sends nothing; drop --live.');
-  }
-
-  const unsent = liveStages.filter(
-    (name) => !experiment.stages.some((stage) => stage.name === name && stage.sends),
-  );
-
-  if (unsent.length > 0) {
-    throw new Error(
-      `The ${recording} recording names live stages the ${experiment.name} experiment does not send: ${unsent.join(', ')}.`,
-    );
-  }
-
-  return found;
-}
-
-// A run limited to named cases keeps the order of the full run's keys, and a
-// key the experiment lacks fails before any request.
-function pickCaseKeys<Case>(
-  experiment: Readonly<Experiment<Case>>,
-  available: readonly string[],
-  cases: readonly string[] | null,
-): string[] {
-  const sorted = available.toSorted();
-
-  if (cases === null) {
-    return sorted;
-  }
-
-  const unknown = cases.filter((key) => !sorted.includes(key));
-
-  if (unknown.length > 0) {
-    throw new Error(`The ${experiment.name} cases lack [${unknown.join(', ')}].`);
-  }
-
-  return sorted.filter((key) => cases.includes(key));
-}
-
-// A case is boxed, so a case type that admits undefined still reads as present.
-interface SelectedCases<Case> {
-  readonly cases: ReadonlyMap<string, { readonly value: Case }>;
-  readonly labels: ReadonlyMap<string, CaseLabel>;
-  readonly corpusHashes: readonly (readonly [string, string])[];
-  readonly labelsHashes: readonly (readonly [string, string])[];
-}
-
-// Each set's labels must cover its corpus; the experiment then picks the cases
-// it measures by label, and its loader must hold each one. A key is qualified by
-// its corpus, so two corpora may reuse a case name.
-async function loadSelectedCases<Case>(
-  experiment: Readonly<Experiment<Case>>,
-  sets: readonly Readonly<CaseSet<Readonly<Case>>>[],
-): Promise<SelectedCases<Case>> {
-  const cases = new Map<string, { readonly value: Case }>();
-  const labels = new Map<string, CaseLabel>();
-
-  const corpusHashes: (readonly [string, string])[] = [];
-  const labelsHashes: (readonly [string, string])[] = [];
-
-  for (const set of sets) {
-    const [setLabels, hashes] = await Promise.all([
-      loadCaseLabels(set.dir),
-      loadCorpusHashes(set.dir, []),
-    ]);
-
-    corpusHashes.push([set.corpus, hashes.corpusHash]);
-    labelsHashes.push([set.corpus, hashes.labelsHash]);
-
-    const picked = Object.entries(setLabels.cases).filter(([key, label]) =>
-      experiment.selectCase(label, `${set.corpus}/${key}`),
-    );
-
-    const missing = picked.filter(([key]) => !Object.hasOwn(set.cases, key)).map(([key]) => key);
-
-    if (missing.length > 0) {
-      throw new Error(
-        `The ${experiment.name} loader lacks the labelled ${set.corpus} cases [${missing.join(', ')}].`,
-      );
-    }
-
-    for (const [key, label] of picked) {
-      const qualified = `${set.corpus}/${key}`;
-      const value = set.cases[key];
-
-      if (!Object.hasOwn(set.cases, key) || value === undefined) {
-        throw new Error(`The ${experiment.name} loader lacks the case ${key}.`);
-      }
-
-      cases.set(qualified, { value });
-      labels.set(qualified, label);
-    }
-  }
-
-  return { cases, labels, corpusHashes, labelsHashes };
-}
-
-type ActiveStage<Case> = Experiment<Case>['stages'][number];
-
-// A recorded run replays each stage that can, runs each stage that sends
-// nothing, and names each stage that would have to send as not measured. A live
-// run sends the recording's live stages instead of replaying them.
-interface PickedStages<Case> {
-  readonly active: readonly ActiveStage<Case>[];
-  readonly dropped: readonly string[];
-  readonly notMeasured: readonly string[];
-}
-
-function pickStages<Case>(
-  experiment: Readonly<Experiment<Case>>,
-  recording: Recording | null,
-  live: boolean,
-): PickedStages<Case> {
-  if (recording === null) {
-    return { active: experiment.stages, dropped: [], notMeasured: [] };
-  }
-
-  const active: ActiveStage<Case>[] = [];
-  const dropped: string[] = [];
-  const notMeasured: string[] = [];
-  const liveStages = live ? (recording.liveStages ?? []) : [];
-
-  for (const stage of experiment.stages) {
-    if (liveStages.includes(stage.name)) {
-      active.push(stage);
-    } else if (stage.replay !== undefined) {
-      active.push({ ...stage, sends: false, run: stage.replay });
-    } else if (stage.sends) {
-      dropped.push(stage.name);
-
-      notMeasured.push(
-        `stage ${stage.name}: the ${recording.name} recording holds no answers for it`,
-      );
-    } else {
-      active.push(stage);
-    }
-  }
-
-  return { active, dropped, notMeasured };
-}
-
-function printPlan<Case>(
-  plan: Readonly<ExperimentPlan>,
-  stages: readonly ActiveStage<Case>[],
-  notMeasured: readonly string[],
-  isCounted: boolean,
-  print: (line: string) => unknown,
-): void {
-  print(
-    `Plan: ${plan.cases} cases × ${plan.samples} samples × ${plan.stages} stages; ` +
-      `${plan.stageRuns} stage runs to go, ${plan.recorded} already recorded, ` +
-      `${plan.requests} model requests.`,
-  );
-
-  for (const stage of stages.filter((entry) => entry.sends)) {
-    const requests = plan.units.filter((unit) =>
-      unit.stages.some((planned) => planned.name === stage.name && planned.sends),
-    ).length;
-
-    const line =
-      stage.reviews === undefined || isCounted
-        ? `  ${stage.name}: ${requests} model requests`
-        : `  ${stage.name}: at most ${requests} model requests, one for each ${stage.reviews} deny`;
-
-    print(line);
-  }
-
-  for (const entry of notMeasured) {
-    print(`Not measured: ${entry}`);
-  }
-}
-
-const RESUMED_FIELDS = [
-  'experiment',
-  'publicCommit',
-  'dirtyTree',
-  'policyHash',
-  'judgePolicyHash',
-  'configuredRulesHash',
-  'corpusHash',
-  'labelsHash',
-  'recording',
-  'seed',
-  'samples',
-  'live',
-] as const;
-
 // A dirty tree has no commit that names its code, so a resume could not tell
 // whether the records it adds come from the same code.
 function requireCleanResume(previous: Readonly<RunConfig>): void {
@@ -740,21 +528,6 @@ function requireCleanResume(previous: Readonly<RunConfig>): void {
     throw new Error(
       'Refusing to resume a run started from a dirty tree: no commit names its code.',
     );
-  }
-}
-
-function requireSameConfig(
-  previous: Readonly<RunConfig>,
-  current: Readonly<Pick<RunConfig, (typeof RESUMED_FIELDS)[number] | 'cases'>>,
-): void {
-  const changed: string[] = RESUMED_FIELDS.filter((field) => previous[field] !== current[field]);
-
-  if (JSON.stringify(previous.cases ?? null) !== JSON.stringify(current.cases ?? null)) {
-    changed.push('cases');
-  }
-
-  if (changed.length > 0) {
-    throw new Error(`Refusing to resume: the run differs in ${changed.join(', ')}.`);
   }
 }
 
@@ -784,37 +557,6 @@ function buildRunID(startedAt: string, frozen: Readonly<Record<string, unknown>>
   const stamp = startedAt.replaceAll(/[-:]/gu, '').replace(/\.\d+Z$/u, 'Z');
 
   return `${stamp}-${toHash(JSON.stringify(frozen)).slice(0, 8)}`;
-}
-
-function buildSummary<Case>(
-  runID: string,
-  config: Readonly<RunConfig>,
-  experiment: Readonly<Experiment<Case>>,
-  records: readonly SampleRecord[],
-  notMeasured: readonly string[],
-  dropped: readonly string[],
-): RunSummary {
-  const pipeline =
-    dropped.length === 0 ? PIPELINE_STAGE : `${PIPELINE_STAGE} without ${dropped.join(', ')}`;
-
-  const observations: MeasurementObservations[] = [];
-
-  for (const group of experiment.measurements.flatMap((measurement) => measurement(records))) {
-    const named = group.stage === PIPELINE_STAGE ? { ...group, stage: pipeline } : group;
-
-    observations.push(named);
-  }
-
-  return {
-    runID,
-    config,
-    notMeasured,
-    counts: buildMeasurementCounts(observations),
-    notScorable: buildStageFailureCounts(records),
-    latency: buildStageLatency(records),
-    fallbacks: buildFallbackCounts(records, config.models),
-    requiredCases: buildRequiredCaseOutcomes(experiment.requiredCases, records),
-  };
 }
 
 // A decision request that fails, times out, or returns an invalid answer is an
