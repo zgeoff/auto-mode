@@ -23,114 +23,41 @@ The rules a task needs are not repeated here. Load the skill for the work before
 | `project-testing`    | the same, beside `testing` — the preload, host environment, and mod checks         |
 | `docs-writing`       | writing or editing any committed prose: `docs/`, READMEs, this file, skills        |
 
-## Operations
-
-- Perform all work on a branch in a git worktree under `.worktrees/` (e.g.
-  `git worktree add .worktrees/<branch> -b <branch>`) — never commit directly on `main`.
-- Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages.
-- A squash merge makes the PR title the commit subject, so a PR title is a Conventional Commit too.
-  `feat(#412): add the retry budget` is a title; `add the retry budget` is not.
-- Commit subjects and PR titles use the imperative mood ("add X", never "added X" or a bare noun
-  phrase).
-- Open PRs against `main` using the PR template (`.github/PULL_REQUEST_TEMPLATE.md`). Descriptions
-  are condensed: lead paragraph ≤2 sentences, one-line bullets, ≤150 words — write the short version
-  first, don't draft long and trim.
-- After pushing, link the PR URL in your response.
-- A PR is ready only when its checks are green: watch CI (`gh pr checks <n> --watch`) after opening
-  or updating, and report a failure with what you're doing about it.
-- Light linting, formatting, and other checks run via lefthook's pre-commit and pre-push hooks.
-  Defer to CI for larger checks, as the environment you're operating in may have conservative memory
-  constraints.
-- `bun run lint` is plain oxlint. `bun run lint:full` adds the type-aware pass and the type check,
-  and is CI-only: never run it locally.
-
-## Dependencies
-
-- Pin exact versions — no `^`/`~` ranges. (`bun add` saves exact automatically via `exact = true` in
-  bunfig.toml — the rule applies to hand-written edits.)
-
-## Review bots
-
-CodeRabbit reviews every PR. Its config lives in the zgeoff/coderabbit repo, and this repo has no
-`.coderabbit.yaml` of its own: a repo-specific setting goes in a repo-root `.coderabbit.yaml` with
-`inheritance: true`, which layers it on top. CodeRabbit reads this file as its guidelines. A review
-bot added later is named here with its config, and these rules cover it too.
-
-- A PR is ready only after every bot review is read and every finding is answered: a fixed finding's
-  reply cites the commit that fixed it; a declined finding's reply states the reason — when a
-  finding contradicts this file, this file wins and the reply names the rule. Reviews land within a
-  few minutes of opening; read them with `gh pr view <n> --comments` and
-  `gh api repos/<owner>/<repo>/pulls/<n>/comments`. A finding outside the diff arrives in the review
-  body, not as a thread, so its answer is a PR comment.
-- Resolve a thread once its reply is posted, fixed and declined alike (GraphQL
-  `resolveReviewThread`). A finding the agent cannot confidently judge is escalation, not
-  disposition: reply saying so and leave the thread open for a human.
-- Never teach a bot through chat (`@coderabbitai` learnings and the like) — a correction to bot
-  behaviour is an edit to its config, reviewed in a PR.
-- Bots review a PR once, at open; an agent invokes a re-review only when asked. The exception is a
-  PR that got no review at all, such as one opened before the bot was installed: request it once
-  with that bot's documented trigger, such as `@coderabbitai review` for CodeRabbit.
-
 ## Layout
 
-The root package is the published `auto-mode`; `evals/` is a private Bun workspace package beside
-it. `src/` groups modules by concern, one primary export per file: `request/` parses a mod request
-and renders a verdict; `rules/` is the deterministic first tier; `model/` is the second tier and its
-decision API client; `messages/` is the Messages API client that a Messages API judge sends through;
-`shell/` splits a shell command into words, segments and redirections, once, for the local rules,
-the containment check and the session scope; `git/` reads a checkout from its git directory, with
-one walk up to `.git` per action; `types.ts` holds the types more than one stage reads; `policy/`
-assembles the prompt; `config/` holds configuration and presets; `budget/` counts denials per
-session; `containment/` denies a write outside the task scope; `scope/` builds that scope from the
-configured scope sources and keeps what each session created; `bypass/` lets an in-scope file edit
-skip Jev; `judge/` reviews each Jev deny, confirming it with a written reason or overturning it,
-through Claude Code over the Agent SDK, from a judge server per agent session, or the Messages API;
-`secrets/` scans edit content with the bundled Betterleaks rule set, which
-`scripts/build-secret-rules.ts` generates; `capture/` appends each judged request to the opt-in
-capture, never inside a git work tree; `state/` resolves the XDG directories and reads and updates
-the state files, each update under a lock; `process/` runs every child process, capped in time and
-output, and alone imports `node:child_process`. `classify-action.ts` runs both tiers with the
-containment check and the edit bypass between them and the judge after Jev, applies the denial
-budget and writes the action log when its caller asks, and is the library entry point;
-`record-scope.ts` adds what a finished Bash call created to the session scope;
-`write-action-failure.ts` logs a run that fails before the classifier starts; `index.ts` is the
-public API; `eval/index.ts` is the unpublished `auto-mode/eval` subpath; `cli.ts` is the entrypoint
-the mod runs. `mods/auto-mode/` is the Claude Code mod; its `contract/` holds the request and
-verdict shapes, the message origins and the scope commands that the mod and the CLI share, with no
-dependencies, because the mod ships as raw TypeScript. `policy/` at the repo root holds the prompt
-itself. `fixtures/` holds mod requests recorded in a live Claude Code session.
+- `policy/` at the repo root holds the prompt itself, such as `judge.md` for the judge;
+  `src/policy/` only assembles it. [The policy](#the-policy) gives its rules.
+- `evals/` is a private workspace package. It imports auto-mode by package name, with
+  `auto-mode/eval` for internals. `evals/corpora/` holds the corpora and, under `recorded/`, the
+  recorded model answers the replays read. `fixtures/` holds mod requests recorded in a live Claude
+  Code session. Evaluation reports live in the private zgeoff/auto-mode-evals repository.
+- `bun run build` generates `dist/`, the published artifact. `scripts/build-secret-rules.ts`
+  generates `src/secrets/betterleaks-rules.json`, and release-please writes `CHANGELOG.md`; never
+  edit either by hand.
 
-`evals/` holds the evaluation tooling: `eval.ts` is the `bun run eval` command, which plans, runs,
-resumes and compares one experiment, measures live use from the action log, and anonymises a request
-capture into a candidate corpus behind a gitleaks scan; `experiments/` holds one `defineExperiment`
-file per experiment (its corpora, its ordered stages, its measurements, the recordings it can
-replay) and the registry that lists them; `runners/` are the older `eval:*` scripts, kept for the
-live runs no experiment covers: the guidance variant and the summary of the recorded second judges,
-the question-shape threshold sweep, and the containment evidence, relay, stale-consent,
-answer-guidance and applicability corpora; `corpora/` the committed corpora, with the recorded model
-answers the replays read under `corpora/recorded/`; `lib/` the helpers they and the suites share,
-including the run, plan, result schemas and interval statistics; and `replay/` the suites that
-replay the corpora offline. Evaluation reports live in the private zgeoff/auto-mode-evals
-repository, not here. Evals import auto-mode code by package name: `auto-mode` for the public API
-and `auto-mode/eval` for internals. Both resolve to `src/` under the `auto-mode-eval` export
-condition, which `bun run test`, the `eval:*` scripts and `evals/tsconfig.json` set; without it the
-subpath does not resolve. Evals also reuse the root `test-utils/` helpers by path, and those import
-`src/` directly. Bun cannot install a workspace's dependency on the root package, so `prepare` links
-`evals/node_modules/auto-mode` to the root instead.
+## Boundaries
 
-The `zgeoff/import-zones` lint rule enforces the module boundaries, in the editor and wherever lint
-runs; `.oxlintrc.json` holds its zones and boundaries. Every file under `src/` belongs to a zone: an
-orchestrator file, `request/`, a support module or a stage. A new `src/` folder joins a zone there,
-in the same PR that adds it. No import breaks a zone, so the code holds no
-`oxlint-disable-next-line zgeoff/import-zones` comment. Never add one to make a new import pass:
-change the import, or change the zones in a PR that reviews the boundary. `e2e/import-zones.test.ts`
-checks that each boundary still fails a forbidden import.
+- The `zgeoff/import-zones` lint rule enforces the module boundaries, and `.oxlintrc.json` holds its
+  zones. Every file under `src/` belongs to a zone, so a new `src/` folder joins one in the same PR
+  that adds it.
+- Never add an `oxlint-disable-next-line zgeoff/import-zones` comment to make an import pass. Change
+  the import, or change the zones in a PR that reviews the boundary.
+- `e2e/import-zones.test.ts` checks that each boundary still fails a forbidden import.
+
+## Commands
+
+- `bun run lint` is plain oxlint. `bun run lint:full` adds the type-aware pass and the type check,
+  and is CI-only: never run it locally. `bun run check` includes it, so leave that to CI too.
+- lefthook runs the light checks before a commit and a push. Leave the heavier checks to CI, because
+  the host may have little memory.
+- Pin exact versions, with no `^` or `~` ranges. `bun add` saves exact versions, so the rule covers
+  hand-written edits.
 
 ## Runtime rules
 
 - Bun for development, node for the artifact. `bun test`, never vitest. The published `dist/` runs
-  under node 24 on a machine that may have no bun, so a CI step runs the built CLI under real node
-  against each fixture.
+  under node 24 on a machine that may have no bun, so the e2e suite runs the built CLI under node
+  against the recorded mod requests.
 - `run` and `record`, the two commands the mod runs, always exit 0. The mod reads a non-zero exit as
   a failure, and the JSON on stdout is what decides the outcome. A usage error, such as an unknown
   command or option, exits 2 with the usage on stderr, because no mod call reaches it and a caller
@@ -142,8 +69,7 @@ checks that each boundary still fails a forbidden import.
   never asks. The denial budget is the only path to a human.
 - Runtime dependencies are bundled, not external. The CLI starts once per prompted tool call, so
   resolving a package from `node_modules` is paid on every call.
-- Everything CI and the git hooks run is a root `package.json` script; invoke a gate by script name,
-  never by re-spelling the command.
+- Invoke a gate by its root `package.json` script name, never by re-spelling the command.
 
 ## The policy
 
@@ -178,6 +104,8 @@ prompt change and belongs in a commit that reviews it as one.
 - The CLI and the mod ship together, so the request and the verdict are strict. A shape either side
   does not know keeps the prompt. `mods/auto-mode/contract/types.ts` holds both shapes, and a type
   test fails when it and the CLI's schema disagree.
+- `mods/auto-mode/contract/` holds what the mod and the CLI share and has no dependencies, because
+  the mod ships as raw TypeScript.
 - A hooks module imports only its own plugin's files, by relative path, and `claude-code`; Claude
   Code refuses a package import, its own package included.
 - `mods/auto-mode/hooks/parse-decision.ts` alone maps the CLI's verdict to Claude Code's permission
@@ -186,18 +114,7 @@ prompt change and belongs in a commit that reviews it as one.
 - A change to the mod contract is verified by hand in a live Claude Code session before it merges.
   The fixtures are recordings, not a substitute for running it.
 
-## Writing
+## Banned words
 
-Banned words in all prose, fix on sight: `bites`, `CAS`, `ceiling`, `fence`/`fencing`, `floor`,
-`load-bearing`, `seam`, `surface`. A data artifact never speaks — a payload, a field, or a rule
-holds, carries, or matches; it does not say, know, or tell.
-
-## Testing
-
-- Co-located `*.test.ts`, flat `test('it …')` blocks, no `describe`. A test file declares no
-  function other than a local `setupTest()`.
-- Mock-free. Modules assert on return values, file-touching ones use `mkdtemp` trees, and the
-  external HTTP boundary is MSW — never a hand-rolled server and never a stubbed `fetch`.
-- `toStrictEqual` when the test determines every field; never `toEqual`. Narrow a maybe-value with
-  `invariant()`, never a `?.` inside `expect`. Restore state a test mutates in `onTestFinished`.
-- Never send a real model call from a test.
+Fix these on sight in all prose: `bites`, `CAS`, `ceiling`, `fence`/`fencing`, `floor`,
+`load-bearing`, `seam`, `surface`.
