@@ -1,65 +1,80 @@
 import { expect, test } from 'bun:test';
+import type { DecisionRule, DenyBasis } from '../types.ts';
+import type { JudgedVerdict } from './build-judged-verdict.ts';
 import { JUDGE_REASON_MAX_CHARS, buildJudgedVerdict } from './build-judged-verdict.ts';
+import type { JudgeOverturns, JudgeReply } from './types.ts';
 
-test.each([['consent'], ['any']] as const)(
-  'it allows an action whose soft-rule deny the judge overturns on consent when %s may overturn',
-  (overturns) => {
-    expect(
-      buildJudgedVerdict(
-        { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
-        'matched',
-        { kind: 'overturn', basis: 'consent', reason: 'The user asked for this commit on main.' },
-        { overturns },
-      ),
-    ).toStrictEqual({ verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'consent' });
-  },
-);
+interface ReviewCase {
+  readonly label: string;
+  readonly rule: Pick<DecisionRule, 'name' | 'tier' | 'source'>;
+  readonly basis: DenyBasis;
+  readonly reply: JudgeReply | null;
+  readonly overturns: JudgeOverturns;
+  readonly expected: JudgedVerdict;
+}
 
-test('it holds a soft-rule deny the judge overturns as a misread when only consent may overturn', () => {
-  expect(
-    buildJudgedVerdict(
-      { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
-      'matched',
-      { kind: 'overturn', basis: 'misread', reason: 'main is the task branch.' },
-      { overturns: 'consent' },
-    ),
-  ).toStrictEqual({
-    verdict: {
-      kind: 'deny',
-      rule: 'Default Branch Write',
-      reason:
-        'The action matches this rule: the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
+test.each<ReviewCase>([
+  {
+    label: 'allows a soft-rule deny the judge overturns on consent when only consent may overturn',
+    rule: { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+    basis: 'matched',
+    reply: {
+      kind: 'overturn',
+      basis: 'consent',
+      reason: 'The user asked for this commit on main.',
     },
-    status: 'held',
-    overturnBasis: 'misread',
-  });
-});
-
-test('it allows an action whose soft-rule deny the judge overturns as a misread when any overturn may clear it', () => {
-  expect(
-    buildJudgedVerdict(
-      { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
-      'matched',
-      { kind: 'overturn', basis: 'misread', reason: 'main is the task branch.' },
-      { overturns: 'any' },
-    ),
-  ).toStrictEqual({ verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'misread' });
-});
-
-test.each([
-  ['consent', 'consent'],
-  ['misread', 'any'],
-] as const)(
-  'it holds a hard-rule deny the judge overturns on %s when %s may overturn, with the template reason',
-  (basis, overturns) => {
-    expect(
-      buildJudgedVerdict(
-        { name: 'Data Exfiltration', tier: 'hard', source: 'shipped' },
-        'matched',
-        { kind: 'overturn', basis, reason: 'The destination is the user’s own server.' },
-        { overturns },
-      ),
-    ).toStrictEqual({
+    overturns: 'consent',
+    expected: { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'consent' },
+  },
+  {
+    label: 'allows a soft-rule deny the judge overturns on consent when any overturn may clear it',
+    rule: { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+    basis: 'matched',
+    reply: {
+      kind: 'overturn',
+      basis: 'consent',
+      reason: 'The user asked for this commit on main.',
+    },
+    overturns: 'any',
+    expected: { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'consent' },
+  },
+  {
+    label: 'holds a soft-rule deny the judge overturns as a misread when only consent may overturn',
+    rule: { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+    basis: 'matched',
+    reply: { kind: 'overturn', basis: 'misread', reason: 'main is the task branch.' },
+    overturns: 'consent',
+    expected: {
+      verdict: {
+        kind: 'deny',
+        rule: 'Default Branch Write',
+        reason:
+          'The action matches this rule: the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
+      },
+      status: 'held',
+      overturnBasis: 'misread',
+    },
+  },
+  {
+    label:
+      'allows a soft-rule deny the judge overturns as a misread when any overturn may clear it',
+    rule: { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+    basis: 'matched',
+    reply: { kind: 'overturn', basis: 'misread', reason: 'main is the task branch.' },
+    overturns: 'any',
+    expected: { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'misread' },
+  },
+  {
+    label: 'holds a hard-rule deny the judge overturns on consent, with the template reason',
+    rule: { name: 'Data Exfiltration', tier: 'hard', source: 'shipped' },
+    basis: 'matched',
+    reply: {
+      kind: 'overturn',
+      basis: 'consent',
+      reason: 'The destination is the user’s own server.',
+    },
+    overturns: 'consent',
+    expected: {
       verdict: {
         kind: 'deny',
         rule: 'Data Exfiltration',
@@ -67,29 +82,85 @@ test.each([
           'The action matches this rule: sending sensitive data, such as credentials or private code, off the machine. No instruction or configuration clears this rule.',
       },
       status: 'held',
-      overturnBasis: basis,
-    });
-  },
-);
-
-test('it denies with the judge’s reason when the judge confirms', () => {
-  expect(
-    buildJudgedVerdict(
-      { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
-      'matched',
-      { kind: 'confirm', reason: 'The user asked for a branch, not a commit on main.' },
-      { overturns: 'consent' },
-    ),
-  ).toStrictEqual({
-    verdict: {
-      kind: 'deny',
-      rule: 'Default Branch Write',
-      reason:
-        'The reviewer confirmed the Default Branch Write deny: The user asked for a branch, not a commit on main.',
+      overturnBasis: 'consent',
     },
-    status: 'confirmed',
-    overturnBasis: null,
-  });
+  },
+  {
+    label: 'holds a hard-rule deny the judge overturns as a misread when any overturn may clear it',
+    rule: { name: 'Data Exfiltration', tier: 'hard', source: 'shipped' },
+    basis: 'matched',
+    reply: {
+      kind: 'overturn',
+      basis: 'misread',
+      reason: 'The destination is the user’s own server.',
+    },
+    overturns: 'any',
+    expected: {
+      verdict: {
+        kind: 'deny',
+        rule: 'Data Exfiltration',
+        reason:
+          'The action matches this rule: sending sensitive data, such as credentials or private code, off the machine. No instruction or configuration clears this rule.',
+      },
+      status: 'held',
+      overturnBasis: 'misread',
+    },
+  },
+  {
+    label: 'denies with the judge’s reason when the judge confirms',
+    rule: { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+    basis: 'matched',
+    reply: { kind: 'confirm', reason: 'The user asked for a branch, not a commit on main.' },
+    overturns: 'consent',
+    expected: {
+      verdict: {
+        kind: 'deny',
+        rule: 'Default Branch Write',
+        reason:
+          'The reviewer confirmed the Default Branch Write deny: The user asked for a branch, not a commit on main.',
+      },
+      status: 'confirmed',
+      overturnBasis: null,
+    },
+  },
+  {
+    label: 'keeps the deny with the template reason when no reply arrives',
+    rule: { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+    basis: 'unresolved',
+    reply: null,
+    overturns: 'any',
+    expected: {
+      verdict: {
+        kind: 'deny',
+        rule: 'Default Branch Write',
+        reason:
+          'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
+      },
+      status: 'failed',
+      overturnBasis: null,
+    },
+  },
+  {
+    label: 'keeps the deny with the template reason on an unreadable reply',
+    rule: { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+    basis: 'unresolved',
+    reply: { kind: 'unreadable' },
+    overturns: 'any',
+    expected: {
+      verdict: {
+        kind: 'deny',
+        rule: 'Default Branch Write',
+        reason:
+          'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
+      },
+      status: 'failed',
+      overturnBasis: null,
+    },
+  },
+])('it $label', (row) => {
+  expect(
+    buildJudgedVerdict(row.rule, row.basis, row.reply, { overturns: row.overturns }),
+  ).toStrictEqual(row.expected);
 });
 
 test('it collapses the whitespace in a confirmed reason to single spaces', () => {
@@ -136,29 +207,6 @@ test('it cuts a confirmed reason with no word break inside the limit at the limi
     kind: 'deny',
     rule: 'Default Branch Write',
     reason: `The reviewer confirmed the Default Branch Write deny: ${'x'.repeat(599)}…`,
-  });
-});
-
-test.each([
-  ['no reply', null],
-  ['an unreadable reply', { kind: 'unreadable' } as const],
-])('it keeps the deny with the template reason on %s', (_label, reply) => {
-  expect(
-    buildJudgedVerdict(
-      { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
-      'unresolved',
-      reply,
-      { overturns: 'any' },
-    ),
-  ).toStrictEqual({
-    verdict: {
-      kind: 'deny',
-      rule: 'Default Branch Write',
-      reason:
-        'The supplied evidence cannot rule out the harm this rule of the configured replacement policy describes. The replacement policy defines what clears it.',
-    },
-    status: 'failed',
-    overturnBasis: null,
   });
 });
 
