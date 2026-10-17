@@ -36,7 +36,8 @@ policy/            the prompt itself, verbatim model input; the formatter leaves
 evals/             private package: imports auto-mode by package name, auto-mode/eval for internals
   corpora/         the committed corpora; recorded/ holds the model answers the replays read
   runners/         the eval:* scripts, which send real model requests
-fixtures/          mod requests recorded in a live Claude Code session
+fixtures/          files Claude Code wrote: mod requests from a live session, and the
+                   claude-json.json and mcp-json.json that the MCP server read parses
 e2e/               whole-program suites; the cli-* suites spawn the built dist/cli.js under node
 mocks/             the MSW handlers for the decision and Messages APIs
 test-utils/        shared test helpers and factories, each with its own tests

@@ -96,15 +96,16 @@ limit still applies.
 
 ## Time limits
 
-The mod passes `--jev-only`, which caps Jev's API timeout at 5 seconds; the judge role keeps its own
-provider and timeout. The child process has a 10-minute limit, Claude Code's own limit for one
-subprocess. The hook's budget stands still while the child runs, so the limit is not taken from it.
-A shared deadline ends evaluation 500 ms before the outer limit. The key helper uses the remaining
-deadline, and Jev uses the time left after the helper, up to 5 seconds. The judge uses its
-configured `timeoutMs`, 120 seconds by default, bounded by the same deadline. A slow judge holds the
-tool call for that long, because auto-mode serves unattended work. Cancellation stops the owned key
-helper and its process group. The mod declines evaluation when fewer than 750 ms of the hook's own
-budget remain. It discards child stderr and does not copy invalid output into diagnostics.
+The mod passes `--jev-only`, which caps Jev's API timeout at 5 seconds and the judge's at 120
+seconds; the judge role keeps its own provider. The child process stops at the sum of the CLI's step
+limits over its longest run: startup, three key commands, Jev, and two judge calls. The hook's
+budget stands still while the child runs, so the limit is not taken from it. A shared deadline ends
+evaluation 500 ms before the outer limit. The key helper uses the remaining deadline, and Jev uses
+the time left after the helper, up to 5 seconds. The judge uses its configured `timeoutMs` up to
+that cap, bounded by the same deadline. A slow judge holds the tool call for that long, because
+auto-mode serves unattended work. Cancellation stops the owned key helper and its process group. The
+mod declines evaluation when fewer than 750 ms of the hook's own budget remain. It discards child
+stderr and does not copy invalid output into diagnostics.
 
 ## Check the mod
 
