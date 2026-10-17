@@ -4,6 +4,8 @@ import * as z from 'zod';
 import type { DenialBudget } from '../budget/types.ts';
 import type { JudgeOverturns } from '../judge/types.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
+import { pickClassifierLane } from './pick-classifier-lane.ts';
+import { pickJudgeLane } from './pick-judge-lane.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 import type { HostEnvironment, KeyOptions } from './types.ts';
@@ -184,9 +186,11 @@ function buildConfig(json: unknown, path: string, home: string): Config {
     path,
   });
 
-  if (provider.protocol !== 'system-one') {
+  const classifierLane = pickClassifierLane(provider);
+
+  if (classifierLane.kind === 'refused') {
     throw new Error(
-      `${path}: decision.classifier names a ${provider.protocol} kind, which only judges`,
+      `${path}: decision.classifier names a ${classifierLane.protocol} kind, which only judges`,
     );
   }
 
@@ -199,7 +203,7 @@ function buildConfig(json: unknown, path: string, home: string): Config {
           path,
         });
 
-  if (judge?.protocol === 'system-one') {
+  if (judge !== null && pickJudgeLane(judge).transport === 'refused') {
     throw new Error(`${path}: decision.judge names a Jev kind, which cannot write a reason`);
   }
 

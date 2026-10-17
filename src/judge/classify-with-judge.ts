@@ -1,7 +1,8 @@
 import { findCurrentDirectUserMessage } from '../../mods/auto-mode/contract/find-current-direct-user-message.ts';
 import type { ProviderConfig } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
-import { toTimerDelay } from '../config/to-timer-delay.ts';
+import { createDeadlineSignal } from '../config/create-deadline-signal.ts';
+import { pickJudgeLane } from '../config/pick-judge-lane.ts';
 import type { EvaluationOptions } from '../config/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
@@ -47,9 +48,10 @@ export async function classifyWithJudge(
   try {
     failure = 'credential';
 
-    const apiKey = judge.protocol === 'claude-code' ? null : await resolveApiKey(judge, options);
+    const needsKey = pickJudgeLane(judge).credential === 'api-key';
+    const apiKey = needsKey ? await resolveApiKey(judge, options) : null;
 
-    if (judge.protocol !== 'claude-code' && apiKey === null) {
+    if (needsKey && apiKey === null) {
       throw new Error('no API key for the judge');
     }
 
@@ -73,17 +75,13 @@ export async function classifyWithJudge(
         evidence.find((entry) => entry.repositoryContext !== null)?.repositoryContext ?? null,
     });
 
-    const remainingMs =
-      options.deadlineAt === undefined ? judge.timeoutMs : options.deadlineAt - runtime.now();
-
     failure = 'timeout';
 
-    if (remainingMs <= 0 || options.signal?.aborted === true) {
+    const signal = createDeadlineSignal(judge.timeoutMs, options);
+
+    if (signal === null) {
       throw new DOMException('Judge deadline expired', 'AbortError');
     }
-
-    const timer = runtime.timeout(toTimerDelay(Math.min(judge.timeoutMs, remainingMs)));
-    const signal = options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]);
 
     failure = 'request';
 

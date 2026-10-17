@@ -3,6 +3,7 @@ import { loadConfig } from 'auto-mode';
 import {
   loadClaudeRules,
   loadPolicy,
+  pickJudgeLane,
   readRuntime,
   resolveApiKey,
   sendDecision,
@@ -82,12 +83,11 @@ async function main(): Promise<void> {
           ? configured
           : { ...configured, model: judgeModel };
 
-      const judgeKey =
-        judge === null || judge.protocol === 'claude-code'
-          ? null
-          : await resolveApiKey(judge, { runtime });
+      const lane = judge === null ? null : pickJudgeLane(judge);
+      const needsKey = lane?.credential === 'api-key';
+      const judgeKey = judge !== null && needsKey ? await resolveApiKey(judge, { runtime }) : null;
 
-      if (judge?.protocol === 'claude-code') {
+      if (lane?.transport === 'agent-sdk') {
         judgeSession ??= startJudgeSession(host.env);
       }
 
@@ -109,7 +109,7 @@ async function main(): Promise<void> {
           });
         },
         sendJudge:
-          judge === null || (judge.protocol !== 'claude-code' && judgeKey === null)
+          judge === null || (needsKey && judgeKey === null)
             ? null
             : async (request) => {
                 const reply = await sendJudgeMessage(

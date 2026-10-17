@@ -1,4 +1,6 @@
 import type { ProviderConfig } from '../config/config.ts';
+import { pickJudgeLane } from '../config/pick-judge-lane.ts';
+import type { JudgeLane } from '../config/pick-judge-lane.ts';
 import { sendMessage } from '../messages/anthropic-client.ts';
 import type { ModelRequest } from '../messages/anthropic-client.ts';
 import type { JudgeMessageReply, JudgeSession } from './types.ts';
@@ -12,34 +14,58 @@ export interface JudgeTransport {
   readonly session?: JudgeSession | undefined;
 }
 
-export async function sendJudgeMessage(
+type JudgeSender = (
+  provider: Readonly<ProviderConfig>,
+  request: Readonly<ModelRequest>,
+  transport: Readonly<JudgeTransport>,
+  signal: Readonly<AbortSignal>,
+) => Promise<JudgeMessageReply>;
+
+const JUDGE_SENDERS: Readonly<Record<JudgeLane['transport'], JudgeSender>> = {
+  'agent-sdk': sendToAgentSDK,
+  messages: sendToMessagesAPI,
+  refused: () =>
+    Promise.reject(new Error('Jev returns typed answers and cannot write a judge reason')),
+};
+
+export function sendJudgeMessage(
   provider: Readonly<ProviderConfig>,
   request: Readonly<ModelRequest>,
   transport: Readonly<JudgeTransport>,
   signal: Readonly<AbortSignal>,
 ): Promise<JudgeMessageReply> {
-  if (provider.protocol === 'claude-code') {
-    if (transport.session !== undefined) {
-      return transport.session.review(provider.model, request, signal);
-    }
+  return JUDGE_SENDERS[pickJudgeLane(provider).transport](provider, request, transport, signal);
+}
 
-    // The Agent SDK loads only for a review without a session, so a CLI run
-    // that reaches a warm judge server never parses it.
-    const sessionModule = await import('./start-judge-session.ts');
-
-    const session = sessionModule.startJudgeSession(transport.env);
-
-    try {
-      return await session.review(provider.model, request, signal);
-    } finally {
-      session.stop();
-    }
+async function sendToAgentSDK(
+  provider: Readonly<ProviderConfig>,
+  request: Readonly<ModelRequest>,
+  transport: Readonly<JudgeTransport>,
+  signal: Readonly<AbortSignal>,
+): Promise<JudgeMessageReply> {
+  if (transport.session !== undefined) {
+    return transport.session.review(provider.model, request, signal);
   }
 
-  if (provider.protocol === 'system-one') {
-    throw new Error('Jev returns typed answers and cannot write a judge reason');
-  }
+  // The Agent SDK loads only for a review without a session, so a CLI run
+  // that reaches a warm judge server never parses it.
+  const sessionModule = await import('./start-judge-session.ts');
 
+  const session = sessionModule.startJudgeSession(transport.env);
+
+  try {
+    return await session.review(provider.model, request, signal);
+  } finally {
+    session.stop();
+  }
+}
+
+async function sendToMessagesAPI(
+  provider: Readonly<ProviderConfig>,
+  request: Readonly<ModelRequest>,
+  transport: Readonly<JudgeTransport>,
+  signal: Readonly<AbortSignal>,
+): Promise<JudgeMessageReply> {
   if (transport.apiKey === null) {
     throw new Error('no API key for the judge');
   }

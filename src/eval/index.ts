@@ -10,6 +10,8 @@ export {
 } from '../config/config.ts';
 
 export { loadClaudeRules } from '../config/load-claude-rules.ts';
+export { pickClassifierLane } from '../config/pick-classifier-lane.ts';
+export { pickJudgeLane } from '../config/pick-judge-lane.ts';
 export type { ClaudeRules } from '../config/types.ts';
 export { checkContainment, type ContainmentDeny } from '../containment/check-containment.ts';
 export { buildDecisionRequest } from '../model/build-decision-request.ts';

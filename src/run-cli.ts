@@ -13,6 +13,7 @@ import { classifyAction } from './classify-action.ts';
 import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { loadConfig } from './config/config.ts';
 import type { Config } from './config/config.ts';
+import { pickJudgeLane } from './config/pick-judge-lane.ts';
 import { resolveShippedModDir } from './config/resolve-shipped-mod-dir.ts';
 import type { OutputStream, Runtime } from './config/types.ts';
 import { makeJudgeServerSession } from './judge/make-judge-server-session.ts';
@@ -266,7 +267,11 @@ function buildJudgeServerSession(
 ): JudgeSession | undefined {
   const judge = config.judge ?? null;
 
-  if (io.judgeServerCommand === undefined || judge?.protocol !== 'claude-code') {
+  if (
+    io.judgeServerCommand === undefined ||
+    judge === null ||
+    pickJudgeLane(judge).transport !== 'agent-sdk'
+  ) {
     return undefined;
   }
 
