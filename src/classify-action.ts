@@ -3,11 +3,9 @@ import { findCurrentDirectUserMessage } from '../mods/auto-mode/contract/find-cu
 import { buildRetryKey } from './budget/build-retry-key.ts';
 import { findRetryDeny } from './budget/find-retry-deny.ts';
 import { loadDenialState } from './budget/load-denial-state.ts';
-import type { DenialPlan } from './budget/plan-denial-budget.ts';
 import { planDenialBudget } from './budget/plan-denial-budget.ts';
 import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
-import type { DenialState } from './budget/types.ts';
-import { updateDenialState } from './budget/update-denial-state.ts';
+import { tryUpdateDenialBudget } from './budget/try-update-denial-budget.ts';
 import { tryClassifyEdit } from './bypass/try-classify-edit.ts';
 import type { Config } from './config/config.ts';
 import {
@@ -16,19 +14,26 @@ import {
   DEFAULT_SCOPE_SOURCES,
 } from './config/config.ts';
 import { loadClaudeSettings } from './config/load-claude-settings.ts';
-import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
+import type {
+  ClaudeSettings,
+  EvaluationOptions,
+  HostEnvironment,
+  OutputStream,
+} from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { ContainmentDeny } from './containment/check-containment.ts';
 import { findUserNamedGrant } from './containment/find-user-named-grant.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { buildRepositoryEvidence } from './git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
-import type { Checkout, CheckoutFacts, CheckoutFinder } from './git/types.ts';
+import { makeOnceCheckoutFinder } from './git/make-once-checkout-finder.ts';
+import type { CheckoutFacts, CheckoutFinder } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics, JudgeSession } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithJev } from './model/classify-with-jev.ts';
 import type { DecisionDiagnostics } from './model/types.ts';
+import { buildGuidedVerdict } from './policy/build-guided-verdict.ts';
 import { buildUnavailableVerdict } from './policy/build-unavailable-verdict.ts';
 import { readContainmentRule } from './policy/read-containment-rule.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
@@ -149,93 +154,22 @@ async function classifyWithBudget(
   };
 }
 
-async function classifyStages(
-  request: ActionRequest,
-  config: Config,
-  options: StageOptions,
-): Promise<ActionOutcome> {
-  const host = options.runtime.host;
-  let claudeSettings = options.claudeSettings;
+// What a stage reads: the action, the run, and the facts the stages before it
+// passed on.
+interface StageContext extends StageFacts {
+  readonly request: ActionRequest;
+  readonly config: Config;
+  readonly options: StageOptions;
+  readonly findCheckout: CheckoutFinder;
+}
 
-  if (claudeSettings === undefined) {
-    try {
-      claudeSettings = await loadClaudeSettings(config.claudeSettingsPath, host);
-    } catch {
-      const unavailable = buildUnavailableVerdict(config.onFailure, 'Claude settings unreadable.');
-      const guidance = unavailable === null ? null : await tryReadDenialGuidance();
-
-      return {
-        verdict:
-          unavailable?.kind === 'deny'
-            ? buildGuidedDeny(unavailable.rule, unavailable.reason, guidance)
-            : null,
-        decidingStage: 'jev',
-        note: 'Claude settings unreadable; classifier unavailable',
-        status: 'failure',
-        unavailable: true,
-      };
-    }
-  }
-
-  const configured = claudeSettings?.rules;
-
-  const hasConfiguredDenies =
-    configured !== undefined &&
-    (configured.hard_deny.length > 0 || configured.soft_deny.length > 0);
-
-  const local: LocalVerdict = hasConfiguredDenies ? { kind: 'escalate' } : classifyLocally(request);
-
-  // A local allow for regenerable output deletes files, so only a read-only
-  // allow comes before the containment check.
-  if (local.kind === 'allow' && local.exception === READ_ONLY_EXCEPTION) {
-    return buildLocalAllow(local.exception);
-  }
-
-  // Every stage reads the checkout through one finder, which walks up from a
-  // directory once per action.
-  const findActionCheckout = makeOnceCheckoutFinder(options.runtime.findCheckout);
-
-  const checkout = await loadCheckoutFacts(request.cwd, host.env, {
-    findCheckout: findActionCheckout,
-  }).catch(() => null);
-
-  const scope = await tryLoadTaskScope(
-    { sessionID: request.sessionID, cwd: request.cwd, checkout, findCheckout: findActionCheckout },
-    config,
-    host,
-    options.stderr,
-  );
-
-  const containment = scope === null ? null : checkContainment(request, scope, host.scratchPaths);
-  const stageOptions = { ...options, claudeSettings, findCheckout: findActionCheckout };
-  const facts = { local, scope, checkout, hasConfiguredDenies };
-
-  if (scope === null || containment === null) {
-    return classifyPastContainment(request, config, stageOptions, facts);
-  }
-
-  const containmentNote = `denied by the containment check: ${containment.findings.map((finding) => finding.target).join(', ')}`;
-
-  const grant = await loadGrantEvidence(request, config, options, { containment, scope, checkout });
-
-  if (grant === null) {
-    const guidance = await tryReadDenialGuidance();
-
-    return {
-      verdict: buildGuidedDeny(containment.rule, containment.reason, guidance),
-      decidingStage: 'containment',
-      note: containmentNote,
-      status: 'deny',
-    };
-  }
-
-  // The grant clears the scope finding alone: the call still meets Jev, and
-  // the judge reviews the grant and any Jev deny in one call, so a hard rule or
-  // a secret in the content still denies it.
-  return classifyPastContainment(request, config, stageOptions, {
-    ...facts,
-    grant: { evidence: grant, note: containmentNote },
-  });
+interface StageFacts {
+  readonly claudeSettings: ClaudeSettings | undefined;
+  readonly hasConfiguredDenies: boolean;
+  readonly local: LocalVerdict;
+  readonly checkout: CheckoutFacts | null;
+  readonly scope: OwnedScope | null;
+  readonly grant: PendingGrant | null;
 }
 
 interface PendingGrant {
@@ -243,177 +177,178 @@ interface PendingGrant {
   readonly note: string;
 }
 
-interface ContainmentFacts {
-  readonly local: LocalVerdict;
-  readonly scope: OwnedScope | null;
-  readonly checkout: CheckoutFacts | null;
-  readonly hasConfiguredDenies: boolean;
-  readonly grant?: PendingGrant | null | undefined;
+// A stage's verdict travels with the note and diagnostics the action log
+// records, and a Jev deny also carries the evidence the judge reviews.
+type StageOutcome = ActionOutcome & { readonly review?: JudgeEvidence };
+
+type StageDecision =
+  | { readonly kind: 'decided'; readonly outcome: StageOutcome }
+  | { readonly kind: 'pass'; readonly facts?: Partial<StageFacts> };
+
+interface Stage {
+  readonly decide: (ctx: Readonly<StageContext>) => StageDecision | Promise<StageDecision>;
 }
 
-async function classifyPastContainment(
-  request: ActionRequest,
-  config: Config,
-  options: StageOptions & Readonly<{ findCheckout: CheckoutFinder }>,
-  facts: Readonly<ContainmentFacts>,
-): Promise<ActionOutcome> {
-  const host = options.runtime.host;
-  const scope = facts.scope;
-  const grant = facts.grant ?? null;
-  const findActionCheckout = options.findCheckout;
-  const claudeSettings = options.claudeSettings;
-
-  // Only a regenerable-output allow reaches here, and it deletes files, so
-  // without a task scope no containment check has cleared it.
-  if (facts.local.kind === 'allow' && scope !== null) {
-    return classifyWithGrant(request, config, options, {
-      grant,
-      outcome: buildLocalAllow(facts.local.exception),
-    });
-  }
-
-  // A configured deny entry is the user's own rule, and only Jev reads it.
-  const edit =
-    facts.hasConfiguredDenies || scope === null
-      ? null
-      : await tryClassifyEdit(request, scope, host, { findCheckout: findActionCheckout });
-
-  if (edit?.kind === 'bypass') {
-    return classifyWithGrant(request, config, options, {
-      grant,
-      outcome: {
-        verdict: { kind: 'allow' },
-        decidingStage: 'bypass',
-        note: `allowed by the edit bypass: ${edit.target}`,
-        status: 'allow',
-      },
-    });
-  }
-
-  if (options.localOnly === true) {
-    return {
-      verdict: null,
-      decidingStage: 'local',
-      note: `${request.toolName} needs the model tier, which this run skipped`,
-      status: 'skipped',
-    };
-  }
-
-  const taskScope = scope === null ? undefined : buildTaskScopeSummary(scope);
-
-  const [outcome, guidance] = await Promise.all([
-    classifyWithJev(request, config, {
-      ...options,
-      taskScope,
-      claudeSettings,
-      checkout: facts.checkout ?? undefined,
-      findCheckout: findActionCheckout,
-    }),
-    tryReadDenialGuidance(),
-  ]);
-
-  const judge = config.judge ?? null;
-  const { review, ...rest } = outcome;
-
-  const jevOutcome: ActionOutcome = {
-    ...rest,
-    decidingStage: 'jev',
-    verdict:
-      outcome.verdict?.kind === 'deny'
-        ? buildGuidedDeny(outcome.verdict.rule, outcome.verdict.reason, guidance)
-        : outcome.verdict,
-    status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
-  };
-
-  const denied = outcome.verdict?.kind === 'deny' && judge !== null ? (review ?? null) : null;
-
-  return classifyWithGrant(request, config, options, { grant, outcome: jevOutcome, denied });
+interface FinalStage {
+  readonly decide: (ctx: Readonly<StageContext>) => Promise<StageOutcome>;
 }
 
-interface GrantReview {
-  readonly grant: PendingGrant | null;
-  readonly outcome: ActionOutcome;
-  readonly denied?: JudgeEvidence | null | undefined;
-}
+// The first stage that decides ends the run. The read-only allow comes before
+// the task scope loads, and the regenerable-output allow after the containment
+// check, because it deletes files.
+const STAGES: readonly Stage[] = [
+  { decide: classifyClaudeSettings },
+  { decide: classifyReadOnly },
+  { decide: classifyContainment },
+  { decide: classifyRegenerable },
+  { decide: classifyEditBypass },
+  { decide: classifyLocalOnly },
+];
 
-// One judge call reviews the user-named grant and the Jev deny together, so a
-// prompted call never waits on two judge processes. Without either, the
-// outcome stands as it is.
-async function classifyWithGrant(
+// Jev decides every action the stages before it pass on.
+const FINAL_STAGE: FinalStage = { decide: classifyJev };
+
+async function classifyStages(
   request: ActionRequest,
   config: Config,
   options: StageOptions,
-  review: Readonly<GrantReview>,
 ): Promise<ActionOutcome> {
-  const grant = review.grant;
-  const outcome = review.outcome;
-  const denied = review.denied ?? null;
-  const judge = config.judge ?? null;
-  const evidence = [grant?.evidence, denied ?? undefined].filter((entry) => entry !== undefined);
+  const ctx: StageContext = {
+    request,
+    config,
+    options,
 
-  if (judge === null || evidence.length === 0) {
-    return outcome;
+    // Every stage reads the checkout through one finder, which walks up from a
+    // directory once per action.
+    findCheckout: makeOnceCheckoutFinder(options.runtime.findCheckout),
+    claudeSettings: options.claudeSettings,
+    hasConfiguredDenies: false,
+    local: { kind: 'escalate' },
+    checkout: null,
+    scope: null,
+    grant: null,
+  };
+
+  const outcome = await runStages(ctx);
+  const reviewed = await classifyWithGrant(ctx, outcome);
+
+  if (reviewed.verdict?.kind !== 'deny') {
+    return reviewed;
   }
 
-  const [judged, guidance] = await Promise.all([
-    classifyWithJudge(request, evidence, judge, {
-      ...options,
-      rulesPath: config.rulesPath,
-      overturns: config.judgeOverturns ?? DEFAULT_JUDGE_OVERTURNS,
-    }),
-    tryReadDenialGuidance(),
-  ]);
+  const guidance = await tryReadDenialGuidance();
 
-  const granted = grant === null ? null : (judged[0] ?? null);
-  const reviewed = denied === null ? null : (judged.at(-1) ?? null);
-  const elapsedMs = judged[0]?.diagnostics.elapsedMs ?? 0;
+  return { ...reviewed, verdict: buildGuidedVerdict(reviewed.verdict, guidance) };
+}
 
-  const judgedOutcome: ActionOutcome =
-    reviewed === null
-      ? outcome
-      : {
-          ...outcome,
-          decidingStage: 'judge',
-          note: `${outcome.note}; judge ${reviewed.status} (${String(elapsedMs)}ms)`,
-          verdict:
-            reviewed.verdict.kind === 'deny'
-              ? buildGuidedDeny(reviewed.verdict.rule, reviewed.verdict.reason, guidance)
-              : reviewed.verdict,
-          status: reviewed.verdict.kind,
-          judge: reviewed.diagnostics,
-        };
+async function runStages(ctx: StageContext): Promise<StageOutcome> {
+  for (const stage of STAGES) {
+    const decision = await stage.decide(ctx);
 
-  if (grant === null || granted === null) {
-    return judgedOutcome;
+    if (decision.kind === 'decided') {
+      return decision.outcome;
+    }
+
+    Object.assign(ctx, decision.facts);
   }
 
-  if (granted.verdict.kind === 'deny') {
+  return FINAL_STAGE.decide(ctx);
+}
+
+async function classifyClaudeSettings(ctx: Readonly<StageContext>): Promise<StageDecision> {
+  const settings = await (ctx.claudeSettings ??
+    loadClaudeSettings(ctx.config.claudeSettingsPath, ctx.options.runtime.host).catch(() => null));
+
+  if (settings === null) {
+    const unavailable = buildUnavailableVerdict(
+      ctx.config.onFailure,
+      'Claude settings unreadable.',
+    );
+
     return {
-      ...(reviewed === null ? {} : { judge: reviewed.diagnostics }),
-      ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
-      verdict: buildGuidedDeny(granted.verdict.rule, granted.verdict.reason, guidance),
-      decidingStage: 'containment',
-      note: `${grant.note}; judge ${granted.status} (${String(elapsedMs)}ms)`,
-      status: 'deny',
-      grant: granted.diagnostics,
+      kind: 'decided',
+      outcome: {
+        verdict: unavailable?.kind === 'deny' ? unavailable : null,
+        decidingStage: 'jev',
+        note: 'Claude settings unreadable; classifier unavailable',
+        status: 'failure',
+        unavailable: true,
+      },
     };
   }
 
+  const rules = settings.rules;
+
   return {
-    ...judgedOutcome,
-    note: `containment cleared by the judge for the targets the user named (${String(elapsedMs)}ms); ${judgedOutcome.note}`,
-    grant: granted.diagnostics,
+    kind: 'pass',
+    facts: {
+      claudeSettings: settings,
+      hasConfiguredDenies: rules.hard_deny.length > 0 || rules.soft_deny.length > 0,
+    },
   };
 }
 
 const READ_ONLY_EXCEPTION = 'Read-only actions';
 
+function classifyReadOnly(ctx: Readonly<StageContext>): StageDecision {
+  const local: LocalVerdict = ctx.hasConfiguredDenies
+    ? { kind: 'escalate' }
+    : classifyLocally(ctx.request);
+
+  if (local.kind === 'allow' && local.exception === READ_ONLY_EXCEPTION) {
+    return { kind: 'decided', outcome: buildLocalAllow(local.exception) };
+  }
+
+  return { kind: 'pass', facts: { local } };
+}
+
+async function classifyContainment(ctx: Readonly<StageContext>): Promise<StageDecision> {
+  const host = ctx.options.runtime.host;
+  const request = ctx.request;
+
+  const checkout = await loadCheckoutFacts(request.cwd, host.env, {
+    findCheckout: ctx.findCheckout,
+  }).catch(() => null);
+
+  const scope = await tryLoadTaskScope(
+    { sessionID: request.sessionID, cwd: request.cwd, checkout, findCheckout: ctx.findCheckout },
+    ctx.config,
+    host,
+    ctx.options.stderr,
+  );
+
+  const containment = scope === null ? null : checkContainment(request, scope, host.scratchPaths);
+
+  if (scope === null || containment === null) {
+    return { kind: 'pass', facts: { checkout, scope } };
+  }
+
+  const note = `denied by the containment check: ${containment.findings.map((finding) => finding.target).join(', ')}`;
+
+  const grant = await loadGrantEvidence(ctx, { containment, scope, checkout });
+
+  if (grant === null) {
+    return {
+      kind: 'decided',
+      outcome: {
+        verdict: { kind: 'deny', rule: containment.rule, reason: containment.reason },
+        decidingStage: 'containment',
+        note,
+        status: 'deny',
+      },
+    };
+  }
+
+  // The grant clears the scope finding alone: the call still meets Jev, and
+  // the judge reviews the grant and any Jev deny in one call, so a hard rule or
+  // a secret in the content still denies it.
+  return { kind: 'pass', facts: { checkout, scope, grant: { evidence: grant, note } } };
+}
+
 // The judge reviews a containment deny only when the current direct user
 // message names every target, and never in a run that skips the models.
 async function loadGrantEvidence(
-  request: ActionRequest,
-  config: Config,
-  options: StageOptions,
+  ctx: Readonly<StageContext>,
   facts: Readonly<{
     containment: ContainmentDeny;
     scope: OwnedScope;
@@ -421,17 +356,17 @@ async function loadGrantEvidence(
   }>,
 ): Promise<JudgeEvidence | null> {
   const containment = facts.containment;
-  const judge = config.judge ?? null;
-  const message = findCurrentDirectUserMessage(request.decisionContext?.lastDirectUserMessage);
+  const judge = ctx.config.judge ?? null;
+  const message = findCurrentDirectUserMessage(ctx.request.decisionContext?.lastDirectUserMessage);
 
-  if (judge === null || message === null || options.localOnly === true) {
+  if (judge === null || message === null || ctx.options.localOnly === true) {
     return null;
   }
 
   const targets = findUserNamedGrant(containment.findings, message, {
     home: facts.scope.home,
     defaultBranch: facts.checkout?.head?.defaultBranch ?? null,
-    protectedBranches: config.protectedBranches,
+    protectedBranches: ctx.config.protectedBranches,
   });
 
   if (targets === null) {
@@ -453,6 +388,135 @@ async function loadGrantEvidence(
         ? null
         : buildRepositoryEvidence(facts.checkout, buildTaskScopeSummary(facts.scope)),
     containment: { reason: containment.reason, targets },
+  };
+}
+
+// Only a regenerable-output allow is left by now, and it deletes files, so it
+// stands only once a task scope has cleared it.
+function classifyRegenerable(ctx: Readonly<StageContext>): StageDecision {
+  if (ctx.local.kind === 'allow' && ctx.scope !== null) {
+    return { kind: 'decided', outcome: buildLocalAllow(ctx.local.exception) };
+  }
+
+  return { kind: 'pass' };
+}
+
+// A configured deny entry is the user's own rule, and only Jev reads it.
+async function classifyEditBypass(ctx: Readonly<StageContext>): Promise<StageDecision> {
+  if (ctx.hasConfiguredDenies || ctx.scope === null) {
+    return { kind: 'pass' };
+  }
+
+  const edit = await tryClassifyEdit(ctx.request, ctx.scope, ctx.options.runtime.host, {
+    findCheckout: ctx.findCheckout,
+  });
+
+  if (edit?.kind !== 'bypass') {
+    return { kind: 'pass' };
+  }
+
+  return {
+    kind: 'decided',
+    outcome: {
+      verdict: { kind: 'allow' },
+      decidingStage: 'bypass',
+      note: `allowed by the edit bypass: ${edit.target}`,
+      status: 'allow',
+    },
+  };
+}
+
+function classifyLocalOnly(ctx: Readonly<StageContext>): StageDecision {
+  if (ctx.options.localOnly !== true) {
+    return { kind: 'pass' };
+  }
+
+  return {
+    kind: 'decided',
+    outcome: {
+      verdict: null,
+      decidingStage: 'local',
+      note: `${ctx.request.toolName} needs the model tier, which this run skipped`,
+      status: 'skipped',
+    },
+  };
+}
+
+async function classifyJev(ctx: Readonly<StageContext>): Promise<StageOutcome> {
+  const outcome = await classifyWithJev(ctx.request, ctx.config, {
+    ...ctx.options,
+    taskScope: ctx.scope === null ? undefined : buildTaskScopeSummary(ctx.scope),
+    claudeSettings: ctx.claudeSettings,
+    checkout: ctx.checkout ?? undefined,
+    findCheckout: ctx.findCheckout,
+  });
+
+  return {
+    ...outcome,
+    decidingStage: 'jev',
+    status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
+  };
+}
+
+// One judge call reviews the user-named grant and the Jev deny together, so a
+// prompted call never waits on two judge processes. Without either, the
+// outcome stands as it is.
+async function classifyWithGrant(
+  ctx: Readonly<StageContext>,
+  decided: StageOutcome,
+): Promise<ActionOutcome> {
+  const { review, ...outcome } = decided;
+  const grant = ctx.grant;
+  const judge = ctx.config.judge ?? null;
+  const denied = outcome.verdict?.kind === 'deny' ? (review ?? null) : null;
+  const evidence = [grant?.evidence, denied ?? undefined].filter((entry) => entry !== undefined);
+
+  if (judge === null || evidence.length === 0) {
+    return outcome;
+  }
+
+  const judged = await classifyWithJudge(ctx.request, evidence, judge, {
+    ...ctx.options,
+    rulesPath: ctx.config.rulesPath,
+    overturns: ctx.config.judgeOverturns ?? DEFAULT_JUDGE_OVERTURNS,
+  });
+
+  const granted = grant === null ? null : (judged[0] ?? null);
+  const reviewed = denied === null ? null : (judged.at(-1) ?? null);
+  const elapsedMs = judged[0]?.diagnostics.elapsedMs ?? 0;
+
+  const judgedOutcome: ActionOutcome =
+    reviewed === null
+      ? outcome
+      : {
+          ...outcome,
+          decidingStage: 'judge',
+          note: `${outcome.note}; judge ${reviewed.status} (${String(elapsedMs)}ms)`,
+          verdict: reviewed.verdict,
+          status: reviewed.verdict.kind,
+          judge: reviewed.diagnostics,
+        };
+
+  if (grant === null || granted === null) {
+    return judgedOutcome;
+  }
+
+  if (granted.verdict.kind === 'deny') {
+    return {
+      ...(reviewed === null ? {} : { judge: reviewed.diagnostics }),
+      ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
+      verdict: granted.verdict,
+      decidingStage: 'containment',
+      note: `${grant.note}; judge ${granted.status} (${String(elapsedMs)}ms)`,
+      status: 'deny',
+      grant: granted.diagnostics,
+    };
+  }
+
+  return {
+    ...judgedOutcome,
+    note: `containment cleared by the judge for the targets the user named (${String(elapsedMs)}ms); ${judgedOutcome.note}`,
+    grant: granted.diagnostics,
   };
 }
 
@@ -486,18 +550,6 @@ async function tryLoadTaskScope(
   }
 }
 
-function makeOnceCheckoutFinder(find: CheckoutFinder): CheckoutFinder {
-  const found = new Map<string, Promise<Checkout | null>>();
-
-  return (start, env) => {
-    const cached = found.get(start) ?? find(start, env);
-
-    found.set(start, cached);
-
-    return cached;
-  };
-}
-
 function buildLocalAllow(exception: string): ActionOutcome {
   return {
     verdict: { kind: 'allow' },
@@ -507,12 +559,6 @@ function buildLocalAllow(exception: string): ActionOutcome {
   };
 }
 
-function buildGuidedDeny(rule: string, reason: string, guidance: string | null): Verdict {
-  const sentence = /[.!?]$/u.test(reason) ? reason : `${reason}.`;
-
-  return { kind: 'deny', rule, reason: guidance === null ? sentence : `${sentence} ${guidance}` };
-}
-
 // A verdict must still reach the mod when the guidance file is missing, or the
 // CLI exits without one and the prompt comes back.
 async function tryReadDenialGuidance(): Promise<string | null> {
@@ -520,32 +566,5 @@ async function tryReadDenialGuidance(): Promise<string | null> {
     return await readDenialGuidance();
   } catch {
     return null;
-  }
-}
-
-// A plan that changes no count, such as a defer's, takes no lock and writes
-// nothing. A lock or write failure keeps the verdict and plans from the read
-// taken before the lock, so this call's count can be lost but never doubled.
-async function tryUpdateDenialBudget(
-  stderr: Readonly<OutputStream>,
-  path: string,
-  plan: (state: Readonly<DenialState>) => DenialPlan,
-): Promise<DenialPlan> {
-  const unlocked = await loadDenialState(path);
-
-  const unlockedPlan = plan(unlocked);
-
-  if (unlockedPlan.state === unlocked) {
-    return unlockedPlan;
-  }
-
-  try {
-    const updated = await updateDenialState(path, (state) => plan(state).state);
-
-    return plan(updated.previous);
-  } catch {
-    stderr.write('auto-mode: denial counts unavailable\n');
-
-    return unlockedPlan;
   }
 }
