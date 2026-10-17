@@ -1,5 +1,6 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HttpResponse, http } from 'msw';
@@ -147,6 +148,69 @@ Options:
   --evaluation-deadline <unix-ms>  With --jev-only: share the helper and API deadline
 `,
   });
+});
+
+test('it runs the command named after -- with the words after it', async () => {
+  const ctx = await setupTest();
+
+  const exitCode = await runCLI(['--', 'mod-path'], {
+    stdin: () => Promise.resolve(''),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: `${join(import.meta.dirname, '..', 'mods', 'auto-mode')}\n`,
+    stderr: '',
+  });
+});
+
+test('it hands a judge server the socket path given after --', async () => {
+  const ctx = await setupTest();
+
+  const socketPath = join(ctx.dir, 'judge.sock');
+  const answering = createServer();
+
+  await new Promise<void>((resolve) => {
+    answering.listen(socketPath, resolve);
+  });
+
+  onTestFinished(() => {
+    answering.close();
+  });
+
+  // A server already answers on the socket, so the command exits at once.
+  const exitCode = await runCLI(['judge-server', '--', socketPath], {
+    stdin: () => Promise.resolve(''),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '',
+    stderr: '',
+  });
+});
+
+test('it exits 2 with usage on stderr when the word after -- names no command', async () => {
+  const ctx = await setupTest();
+
+  const exitCode = await runCLI(['--', 'frobnicate'], {
+    stdin: () => Promise.resolve(''),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    host: ctx.host,
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  expect({ exitCode, stdout: ctx.stdout.read() }).toStrictEqual({ exitCode: 2, stdout: '' });
+  expect(ctx.stderr.read()).toStartWith("auto-mode: unknown command 'frobnicate'\n\nauto-mode — ");
 });
 
 test('it prints the directory of the shipped mod', async () => {

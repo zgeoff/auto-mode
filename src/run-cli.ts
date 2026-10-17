@@ -103,7 +103,12 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
           exitCode =
             ctx.values.help === true
               ? printUsage(io.stdout)
-              : await runCommand(io, ctx.values, ctx.positionals.slice(ctx.commandPath.length));
+              : await runCommand(io, ctx.values, [
+                  ...ctx.positionals.slice(ctx.commandPath.length),
+
+                  // a word after `--` may start with a dash, and it is an argument too
+                  ...ctx.rest,
+                ]);
         },
         { name, args: CLI_ARGS },
       ),
@@ -113,8 +118,11 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
   const entry = define({
     name: 'auto-mode',
     args: CLI_ARGS,
-    run: () => {
-      exitCode = printUsage(io.stdout);
+
+    // A command line with no command before `--` takes its command from the first word after it,
+    // which the parser leaves unread.
+    run: async (ctx) => {
+      exitCode = await runCommandAfterTerminator(io, ctx.values, ctx.rest);
     },
   });
 
@@ -135,6 +143,28 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
   }
 
   return exitCode;
+}
+
+function runCommandAfterTerminator(
+  io: Readonly<CLIIO>,
+  values: Readonly<CLIValues>,
+  rest: readonly string[],
+): Promise<number> {
+  const [command, ...positionals] = rest;
+
+  if (values.help === true || command === undefined) {
+    return Promise.resolve(printUsage(io.stdout));
+  }
+
+  const runCommand = COMMANDS.get(command);
+
+  if (runCommand === undefined) {
+    io.stderr.write(`auto-mode: unknown command '${command}'\n\n${USAGE}`);
+
+    return Promise.resolve(2);
+  }
+
+  return runCommand(io, values, positionals);
 }
 
 function printUsage(stdout: Readonly<OutputStream>): number {
