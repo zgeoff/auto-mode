@@ -1,8 +1,9 @@
 import { findCurrentDirectUserMessage } from '../../mods/auto-mode/contract/find-current-direct-user-message.ts';
 import type { Config } from '../config/config.ts';
 import { DEFAULT_BLOCK_THRESHOLD, resolveApiKey } from '../config/config.ts';
+import { createDeadlineSignal } from '../config/create-deadline-signal.ts';
 import { loadClaudeSettings } from '../config/load-claude-settings.ts';
-import { toTimerDelay } from '../config/to-timer-delay.ts';
+import { pickClassifierLane } from '../config/pick-classifier-lane.ts';
 import { buildRepositoryEvidence } from '../git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { loadMCPServers } from '../git/load-mcp-servers.ts';
@@ -38,8 +39,10 @@ export async function classifyWithJev(
   try {
     // A library caller builds its own config, which the config file's check
     // never sees, so the classifier refuses a kind that only judges.
-    if (config.provider.protocol !== 'system-one') {
-      throw new Error(`${config.provider.protocol ?? 'messages'} kinds only judge`);
+    const lane = pickClassifierLane(config.provider);
+
+    if (lane.kind === 'refused') {
+      throw new Error(`${lane.protocol} kinds only judge`);
     }
 
     key = await resolveApiKey(config.provider, options);
@@ -85,17 +88,11 @@ export async function classifyWithJev(
       mcpServers,
     });
 
-    const remainingMs =
-      options.deadlineAt === undefined
-        ? config.provider.timeoutMs
-        : options.deadlineAt - runtime.now();
+    const signal = createDeadlineSignal(config.provider.timeoutMs, options);
 
-    if (remainingMs <= 0 || options.signal?.aborted === true) {
+    if (signal === null) {
       throw new DOMException('Evaluation deadline expired', 'AbortError');
     }
-
-    const timer = runtime.timeout(toTimerDelay(Math.min(config.provider.timeoutMs, remainingMs)));
-    const signal = options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]);
 
     stage = 'request';
 
