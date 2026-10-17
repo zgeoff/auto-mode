@@ -3,7 +3,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
-import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import { recordScope } from './record-scope.ts';
@@ -43,12 +43,10 @@ test('it adds a worktree the session created to its scope', async () => {
       resultText: '',
     }),
     buildMockConfig(),
-    {
-      host: buildMockHostEnvironment({
-        env: { PATH: process.env['PATH'], XDG_STATE_HOME: ctx.dir },
-        home: ctx.dir,
-      }),
-    },
+    buildMockRuntime({
+      env: { PATH: process.env['PATH'], XDG_STATE_HOME: ctx.dir },
+      home: ctx.dir,
+    }),
   );
 
   const kept = await loadSessionScope(
@@ -80,12 +78,10 @@ test('it records nothing when no session scope source is configured', async () =
       resultText: '',
     }),
     { ...buildMockConfig(), scopeSources: { cwd: { kind: 'cwd' } } },
-    {
-      host: buildMockHostEnvironment({
-        env: { PATH: process.env['PATH'], XDG_STATE_HOME: ctx.dir },
-        home: ctx.dir,
-      }),
-    },
+    buildMockRuntime({
+      env: { PATH: process.env['PATH'], XDG_STATE_HOME: ctx.dir },
+      home: ctx.dir,
+    }),
   );
 
   const kept = await loadSessionScope(

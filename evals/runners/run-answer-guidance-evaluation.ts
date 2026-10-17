@@ -8,6 +8,7 @@ import {
   loadPolicy,
   loadRepositoryContext,
   readHostEnvironment,
+  readRuntime,
   resolveApiKey,
 } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
@@ -42,7 +43,7 @@ async function main(): Promise<void> {
 
   assertShippedJevConfig(config);
 
-  const key = await resolveApiKey(config.provider);
+  const key = await resolveApiKey(config.provider, { runtime: readRuntime() });
 
   invariant(key !== null, 'The configured evaluation credential is unavailable.');
 

@@ -9,6 +9,7 @@ import {
   loadClaudeRules,
   loadPolicy,
   readHostEnvironment,
+  readRuntime,
   resolveApiKey,
 } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
@@ -118,7 +119,7 @@ async function main(): Promise<void> {
     await writeReport(output, report);
   }
 
-  const key = isLive ? await resolveApiKey(config.provider) : null;
+  const key = isLive ? await resolveApiKey(config.provider, { runtime: readRuntime() }) : null;
 
   invariant(!isLive || key !== null, 'The configured evaluation credential is unavailable.');
 

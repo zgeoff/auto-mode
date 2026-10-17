@@ -11,6 +11,7 @@ import {
   loadClaudeRules,
   loadPolicy,
   readHostEnvironment,
+  readRuntime,
   resolveApiKey,
 } from 'auto-mode/eval';
 import type { ClaudeRules, DecisionRequest, RepositoryContext } from 'auto-mode/eval';
@@ -304,7 +305,7 @@ async function main(): Promise<void> {
   // fails before any request and an interrupted run keeps the answers it spent.
   await writeReport(output, report);
 
-  const key = await resolveApiKey(config.provider);
+  const key = await resolveApiKey(config.provider, { runtime: readRuntime() });
 
   invariant(key !== null, 'The configured evaluation credential is unavailable.');
 

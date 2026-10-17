@@ -12,7 +12,7 @@ import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
 import { buildMockTaskScopeSummary } from '../../test-utils/factories/build-mock-task-scope-summary.ts';
 import { runGit } from '../../test-utils/run-git.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
@@ -80,7 +80,7 @@ test('it sends the configured rules and the direct user message without the sett
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -250,7 +250,7 @@ test.each([
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -320,7 +320,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
     const startedAt = performance.now();
 
     const outcome = await classifyWithJev(payload, config, {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -522,7 +522,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -646,7 +646,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
         blockThreshold: 0.2,
       }),
       {
-        host: buildMockHostEnvironment({
+        runtime: buildMockRuntime({
           env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
           home: ctx.dir,
         }),
@@ -764,10 +764,8 @@ test('it returns the configured denial when the deadline passes during the reque
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, now: () => now, timeout: timer.timeout }),
       deadlineAt,
-      now: () => now,
-      timeout: timer.timeout,
     },
   );
 
@@ -848,7 +846,7 @@ test('it sends a stale direct message to Jev as stale task context, never as cur
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -941,7 +939,7 @@ test('it evaluates a subagent on its task context', async () => {
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -1082,7 +1080,7 @@ test('it separates missing credentials from a classifier ask without calling the
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -1133,7 +1131,7 @@ test('it refuses a provider kind that only judges without calling any service', 
       onFailure: 'defer',
       claudeSettingsPath: null,
     }),
-    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
   );
 
   expect(requested).not.toHaveBeenCalled();
@@ -1183,7 +1181,7 @@ test('it sends checked branch evidence for a routine feature commit and allows i
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -1396,7 +1394,7 @@ test.each<BranchEvidenceCase>([
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -1544,7 +1542,7 @@ test.each(['Write', 'Edit'])(
         blockThreshold: 0.2,
       }),
       {
-        host: buildMockHostEnvironment({
+        runtime: buildMockRuntime({
           env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
           home: ctx.dir,
         }),
@@ -1700,7 +1698,7 @@ test.each([
         blockThreshold: 0.2,
       }),
       {
-        host: buildMockHostEnvironment({
+        runtime: buildMockRuntime({
           env: { AUTO_MODE_JEV_TEST_KEY: 'test-key', [override]: join(ctx.dir, 'another') },
           home: ctx.dir,
         }),
@@ -1843,7 +1841,7 @@ test('it denies an unsure allow at the block threshold and records only the rule
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -1953,7 +1951,7 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -2012,7 +2010,7 @@ test('it times out on the provider deadline with the real timer', async () => {
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -2067,11 +2065,11 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
+        timeout: timer.timeout,
       }),
-      timeout: timer.timeout,
     },
   );
 
@@ -2131,7 +2129,7 @@ test('it sends the checkout remotes and the task scope with a non-Git action', a
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -2310,7 +2308,7 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),
@@ -2369,13 +2367,13 @@ test('it returns the configured denial without a request when the deadline passe
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
+        now: () => 1_700_000_000_000,
+        timeout: timer.timeout,
       }),
       deadlineAt: 1_700_000_000_000,
-      now: () => 1_700_000_000_000,
-      timeout: timer.timeout,
     },
   );
 
@@ -2432,7 +2430,7 @@ test('it returns the configured denial without a request when the caller cancell
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
         home: ctx.dir,
       }),

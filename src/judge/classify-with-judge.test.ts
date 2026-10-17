@@ -11,9 +11,9 @@ import { server } from '../../mocks/node.ts';
 import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
 import { waitFor } from '../../test-utils/wait-for.ts';
 import { classifyWithJudge } from './classify-with-judge.ts';
 
@@ -55,7 +55,7 @@ test('it allows an action whose soft-rule deny the judge overturns', async () =>
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
@@ -105,7 +105,7 @@ test('it records the fallback model and the safety stops of a reply moved off th
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-sonnet-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
@@ -155,7 +155,7 @@ test('it holds a hard-rule deny the judge overturns, with the template reason', 
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
@@ -209,7 +209,7 @@ test('it denies with the judge’s reason when the judge confirms', async () => 
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
@@ -263,7 +263,7 @@ test('it keeps the deny on a stored-password change the user only asked to check
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
@@ -332,7 +332,7 @@ test('it records a configured hard_deny rule by its source and holds its deny wh
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
@@ -369,7 +369,7 @@ test('it records a rule outside the shipped policy by its source, never its name
     buildMockProviderConfig({ protocol: 'claude-code' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Deploys are gated."}',
@@ -405,7 +405,7 @@ test('it keeps the template deny and records a timeout when the judge outlasts i
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
@@ -413,8 +413,8 @@ test('it keeps the template deny and records a timeout when the judge outlasts i
           STUB_CLAUDE_DELAY_MS: '60000',
         },
         home: ctx.dir,
+        timeout: timer.timeout,
       }),
-      timeout: timer.timeout,
     },
   );
 
@@ -473,15 +473,15 @@ test('it records a timeout without starting claude when the deadline has already
     buildMockProviderConfig({ protocol: 'claude-code' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Fine."}',
         },
         home: ctx.dir,
+        now: () => 10_000,
       }),
-      now: () => 10_000,
       deadlineAt: 9000,
     },
   );
@@ -514,7 +514,7 @@ test('it keeps the template deny and records an unreadable reply', async () => {
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { PATH: ctx.binDir, STUB_CLAUDE_REPLY: 'I would overturn this deny.' },
         home: ctx.dir,
       }),
@@ -564,7 +564,7 @@ test('it keeps the template deny and records a failed request when claude exits 
     buildMockProviderConfig({ protocol: 'claude-code' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Fine."}',
@@ -603,7 +603,7 @@ test('it keeps the template deny and records a missing credential for a Messages
       baseURL: 'https://gateway.test',
       model: 'claude-haiku-5-5',
     }),
-    { overturns: 'consent', host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
+    { overturns: 'consent', runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
   );
 
   expect(outcome).toStrictEqual({
@@ -675,7 +675,7 @@ test('it confirms a deny through a Messages judge with the judge policy as the s
     }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_JUDGE_TEST_KEY: 'judge-test-key' },
         home: ctx.dir,
       }),
@@ -722,7 +722,7 @@ test('it sends the main agent’s last direct user message to the judge', async 
     buildMockProviderConfig({ protocol: 'claude-code' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
@@ -769,7 +769,7 @@ test('it sends no last direct user message to the judge when the message is stal
     buildMockProviderConfig({ protocol: 'claude-code' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,
@@ -809,7 +809,7 @@ test('it holds a soft-rule deny the judge overturns as a misread when only conse
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
@@ -863,7 +863,7 @@ test('it allows an action whose soft-rule deny the judge overturns as a misread 
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'any',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
@@ -916,7 +916,7 @@ test('it holds a containment deny the judge overturns as a misread, with the con
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'any',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
@@ -982,7 +982,7 @@ test('it keeps a containment deny with the containment reason when the judge fai
     buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-haiku-5-5' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: { PATH: ctx.binDir, STUB_CLAUDE_REPLY: 'I would rather not say.' },
         home: ctx.dir,
       }),
@@ -1030,7 +1030,7 @@ test('it sends the targets of a containment deny with the words that name them t
     buildMockProviderConfig({ protocol: 'claude-code' }),
     {
       overturns: 'consent',
-      host: buildMockHostEnvironment({
+      runtime: buildMockRuntime({
         env: {
           PATH: ctx.binDir,
           STUB_CLAUDE_RECORD: ctx.recordPath,

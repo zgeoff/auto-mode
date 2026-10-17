@@ -2,7 +2,7 @@ import { findCurrentDirectUserMessage } from '../../mods/auto-mode/contract/find
 import type { ProviderConfig } from '../config/config.ts';
 import { resolveApiKey } from '../config/config.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
-import type { EvaluationOptions, HostEnvironment } from '../config/types.ts';
+import type { EvaluationOptions } from '../config/types.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import type { JudgeEvidence } from '../types.ts';
@@ -25,7 +25,6 @@ export interface JudgeOutcome extends JudgedVerdict {
 }
 
 export interface JudgeOptions extends EvaluationOptions {
-  readonly host: Readonly<HostEnvironment>;
   readonly rulesPath?: string | undefined;
   readonly overturns: JudgeOverturns;
   readonly judgeSession?: JudgeSession | undefined;
@@ -40,7 +39,7 @@ export async function classifyWithJudge(
   options: Readonly<JudgeOptions>,
 ): Promise<readonly JudgeOutcome[]> {
   const start = performance.now();
-  const now = options.now ?? Date.now;
+  const runtime = options.runtime;
   let failure: JudgeFailure | null = null;
   let answered: JudgeMessageReply | null = null;
   let replies: readonly (JudgeReply | null)[] = evidence.map(() => null);
@@ -75,7 +74,7 @@ export async function classifyWithJudge(
     });
 
     const remainingMs =
-      options.deadlineAt === undefined ? judge.timeoutMs : options.deadlineAt - now();
+      options.deadlineAt === undefined ? judge.timeoutMs : options.deadlineAt - runtime.now();
 
     failure = 'timeout';
 
@@ -83,8 +82,7 @@ export async function classifyWithJudge(
       throw new DOMException('Judge deadline expired', 'AbortError');
     }
 
-    const timeout = options.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
-    const timer = timeout(toTimerDelay(Math.min(judge.timeoutMs, remainingMs)));
+    const timer = runtime.timeout(toTimerDelay(Math.min(judge.timeoutMs, remainingMs)));
     const signal = options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]);
 
     failure = 'request';
@@ -92,7 +90,7 @@ export async function classifyWithJudge(
     answered = await sendJudgeMessage(
       judge,
       { system, user },
-      { apiKey, env: options.host.env, session: options.judgeSession },
+      { apiKey, env: runtime.host.env, session: options.judgeSession },
       signal,
     ).catch((error: unknown) => {
       if (signal.aborted) {

@@ -32,6 +32,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
   const request = buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } });
 
   const result = await sendDecision(provider, 'test-key', request, {
+    fetch,
     signal: new AbortController().signal,
   });
 
@@ -73,7 +74,7 @@ test.each([
       buildMockProviderConfig(),
       'test-key',
       buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
-      { signal: new AbortController().signal },
+      { fetch, signal: new AbortController().signal },
     );
 
     expect(result).toStrictEqual({
@@ -132,7 +133,7 @@ test.each([
     buildMockProviderConfig(),
     'test-key',
     buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
-    { signal: new AbortController().signal },
+    { fetch, signal: new AbortController().signal },
   );
 
   expect(response).rejects.toThrowWithMessage(
@@ -164,7 +165,7 @@ test.each([
     buildMockProviderConfig(),
     'test-key',
     buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
-    { signal: new AbortController().signal },
+    { fetch, signal: new AbortController().signal },
   );
 
   expect(response).rejects.toThrowWithMessage(
@@ -195,7 +196,7 @@ test('it rejects an answer filed under a question it was not asked', () => {
     buildMockProviderConfig(),
     'test-key',
     buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
-    { signal: new AbortController().signal },
+    { fetch, signal: new AbortController().signal },
   );
 
   expect(response).rejects.toThrowWithMessage(
@@ -227,7 +228,7 @@ test.each([
       buildMockProviderConfig(),
       'test-key',
       buildMockDecisionRequest({ rules: { rule_0: buildMockDecisionRule() } }),
-      { signal: new AbortController().signal },
+      { fetch, signal: new AbortController().signal },
     );
 
     expect(response).rejects.toThrowWithMessage(
@@ -256,6 +257,7 @@ test('it aborts a request when its signal fires and reports the request size', (
   );
 
   const response = sendDecision(buildMockProviderConfig(), 'test-key', buildMockDecisionRequest(), {
+    fetch,
     signal: timer.signal,
   });
 
@@ -285,6 +287,7 @@ test('it aborts a request when its signal fires while the response body is read'
   );
 
   const response = sendDecision(buildMockProviderConfig(), 'test-key', buildMockDecisionRequest(), {
+    fetch,
     signal: timer.signal,
   });
 
@@ -301,6 +304,7 @@ test('it reports a failed connection as a network failure', () => {
   server.use(http.post(DECISION_URL, () => HttpResponse.error()));
 
   const response = sendDecision(buildMockProviderConfig(), 'test-key', buildMockDecisionRequest(), {
+    fetch,
     signal: new AbortController().signal,
   });
 
@@ -335,7 +339,7 @@ test('it refuses oversized input before a request without truncating it', () => 
         },
       },
     }),
-    { signal: new AbortController().signal },
+    { fetch, signal: new AbortController().signal },
   );
 
   expect(response).rejects.toThrowWithMessage(
@@ -357,6 +361,7 @@ test('it omits the response body from an HTTP error', () => {
   );
 
   const response = sendDecision(buildMockProviderConfig(), 'test-key', buildMockDecisionRequest(), {
+    fetch,
     signal: new AbortController().signal,
   });
 
@@ -378,7 +383,7 @@ test('it discards a malformed JSON body instead of exposing credential fragments
     buildMockProviderConfig(),
     'test-secret-prefix-and-tail',
     buildMockDecisionRequest(),
-    { signal: new AbortController().signal },
+    { fetch, signal: new AbortController().signal },
   );
 
   expect(response).rejects.toThrowWithMessage(
@@ -442,6 +447,7 @@ test('it removes optional tasks to keep a complete action near the request limit
   });
 
   const result = await sendDecision(provider, 'test-key', request, {
+    fetch,
     signal: new AbortController().signal,
   });
 
@@ -520,7 +526,7 @@ test('it reads answers over the choice set its caller names', async () => {
         },
       },
     },
-    { signal: new AbortController().signal, choices: ['rule_0', 'none', 'unclear'] },
+    { fetch, signal: new AbortController().signal, choices: ['rule_0', 'none', 'unclear'] },
   );
 
   expect(result).toStrictEqual({
@@ -552,7 +558,7 @@ test('it rejects an answer over choices outside the set its caller names', () =>
         },
       },
     },
-    { signal: new AbortController().signal, choices: ['rule_0', 'none', 'unclear'] },
+    { fetch, signal: new AbortController().signal, choices: ['rule_0', 'none', 'unclear'] },
   );
 
   expect(response).rejects.toThrowWithMessage(
@@ -593,6 +599,7 @@ test('it reports a request its timeout signal ends as aborted', () => {
   );
 
   const response = sendDecision(buildMockProviderConfig(), 'test-key', buildMockDecisionRequest(), {
+    fetch,
     signal: timer.signal,
   });
 
@@ -610,7 +617,7 @@ test('it reports the HTTP status when Jev rejects a request with no question as 
     buildMockProviderConfig(),
     'test-key',
     buildMockDecisionRequest({ questions: {}, rules: {} }),
-    { signal: new AbortController().signal },
+    { fetch, signal: new AbortController().signal },
   );
 
   expect(response).rejects.toThrowWithMessage(

@@ -12,6 +12,7 @@ export function sendEvaluationDecision(
   options?: SendOptions,
 ): Promise<DecisionResult> {
   return sendDecision(provider, key, request, {
+    fetch,
     ...options,
     signal: AbortSignal.timeout(toTimerDelay(provider.timeoutMs)),
   });

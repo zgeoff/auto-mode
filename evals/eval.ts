@@ -3,7 +3,7 @@ import { loadConfig } from 'auto-mode';
 import {
   loadClaudeRules,
   loadPolicy,
-  readHostEnvironment,
+  readRuntime,
   resolveApiKey,
   sendDecision,
   sendJudgeMessage,
@@ -19,7 +19,8 @@ import { sendEvaluationDecision } from './lib/send-evaluation-decision.ts';
 
 async function main(): Promise<void> {
   const repoRoot = resolve(import.meta.dirname, '..');
-  const host = readHostEnvironment();
+  const runtime = readRuntime();
+  const host = runtime.host;
 
   // One run holds one judge session, as an agent session holds one judge
   // server, so the run measures the warm process the mod reaches.
@@ -63,7 +64,7 @@ async function main(): Promise<void> {
       let pendingKey: Promise<string | null> | null = null;
 
       const requireKey = async (): Promise<string> => {
-        pendingKey ??= resolveApiKey(config.provider, { host });
+        pendingKey ??= resolveApiKey(config.provider, { runtime });
 
         const key = await pendingKey;
 
@@ -84,7 +85,7 @@ async function main(): Promise<void> {
       const judgeKey =
         judge === null || judge.protocol === 'claude-code'
           ? null
-          : await resolveApiKey(judge, { host });
+          : await resolveApiKey(judge, { runtime });
 
       if (judge?.protocol === 'claude-code') {
         judgeSession ??= startJudgeSession(host.env);
@@ -103,6 +104,7 @@ async function main(): Promise<void> {
 
           return sendDecision<string>(config.provider, key, request, {
             signal: AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
+            fetch: runtime.fetch,
             choices,
           });
         },

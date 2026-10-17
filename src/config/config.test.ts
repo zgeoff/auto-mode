@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
 import { DEFAULT_CONFIG, loadConfig, resolveApiKey, resolveConfigPath } from './config.ts';
 
 async function setupTest(): Promise<{ readonly dir: string; readonly configFile: string }> {
@@ -1031,7 +1032,7 @@ test('#resolveApiKey reads the API key from the environment variable first', asy
       apiKeyEnv: 'AUTO_MODE_TEST_KEY',
       apiKeyCommand: 'printf from-command',
     }),
-    { host: buildMockHostEnvironment({ env: { AUTO_MODE_TEST_KEY: 'from-env' }, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: { AUTO_MODE_TEST_KEY: 'from-env' }, home: ctx.dir }) },
   );
 
   expect(key).toBe('from-env');
@@ -1045,7 +1046,7 @@ test('#resolveApiKey falls back to the key command when the variable is unset', 
       apiKeyEnv: 'AUTO_MODE_TEST_KEY',
       apiKeyCommand: 'printf from-command',
     }),
-    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
   );
 
   expect(key).toBe('from-command');
@@ -1059,9 +1060,7 @@ test('#resolveApiKey runs the key command in the injected environment', async ()
       apiKeyEnv: 'AUTO_MODE_TEST_KEY',
       apiKeyCommand: 'printf %s "$INJECTED_KEY"',
     }),
-    {
-      host: buildMockHostEnvironment({ env: { INJECTED_KEY: 'from-injected-env' }, home: ctx.dir }),
-    },
+    { runtime: buildMockRuntime({ env: { INJECTED_KEY: 'from-injected-env' }, home: ctx.dir }) },
   );
 
   expect(key).toBe('from-injected-env');
@@ -1074,7 +1073,7 @@ test('#resolveApiKey gives the key command the injected home when the injected e
 
   const key = await resolveApiKey(
     buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: 'cat "$HOME/key"' }),
-    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
   );
 
   expect(key).toBe('from-home-file');
@@ -1085,7 +1084,7 @@ test('#resolveApiKey reports no key when neither the variable nor a command is s
 
   const key = await resolveApiKey(
     buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: undefined }),
-    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
   );
 
   expect(key).toBeNull();
@@ -1096,7 +1095,7 @@ test('#resolveApiKey reports no key when the key command fails', async () => {
 
   const key = await resolveApiKey(
     buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: 'exit 1' }),
-    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
   );
 
   expect(key).toBeNull();

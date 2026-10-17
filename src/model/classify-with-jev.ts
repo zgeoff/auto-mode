@@ -3,7 +3,6 @@ import type { Config } from '../config/config.ts';
 import { DEFAULT_BLOCK_THRESHOLD, resolveApiKey } from '../config/config.ts';
 import { loadClaudeSettings } from '../config/load-claude-settings.ts';
 import { toTimerDelay } from '../config/to-timer-delay.ts';
-import type { HostEnvironment } from '../config/types.ts';
 import { buildRepositoryEvidence } from '../git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { loadMCPServers } from '../git/load-mcp-servers.ts';
@@ -17,19 +16,18 @@ import type { DecisionDiagnostics, ModelOptions, ModelOutcome } from './types.ts
 export async function classifyWithJev(
   payload: ActionRequest,
   config: Config,
-  options: Readonly<ModelOptions & { readonly host: Readonly<HostEnvironment> }>,
+  options: Readonly<ModelOptions>,
 ): Promise<ModelOutcome> {
   const start = performance.now();
-  const now = options.now ?? Date.now;
+  const runtime = options.runtime;
+  const host = runtime.host;
   let key: string | null = null;
   let stage: DecisionDiagnostics['stage'] = 'credential';
   const blockThreshold = config.blockThreshold ?? DEFAULT_BLOCK_THRESHOLD;
   let keySource: DecisionDiagnostics['keySource'] = 'none';
 
   const envKey =
-    config.provider.apiKeyEnv === undefined
-      ? undefined
-      : options.host.env[config.provider.apiKeyEnv];
+    config.provider.apiKeyEnv === undefined ? undefined : host.env[config.provider.apiKeyEnv];
 
   if (envKey !== undefined && envKey !== '') {
     keySource = 'environment';
@@ -57,10 +55,10 @@ export async function classifyWithJev(
     );
 
     const settings = await (options.claudeSettings ??
-      loadClaudeSettings(config.claudeSettingsPath, options.host));
+      loadClaudeSettings(config.claudeSettingsPath, host));
 
     const checkout = await (options.checkout ??
-      loadCheckoutFacts(payload.cwd, options.host.env, {
+      loadCheckoutFacts(payload.cwd, host.env, {
         findCheckout: options.findCheckout,
       }).catch(() => null));
 
@@ -72,7 +70,7 @@ export async function classifyWithJev(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
       ),
-      loadMCPServers(payload.cwd, options.host, settings.userSettings, checkout ?? undefined).catch(
+      loadMCPServers(payload.cwd, host, settings.userSettings, checkout ?? undefined).catch(
         () => [],
       ),
     ]);
@@ -88,19 +86,23 @@ export async function classifyWithJev(
     });
 
     const remainingMs =
-      options.deadlineAt === undefined ? config.provider.timeoutMs : options.deadlineAt - now();
+      options.deadlineAt === undefined
+        ? config.provider.timeoutMs
+        : options.deadlineAt - runtime.now();
 
     if (remainingMs <= 0 || options.signal?.aborted === true) {
       throw new DOMException('Evaluation deadline expired', 'AbortError');
     }
 
-    const timeout = options.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
-    const timer = timeout(toTimerDelay(Math.min(config.provider.timeoutMs, remainingMs)));
+    const timer = runtime.timeout(toTimerDelay(Math.min(config.provider.timeoutMs, remainingMs)));
     const signal = options.signal === undefined ? timer : AbortSignal.any([timer, options.signal]);
 
     stage = 'request';
 
-    const result = await sendDecision(config.provider, key, request, { signal });
+    const result = await sendDecision(config.provider, key, request, {
+      signal,
+      fetch: runtime.fetch,
+    });
 
     stage = 'response';
 
@@ -116,7 +118,7 @@ export async function classifyWithJev(
         error,
         stage,
         cancelled: options.signal?.aborted === true,
-        deadlineExpired: options.deadlineAt !== undefined && now() >= options.deadlineAt,
+        deadlineExpired: options.deadlineAt !== undefined && runtime.now() >= options.deadlineAt,
       },
       { key, keySource, elapsedMs: performance.now() - start, blockThreshold },
       config,

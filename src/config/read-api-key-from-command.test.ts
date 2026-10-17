@@ -8,7 +8,7 @@ import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
 import { loadProcessState } from '../../test-utils/load-process-state.ts';
 import { waitFor } from '../../test-utils/wait-for.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
@@ -47,6 +47,7 @@ test('it stops a key helper and its child on cancellation', async () => {
 
   const result = readApiKeyFromCommand(`"${process.execPath}" "${helper}" "${ctx.socketPath}"`, {
     signal: controller.signal,
+    runtime: buildMockRuntime({ env: { PATH: process.env['PATH'] } }),
   });
 
   onTestFinished(() => {
@@ -106,32 +107,40 @@ test('it stops a key helper and its child on cancellation', async () => {
 });
 
 test('it reads the trimmed key the helper prints', async () => {
-  const key = await readApiKeyFromCommand(String.raw`printf '  offline-test-key\n'`);
+  const key = await readApiKeyFromCommand(String.raw`printf '  offline-test-key\n'`, {
+    runtime: buildMockRuntime({ env: { PATH: process.env['PATH'] } }),
+  });
 
   expect(key).toBe('offline-test-key');
 });
 
 test('it reads no key from a helper that exits with an error', async () => {
-  const key = await readApiKeyFromCommand('printf offline-test-key; exit 1');
+  const key = await readApiKeyFromCommand('printf offline-test-key; exit 1', {
+    runtime: buildMockRuntime({ env: { PATH: process.env['PATH'] } }),
+  });
 
   expect(key).toBeNull();
 });
 
 test('it reads no key from a helper that prints only whitespace', async () => {
-  const key = await readApiKeyFromCommand(String.raw`printf '  \n'`);
+  const key = await readApiKeyFromCommand(String.raw`printf '  \n'`, {
+    runtime: buildMockRuntime({ env: { PATH: process.env['PATH'] } }),
+  });
 
   expect(key).toBeNull();
 });
 
 test('it reads no key from a helper that prints more than 64 KiB', async () => {
-  const key = await readApiKeyFromCommand(String.raw`head -c 65537 /dev/zero | tr '\0' x`);
+  const key = await readApiKeyFromCommand(String.raw`head -c 65537 /dev/zero | tr '\0' x`, {
+    runtime: buildMockRuntime({ env: { PATH: process.env['PATH'] } }),
+  });
 
   expect(key).toBeNull();
 });
 
 test('it runs the helper with the host environment it is given', async () => {
   const key = await readApiKeyFromCommand('printf %s "$AUTO_MODE_HELPER_KEY"', {
-    host: buildMockHostEnvironment({ env: { AUTO_MODE_HELPER_KEY: 'from-host' } }),
+    runtime: buildMockRuntime({ env: { AUTO_MODE_HELPER_KEY: 'from-host' } }),
   });
 
   expect(key).toBe('from-host');
@@ -139,7 +148,7 @@ test('it runs the helper with the host environment it is given', async () => {
 
 test('it runs the helper with the given home', async () => {
   const key = await readApiKeyFromCommand('printf %s "$HOME"', {
-    host: buildMockHostEnvironment({ env: {}, home: '/home/test' }),
+    runtime: buildMockRuntime({ env: {}, home: '/home/test' }),
   });
 
   expect(key).toBe('/home/test');
@@ -151,8 +160,11 @@ test('it limits a key helper to the shared deadline', async () => {
 
   const result = readApiKeyFromCommand('sleep 30; printf offline-test-key', {
     deadlineAt: now + 100,
-    now: () => now,
-    timeout: timer.timeout,
+    runtime: buildMockRuntime({
+      env: { PATH: process.env['PATH'] },
+      now: () => now,
+      timeout: timer.timeout,
+    }),
   });
 
   timer.emitTimeout(1);
@@ -164,12 +176,13 @@ test('it limits a key helper to the shared deadline', async () => {
 });
 
 // The stand-in timer never runs AbortSignal.timeout, so this helper can stop
-// only on the real default timer.
-test('it stops a key helper on the real default timer at the shared deadline', async () => {
+// only on the real timer.
+test('it stops a key helper on the real timer at the shared deadline', async () => {
   const startedAt = performance.now();
 
   const key = await readApiKeyFromCommand('sleep 0.5; printf offline-test-key', {
     deadlineAt: Date.now() + 50,
+    runtime: buildMockRuntime({ env: { PATH: process.env['PATH'] } }),
   });
 
   expect(key).toBeNull();
@@ -181,6 +194,7 @@ test('it reads the key of a helper that outlasts a 50 ms deadline when the deadl
 
   const key = await readApiKeyFromCommand('sleep 0.5; printf offline-test-key', {
     deadlineAt: Date.now() + 5000,
+    runtime: buildMockRuntime({ env: { PATH: process.env['PATH'] } }),
   });
 
   expect(key).toBe('offline-test-key');
@@ -191,7 +205,10 @@ test('it limits a key helper to 5 s without a shared deadline', async () => {
   const timer = buildStubTimeout();
 
   const result = readApiKeyFromCommand('sleep 30; printf offline-test-key', {
-    timeout: timer.timeout,
+    runtime: buildMockRuntime({
+      env: { PATH: process.env['PATH'] },
+      timeout: timer.timeout,
+    }),
   });
 
   timer.emitTimeout(1);
@@ -208,8 +225,11 @@ test('it starts no key helper once the shared deadline has passed', async () => 
 
   const key = await readApiKeyFromCommand('printf offline-test-key', {
     deadlineAt: now,
-    now: () => now,
-    timeout: timer.timeout,
+    runtime: buildMockRuntime({
+      env: { PATH: process.env['PATH'] },
+      now: () => now,
+      timeout: timer.timeout,
+    }),
   });
 
   expect(key).toBeNull();
@@ -221,7 +241,10 @@ test('it starts no key helper once the caller has cancelled', async () => {
 
   const key = await readApiKeyFromCommand('printf offline-test-key', {
     signal: AbortSignal.abort(),
-    timeout: timer.timeout,
+    runtime: buildMockRuntime({
+      env: { PATH: process.env['PATH'] },
+      timeout: timer.timeout,
+    }),
   });
 
   expect(key).toBeNull();
@@ -234,7 +257,10 @@ test('it stops a key helper at once when its timer has already fired', async () 
   timer.emitTimeout(1);
 
   const key = await readApiKeyFromCommand('sleep 30; printf offline-test-key', {
-    timeout: timer.timeout,
+    runtime: buildMockRuntime({
+      env: { PATH: process.env['PATH'] },
+      timeout: timer.timeout,
+    }),
   });
 
   expect(key).toBeNull();
