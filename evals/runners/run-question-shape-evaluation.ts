@@ -7,6 +7,7 @@ import {
   loadClaudeRules,
   loadPolicy,
   readHostEnvironment,
+  readRuntime,
   resolveApiKey,
 } from 'auto-mode/eval';
 import type { DecisionRequest, DecisionRule } from 'auto-mode/eval';
@@ -175,7 +176,7 @@ async function main(): Promise<void> {
       .map((record) => `${record.id}:${record.shape}:${String(record.sample)}`),
   );
 
-  const key = isLive ? await resolveApiKey(config.provider) : null;
+  const key = isLive ? await resolveApiKey(config.provider, { runtime: readRuntime() }) : null;
 
   invariant(!isLive || key !== null, 'The configured evaluation credential is unavailable.');
 

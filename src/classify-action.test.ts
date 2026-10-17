@@ -14,7 +14,7 @@ import { buildStubOutput } from '../test-utils/build-stub-output.ts';
 import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import { classifyAction } from './classify-action.ts';
 import { findCheckout } from './git/find-checkout.ts';
@@ -62,7 +62,10 @@ test('it allows a read-only tool in the local tier', async () => {
       judge: null,
       claudeSettingsPath: null,
     }),
-    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }) },
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -88,7 +91,8 @@ test('it gives no verdict for an escalated action when the model tier is skipped
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -121,7 +125,8 @@ test('it sends a local allowance to the model tier when configured deny rules ex
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -151,7 +156,10 @@ test('it fails closed on unreadable Claude settings when configured to deny', as
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
       onFailure: 'deny',
     }),
-    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }) },
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+    },
   );
 
   expect(outcome).toStrictEqual({
@@ -205,7 +213,8 @@ test('it denies an unsure Jev allow that reaches the block threshold with the ru
       blockThreshold: 0.2,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
         home: ctx.dir,
         scratchPaths: [],
@@ -321,7 +330,8 @@ test('it reads the Claude settings file once per action', async () => {
       claudeSettingsPath: undefined,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
         home: ctx.dir,
         scratchPaths: [],
@@ -372,7 +382,10 @@ test('it ends a failure reason with a full stop before the safer-path instructio
       onFailure: 'deny',
       blockThreshold: 0.2,
     }),
-    { host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }) },
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+    },
   );
 
   const elapsedMs = performance.now() - startedAt;
@@ -447,7 +460,8 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -527,7 +541,8 @@ test('it denies a push to a configured protected branch that the task works on, 
       protectedBranches: ['release/*'],
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -575,7 +590,8 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -635,7 +651,8 @@ test('it allows an action whose soft-rule Jev deny the judge overturns as a misr
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -674,7 +691,8 @@ test('it keeps a soft-rule Jev deny the judge overturns as a misread when only a
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -716,7 +734,8 @@ test('it denies with the judge’s reason and the safer-path instruction when th
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -759,7 +778,8 @@ test('it keeps a hard-rule Jev deny with its template reason when the judge over
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -815,7 +835,8 @@ test('it keeps a Jev deny the judge overturns on consent when a configured hard 
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -870,7 +891,8 @@ test('it denies a stored-password change the user only asked to check at the con
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -927,7 +949,8 @@ test('it passes a target it cannot resolve to the classifier', async () => {
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -955,7 +978,8 @@ test('it denies a local regenerable-output removal in another worktree', async (
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -987,7 +1011,8 @@ test('it still allows a local regenerable-output removal inside the task worktre
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1015,9 +1040,14 @@ test('it escalates a local regenerable-output removal when the task scope does n
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {},
+        home: ctx.dir,
+        scratchPaths: [],
+        findCheckout: () => Promise.reject(new Error('the git directory is unreadable')),
+      }),
       localOnly: true,
-      findCheckout: () => Promise.reject(new Error('the git directory is unreadable')),
     },
   );
 
@@ -1044,7 +1074,8 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1072,7 +1103,8 @@ test('it sends an in-scope edit to the model tier when it writes an env file', a
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1105,7 +1137,8 @@ test('it sends an in-scope edit to the model tier when it writes a secret', asyn
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1138,7 +1171,8 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
       claudeSettingsPath: join(ctx.dir, 'settings.json'),
     }),
     {
-      host: buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1170,12 +1204,13 @@ test('it walks up to the checkout once for an action that reaches Jev', async ()
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
         home: ctx.dir,
         scratchPaths: [],
+        findCheckout: walk,
       }),
-      findCheckout: walk,
     },
   );
 
@@ -1196,7 +1231,7 @@ test('it leaves the action to the user once the denial budget is spent', async (
     denialBudget: { consecutive: 1, perSession: 20 },
   });
 
-  const host = buildMockHostEnvironment({ env: {}, home: ctx.dir, scratchPaths: [] });
+  const runtime = buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] });
 
   await classifyAction(
     buildMockActionRequest({
@@ -1206,7 +1241,7 @@ test('it leaves the action to the user once the denial budget is spent', async (
       toolInput: { command: 'git push a' },
     }),
     config,
-    { host, stderr: buildStubOutput(), budget: true },
+    { runtime, stderr: buildStubOutput(), budget: true },
   );
 
   const outcome = await classifyAction(
@@ -1217,7 +1252,7 @@ test('it leaves the action to the user once the denial budget is spent', async (
       toolInput: { command: 'git push b' },
     }),
     config,
-    { host, stderr: buildStubOutput(), budget: true },
+    { runtime, stderr: buildStubOutput(), budget: true },
   );
 
   expect(outcome).toStrictEqual({
@@ -1246,12 +1281,12 @@ test('it writes a started and a final action-log record when asked', async () =>
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.dir, 'actions.jsonl') },
         home: ctx.dir,
         scratchPaths: [],
       }),
-      stderr: buildStubOutput(),
       actionLog: true,
     },
   );
@@ -1316,12 +1351,13 @@ test('it walks up to the checkout once for an edit the bypass sends on to Jev', 
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
         home: ctx.dir,
         scratchPaths: [],
+        findCheckout: walk,
       }),
-      findCheckout: walk,
     },
   );
 
@@ -1383,7 +1419,8 @@ test('it keeps the containment deny with the judge’s reason when the judge con
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -1468,7 +1505,8 @@ test('it denies the own-worktree cleanup that also removes another worktree the 
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -1530,7 +1568,8 @@ test('it clears a containment finding the judge confirms the user asked for, and
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -1594,7 +1633,8 @@ test('it reviews the containment finding the user named and a hard-rule Jev deny
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -1659,7 +1699,8 @@ test('it denies a write the message names without asking the judge when the mess
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -1726,7 +1767,8 @@ test.each([
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: {
           TYPESAFE_API_KEY: 'test-key',
           PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
@@ -1791,7 +1833,8 @@ test.each([
       claudeSettingsPath: null,
     }),
     {
-      host: buildMockHostEnvironment({
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
         home: ctx.dir,
         scratchPaths: [],

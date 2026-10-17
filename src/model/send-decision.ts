@@ -1,4 +1,5 @@
 import type { ProviderConfig } from '../config/config.ts';
+import type { Runtime } from '../config/types.ts';
 import { buildBudgetOmittedContext } from './build-budget-omitted-context.ts';
 import { buildDecisionResponseSchema } from './build-decision-response-schema.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
@@ -6,7 +7,7 @@ import type { DecisionChoice, DecisionInput, DecisionResult } from './types.ts';
 
 interface SendOptions {
   readonly signal: Readonly<AbortSignal>;
-  readonly fetch?: (url: string, init: Readonly<RequestInit>) => Promise<Response>;
+  readonly fetch: Runtime['fetch'];
 }
 
 export interface SendDecisionOptions<Choice extends string> extends SendOptions {
@@ -66,11 +67,10 @@ export async function sendDecision(
     );
   }
 
-  const sendFetch = options.fetch ?? fetch;
   let response: Response;
 
   try {
-    response = await sendFetch(`${provider.baseURL.replace(/\/$/u, '')}/v1/systemone`, {
+    response = await options.fetch(`${provider.baseURL.replace(/\/$/u, '')}/v1/systemone`, {
       method: 'POST',
       signal: options.signal,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },

@@ -15,6 +15,7 @@ import type { StubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
 import { buildStubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-request.ts';
+import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import type { HostEnvironment } from './config/types.ts';
@@ -87,7 +88,7 @@ test.each([
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -121,7 +122,7 @@ test('it exits 2 with usage on stderr on a command it does not know', async () =
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -157,7 +158,7 @@ test('it runs the command named after -- with the words after it', async () => {
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -187,7 +188,7 @@ test('it hands a judge server the socket path given after --', async () => {
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -205,7 +206,7 @@ test('it exits 2 with usage on stderr when the word after -- names no command', 
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -220,7 +221,7 @@ test('it prints the directory of the shipped mod', async () => {
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -251,7 +252,7 @@ test.each([
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -300,7 +301,7 @@ test('it refuses a Messages API classifier before a local allowance', async () =
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -331,7 +332,7 @@ test('it accepts a local allowance through Jev-only mode', async () => {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -357,7 +358,10 @@ test('it allows a local allowance without a model call when a provider key is co
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -381,7 +385,7 @@ test('it refuses an evaluation deadline outside Jev-only mode', async () => {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -400,7 +404,7 @@ test('it prints the shipped Jev framework with the shipped rules in place of the
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -429,7 +433,7 @@ test('it reads an overridden policy instead of the shipped one', async () => {
       stdin: () => Promise.resolve(''),
       stdout: ctx.stdout,
       stderr: ctx.stderr,
-      host: ctx.host,
+      runtime: buildMockRuntime(ctx.host),
       subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     },
   );
@@ -457,7 +461,7 @@ test('it reads policy flags written with = before and after the command', async 
       stdin: () => Promise.resolve(''),
       stdout: ctx.stdout,
       stderr: ctx.stderr,
-      host: ctx.host,
+      runtime: buildMockRuntime(ctx.host),
       subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     },
   );
@@ -485,7 +489,7 @@ test.each([
     stdin: () => Promise.resolve(stdin),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -509,7 +513,7 @@ test('it explains its reasoning on stderr when asked, never on stdout', async ()
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -533,7 +537,7 @@ test('it stays silent on stderr when not asked to explain', async () => {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -562,7 +566,7 @@ test('it escalates local allowances when imported deny rules need evaluation', a
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -597,7 +601,7 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -630,7 +634,7 @@ test('it exits successfully on malformed classifier configuration without echoin
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -715,7 +719,7 @@ test('it counts down to one denial left on the second denial in a row', async ()
     stdin: () => Promise.resolve(JSON.stringify(first)),
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -733,7 +737,7 @@ test('it counts down to one denial left on the second denial in a row', async ()
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -802,7 +806,7 @@ test('it warns on the third denial in a row that it is the last before the user 
       stdin: () => Promise.resolve(JSON.stringify(payload)),
       stdout: buildStubOutput(),
       stderr: buildStubOutput(),
-      host: ctx.host,
+      runtime: buildMockRuntime(ctx.host),
       subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     });
   }
@@ -821,7 +825,7 @@ test('it warns on the third denial in a row that it is the last before the user 
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -890,7 +894,7 @@ test('it leaves the fourth action in a row to the user after three denials', asy
       stdin: () => Promise.resolve(JSON.stringify(payload)),
       stdout: buildStubOutput(),
       stderr: buildStubOutput(),
-      host: ctx.host,
+      runtime: buildMockRuntime(ctx.host),
       subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     });
   }
@@ -909,7 +913,7 @@ test('it leaves the fourth action in a row to the user after three denials', asy
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -974,7 +978,7 @@ test('it starts the denial count over after the user decides an action', async (
       stdin: () => Promise.resolve(JSON.stringify(payload)),
       stdout: buildStubOutput(),
       stderr: buildStubOutput(),
-      host: ctx.host,
+      runtime: buildMockRuntime(ctx.host),
       subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
     });
   }
@@ -994,7 +998,7 @@ test('it starts the denial count over after the user decides an action', async (
     stdin: () => Promise.resolve(JSON.stringify(userDecided)),
     stdout: userDecidedStdout,
     stderr: userDecidedStderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1012,7 +1016,7 @@ test('it starts the denial count over after the user decides an action', async (
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1086,7 +1090,7 @@ test('it denies a retry of the action just denied without asking the classifier'
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1099,7 +1103,7 @@ test('it denies a retry of the action just denied without asking the classifier'
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1167,7 +1171,7 @@ test('it states that the first denial is the last under a budget of one in a row
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1216,7 +1220,7 @@ test('it keeps the denial count across runs for a resumed session', async () => 
     stdin: () => Promise.resolve(JSON.stringify(first)),
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1226,7 +1230,7 @@ test('it keeps the denial count across runs for a resumed session', async () => 
     stdin: () => Promise.resolve(JSON.stringify(resumed)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1298,7 +1302,7 @@ test("it keeps a subagent's denial count apart from its session's", async () => 
     stdin: () => Promise.resolve(JSON.stringify(main)),
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1306,7 +1310,7 @@ test("it keeps a subagent's denial count apart from its session's", async () => 
     stdin: () => Promise.resolve(JSON.stringify(child)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1363,7 +1367,7 @@ test("it leaves the session's denial streak alone when its subagent is denied in
     stdin: () => Promise.resolve(JSON.stringify(first)),
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1371,7 +1375,7 @@ test("it leaves the session's denial streak alone when its subagent is denied in
     stdin: () => Promise.resolve(JSON.stringify(child)),
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1379,7 +1383,7 @@ test("it leaves the session's denial streak alone when its subagent is denied in
     stdin: () => Promise.resolve(JSON.stringify(second)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1415,7 +1419,7 @@ test('it records a finished Bash call without writing a verdict', async () => {
     stdin: () => Promise.resolve(JSON.stringify(record)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1443,7 +1447,7 @@ test('it ignores a record body that is not JSON', async () => {
     stdin: () => Promise.resolve('not json at all'),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1484,7 +1488,7 @@ test('it keeps a branch the session created in its scope across runs', async () 
     stdin: () => Promise.resolve(JSON.stringify(record)),
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1492,7 +1496,7 @@ test('it keeps a branch the session created in its scope across runs', async () 
     stdin: () => Promise.resolve(JSON.stringify(push)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1532,7 +1536,7 @@ test("it keeps a branch one session created out of another session's scope", asy
     stdin: () => Promise.resolve(JSON.stringify(record)),
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1540,7 +1544,7 @@ test("it keeps a branch one session created out of another session's scope", asy
     stdin: () => Promise.resolve(JSON.stringify(push)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1580,7 +1584,10 @@ test('it allows an action that Jev clears', async () => {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1671,7 +1678,10 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1733,7 +1743,7 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: {
+    runtime: buildMockRuntime({
       ...ctx.host,
       env: {
         ...ctx.host.env,
@@ -1742,7 +1752,7 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
         STUB_CLAUDE_REPLY:
           '{"verdict":"overturn","basis":"consent","reason":"The user asked for the release."}',
       },
-    },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1804,7 +1814,10 @@ test('it writes no verdict and notes the failure when Jev fails under a defer se
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1840,7 +1853,10 @@ test('it denies the action when Jev fails under a deny setting', async () => {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1870,14 +1886,14 @@ test('it writes the malformed atc record diagnostic to its own stderr', async ()
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: {
+    runtime: buildMockRuntime({
       ...ctx.host,
       env: {
         ...ctx.host.env,
         ATC_SESSION_RECORD: join(ctx.dir, 'record.json'),
         ATC_SESSION_ID: 'atc-1',
       },
-    },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1919,7 +1935,10 @@ test('it cancels a Jev-only evaluation when a stop signal arrives during it', as
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1965,7 +1984,10 @@ test('it listens for stop signals during a Jev-only evaluation and stops listeni
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -1994,7 +2016,7 @@ test('it leaves stop signals alone outside Jev-only mode', async () => {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -2014,7 +2036,7 @@ test('it captures no request when the config leaves capture off', async () => {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -2045,7 +2067,7 @@ test('it captures the mod request with its verdict and deciding stage when captu
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -2108,7 +2130,7 @@ test('it captures a child request without the direct message the CLI dropped', a
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -2168,7 +2190,10 @@ test('it sends Jev no direct user message for a child agent', async () => {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: { ...ctx.host, env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' } },
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: { ...ctx.host.env, TYPESAFE_API_KEY: 'cli-test-key' },
+    }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -2211,7 +2236,7 @@ test('it refuses to capture inside a git work tree and keeps the verdict', async
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -2247,7 +2272,7 @@ test('it keeps the verdict and exit code when the capture write fails', async ()
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -2274,7 +2299,7 @@ test('it keeps the verdict and exit code when the denial counts cannot be update
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
@@ -2308,7 +2333,7 @@ test('it leaves the denial counts untouched when it writes no verdict', async ()
     stdin: () => Promise.resolve(JSON.stringify(payload)),
     stdout: ctx.stdout,
     stderr: ctx.stderr,
-    host: ctx.host,
+    runtime: buildMockRuntime(ctx.host),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 

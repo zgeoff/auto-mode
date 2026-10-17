@@ -9,6 +9,7 @@ import {
   buildTaskScope,
   collectScopeFindings,
   loadPolicy,
+  readRuntime,
   repositoryContextSchema,
   resolveApiKey,
 } from 'auto-mode/eval';
@@ -95,7 +96,7 @@ async function main(): Promise<void> {
 
   assertShippedJevConfig(config);
 
-  const key = await resolveApiKey(config.provider);
+  const key = await resolveApiKey(config.provider, { runtime: readRuntime() });
 
   invariant(key !== null, 'The Jev credential is unavailable; no request was sent.');
 

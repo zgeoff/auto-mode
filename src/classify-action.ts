@@ -16,14 +16,12 @@ import {
   DEFAULT_SCOPE_SOURCES,
 } from './config/config.ts';
 import { loadClaudeSettings } from './config/load-claude-settings.ts';
-import { readHostEnvironment } from './config/read-host-environment.ts';
 import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { ContainmentDeny } from './containment/check-containment.ts';
 import { findUserNamedGrant } from './containment/find-user-named-grant.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { buildRepositoryEvidence } from './git/build-repository-evidence.ts';
-import { findCheckout } from './git/find-checkout.ts';
 import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
 import type { Checkout, CheckoutFacts, CheckoutFinder } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
@@ -59,21 +57,22 @@ export interface ClassifyOptions extends EvaluationOptions {
   readonly localOnly?: boolean;
   readonly budget?: boolean;
   readonly actionLog?: boolean;
-  readonly stderr?: Readonly<OutputStream> | undefined;
-  readonly findCheckout?: CheckoutFinder | undefined;
+  readonly stderr: Readonly<OutputStream>;
 
   // A caller that classifies more than one action passes a judge session, so
   // the judge process stays warm between them.
   readonly judgeSession?: JudgeSession | undefined;
 }
 
+type StageOptions = Readonly<ClassifyOptions>;
+
 export async function classifyAction(
   request: ActionRequest,
   config: Config,
-  options: ClassifyOptions = {},
+  options: Readonly<ClassifyOptions>,
 ): Promise<ActionOutcome> {
-  const host = options.host ?? readHostEnvironment();
-  const stderr = options.stderr ?? process.stderr;
+  const stderr = options.stderr;
+  const host = options.runtime.host;
   const invocationID = randomUUID();
 
   if (options.actionLog === true) {
@@ -82,8 +81,8 @@ export async function classifyAction(
 
   const outcome =
     options.budget === true
-      ? await classifyWithBudget(request, config, { ...options, host, stderr })
-      : await classifyStages(request, config, { ...options, host, stderr });
+      ? await classifyWithBudget(request, config, options)
+      : await classifyStages(request, config, options);
 
   if (options.actionLog === true) {
     await writeActionDiagnostic(
@@ -110,9 +109,9 @@ export async function classifyAction(
 async function classifyWithBudget(
   request: ActionRequest,
   config: Config,
-  options: ClassifyOptions & Readonly<{ host: HostEnvironment; stderr: OutputStream }>,
+  options: StageOptions,
 ): Promise<ActionOutcome> {
-  const statePath = resolveDenialStatePath(request, resolveXDGDir(options.host, 'state'));
+  const statePath = resolveDenialStatePath(request, resolveXDGDir(options.runtime.host, 'state'));
   const retryKey = buildRetryKey(request);
 
   const before = await loadDenialState(statePath);
@@ -153,9 +152,9 @@ async function classifyWithBudget(
 async function classifyStages(
   request: ActionRequest,
   config: Config,
-  options: ClassifyOptions & Readonly<{ host: HostEnvironment; stderr: OutputStream }>,
+  options: StageOptions,
 ): Promise<ActionOutcome> {
-  const host = options.host;
+  const host = options.runtime.host;
   let claudeSettings = options.claudeSettings;
 
   if (claudeSettings === undefined) {
@@ -194,7 +193,7 @@ async function classifyStages(
 
   // Every stage reads the checkout through one finder, which walks up from a
   // directory once per action.
-  const findActionCheckout = makeOnceCheckoutFinder(options.findCheckout ?? findCheckout);
+  const findActionCheckout = makeOnceCheckoutFinder(options.runtime.findCheckout);
 
   const checkout = await loadCheckoutFacts(request.cwd, host.env, {
     findCheckout: findActionCheckout,
@@ -255,11 +254,10 @@ interface ContainmentFacts {
 async function classifyPastContainment(
   request: ActionRequest,
   config: Config,
-  options: ClassifyOptions &
-    Readonly<{ host: HostEnvironment; stderr: OutputStream; findCheckout: CheckoutFinder }>,
+  options: StageOptions & Readonly<{ findCheckout: CheckoutFinder }>,
   facts: Readonly<ContainmentFacts>,
 ): Promise<ActionOutcome> {
-  const host = options.host;
+  const host = options.runtime.host;
   const scope = facts.scope;
   const grant = facts.grant ?? null;
   const findActionCheckout = options.findCheckout;
@@ -307,7 +305,6 @@ async function classifyPastContainment(
     classifyWithJev(request, config, {
       ...options,
       taskScope,
-      host,
       claudeSettings,
       checkout: facts.checkout ?? undefined,
       findCheckout: findActionCheckout,
@@ -345,7 +342,7 @@ interface GrantReview {
 async function classifyWithGrant(
   request: ActionRequest,
   config: Config,
-  options: ClassifyOptions & Readonly<{ host: HostEnvironment }>,
+  options: StageOptions,
   review: Readonly<GrantReview>,
 ): Promise<ActionOutcome> {
   const grant = review.grant;
@@ -416,7 +413,7 @@ const READ_ONLY_EXCEPTION = 'Read-only actions';
 async function loadGrantEvidence(
   request: ActionRequest,
   config: Config,
-  options: ClassifyOptions & Readonly<{ host: HostEnvironment }>,
+  options: StageOptions,
   facts: Readonly<{
     containment: ContainmentDeny;
     scope: OwnedScope;

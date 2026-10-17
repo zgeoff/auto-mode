@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadConfig } from 'auto-mode';
-import { DecisionRequestError, loadPolicy, resolveApiKey } from 'auto-mode/eval';
+import { DecisionRequestError, loadPolicy, readRuntime, resolveApiKey } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
 import { buildEvaluationRequest } from '../lib/build-evaluation-request.ts';
@@ -99,7 +99,7 @@ async function runJevStage(
 
   assertShippedJevConfig(config);
 
-  const key = await resolveApiKey(config.provider);
+  const key = await resolveApiKey(config.provider, { runtime: readRuntime() });
 
   invariant(key !== null, 'The Jev credential is unavailable; no request was sent.');
 

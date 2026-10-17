@@ -21,6 +21,7 @@ export { loadPolicy } from '../policy/load-policy.ts';
 export { buildTaskScope } from '../scope/build-task-scope.ts';
 export type { OwnedScope, ScopeEvent, SessionScope } from '../scope/types.ts';
 export { readHostEnvironment } from '../config/read-host-environment.ts';
+export { readRuntime } from '../config/read-runtime.ts';
 export { toTimerDelay } from '../config/to-timer-delay.ts';
 export { buildJudgeMessage } from '../judge/build-judge-message.ts';
 export { buildJudgedVerdict } from '../judge/build-judged-verdict.ts';

@@ -41,7 +41,8 @@
             "src/types.ts"
           ],
           "stage": ["src/{bypass,containment,judge,model,rules}/**"],
-          "network": ["src/{messages,model}/**"],
+          // the runtime reader hands the real fetch to the decision client
+          "network": ["src/{messages,model}/**", "src/config/read-runtime.ts"],
           "process": ["src/process/**"],
           // the request and verdict shapes the mod and the CLI share
           "contract": ["mods/auto-mode/contract/**"],

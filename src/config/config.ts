@@ -6,8 +6,7 @@ import type { JudgeOverturns } from '../judge/types.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
-import { readHostEnvironment } from './read-host-environment.ts';
-import type { EvaluationOptions, HostEnvironment } from './types.ts';
+import type { HostEnvironment, KeyOptions } from './types.ts';
 
 export interface ProviderConfig {
   readonly protocol?: 'messages' | 'system-one' | 'claude-code';
@@ -78,13 +77,13 @@ export const DEFAULT_CONFIG: Config = {
   scopeSources: DEFAULT_SCOPE_SOURCES,
 };
 
-export function resolveConfigPath(host: Readonly<HostEnvironment> = readHostEnvironment()): string {
+export function resolveConfigPath(host: Readonly<HostEnvironment>): string {
   return join(resolveXDGDir(host, 'config'), 'config.json');
 }
 
 export async function loadConfig(
-  configPath?: string,
-  host: Readonly<HostEnvironment> = readHostEnvironment(),
+  configPath: string | undefined,
+  host: Readonly<HostEnvironment>,
 ): Promise<Config> {
   const path = configPath ?? resolveConfigPath(host);
   let raw: string;
@@ -427,9 +426,9 @@ function expandHomePath(path: string | undefined, home: string): string | undefi
 
 export function resolveApiKey(
   provider: ProviderConfig,
-  options: EvaluationOptions = {},
+  options: Readonly<KeyOptions>,
 ): Promise<string | null> {
-  const host = options.host ?? readHostEnvironment();
+  const host = options.runtime.host;
   const fromEnv = provider.apiKeyEnv === undefined ? undefined : host.env[provider.apiKeyEnv];
 
   if (fromEnv !== undefined && fromEnv !== '') {
@@ -440,5 +439,5 @@ export function resolveApiKey(
     return Promise.resolve(null);
   }
 
-  return readApiKeyFromCommand(provider.apiKeyCommand, { ...options, host });
+  return readApiKeyFromCommand(provider.apiKeyCommand, options);
 }

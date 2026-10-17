@@ -14,7 +14,7 @@ import { buildJevOnlyConfig } from './config/build-jev-only-config.ts';
 import { loadConfig } from './config/config.ts';
 import type { Config } from './config/config.ts';
 import { resolveShippedModDir } from './config/resolve-shipped-mod-dir.ts';
-import type { HostEnvironment, OutputStream } from './config/types.ts';
+import type { OutputStream, Runtime } from './config/types.ts';
 import { makeJudgeServerSession } from './judge/make-judge-server-session.ts';
 import { resolveJudgeSocketPath } from './judge/resolve-judge-socket-path.ts';
 import type { JudgeSession } from './judge/types.ts';
@@ -31,7 +31,7 @@ interface CLIIO {
   readonly stdin: () => Promise<string>;
   readonly stdout: Readonly<OutputStream>;
   readonly stderr: Readonly<OutputStream>;
-  readonly host: Readonly<HostEnvironment>;
+  readonly runtime: Readonly<Runtime>;
   readonly subscribeToStopSignals: (onStop: () => void) => () => void;
 
   // The program and script that run this CLI, so a run can start the judge
@@ -194,7 +194,7 @@ async function runClassification(
 }
 
 async function printPrompt(io: Readonly<CLIIO>, values: Readonly<CLIValues>): Promise<number> {
-  const config = await loadConfig(undefined, io.host);
+  const config = await loadConfig(undefined, io.runtime.host);
 
   printWarnings(io.stderr, config.warnings);
 
@@ -274,9 +274,9 @@ function buildJudgeServerSession(
   const entry = command[1] ?? command[0];
 
   return makeJudgeServerSession({
-    socketPath: resolveJudgeSocketPath(io.host, sessionID, entry),
+    socketPath: resolveJudgeSocketPath(io.runtime.host, sessionID, entry),
     command: io.judgeServerCommand,
-    env: io.host.env,
+    env: io.runtime.host.env,
     timeoutMs: judge.timeoutMs,
   });
 }
@@ -297,7 +297,7 @@ async function runJudgeServer(
 
   const server = await serverModule.startJudgeServer({
     socketPath,
-    env: io.host.env,
+    env: io.runtime.host.env,
     idleMs: JUDGE_IDLE_MS,
   });
 
@@ -338,7 +338,7 @@ async function run(io: Readonly<CLIIO>, options: Readonly<RunOptions>): Promise<
     );
   }
 
-  const host = io.host;
+  const host = io.runtime.host;
   let loaded;
 
   try {
@@ -376,7 +376,7 @@ async function run(io: Readonly<CLIIO>, options: Readonly<RunOptions>): Promise<
       localOnly: options.localOnly,
       deadlineAt,
       signal: controller.signal,
-      host,
+      runtime: io.runtime,
       stderr: io.stderr,
       budget: true,
       actionLog: true,
@@ -454,9 +454,9 @@ async function runRecord(io: Readonly<CLIIO>): Promise<number> {
   }
 
   try {
-    const config = await loadConfig(undefined, io.host);
+    const config = await loadConfig(undefined, io.runtime.host);
 
-    await recordScope(request, config, { host: io.host });
+    await recordScope(request, config, io.runtime);
   } catch {
     io.stderr.write('auto-mode: session scope unavailable\n');
   }
