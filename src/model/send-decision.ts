@@ -5,7 +5,6 @@ import { DecisionRequestError } from './decision-request-error.ts';
 import type { DecisionChoice, DecisionInput, DecisionResult } from './types.ts';
 
 interface SendOptions {
-  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable RequestInit
   readonly fetch?: (url: string, init: Readonly<RequestInit>) => Promise<Response>;
 }
 

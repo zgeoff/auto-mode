@@ -1,4 +1,3 @@
-// oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable RequestInit
 type SendFetch = (url: string, init: Readonly<RequestInit>) => Promise<Response>;
 
 export type ResponseCopy = ReturnType<Response['clone']>;
@@ -15,7 +14,6 @@ export interface RecordingFetchOptions {
 export function makeRecordingFetch(
   sendFetch: SendFetch,
 
-  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- the caller reads the copies this array collects
   options: Readonly<RecordingFetchOptions>,
 ): SendFetch {
   return async (url, init) => {

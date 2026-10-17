@@ -572,7 +572,6 @@ test('it rejects an answer over choices outside the set its caller names', () =>
 });
 
 test('it sends the request through the fetch its caller supplies', async () => {
-  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable RequestInit
   const sendFetch = mock((url: string, init: Readonly<RequestInit>) => fetch(url, init));
 
   const result = await sendDecision(

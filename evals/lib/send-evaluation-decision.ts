@@ -2,7 +2,6 @@ import { sendDecision, toTimerDelay } from 'auto-mode/eval';
 import type { DecisionRequest, DecisionResult, ProviderConfig } from 'auto-mode/eval';
 
 interface SendOptions {
-  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable RequestInit
   readonly fetch?: (url: string, init: Readonly<RequestInit>) => Promise<Response>;
 }
 
