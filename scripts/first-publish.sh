@@ -14,12 +14,12 @@ version=$(jq -r .version package.json)
   exit 1
 }
 
-npm whoami >/dev/null || {
+npm whoami > /dev/null || {
   echo "not logged in to npm — run: npm login" >&2
   exit 1
 }
 
-if npm view "$name" version >/dev/null 2>&1; then
+if npm view "$name" version > /dev/null 2>&1; then
   echo "$name already exists on npm — releases go through CI, not this script" >&2
   exit 1
 fi
@@ -31,7 +31,7 @@ bun run check
 bun pm pack
 npm publish ./*.tgz --access public
 
-cat <<MSG
+cat << MSG
 
 published $name@$version
 
