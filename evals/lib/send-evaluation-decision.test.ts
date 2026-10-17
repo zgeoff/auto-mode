@@ -29,7 +29,6 @@ test('it returns the answers Jev gives to the request', async () => {
 });
 
 test('it sends the request through the fetch it is given', async () => {
-  // oxlint-disable-next-line typescript/prefer-readonly-parameter-types -- fetch's own signature takes a mutable RequestInit
   const sendFetch = mock((url: string, init: Readonly<RequestInit>) => fetch(url, init));
 
   await sendEvaluationDecision(buildMockProviderConfig(), 'test-key', buildMockDecisionRequest(), {
