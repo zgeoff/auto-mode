@@ -1,14 +1,14 @@
 {
   "ignore": ["node_modules/", "dist/", "coverage/"],
   "gates": [
-    { "match": "**/*.{ts,tsx}", "skills": ["code-style"] },
+    { "match": "**/*.{ts,tsx}", "skills": ["code-style", "project-code-style"] },
     { "match": "**/*.test.ts", "skills": ["testing", "project-testing"] },
     { "match": "**/*.claude-check.ts", "skills": ["testing", "project-testing"] },
     { "match": "**/test-utils/**", "skills": ["testing", "project-testing"] },
     { "match": "**/mocks/**", "skills": ["testing", "project-testing"] },
     { "match": "**/test-setup.ts", "skills": ["testing", "project-testing"] },
     { "match": "**/mods/auto-mode/hooks/testing.d.ts", "skills": ["testing", "project-testing"] },
-    { "match": "**/scripts/check-claude-mod.sh", "skills": ["testing", "project-testing"] },
+    { "match": "**/scripts/check-claude-mod.ts", "skills": ["testing", "project-testing"] },
     { "match": "**/fixtures/mod-request-*.json", "skills": ["testing", "project-testing"] }
   ]
 }

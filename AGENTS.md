@@ -15,12 +15,13 @@ decision model that the code does not implement.
 
 The rules a task needs are not repeated here. Load the skill for the work before starting it.
 
-| Skill             | Load before                                                                                   |
-| ----------------- | --------------------------------------------------------------------------------------------- |
-| `code-style`      | writing, reviewing, or renaming any TypeScript — the function-verb taxonomy and comment rules |
-| `testing`         | designing, writing, or reviewing tests                                                        |
-| `project-testing` | the same, beside `testing` — the preload, host environment, and mod checks                    |
-| `docs-writing`    | writing or editing any committed prose: `docs/`, READMEs, this file, skills                   |
+| Skill                | Load before                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `code-style`         | writing, reviewing, or renaming any TypeScript — the shared function-verb taxonomy |
+| `project-code-style` | the same, beside `code-style` — auto-mode's own verbs and the comment rules        |
+| `testing`            | designing, writing, or reviewing tests                                             |
+| `project-testing`    | the same, beside `testing` — the preload, host environment, and mod checks         |
+| `docs-writing`       | writing or editing any committed prose: `docs/`, READMEs, this file, skills        |
 
 ## Operations
 
