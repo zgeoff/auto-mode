@@ -138,10 +138,12 @@ async function main(): Promise<void> {
           toolInput: input,
         },
         policy,
-        rules,
-        corpus.lastUserMessage,
-        'shipped',
-        evidence,
+        {
+          configuredRules: rules,
+          lastUserMessage: corpus.lastUserMessage,
+          rulesSource: 'shipped',
+          repositoryContext: evidence,
+        },
       );
 
       const requestHash = toHash(

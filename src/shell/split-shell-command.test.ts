@@ -18,13 +18,36 @@ test.each([
   });
 });
 
-test.each([
-  ['a comment', 'ls # list it\npwd', 'ls', 2, 13, 16],
-  ['a heredoc body', 'cat <<EOF\nrm -rf x\nEOF\npwd', 'cat <<EOF', 9, 23, 26],
-])('it leaves %s out of every segment', (_label, command, first, firstEnd, start, end) => {
-  expect(splitShellCommand(command).segments).toStrictEqual([
-    { text: first, start: 0, end: firstEnd },
-    { text: 'pwd', start, end },
+interface LeftOutCase {
+  readonly label: string;
+  readonly command: string;
+  readonly first: string;
+  readonly firstEnd: number;
+  readonly start: number;
+  readonly end: number;
+}
+
+test.each<LeftOutCase>([
+  {
+    label: 'a comment',
+    command: 'ls # list it\npwd',
+    first: 'ls',
+    firstEnd: 2,
+    start: 13,
+    end: 16,
+  },
+  {
+    label: 'a heredoc body',
+    command: 'cat <<EOF\nrm -rf x\nEOF\npwd',
+    first: 'cat <<EOF',
+    firstEnd: 9,
+    start: 23,
+    end: 26,
+  },
+])('it leaves $label out of every segment', (row) => {
+  expect(splitShellCommand(row.command).segments).toStrictEqual([
+    { text: row.first, start: 0, end: row.firstEnd },
+    { text: 'pwd', start: row.start, end: row.end },
   ]);
 });
 

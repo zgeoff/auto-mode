@@ -5,6 +5,7 @@ import { DecisionRequestError } from './decision-request-error.ts';
 import type { DecisionChoice, DecisionInput, DecisionResult } from './types.ts';
 
 interface SendOptions {
+  readonly signal: Readonly<AbortSignal>;
   readonly fetch?: (url: string, init: Readonly<RequestInit>) => Promise<Response>;
 }
 
@@ -12,28 +13,29 @@ export interface SendDecisionOptions<Choice extends string> extends SendOptions 
   readonly choices: readonly [Choice, ...Choice[]];
 }
 
+interface SendAnyDecisionOptions extends SendOptions {
+  readonly choices?: readonly [string, ...string[]];
+}
+
 export async function sendDecision(
   provider: ProviderConfig,
   apiKey: string,
   request: DecisionInput,
-  signal: Readonly<AbortSignal>,
-  options?: SendOptions,
+  options: Readonly<SendOptions>,
 ): Promise<DecisionResult>;
 
 export async function sendDecision<Choice extends string>(
   provider: ProviderConfig,
   apiKey: string,
   request: DecisionInput<Choice>,
-  signal: Readonly<AbortSignal>,
-  options: SendDecisionOptions<Choice>,
+  options: Readonly<SendDecisionOptions<Choice>>,
 ): Promise<DecisionResult<Choice>>;
 
 export async function sendDecision(
   provider: ProviderConfig,
   apiKey: string,
   request: DecisionInput<string>,
-  signal: Readonly<AbortSignal>,
-  options: Partial<SendDecisionOptions<string>> = {},
+  options: Readonly<SendAnyDecisionOptions>,
 ): Promise<DecisionResult<string>> {
   const input = {
     model: provider.model,
@@ -70,12 +72,12 @@ export async function sendDecision(
   try {
     response = await sendFetch(`${provider.baseURL.replace(/\/$/u, '')}/v1/systemone`, {
       method: 'POST',
-      signal,
+      signal: options.signal,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
       body,
     });
   } catch (error) {
-    if (signal.aborted) {
+    if (options.signal.aborted) {
       throw new DecisionRequestError('aborted', requestBytes, 'Decision request aborted', {
         cause: error,
       });
@@ -97,7 +99,7 @@ export async function sendDecision(
   try {
     responseBody = await response.json();
   } catch (error) {
-    if (signal.aborted) {
+    if (options.signal.aborted) {
       throw new DecisionRequestError('aborted', requestBytes, 'Decision request aborted', {
         cause: error,
       });

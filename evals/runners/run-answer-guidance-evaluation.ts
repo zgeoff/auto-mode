@@ -76,10 +76,12 @@ async function main(): Promise<void> {
         toolInput: input,
       },
       policy,
-      configuredRules,
-      corpus.lastUserMessage,
-      'shipped',
-      evidence,
+      {
+        configuredRules,
+        lastUserMessage: corpus.lastUserMessage,
+        rulesSource: 'shipped',
+        repositoryContext: evidence,
+      },
     );
 
     const body = JSON.stringify({

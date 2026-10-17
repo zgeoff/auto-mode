@@ -13,7 +13,7 @@ import { loadCorpus } from './load-corpus.ts';
 import { loadSecondJudgeCorpus } from './load-second-judge-corpus.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
-type MCPServerFacts = NonNullable<Parameters<typeof buildDecisionRequest>[6]>;
+type MCPServerFacts = NonNullable<Parameters<typeof buildDecisionRequest>[2]['mcpServers']>;
 
 // A recorded answer for one sample of one stage, in the form its report kept.
 export type RecordedSample =
@@ -134,15 +134,12 @@ async function loadCorpusCases(
     .map((entry): [string, MeasurementCase] => {
       const key = corpus === 'second-judge' ? entry.id : entry.name;
 
-      const built = buildCase(
-        entry.id,
-        entry.tool,
-        entry.input,
-        entry.lastUserMessage,
-        entry.repositoryContext,
-        [],
-        loaded.configuredRules,
-      );
+      const built = buildCase(entry.id, entry.tool, entry.input, {
+        lastUserMessage: entry.lastUserMessage,
+        repository: entry.repositoryContext,
+        mcpServers: [],
+        configuredRules: loaded.configuredRules,
+      });
 
       return [key, built];
     });
@@ -164,15 +161,12 @@ async function loadDecisionRulesFile(path: string): Promise<Record<string, Measu
 
       return [
         entry.id,
-        buildCase(
-          entry.id,
-          entry.tool,
-          entry.input,
-          entry.lastUserMessage ?? corpus.lastUserMessage,
+        buildCase(entry.id, entry.tool, entry.input, {
+          lastUserMessage: entry.lastUserMessage ?? corpus.lastUserMessage,
           repository,
-          entry.mcpServers ?? corpus.mcpServers ?? [],
-          null,
-        ),
+          mcpServers: entry.mcpServers ?? corpus.mcpServers ?? [],
+          configuredRules: null,
+        }),
       ];
     }),
   );
@@ -211,29 +205,31 @@ async function loadTwins(corporaDir: string): Promise<Record<string, Measurement
 
       return [
         twin.id,
-        buildCase(
-          twin.id,
-          twin.tool,
-          twin.input,
-          twin.message,
+        buildCase(twin.id, twin.tool, twin.input, {
+          lastUserMessage: twin.message,
           repository,
-          [],
-          judged.configuredRules,
-        ),
+          mcpServers: [],
+          configuredRules: judged.configuredRules,
+        }),
       ];
     }),
   );
+}
+
+interface CaseOptions {
+  readonly lastUserMessage: string | null;
+  readonly repository: RepositoryContext;
+  readonly mcpServers: MCPServerFacts;
+  readonly configuredRules: ClaudeRules | null;
 }
 
 function buildCase(
   id: string,
   tool: string,
   input: Readonly<Record<string, unknown>>,
-  lastUserMessage: string | null,
-  repository: RepositoryContext,
-  mcpServers: MCPServerFacts,
-  configuredRules: ClaudeRules | null,
+  options: Readonly<CaseOptions>,
 ): MeasurementCase {
+  const repository = options.repository;
   const toolInput = { ...input };
   const file = toolInput['file_path'];
 
@@ -244,10 +240,10 @@ function buildCase(
   return {
     id,
     action: { sessionID: SESSION_ID, cwd: repository.cwd, toolName: tool, toolInput },
-    lastUserMessage,
+    lastUserMessage: options.lastUserMessage,
     repository,
-    mcpServers,
-    configuredRules,
+    mcpServers: options.mcpServers,
+    configuredRules: options.configuredRules,
     recorded: {},
   };
 }

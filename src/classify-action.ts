@@ -233,9 +233,9 @@ async function classifyStages(
   // The grant clears the scope finding alone: the call still meets Jev, and
   // the judge reviews the grant and any Jev deny in one call, so a hard rule or
   // a secret in the content still denies it.
-  return classifyPastContainment(request, config, stageOptions, facts, {
-    evidence: grant,
-    note: containmentNote,
+  return classifyPastContainment(request, config, stageOptions, {
+    ...facts,
+    grant: { evidence: grant, note: containmentNote },
   });
 }
 
@@ -244,34 +244,34 @@ interface PendingGrant {
   readonly note: string;
 }
 
+interface ContainmentFacts {
+  readonly local: LocalVerdict;
+  readonly scope: OwnedScope | null;
+  readonly checkout: CheckoutFacts | null;
+  readonly hasConfiguredDenies: boolean;
+  readonly grant?: PendingGrant | null | undefined;
+}
+
 async function classifyPastContainment(
   request: ActionRequest,
   config: Config,
   options: ClassifyOptions &
     Readonly<{ host: HostEnvironment; stderr: OutputStream; findCheckout: CheckoutFinder }>,
-  facts: Readonly<{
-    local: LocalVerdict;
-    scope: OwnedScope | null;
-    checkout: CheckoutFacts | null;
-    hasConfiguredDenies: boolean;
-  }>,
-  grant: PendingGrant | null = null,
+  facts: Readonly<ContainmentFacts>,
 ): Promise<ActionOutcome> {
   const host = options.host;
   const scope = facts.scope;
+  const grant = facts.grant ?? null;
   const findActionCheckout = options.findCheckout;
   const claudeSettings = options.claudeSettings;
 
   // Only a regenerable-output allow reaches here, and it deletes files, so
   // without a task scope no containment check has cleared it.
   if (facts.local.kind === 'allow' && scope !== null) {
-    return classifyWithGrant(
-      request,
-      config,
-      options,
+    return classifyWithGrant(request, config, options, {
       grant,
-      buildLocalAllow(facts.local.exception),
-    );
+      outcome: buildLocalAllow(facts.local.exception),
+    });
   }
 
   // A configured deny entry is the user's own rule, and only Jev reads it.
@@ -281,11 +281,14 @@ async function classifyPastContainment(
       : await tryClassifyEdit(request, scope, host, { findCheckout: findActionCheckout });
 
   if (edit?.kind === 'bypass') {
-    return classifyWithGrant(request, config, options, grant, {
-      verdict: { kind: 'allow' },
-      decidingStage: 'bypass',
-      note: `allowed by the edit bypass: ${edit.target}`,
-      status: 'allow',
+    return classifyWithGrant(request, config, options, {
+      grant,
+      outcome: {
+        verdict: { kind: 'allow' },
+        decidingStage: 'bypass',
+        note: `allowed by the edit bypass: ${edit.target}`,
+        status: 'allow',
+      },
     });
   }
 
@@ -327,7 +330,13 @@ async function classifyPastContainment(
 
   const denied = outcome.verdict?.kind === 'deny' && judge !== null ? (review ?? null) : null;
 
-  return classifyWithGrant(request, config, options, grant, jevOutcome, denied);
+  return classifyWithGrant(request, config, options, { grant, outcome: jevOutcome, denied });
+}
+
+interface GrantReview {
+  readonly grant: PendingGrant | null;
+  readonly outcome: ActionOutcome;
+  readonly denied?: JudgeEvidence | null | undefined;
 }
 
 // One judge call reviews the user-named grant and the Jev deny together, so a
@@ -337,10 +346,11 @@ async function classifyWithGrant(
   request: ActionRequest,
   config: Config,
   options: ClassifyOptions & Readonly<{ host: HostEnvironment }>,
-  grant: PendingGrant | null,
-  outcome: ActionOutcome,
-  denied: JudgeEvidence | null = null,
+  review: Readonly<GrantReview>,
 ): Promise<ActionOutcome> {
+  const grant = review.grant;
+  const outcome = review.outcome;
+  const denied = review.denied ?? null;
   const judge = config.judge ?? null;
   const evidence = [grant?.evidence, denied ?? undefined].filter((entry) => entry !== undefined);
 

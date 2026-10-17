@@ -66,14 +66,12 @@ async function main(): Promise<void> {
           },
         };
 
-        const request = buildDecisionRequest(
-          payload,
-          policy,
+        const request = buildDecisionRequest(payload, policy, {
           configuredRules,
-          lastDirectUserMessage?.text ?? null,
-          'shipped',
-          entry.repositoryContext,
-        );
+          lastUserMessage: lastDirectUserMessage?.text ?? null,
+          rulesSource: 'shipped',
+          repositoryContext: entry.repositoryContext,
+        });
 
         return { entry, arm, request };
       },

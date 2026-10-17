@@ -15,7 +15,7 @@ import type {
 } from './program-table.ts';
 import type { ScopeFinding } from './types.ts';
 
-interface ProgramContext {
+export interface ProgramContext {
   readonly directory: string | null;
   readonly cwd: string;
   readonly scope: Readonly<OwnedScope>;
@@ -263,7 +263,7 @@ function collectRuleFindings(
 
   const written = targets.length === 0 && rule.whenNone !== undefined ? [rule.whenNone] : targets;
 
-  return collectRoleFindings(rule, written, finding, call, context);
+  return collectRoleFindings(rule, written, { finding, call, context });
 }
 
 function buildFinding(
@@ -284,13 +284,18 @@ function buildFinding(
   };
 }
 
+interface RoleFindingOptions {
+  readonly finding: ScopeFinding | null;
+  readonly call: Readonly<ProgramCall>;
+  readonly context: Readonly<EntryContext>;
+}
+
 function collectRoleFindings(
   rule: Readonly<WriteRule>,
   targets: readonly string[],
-  finding: ScopeFinding | null,
-  call: Readonly<ProgramCall>,
-  context: Readonly<EntryContext>,
+  options: Readonly<RoleFindingOptions>,
 ): ScopeFinding[] {
+  const context = options.context;
   const scope = context.scope;
 
   const resolve = (target: string): ScopeFinding[] =>
@@ -321,7 +326,13 @@ function collectRoleFindings(
     return targets.flatMap((refspec) => collectRefspecFindings(refspec, current, scope));
   }
 
-  return finding === null ? [] : collectNamedFindings(role, rule, targets, finding, call, context);
+  return options.finding === null
+    ? []
+    : collectNamedFindings(role, rule, targets, {
+        finding: options.finding,
+        call: options.call,
+        context,
+      });
 }
 
 function isOwnedRemote(remote: string, scope: Readonly<OwnedScope>): boolean {
@@ -360,16 +371,23 @@ type NamedRole =
   | 'pull-request-merge'
   | 'forge-path';
 
+interface NamedFindingOptions {
+  readonly finding: ScopeFinding;
+  readonly call: Readonly<ProgramCall>;
+  readonly context: Readonly<EntryContext>;
+}
+
 // The roles that yield the rule's own finding, or nothing when the target is
 // one the task owns or one that writes nothing.
 function collectNamedFindings(
   role: NamedRole,
   rule: Readonly<WriteRule>,
   targets: readonly string[],
-  finding: ScopeFinding,
-  call: Readonly<ProgramCall>,
-  context: Readonly<EntryContext>,
+  options: Readonly<NamedFindingOptions>,
 ): ScopeFinding[] {
+  const finding = options.finding;
+  const context = options.context;
+
   if (role === 'remote-path') {
     return targets.flatMap((target) =>
       /^[^/]+:/u.test(target)
@@ -395,10 +413,20 @@ function collectNamedFindings(
   }
 
   if (role === 'pull-request' || role === 'pull-request-merge') {
-    return collectPullRequestFindings(rule, targets[0], finding, call, context.scope);
+    return collectPullRequestFindings(rule, targets[0], {
+      finding,
+      call: options.call,
+      scope: context.scope,
+    });
   }
 
   return collectForgeFindings(rule, targets[0] ?? '', finding, context.scope);
+}
+
+interface PullRequestFindingOptions {
+  readonly finding: ScopeFinding;
+  readonly call: Readonly<ProgramCall>;
+  readonly scope: Readonly<OwnedScope>;
 }
 
 // gh selects the pull request by its first positional word: a number, a pull
@@ -406,9 +434,7 @@ function collectNamedFindings(
 function collectPullRequestFindings(
   rule: Readonly<WriteRule>,
   selector: string | undefined,
-  finding: ScopeFinding,
-  call: Readonly<ProgramCall>,
-  scope: Readonly<OwnedScope>,
+  options: Readonly<PullRequestFindingOptions>,
 ): ScopeFinding[] {
   const repoOptions = rule.repoOptions ?? [];
 
@@ -417,7 +443,8 @@ function collectPullRequestFindings(
   )?.groups;
 
   const repo =
-    url?.['repo'] ?? call.options.findLast((option) => repoOptions.includes(option.name))?.value;
+    url?.['repo'] ??
+    options.call.options.findLast((option) => repoOptions.includes(option.name))?.value;
 
   let number = Number.NaN;
 
@@ -427,13 +454,13 @@ function collectPullRequestFindings(
     number = Number(selector.replace('#', ''));
   }
 
-  if (rule.role === 'pull-request' && isOwnedPullRequest(number, repo, scope)) {
+  if (rule.role === 'pull-request' && isOwnedPullRequest(number, repo, options.scope)) {
     return [];
   }
 
-  return Number.isInteger(number) && !hasOption(call, rule.ungrantFlags ?? [])
-    ? [{ ...finding, grant: { kind: 'pull-request', number } }]
-    : [finding];
+  return Number.isInteger(number) && !hasOption(options.call, rule.ungrantFlags ?? [])
+    ? [{ ...options.finding, grant: { kind: 'pull-request', number } }]
+    : [options.finding];
 }
 
 // A REST path on an owned pull request or its issue passes, unless it merges.

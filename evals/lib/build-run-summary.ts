@@ -8,14 +8,21 @@ import type { Experiment, MeasurementObservations } from './define-experiment.ts
 import type { RunConfig, RunSummary } from './run-summary-schema.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
+export interface RunSummaryOptions {
+  readonly records: readonly SampleRecord[];
+  readonly notMeasured: readonly string[];
+  readonly dropped: readonly string[];
+}
+
 export function buildRunSummary<Case>(
   runID: string,
   config: Readonly<RunConfig>,
   experiment: Readonly<Experiment<Case>>,
-  records: readonly SampleRecord[],
-  notMeasured: readonly string[],
-  dropped: readonly string[],
+  options: Readonly<RunSummaryOptions>,
 ): RunSummary {
+  const records = options.records;
+  const dropped = options.dropped;
+
   const pipeline =
     dropped.length === 0 ? PIPELINE_STAGE : `${PIPELINE_STAGE} without ${dropped.join(', ')}`;
 
@@ -30,7 +37,7 @@ export function buildRunSummary<Case>(
   return {
     runID,
     config,
-    notMeasured,
+    notMeasured: options.notMeasured,
     counts: buildMeasurementCounts(observations),
     notScorable: buildStageFailureCounts(records),
     latency: buildStageLatency(records),

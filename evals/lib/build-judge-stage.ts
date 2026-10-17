@@ -71,7 +71,10 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
       });
 
       const [parsed = UNREADABLE] = parseJudgeReplies(reply.text, [denied.rule.name]);
-      const judged = buildJudgedVerdict(denied.rule, denied.basis, parsed, DEFAULT_JUDGE_OVERTURNS);
+
+      const judged = buildJudgedVerdict(denied.rule, denied.basis, parsed, {
+        overturns: DEFAULT_JUDGE_OVERTURNS,
+      });
 
       if (judged.status === 'failed') {
         return { status: 'not-scorable', reason: 'judge-unreadable' };
@@ -112,15 +115,13 @@ function findJevDeny(
     return null;
   }
 
-  const request = buildDecisionRequest(
-    entry.action,
-    context.policy,
-    entry.configuredRules ?? context.configuredRules,
-    entry.lastUserMessage,
-    'shipped',
-    entry.repository,
-    entry.mcpServers,
-  );
+  const request = buildDecisionRequest(entry.action, context.policy, {
+    configuredRules: entry.configuredRules ?? context.configuredRules,
+    lastUserMessage: entry.lastUserMessage,
+    rulesSource: 'shipped',
+    repositoryContext: entry.repository,
+    mcpServers: entry.mcpServers,
+  });
 
   const rule = Object.values(request.rules).find((candidate) => candidate.name === name);
 

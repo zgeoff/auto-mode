@@ -8,13 +8,11 @@ export async function loadShippedRuleTiers(): Promise<
 > {
   const policy = await loadPolicy({}, 'decision.md');
 
-  const request = buildDecisionRequest(
-    buildMockActionRequest(),
-    policy,
-    buildMockClaudeRules(),
-    null,
-    'shipped',
-  );
+  const request = buildDecisionRequest(buildMockActionRequest(), policy, {
+    configuredRules: buildMockClaudeRules(),
+    lastUserMessage: null,
+    rulesSource: 'shipped',
+  });
 
   return Object.fromEntries(Object.values(request.rules).map((rule) => [rule.name, rule.tier]));
 }

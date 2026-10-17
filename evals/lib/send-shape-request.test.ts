@@ -8,13 +8,11 @@ import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-p
 import { sendShapeRequest } from './send-shape-request.ts';
 
 test('it returns the model, the input tokens and the answers Jev gives', async () => {
-  const outcome = await sendShapeRequest(
-    buildMockProviderConfig(),
-    'test-key',
-    buildMockDecisionRequest().state,
-    { rule_0: buildMockDecisionQuestion() },
-    AbortSignal.timeout(5000),
-  );
+  const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
+    state: buildMockDecisionRequest().state,
+    questions: { rule_0: buildMockDecisionQuestion() },
+    signal: AbortSignal.timeout(5000),
+  });
 
   expect(outcome).toStrictEqual({
     kind: 'success',
@@ -39,13 +37,11 @@ test('it reports a redirect without following it', async () => {
     ),
   );
 
-  const outcome = await sendShapeRequest(
-    buildMockProviderConfig(),
-    'test-key',
-    buildMockDecisionRequest().state,
-    { rule_0: buildMockDecisionQuestion() },
-    AbortSignal.timeout(5000),
-  );
+  const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
+    state: buildMockDecisionRequest().state,
+    questions: { rule_0: buildMockDecisionQuestion() },
+    signal: AbortSignal.timeout(5000),
+  });
 
   expect(outcome).toStrictEqual({ kind: 'failure', reason: 'redirect' });
 });
@@ -53,13 +49,11 @@ test('it reports a redirect without following it', async () => {
 test('it reports an error status by its code', async () => {
   server.use(http.post(DECISION_URL, () => HttpResponse.json({}, { status: 503 })));
 
-  const outcome = await sendShapeRequest(
-    buildMockProviderConfig(),
-    'test-key',
-    buildMockDecisionRequest().state,
-    { rule_0: buildMockDecisionQuestion() },
-    AbortSignal.timeout(5000),
-  );
+  const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
+    state: buildMockDecisionRequest().state,
+    questions: { rule_0: buildMockDecisionQuestion() },
+    signal: AbortSignal.timeout(5000),
+  });
 
   expect(outcome).toStrictEqual({ kind: 'failure', reason: 'http-503' });
 });
@@ -67,25 +61,21 @@ test('it reports an error status by its code', async () => {
 test('it reports a network failure', async () => {
   server.use(http.post(DECISION_URL, () => HttpResponse.error()));
 
-  const outcome = await sendShapeRequest(
-    buildMockProviderConfig(),
-    'test-key',
-    buildMockDecisionRequest().state,
-    { rule_0: buildMockDecisionQuestion() },
-    AbortSignal.timeout(5000),
-  );
+  const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
+    state: buildMockDecisionRequest().state,
+    questions: { rule_0: buildMockDecisionQuestion() },
+    signal: AbortSignal.timeout(5000),
+  });
 
   expect(outcome).toStrictEqual({ kind: 'failure', reason: 'network' });
 });
 
 test('it reports an aborted request as a timeout', async () => {
-  const outcome = await sendShapeRequest(
-    buildMockProviderConfig(),
-    'test-key',
-    buildMockDecisionRequest().state,
-    { rule_0: buildMockDecisionQuestion() },
-    AbortSignal.abort(),
-  );
+  const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
+    state: buildMockDecisionRequest().state,
+    questions: { rule_0: buildMockDecisionQuestion() },
+    signal: AbortSignal.abort(),
+  });
 
   expect(outcome).toStrictEqual({ kind: 'failure', reason: 'timeout' });
 });
@@ -93,13 +83,11 @@ test('it reports an aborted request as a timeout', async () => {
 test('it keeps the body of an answer it cannot read', async () => {
   server.use(http.post(DECISION_URL, () => HttpResponse.json({ answers: 'none' })));
 
-  const outcome = await sendShapeRequest(
-    buildMockProviderConfig(),
-    'test-key',
-    buildMockDecisionRequest().state,
-    { rule_0: buildMockDecisionQuestion() },
-    AbortSignal.timeout(5000),
-  );
+  const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
+    state: buildMockDecisionRequest().state,
+    questions: { rule_0: buildMockDecisionQuestion() },
+    signal: AbortSignal.timeout(5000),
+  });
 
   expect(outcome).toStrictEqual({
     kind: 'failure',
@@ -109,11 +97,9 @@ test('it keeps the body of an answer it cannot read', async () => {
 });
 
 test('it refuses questions that offer different choices', () => {
-  const outcome = sendShapeRequest(
-    buildMockProviderConfig(),
-    'test-key',
-    buildMockDecisionRequest().state,
-    {
+  const outcome = sendShapeRequest(buildMockProviderConfig(), 'test-key', {
+    state: buildMockDecisionRequest().state,
+    questions: {
       rule_0: buildMockDecisionQuestion(),
       categorical: {
         type: 'choice',
@@ -121,8 +107,8 @@ test('it refuses questions that offer different choices', () => {
         criteria: { none: 'No rule refuses it.', unclear: 'Not enough is known.' },
       },
     },
-    AbortSignal.timeout(5000),
-  );
+    signal: AbortSignal.timeout(5000),
+  });
 
   expect(outcome).rejects.toThrow('Every question of a shape offers the same choices.');
 });

@@ -35,13 +35,11 @@ test('it files each template under the tier of its shipped rule', () => {
 test('it files the same rules under the same tiers as the shipped policy', async () => {
   const policy = await readFile(join(import.meta.dirname, '../../policy/rules.md'), 'utf8');
 
-  const request = buildDecisionRequest(
-    buildMockActionRequest(),
-    policy,
-    buildMockClaudeRules(),
-    null,
-    'shipped',
-  );
+  const request = buildDecisionRequest(buildMockActionRequest(), policy, {
+    configuredRules: buildMockClaudeRules(),
+    lastUserMessage: null,
+    rulesSource: 'shipped',
+  });
 
   expect(
     Object.fromEntries(Object.entries(DENY_REASONS).map(([name, entry]) => [name, entry.tier])),

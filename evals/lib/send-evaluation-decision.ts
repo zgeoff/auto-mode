@@ -11,11 +11,8 @@ export function sendEvaluationDecision(
   request: Readonly<DecisionRequest>,
   options?: SendOptions,
 ): Promise<DecisionResult> {
-  return sendDecision(
-    provider,
-    key,
-    request,
-    AbortSignal.timeout(toTimerDelay(provider.timeoutMs)),
-    options,
-  );
+  return sendDecision(provider, key, request, {
+    ...options,
+    signal: AbortSignal.timeout(toTimerDelay(provider.timeoutMs)),
+  });
 }

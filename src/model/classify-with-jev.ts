@@ -79,15 +79,13 @@ export async function classifyWithJev(
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
 
-    const request = buildDecisionRequest(
-      payload,
-      policy,
-      settings.rules,
-      directUserText,
+    const request = buildDecisionRequest(payload, policy, {
+      configuredRules: settings.rules,
+      lastUserMessage: directUserText,
       rulesSource,
       repositoryContext,
       mcpServers,
-    );
+    });
 
     const remainingMs =
       options.deadlineAt === undefined ? config.provider.timeoutMs : options.deadlineAt - now();
@@ -102,7 +100,7 @@ export async function classifyWithJev(
 
     stage = 'request';
 
-    const result = await sendDecision(config.provider, key, request, signal);
+    const result = await sendDecision(config.provider, key, request, { signal });
 
     stage = 'response';
 

@@ -179,13 +179,11 @@ function buildConfig(json: unknown, path: string, home: string): Config {
   const policy = file.policy ?? {};
   const judgeID = decision.judge === undefined ? 'claude-code' : decision.judge;
 
-  const provider = resolveRole(
-    'classifier',
-    decision.classifier ?? 'jev',
-    classifiers.entries,
-    classifiers.droppedIDs,
+  const provider = resolveRole('classifier', decision.classifier ?? 'jev', {
+    entries: classifiers.entries,
+    droppedIDs: classifiers.droppedIDs,
     path,
-  );
+  });
 
   if (provider.protocol !== 'system-one') {
     throw new Error(
@@ -196,7 +194,11 @@ function buildConfig(json: unknown, path: string, home: string): Config {
   const judge =
     judgeID === null
       ? null
-      : resolveRole('judge', judgeID, classifiers.entries, classifiers.droppedIDs, path);
+      : resolveRole('judge', judgeID, {
+          entries: classifiers.entries,
+          droppedIDs: classifiers.droppedIDs,
+          path,
+        });
 
   if (judge?.protocol === 'system-one') {
     throw new Error(`${path}: decision.judge names a Jev kind, which cannot write a reason`);
@@ -383,26 +385,26 @@ function formatFirstIssue(issues: readonly EntryIssue[]): string {
     : `${issue.path.map(String).join('.')}: ${issue.message}`;
 }
 
-function resolveRole(
-  role: string,
-  id: string,
-  entries: Readonly<Record<string, ProviderConfig>>,
-  droppedIDs: readonly string[],
-  path: string,
-): ProviderConfig {
-  const entry = Object.hasOwn(entries, id) ? entries[id] : undefined;
+interface RoleOptions {
+  readonly entries: Readonly<Record<string, ProviderConfig>>;
+  readonly droppedIDs: readonly string[];
+  readonly path: string;
+}
+
+function resolveRole(role: string, id: string, options: Readonly<RoleOptions>): ProviderConfig {
+  const entry = Object.hasOwn(options.entries, id) ? options.entries[id] : undefined;
 
   if (entry !== undefined) {
     return entry;
   }
 
-  if (droppedIDs.includes(id)) {
-    throw new Error(`${path}: decision.${role} names '${id}', whose entry was dropped`);
+  if (options.droppedIDs.includes(id)) {
+    throw new Error(`${options.path}: decision.${role} names '${id}', whose entry was dropped`);
   }
 
   if (findPreset(id) === undefined) {
     throw new Error(
-      `${path}: decision.${role} names '${id}', which is neither a classifiers entry nor a built-in kind (${Object.keys(PRESETS).join(', ')})`,
+      `${options.path}: decision.${role} names '${id}', which is neither a classifiers entry nor a built-in kind (${Object.keys(PRESETS).join(', ')})`,
     );
   }
 

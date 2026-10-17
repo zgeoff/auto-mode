@@ -76,168 +76,196 @@ async function setupTest(files: Readonly<Record<string, string>>): Promise<{
   };
 }
 
-test.each([
-  ['zone-assignment', 'src/stray/run.ts', 'export const value = 1;\n', 'src/index.ts', ''],
-  [
-    'unresolved',
-    'src/rules/classify.ts',
-    "import { gone } from './gone.ts';\n",
-    'src/index.ts',
-    '',
-  ],
-  [
-    'src-mods-apart',
-    'src/request/render.ts',
-    "import { hook } from '../../mods/auto-mode/hooks/hook.ts';\n",
-    'mods/auto-mode/hooks/hook.ts',
-    'export const hook = 1;\n',
-  ],
-  [
-    'src-mods-apart',
-    'src/request/render.test.ts',
-    "import { hook } from '../../mods/auto-mode/hooks/hook.ts';\n",
-    'mods/auto-mode/hooks/hook.ts',
-    'export const hook = 1;\n',
-  ],
-  [
-    'src-mods-apart',
-    'mods/auto-mode/hooks/register.ts',
-    "import { render } from 'auto-mode';\n",
-    'src/index.ts',
-    'export const render = 1;\n',
-  ],
-  [
-    'core-no-tooling',
-    'src/rules/classify.ts',
-    "import { waitFor } from '../../test-utils/wait-for.ts';\n",
-    'test-utils/wait-for.ts',
-    'export const waitFor = 1;\n',
-  ],
-  [
-    'network',
-    'src/rules/classify.ts',
-    "import { request } from 'node:https';\n",
-    'src/index.ts',
-    '',
-  ],
-  ['network', 'src/rules/classify.ts', "await fetch('https://x.test');\n", 'src/index.ts', ''],
-  [
-    'mod',
-    'mods/auto-mode/hooks/register.ts',
-    "import { waitFor } from '../../../test-utils/wait-for.ts';\n",
-    'test-utils/wait-for.ts',
-    'export const waitFor = 1;\n',
-  ],
-  [
-    'contract',
-    'mods/auto-mode/contract/types.ts',
-    "import { hook } from '../hooks/hook.ts';\n",
-    'mods/auto-mode/hooks/hook.ts',
-    'export const hook = 1;\n',
-  ],
-  [
-    'request',
-    'src/request/render.ts',
-    "import { config } from '../config/config.ts';\n",
-    'src/config/config.ts',
-    'export const config = 1;\n',
-  ],
-  [
-    'support',
-    'src/config/read-config.ts',
-    "import { find } from '../containment/find.ts';\n",
-    'src/containment/find.ts',
-    'export const find = 1;\n',
-  ],
-  [
-    'stages',
-    'src/bypass/try-edit.ts',
-    "import { find } from '../containment/find.ts';\n",
-    'src/containment/find.ts',
-    'export const find = 1;\n',
-  ],
-  [
-    'stages',
-    'src/judge/send-judge-message.ts',
-    "import { sendDecision } from '../model/send-decision.ts';\n",
-    'src/model/send-decision.ts',
-    'export const sendDecision = 1;\n',
-  ],
-  [
-    'child-process',
-    'src/rules/classify.ts',
-    "import { spawn } from 'node:child_process';\n",
-    'src/index.ts',
-    '',
-  ],
-])('it fails lint on a %s violation in %s', async (rule, file, source, other, otherSource) => {
-  const ctx = await setupTest({ [file]: source, [other]: otherSource });
-  const result = await ctx.lint(file);
+interface ViolationCase {
+  readonly rule: string;
+  readonly file: string;
+  readonly source: string;
+  readonly other: string;
+  readonly otherSource: string;
+}
+
+test.each<ViolationCase>([
+  {
+    rule: 'zone-assignment',
+    file: 'src/stray/run.ts',
+    source: 'export const value = 1;\n',
+    other: 'src/index.ts',
+    otherSource: '',
+  },
+  {
+    rule: 'unresolved',
+    file: 'src/rules/classify.ts',
+    source: "import { gone } from './gone.ts';\n",
+    other: 'src/index.ts',
+    otherSource: '',
+  },
+  {
+    rule: 'src-mods-apart',
+    file: 'src/request/render.ts',
+    source: "import { hook } from '../../mods/auto-mode/hooks/hook.ts';\n",
+    other: 'mods/auto-mode/hooks/hook.ts',
+    otherSource: 'export const hook = 1;\n',
+  },
+  {
+    rule: 'src-mods-apart',
+    file: 'src/request/render.test.ts',
+    source: "import { hook } from '../../mods/auto-mode/hooks/hook.ts';\n",
+    other: 'mods/auto-mode/hooks/hook.ts',
+    otherSource: 'export const hook = 1;\n',
+  },
+  {
+    rule: 'src-mods-apart',
+    file: 'mods/auto-mode/hooks/register.ts',
+    source: "import { render } from 'auto-mode';\n",
+    other: 'src/index.ts',
+    otherSource: 'export const render = 1;\n',
+  },
+  {
+    rule: 'core-no-tooling',
+    file: 'src/rules/classify.ts',
+    source: "import { waitFor } from '../../test-utils/wait-for.ts';\n",
+    other: 'test-utils/wait-for.ts',
+    otherSource: 'export const waitFor = 1;\n',
+  },
+  {
+    rule: 'network',
+    file: 'src/rules/classify.ts',
+    source: "import { request } from 'node:https';\n",
+    other: 'src/index.ts',
+    otherSource: '',
+  },
+  {
+    rule: 'network',
+    file: 'src/rules/classify.ts',
+    source: "await fetch('https://x.test');\n",
+    other: 'src/index.ts',
+    otherSource: '',
+  },
+  {
+    rule: 'mod',
+    file: 'mods/auto-mode/hooks/register.ts',
+    source: "import { waitFor } from '../../../test-utils/wait-for.ts';\n",
+    other: 'test-utils/wait-for.ts',
+    otherSource: 'export const waitFor = 1;\n',
+  },
+  {
+    rule: 'contract',
+    file: 'mods/auto-mode/contract/types.ts',
+    source: "import { hook } from '../hooks/hook.ts';\n",
+    other: 'mods/auto-mode/hooks/hook.ts',
+    otherSource: 'export const hook = 1;\n',
+  },
+  {
+    rule: 'request',
+    file: 'src/request/render.ts',
+    source: "import { config } from '../config/config.ts';\n",
+    other: 'src/config/config.ts',
+    otherSource: 'export const config = 1;\n',
+  },
+  {
+    rule: 'support',
+    file: 'src/config/read-config.ts',
+    source: "import { find } from '../containment/find.ts';\n",
+    other: 'src/containment/find.ts',
+    otherSource: 'export const find = 1;\n',
+  },
+  {
+    rule: 'stages',
+    file: 'src/bypass/try-edit.ts',
+    source: "import { find } from '../containment/find.ts';\n",
+    other: 'src/containment/find.ts',
+    otherSource: 'export const find = 1;\n',
+  },
+  {
+    rule: 'stages',
+    file: 'src/judge/send-judge-message.ts',
+    source: "import { sendDecision } from '../model/send-decision.ts';\n",
+    other: 'src/model/send-decision.ts',
+    otherSource: 'export const sendDecision = 1;\n',
+  },
+  {
+    rule: 'child-process',
+    file: 'src/rules/classify.ts',
+    source: "import { spawn } from 'node:child_process';\n",
+    other: 'src/index.ts',
+    otherSource: '',
+  },
+])('it fails lint on a $rule violation in $file', async (row) => {
+  const ctx = await setupTest({ [row.file]: row.source, [row.other]: row.otherSource });
+  const result = await ctx.lint(row.file);
 
   expect(result.exitCode).toBe(1);
-  expect(result.stdout).toInclude(`zgeoff(import-zones): ${rule}: `);
+  expect(result.stdout).toInclude(`zgeoff(import-zones): ${row.rule}: `);
 });
 
-test.each([
-  [
-    'a stage that imports a support module',
-    'src/bypass/try-edit.ts',
-    "import { config } from '../config/config.ts';\n",
-    'src/config/config.ts',
-    'export const config = 1;\n',
-  ],
-  [
-    'a judge file that imports the Messages client',
-    'src/judge/send-judge-message.ts',
-    "import { sendMessage } from '../messages/anthropic-client.ts';\n",
-    'src/messages/anthropic-client.ts',
-    'export const sendMessage = 1;\n',
-  ],
-  [
-    'a stage that imports its own folder',
-    'src/bypass/try-edit.ts',
-    "import { find } from './find.ts';\n",
-    'src/bypass/find.ts',
-    'export const find = 1;\n',
-  ],
-  [
-    'a type-only import of a types file across stages',
-    'src/bypass/try-edit.ts',
-    "import type { Finding } from '../containment/types.ts';\n",
-    'src/containment/types.ts',
-    'export type Finding = string;\n',
-  ],
-  [
-    'a file under src/ that imports the contract',
-    'src/request/render.ts',
-    "import type { Verdict } from '../../mods/auto-mode/contract/verdict.ts';\n",
-    'mods/auto-mode/contract/verdict.ts',
-    'export type Verdict = string;\n',
-  ],
-  [
-    'a fetch call inside the model module',
-    'src/model/send.ts',
-    "await fetch('https://x.test');\n",
-    'src/index.ts',
-    '',
-  ],
-  [
-    'a child process inside the process module',
-    'src/process/run.ts',
-    "import { spawn } from 'node:child_process';\n",
-    'src/index.ts',
-    '',
-  ],
-  [
-    'a test that imports test code',
-    'src/rules/classify.test.ts',
-    "import { waitFor } from '../../test-utils/wait-for.ts';\n",
-    'test-utils/wait-for.ts',
-    'export const waitFor = 1;\n',
-  ],
-])('it passes %s', async (_label, file, source, other, otherSource) => {
-  const ctx = await setupTest({ [file]: source, [other]: otherSource });
-  const result = await ctx.lint(file);
+interface AllowedCase {
+  readonly label: string;
+  readonly file: string;
+  readonly source: string;
+  readonly other: string;
+  readonly otherSource: string;
+}
+
+test.each<AllowedCase>([
+  {
+    label: 'a stage that imports a support module',
+    file: 'src/bypass/try-edit.ts',
+    source: "import { config } from '../config/config.ts';\n",
+    other: 'src/config/config.ts',
+    otherSource: 'export const config = 1;\n',
+  },
+  {
+    label: 'a judge file that imports the Messages client',
+    file: 'src/judge/send-judge-message.ts',
+    source: "import { sendMessage } from '../messages/anthropic-client.ts';\n",
+    other: 'src/messages/anthropic-client.ts',
+    otherSource: 'export const sendMessage = 1;\n',
+  },
+  {
+    label: 'a stage that imports its own folder',
+    file: 'src/bypass/try-edit.ts',
+    source: "import { find } from './find.ts';\n",
+    other: 'src/bypass/find.ts',
+    otherSource: 'export const find = 1;\n',
+  },
+  {
+    label: 'a type-only import of a types file across stages',
+    file: 'src/bypass/try-edit.ts',
+    source: "import type { Finding } from '../containment/types.ts';\n",
+    other: 'src/containment/types.ts',
+    otherSource: 'export type Finding = string;\n',
+  },
+  {
+    label: 'a file under src/ that imports the contract',
+    file: 'src/request/render.ts',
+    source: "import type { Verdict } from '../../mods/auto-mode/contract/verdict.ts';\n",
+    other: 'mods/auto-mode/contract/verdict.ts',
+    otherSource: 'export type Verdict = string;\n',
+  },
+  {
+    label: 'a fetch call inside the model module',
+    file: 'src/model/send.ts',
+    source: "await fetch('https://x.test');\n",
+    other: 'src/index.ts',
+    otherSource: '',
+  },
+  {
+    label: 'a child process inside the process module',
+    file: 'src/process/run.ts',
+    source: "import { spawn } from 'node:child_process';\n",
+    other: 'src/index.ts',
+    otherSource: '',
+  },
+  {
+    label: 'a test that imports test code',
+    file: 'src/rules/classify.test.ts',
+    source: "import { waitFor } from '../../test-utils/wait-for.ts';\n",
+    other: 'test-utils/wait-for.ts',
+    otherSource: 'export const waitFor = 1;\n',
+  },
+])('it passes $label', async (row) => {
+  const ctx = await setupTest({ [row.file]: row.source, [row.other]: row.otherSource });
+  const result = await ctx.lint(row.file);
 
   expect(result.exitCode).toBe(0);
 });

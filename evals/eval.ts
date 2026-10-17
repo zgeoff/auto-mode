@@ -101,13 +101,10 @@ async function main(): Promise<void> {
         sendWithChoices: async (request, choices) => {
           const key = await requireKey();
 
-          return sendDecision<string>(
-            config.provider,
-            key,
-            request,
-            AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
-            { choices },
-          );
+          return sendDecision<string>(config.provider, key, request, {
+            signal: AbortSignal.timeout(toTimerDelay(config.provider.timeoutMs)),
+            choices,
+          });
         },
         sendJudge:
           judge === null || (judge.protocol !== 'claude-code' && judgeKey === null)
