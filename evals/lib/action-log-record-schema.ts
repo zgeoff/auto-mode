@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-const hashSchema = z.string().regex(/^[0-9a-f]{16}$/);
+const hashSchema = z.string().regex(/^[0-9a-f]{16}$/u);
 
 // Versions 3 to 6: 4 adds the judge stage and field, 5 the agent hash, 6 the
 // grant field. The diagnostics, judge and grant fields pass unchecked: no

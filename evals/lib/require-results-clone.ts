@@ -4,7 +4,7 @@ import { realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 const RESULTS_REMOTE =
-  /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)zgeoff\/auto-mode-evals(?:\.git)?$/;
+  /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)zgeoff\/auto-mode-evals(?:\.git)?$/u;
 
 const RESULTS_README_TITLE = '# auto-mode-evals';
 

@@ -706,7 +706,7 @@ test('#loadConfig refuses a capture block with a key it does not know', async ()
 
   expect(
     loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
-  ).rejects.toThrowWithMessage(Error, /capture/);
+  ).rejects.toThrowWithMessage(Error, /capture/u);
 });
 
 test('#loadConfig disables the Claude rule import when the policy sets the settings path to null', async () => {

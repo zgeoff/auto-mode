@@ -33,7 +33,7 @@ test('it refuses a live run on a tree with uncommitted source', async () => {
 
   expect(() => readPublicCommit(ctx.dir, true)).toThrowWithMessage(
     Error,
-    /^Commit the corpus, the experiments and the source before a live run\.$/,
+    /^Commit the corpus, the experiments and the source before a live run\.$/u,
   );
 });
 

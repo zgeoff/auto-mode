@@ -60,7 +60,7 @@ export async function runLiveUse(options: Readonly<LiveUseOptions>): Promise<Liv
   };
 
   const startedAt = options.now().toISOString();
-  const stamp = startedAt.replaceAll(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const stamp = startedAt.replaceAll(/[-:]/gu, '').replace(/\.\d+Z$/u, 'Z');
   const runID = `${stamp}-${toHash(JSON.stringify(frozen)).slice(0, 8)}`;
   const runDir = join(options.resultsDir, 'runs', 'live-use', runID);
 

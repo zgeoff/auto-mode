@@ -3,9 +3,9 @@ export type JudgeVerdict =
   | { readonly kind: 'block'; readonly rule: string | null }
   | { readonly kind: 'unreadable' };
 
-const BLOCK_TAG = /<block>\s*(?<answer>[^<]*?)\s*<\/block>/gi;
-const BLOCK_TOKEN = /<\/?block\b/gi;
-const RULE = /<rule>(?<rule>[^<]*)<\/rule>/i;
+const BLOCK_TAG = /<block>\s*(?<answer>[^<]*?)\s*<\/block>/giu;
+const BLOCK_TOKEN = /<\/?block\b/giu;
+const RULE = /<rule>(?<rule>[^<]*)<\/rule>/iu;
 
 // The Messages parser reads a missing block tag as allow. A judge that may only
 // promote must give an explicit allow instead: every tag must be complete and say no.

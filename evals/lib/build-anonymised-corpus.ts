@@ -56,35 +56,35 @@ interface Identifier {
   readonly kind: IdentifierClass;
 }
 
-const HOME_PATH = /\/(?<base>home|Users)\/(?<user>[^/\s"'`:;|&<>()]+)/g;
-const WINDOWS_HOME = /\b(?<prefix>[A-Za-z]:[\\/]+Users[\\/]+)(?<user>[^\\/\s"'`:;|&<>()]+)/g;
+const HOME_PATH = /\/(?<base>home|Users)\/(?<user>[^/\s"'`:;|&<>()]+)/gu;
+const WINDOWS_HOME = /\b(?<prefix>[A-Za-z]:[\\/]+Users[\\/]+)(?<user>[^\\/\s"'`:;|&<>()]+)/gu;
 
 const FORGE_PATH =
-  /\b(?:github\.com|gitlab\.com|bitbucket\.org|codeberg\.org)[/:](?<owner>[\w.-]+)\/(?<repo>[\w.-]+)/gi;
+  /\b(?:github\.com|gitlab\.com|bitbucket\.org|codeberg\.org)[/:](?<owner>[\w.-]+)\/(?<repo>[\w.-]+)/giu;
 
-const REPO_FLAG = /(?:--repo|-R)[=\s]+(?<owner>[\w.-]+)\/(?<repo>[\w.-]+)/g;
+const REPO_FLAG = /(?:--repo|-R)[=\s]+(?<owner>[\w.-]+)\/(?<repo>[\w.-]+)/gu;
 
 const URL_AUTHORITY =
-  /\b(?<scheme>[a-z][a-z0-9+.-]*:\/\/)(?:(?<userinfo>[^\s/@"'<>]+)@)?(?<host>[A-Za-z0-9.-]+)(?<port>:\d+)?(?:\/(?<first>[^\s/?#"'<>]+)(?:\/(?<second>[^\s/?#"'<>]+))?)?/gi;
+  /\b(?<scheme>[a-z][a-z0-9+.-]*:\/\/)(?:(?<userinfo>[^\s/@"'<>]+)@)?(?<host>[A-Za-z0-9.-]+)(?<port>:\d+)?(?:\/(?<first>[^\s/?#"'<>]+)(?:\/(?<second>[^\s/?#"'<>]+))?)?/giu;
 
-const QUERY_VALUE = /(?<prefix>[?&][\w.~-]+=)(?<value>[^&#\s"'<>]+)/g;
+const QUERY_VALUE = /(?<prefix>[?&][\w.~-]+=)(?<value>[^&#\s"'<>]+)/gu;
 
 const SECRET_FLAG =
-  /(?<flag>--(?:password|passwd|pass|token|secret|api-key|apikey|auth|auth-token)(?:=|\s+))(?<value>[^\s"'&;|]+)/gi;
+  /(?<flag>--(?:password|passwd|pass|token|secret|api-key|apikey|auth|auth-token)(?:=|\s+))(?<value>[^\s"'&;|]+)/giu;
 
-const ATTACHED_PASSWORD = /(?<flag>(?<![\w-])-p)(?<value>[^\s"'&;|]*[A-Za-z][^\s"'&;|]*)/g;
-const IPV4 = /(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])/g;
-const IPV6 = /(?<![\w:])[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?![\w:])/g;
+const ATTACHED_PASSWORD = /(?<flag>(?<![\w-])-p)(?<value>[^\s"'&;|]*[A-Za-z][^\s"'&;|]*)/gu;
+const IPV4 = /(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])/gu;
+const IPV6 = /(?<![\w:])[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?![\w:])/gu;
 
 const KEPT_ADDRESSES = new Set(['127.0.0.1', '0.0.0.0', '::1', '::', 'localhost']);
 
 const DOTTED_NAME =
-  /(?<![\w.@/\\-])(?<host>[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)(?![\w-]|\.\w)/g;
+  /(?<![\w.@/\\-])(?<host>[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)(?![\w-]|\.\w)/gu;
 
 const HOST_POSITION =
-  /\b(?:ssh|scp|rsync|sftp|mosh|ping|telnet|nc|dig|nslookup|curl|wget)\b[^;&|\n]*?(?<=\s)(?:[\w.-]+@)?(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/g;
+  /\b(?:ssh|scp|rsync|sftp|mosh|ping|telnet|nc|dig|nslookup|curl|wget)\b[^;&|\n]*?(?<=\s)(?:[\w.-]+@)?(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/gu;
 
-const HOST_FLAG = /(?:--host|-h|-H)[=\s]+(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/g;
+const HOST_FLAG = /(?:--host|-h|-H)[=\s]+(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/gu;
 
 // Top-level and private suffixes that mark a dotted name as a host; a file
 // extension wins over a suffix, so `install.sh` and `README.md` stay names.
@@ -197,15 +197,15 @@ const FILE_EXTENSIONS = new Set([
   'patch',
 ]);
 
-const SCP_REMOTE = /\b(?<user>[\w.-]+)@(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+):/g;
-const EMAIL = /\b[\w.+-]+@(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)\b/g;
+const SCP_REMOTE = /\b(?<user>[\w.-]+)@(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+):/gu;
+const EMAIL = /\b[\w.+-]+@(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)\b/gu;
 
 const BRANCH_PATTERNS = [
-  /\b(?:checkout|switch)\s+-[bBcC]\s+(?<branch>[^\s;&|'"]+)/g,
-  /\bworktree\s+add\b[^;&|\n]*?\s-[bB]\s+(?<branch>[^\s;&|'"]+)/g,
-  /\bbranch\s+(?:-[dDmMf]+\s+)+(?<branch>[^\s;&|'"]+)/g,
-  /\s--(?:head|base)[=\s]+(?<branch>[^\s;&|'"]+)/g,
-  /\.worktrees\/(?<branch>[^/\s"']+)/g,
+  /\b(?:checkout|switch)\s+-[bBcC]\s+(?<branch>[^\s;&|'"]+)/gu,
+  /\bworktree\s+add\b[^;&|\n]*?\s-[bB]\s+(?<branch>[^\s;&|'"]+)/gu,
+  /\bbranch\s+(?:-[dDmMf]+\s+)+(?<branch>[^\s;&|'"]+)/gu,
+  /\s--(?:head|base)[=\s]+(?<branch>[^\s;&|'"]+)/gu,
+  /\.worktrees\/(?<branch>[^/\s"']+)/gu,
 ];
 
 const SHARED_USERS = new Set(['git', 'x-access-token', 'oauth2', 'token']);
@@ -258,7 +258,7 @@ function collectIdentifiers(
   const found = new Map<string, IdentifierClass>();
 
   for (const identifier of actions.flatMap((action) => collectActionIdentifiers(action))) {
-    const key = identifier.value.replace(/\.git$/, '').toLowerCase();
+    const key = identifier.value.replace(/\.git$/u, '').toLowerCase();
 
     if (key.length >= 3 && !STRUCTURAL_NAMES.has(key) && !found.has(key)) {
       found.set(key, identifier.kind);
@@ -270,7 +270,7 @@ function collectIdentifiers(
 
 function collectActionIdentifiers(action: Readonly<CapturedAction>): Identifier[] {
   const root = action.cwd.split('/.worktrees/')[0] ?? action.cwd;
-  const isHome = /^\/(?:home|Users)\/[^/]+\/?$/.test(root) || root === '/';
+  const isHome = /^\/(?:home|Users)\/[^/]+\/?$/u.test(root) || root === '/';
 
   return [
     ...(isHome ? [] : [{ value: basename(root), kind: 'repo' as const }]),
@@ -370,7 +370,7 @@ function isHostName(name: string): boolean {
   const labels = name.toLowerCase().split('.');
   const last = labels.at(-1) ?? '';
 
-  return !FILE_EXTENSIONS.has(last) && HOST_SUFFIXES.has(last) && !/^\d+$/.test(labels[0] ?? '');
+  return !FILE_EXTENSIONS.has(last) && HOST_SUFFIXES.has(last) && !/^\d+$/u.test(labels[0] ?? '');
 }
 
 function collectRemoteIdentifiers(user: string | undefined, host: string): Identifier[] {
@@ -382,7 +382,7 @@ function collectRemoteIdentifiers(user: string | undefined, host: string): Ident
 }
 
 function toBranchName(ref: string): string {
-  return ref.replace(/^\+/, '').replace(/^refs\/heads\//, '');
+  return ref.replace(/^\+/u, '').replace(/^refs\/heads\//u, '');
 }
 
 // Prose and file content mention `git push` and the words after it, and every
@@ -446,14 +446,17 @@ const VALUED_PREFIX_OPTIONS = new Set(['-u', '-g', '-n', '-I']);
 // The shell layer keeps a grouping bracket on the word beside it, where it
 // would stick to a branch name, and a wrapper's options come before the program.
 function toProgramWords(words: readonly string[]): readonly string[] {
-  const command = words.map((word) => word.replaceAll(/[(){}]/g, '')).filter((word) => word !== '');
+  const command = words
+    .map((word) => word.replaceAll(/[(){}]/gu, ''))
+    .filter((word) => word !== '');
+
   let index = 0;
 
   while (index < command.length) {
     const word = command[index] ?? '';
     const isPrefixOption = word.startsWith('-');
 
-    if (!COMMAND_PREFIXES.has(word) && !/^\w+=/.test(word) && !isPrefixOption) {
+    if (!COMMAND_PREFIXES.has(word) && !/^\w+=/u.test(word) && !isPrefixOption) {
       break;
     }
 
@@ -467,7 +470,7 @@ const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash']);
 
 function collectSegmentBranches(words: readonly string[]): Identifier[] {
   const [program = '', ...args] = words;
-  const script = args.findIndex((arg) => /^-\w*c\w*$/.test(arg));
+  const script = args.findIndex((arg) => /^-\w*c\w*$/u.test(arg));
 
   if (SHELLS.has(basename(program)) && script !== -1) {
     return collectCommandBranches(args[script + 1] ?? '');
@@ -494,17 +497,17 @@ function collectPushedBranches(args: readonly string[]): Identifier[] {
 
 type Rewriter = (text: string) => string;
 
-const PRIVATE_KEY = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g;
+const PRIVATE_KEY = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/gu;
 
 const KNOWN_TOKEN =
-  /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|sk-[\w-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|glpat-[\w-]{20,}|npm_[A-Za-z0-9]{36}|eyJ[\w-]+\.[\w-]+\.[\w-]+)/g;
+  /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|sk-[\w-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|glpat-[\w-]{20,}|npm_[A-Za-z0-9]{36}|eyJ[\w-]+\.[\w-]+\.[\w-]+)/gu;
 
-const LONG_RUN = /(?<![\w+=-])[\w+=-]{32,}(?![\w+=-])/g;
+const LONG_RUN = /(?<![\w+=-])[\w+=-]{32,}(?![\w+=-])/gu;
 
 const SECRET_ASSIGNMENT =
-  /\b(?<name>[A-Za-z_][\w-]*(?:key|token|secret|password|passwd|pwd|credential|auth)[\w-]*)(?<separator>\s*[=:]\s*["']?)(?<value>[^\s"'&;|]{6,})/gi;
+  /\b(?<name>[A-Za-z_][\w-]*(?:key|token|secret|password|passwd|pwd|credential|auth)[\w-]*)(?<separator>\s*[=:]\s*["']?)(?<value>[^\s"'&;|]{6,})/giu;
 
-const AUTH_SCHEME = /\b(?<scheme>Bearer|Basic)\s+(?<value>[\w.~+/=-]{8,})/g;
+const AUTH_SCHEME = /\b(?<scheme>Bearer|Basic)\s+(?<value>[\w.~+/=-]{8,})/gu;
 
 function makeStringRewriter(
   identifiers: Readonly<Record<string, IdentifierClass>>,
@@ -522,12 +525,12 @@ function makeStringRewriter(
 
   const names = Object.keys(identifiers)
     .toSorted((a, b) => b.length - a.length)
-    .map((name) => name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`));
+    .map((name) => name.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`));
 
   const identifierPattern =
     names.length === 0
       ? null
-      : new RegExp(`(?<![A-Za-z0-9])(?:${names.join('|')})(?![A-Za-z0-9])`, 'gi');
+      : new RegExp(`(?<![A-Za-z0-9])(?:${names.join('|')})(?![A-Za-z0-9])`, 'giu');
 
   // The URL pass runs first because it drops a password in the user info
   // whole, which a token pass would otherwise split from its URL.
@@ -553,7 +556,7 @@ function makeStringRewriter(
         const secondPart =
           second === undefined
             ? ''
-            : `/${toClassedPlaceholder('repo', second.replace(/\.git$/, ''))}${second.endsWith('.git') ? '.git' : ''}`;
+            : `/${toClassedPlaceholder('repo', second.replace(/\.git$/u, ''))}${second.endsWith('.git') ? '.git' : ''}`;
 
         return `${groups['scheme'] ?? ''}${user}${toClassedPlaceholder('host', host)}.example${groups['port'] ?? ''}${firstPart}${secondPart}`;
       }),
@@ -623,7 +626,7 @@ function makeStringRewriter(
       buildReplacedText(text, IPV6, (match) =>
         KEPT_ADDRESSES.has(match) ||
         (!match.includes('::') && match.split(':').length < 8) ||
-        !/\d/.test(match)
+        !/\d/u.test(match)
           ? match
           : toPlaceholder('host', match),
       ),
@@ -652,7 +655,7 @@ function derivePlaceholder(kind: string, value: string, salt: string): string {
 }
 
 const PLACEHOLDER =
-  /(?<placeholder>(?:user|host|owner|repo|branch|token|email|session|tool|agent)-[0-9a-f]{8})/;
+  /(?<placeholder>(?:user|host|owner|repo|branch|token|email|session|tool|agent)-[0-9a-f]{8})/u;
 
 // A placeholder is split out before each pass, so no later pass rewrites a
 // value an earlier one already replaced.
@@ -699,7 +702,7 @@ function buildSecretFreeText(text: string, toReplacement: (secret: string) => st
 }
 
 function isTokenLike(run: string): boolean {
-  return /^[0-9a-f]+$/i.test(run) || (/[A-Z]/.test(run) && /[a-z]/.test(run) && /\d/.test(run));
+  return /^[0-9a-f]+$/iu.test(run) || (/[A-Z]/u.test(run) && /[a-z]/u.test(run) && /\d/u.test(run));
 }
 
 const ID_FIELDS: Readonly<Record<string, string>> = {
