@@ -6,8 +6,6 @@
     "es2024": true
   },
   "rules": {
-    // 5 files run past 500 non-blank lines; GEO-1200 splits them
-    "max-lines": "off",
     // 27 functions take more than 4 parameters; GEO-1201 trims them
     "max-params": "off",
     // zod schemas and jest-extended matchers are imported wholesale on purpose
