@@ -15,7 +15,7 @@ export default defineConfig({
   // Bundled, not external. This runs once per tool call, so process start-up is
   // on the critical path: resolving these from node_modules costs 59ms a call
   // against 31ms bundled, and the package ships 206kB rather than 8.8MB.
-  deps: { alwaysBundle: ['zod', 'ts-pattern', 'tiny-invariant', 're2js'] },
+  deps: { alwaysBundle: ['zod', 'ts-pattern', 'tiny-invariant', 're2js', 'gunshi'] },
 
   copy: [{ from: 'src/secrets/betterleaks-rules.json', to: 'dist', rename: 'secret-rules.json' }],
 });

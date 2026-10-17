@@ -76,6 +76,9 @@ async function setupTest(): Promise<{
 test.each([
   ['no command', []],
   ['--help', ['--help']],
+  ['-h', ['-h']],
+  ['--help after a command', ['run', '--help']],
+  ['flags and no command', ['--explain', '--local-only']],
 ])('it prints usage and exits 0 when given %s', async (_label, argv) => {
   const ctx = await setupTest();
 
@@ -165,15 +168,17 @@ test('it prints the directory of the shipped mod', async () => {
 });
 
 test.each([
-  [
-    'an unknown flag',
-    ['run', '--frobnicate'],
-    `Unknown option '--frobnicate'. To specify a positional argument starting with a '-', place it at the end of the command after '--', as in '-- "--frobnicate"`,
-  ],
+  ['an unknown flag', ['run', '--frobnicate'], 'Unknown option: --frobnicate'],
   [
     'an evaluation deadline with no value',
     ['run', '--jev-only', '--evaluation-deadline'],
-    `Option '--evaluation-deadline <value>' argument missing`,
+    "Optional argument '--evaluation-deadline' requires a value",
+  ],
+  ['a judge server with no socket path', ['judge-server'], 'judge-server needs a socket path'],
+  [
+    'a switch given a value',
+    ['run', '--explain=yes'],
+    "Optional argument '--explain' should be 'boolean'",
   ],
 ])('it exits 2 with usage on stderr on %s', async (_label, argv, message) => {
   const ctx = await setupTest();
@@ -355,6 +360,34 @@ test('it reads an overridden policy instead of the shipped one', async () => {
       join(ctx.dir, 'classifier.md'),
       '--rules',
       join(ctx.dir, 'rules.md'),
+    ],
+    {
+      stdin: () => Promise.resolve(''),
+      stdout: ctx.stdout,
+      stderr: ctx.stderr,
+      host: ctx.host,
+      subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+    },
+  );
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: 'framework\n\nthe rules\n\n',
+    stderr: '',
+  });
+});
+
+test('it reads policy flags written with = before and after the command', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(join(ctx.dir, 'classifier.md'), 'framework\n\n<rules>\n');
+  await writeFile(join(ctx.dir, 'rules.md'), 'the rules');
+
+  const exitCode = await runCLI(
+    [
+      `--classifier=${join(ctx.dir, 'classifier.md')}`,
+      'print-prompt',
+      `--rules=${join(ctx.dir, 'rules.md')}`,
     ],
     {
       stdin: () => Promise.resolve(''),
