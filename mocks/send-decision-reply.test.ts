@@ -15,7 +15,7 @@ test('it answers every question with a certain allow when no answer is set', asy
     buildMockDecisionRequest({
       questions: { rule_0: buildMockDecisionQuestion(), hard_deny_0: buildMockDecisionQuestion() },
     }),
-    { signal: new AbortController().signal },
+    { fetch, signal: new AbortController().signal },
   );
 
   expect(result).toStrictEqual({
@@ -53,7 +53,7 @@ test('it answers a question with the answer set for its key', async () => {
     buildMockProviderConfig({ baseURL: new URL(DECISION_URL).origin }),
     'key',
     buildMockDecisionRequest({ questions: { rule_0: buildMockDecisionQuestion() } }),
-    { signal: new AbortController().signal },
+    { fetch, signal: new AbortController().signal },
   );
 
   expect(result).toStrictEqual({
