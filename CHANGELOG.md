@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v2.0.0...auto-mode-v2.0.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **containment:** flag auto-mode record only when auto-mode runs ([#205](https://github.com/zgeoff/auto-mode/issues/205)) ([4dd7ff0](https://github.com/zgeoff/auto-mode/commit/4dd7ff02e811288ed1ec5d9c80a3275f72de72af))
+
 ## [2.0.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v1.0.1...auto-mode-v2.0.0) (2026-10-16)
 
 
