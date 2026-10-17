@@ -129,15 +129,11 @@ Options:
 });
 
 test.each([
-  [
-    'an unknown flag',
-    ['run', '--frobnicate'],
-    `Unknown option '--frobnicate'. To specify a positional argument starting with a '-', place it at the end of the command after '--', as in '-- "--frobnicate"`,
-  ],
+  ['an unknown flag', ['run', '--frobnicate'], 'Unknown option: --frobnicate'],
   [
     'an evaluation deadline with no value',
     ['run', '--jev-only', '--evaluation-deadline'],
-    `Option '--evaluation-deadline <value>' argument missing`,
+    "Optional argument '--evaluation-deadline' requires a value",
   ],
 ])('it exits 2 under node with usage and no stack trace on %s', async (_label, argv, message) => {
   const ctx = await setupTest();

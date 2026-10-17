@@ -1,4 +1,11 @@
-import { parseArgs } from 'node:util';
+import { cli } from 'gunshi/bone';
+import type { ArgValues, CommandContext } from 'gunshi/bone';
+import { define, lazy } from 'gunshi/definition';
+import {
+  isArgsValidationError,
+  isCommandNotFoundError,
+  isCommandResolutionError,
+} from 'gunshi/plugin';
 import { resolveCaptureDir } from './capture/resolve-capture-dir.ts';
 import type { CaptureOutcome } from './capture/try-write-request-capture.ts';
 import { tryWriteRequestCapture } from './capture/try-write-request-capture.ts';
@@ -50,80 +57,205 @@ Options:
   --evaluation-deadline <unix-ms>  With --jev-only: share the helper and API deadline
 `;
 
-export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Promise<number> {
-  const args = tryParseCLIArgs(argv);
+// Every command takes every flag; a flag a command does not read changes
+// nothing.
+const CLI_ARGS = {
+  classifier: { type: 'string' },
+  rules: { type: 'string' },
+  explain: { type: 'boolean' },
+  'local-only': { type: 'boolean' },
+  'jev-only': { type: 'boolean' },
+  'evaluation-deadline': { type: 'string' },
+  help: { type: 'boolean', short: 'h' },
+} as const;
 
-  if (args instanceof Error) {
-    io.stderr.write(`auto-mode: ${args.message}\n\n${USAGE}`);
+type CLIValues = ArgValues<typeof CLI_ARGS>;
+
+interface CLIParams {
+  readonly args: typeof CLI_ARGS;
+  readonly extensions: Record<never, never>;
+}
+
+// What a command runs, given the flags and the words after its name, and the
+// exit code it resolves to.
+type CommandRun = (
+  io: Readonly<CLIIO>,
+  values: Readonly<CLIValues>,
+  positionals: readonly string[],
+) => Promise<number>;
+
+const COMMANDS: ReadonlyMap<string, CommandRun> = new Map<string, CommandRun>([
+  ['run', (io, values) => runClassification(io, values)],
+  ['print-prompt', (io, values) => printPrompt(io, values)],
+  ['record', (io) => runRecord(io)],
+  ['mod-path', (io) => printModPath(io)],
+  ['judge-server', (io, _values, positionals) => runJudgeServer(io, positionals[0])],
+]);
+
+export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Promise<number> {
+  let exitCode = 0;
+
+  const subCommands = Object.fromEntries(
+    [...COMMANDS].map(([name, runCommand]) => [
+      name,
+      lazy(
+        () => async (ctx: Readonly<CommandContext<CLIParams>>) => {
+          exitCode =
+            ctx.values.help === true
+              ? printUsage(io.stdout)
+              : await runCommand(io, ctx.values, [
+                  ...ctx.positionals.slice(ctx.commandPath.length),
+
+                  // a word after `--` may start with a dash, and it is an argument too
+                  ...ctx.rest,
+                ]);
+        },
+        { name, args: CLI_ARGS },
+      ),
+    ]),
+  );
+
+  const entry = define({
+    name: 'auto-mode',
+    args: CLI_ARGS,
+
+    // A command line with no command before `--` takes its command from the first word after it,
+    // which the parser leaves unread.
+    run: async (ctx) => {
+      exitCode = await runCommandAfterTerminator(io, ctx.values, ctx.rest);
+    },
+  });
+
+  try {
+    await cli([...argv], entry, {
+      subCommands,
+      strict: true,
+      onBeforeCommand: requireValidCommandLine,
+    });
+  } catch (error) {
+    if (!isUsageError(error)) {
+      throw error;
+    }
+
+    io.stderr.write(`auto-mode: ${formatUsageError(error)}\n\n${USAGE}`);
 
     return 2;
   }
 
-  const [command] = args.positionals;
+  return exitCode;
+}
 
-  if (args.values.help === true || command === undefined) {
-    io.stdout.write(USAGE);
+function runCommandAfterTerminator(
+  io: Readonly<CLIIO>,
+  values: Readonly<CLIValues>,
+  rest: readonly string[],
+): Promise<number> {
+  const [command, ...positionals] = rest;
 
-    return 0;
+  if (values.help === true || command === undefined) {
+    return Promise.resolve(printUsage(io.stdout));
   }
 
-  if (command === 'run') {
-    try {
-      return await run(
-        io,
-        args.values.explain === true,
-        args.values['local-only'] === true,
-        args.values['jev-only'] === true,
-        args.values['evaluation-deadline'],
-      );
-    } catch {
-      io.stderr.write('auto-mode: configuration unreadable; no verdict\n');
+  const runCommand = COMMANDS.get(command);
 
-      return 0;
-    }
+  if (runCommand === undefined) {
+    io.stderr.write(`auto-mode: unknown command '${command}'\n\n${USAGE}`);
+
+    return Promise.resolve(2);
   }
 
-  if (command === 'record') {
-    return runRecord(io);
-  }
+  return runCommand(io, values, positionals);
+}
 
-  if (command === 'print-prompt') {
-    const config = await loadConfig(undefined, io.host);
+function printUsage(stdout: Readonly<OutputStream>): number {
+  stdout.write(USAGE);
 
-    printWarnings(io.stderr, config.warnings);
+  return 0;
+}
 
-    const prompt = await loadPolicy(
-      {
-        classifierPath: args.values.classifier ?? config.classifierPath,
-        rulesPath: args.values.rules ?? config.rulesPath,
-      },
-      'decision.md',
+// A run that fails before the classifier starts still exits 0, so the mod
+// keeps the prompt instead of reading a failure.
+async function runClassification(
+  io: Readonly<CLIIO>,
+  values: Readonly<CLIValues>,
+): Promise<number> {
+  try {
+    return await run(
+      io,
+      values.explain === true,
+      values['local-only'] === true,
+      values['jev-only'] === true,
+      values['evaluation-deadline'],
     );
-
-    io.stdout.write(`${prompt}\n`);
+  } catch {
+    io.stderr.write('auto-mode: configuration unreadable; no verdict\n');
 
     return 0;
   }
+}
 
-  if (command === 'judge-server') {
-    return runJudgeServer(io, args.positionals[1]);
+async function printPrompt(io: Readonly<CLIIO>, values: Readonly<CLIValues>): Promise<number> {
+  const config = await loadConfig(undefined, io.host);
+
+  printWarnings(io.stderr, config.warnings);
+
+  const prompt = await loadPolicy(
+    {
+      classifierPath: values.classifier ?? config.classifierPath,
+      rulesPath: values.rules ?? config.rulesPath,
+    },
+    'decision.md',
+  );
+
+  io.stdout.write(`${prompt}\n`);
+
+  return 0;
+}
+
+function printModPath(io: Readonly<CLIIO>): Promise<number> {
+  try {
+    io.stdout.write(`${resolveShippedModDir()}\n`);
+
+    return Promise.resolve(0);
+  } catch (error) {
+    io.stderr.write(`auto-mode: ${error instanceof Error ? error.message : String(error)}\n`);
+
+    return Promise.resolve(1);
   }
+}
 
-  if (command === 'mod-path') {
-    try {
-      io.stdout.write(`${resolveShippedModDir()}\n`);
-
-      return 0;
-    } catch (error) {
-      io.stderr.write(`auto-mode: ${error instanceof Error ? error.message : String(error)}\n`);
-
-      return 1;
-    }
+// The parser records a flag that is missing its value without stopping the
+// command, so the command line is checked before any command runs.
+function requireValidCommandLine(ctx: Readonly<CommandContext>): void {
+  if (ctx.validationError !== undefined) {
+    throw ctx.validationError;
   }
+}
 
-  io.stderr.write(`auto-mode: unknown command '${command}'\n\n${USAGE}`);
+// The parser throws one error that holds every reason it refused the command
+// line, and nothing else it throws is a usage error.
+function isUsageError(error: unknown): error is AggregateError {
+  return (
+    error instanceof AggregateError &&
+    error.errors.every(
+      (reason) =>
+        isArgsValidationError(reason) ||
+        isCommandNotFoundError(reason) ||
+        isCommandResolutionError(reason),
+    )
+  );
+}
 
-  return 2;
+function formatUsageError(error: AggregateError): string {
+  return error.errors
+    .map((reason: unknown) => {
+      if (isCommandNotFoundError(reason)) {
+        return `unknown command '${reason.commandName}'`;
+      }
+
+      return reason instanceof Error ? reason.message : String(reason);
+    })
+    .join('\n');
 }
 
 // A Claude Code judge reaches the session's judge server when the CLI knows the
@@ -178,28 +310,6 @@ async function runJudgeServer(
 // Nothing tells the server that its agent session ended, so it ends after this
 // long without a review, and a finished session leaves no judge process behind.
 const JUDGE_IDLE_MS = 900_000;
-
-// parseArgs throws on an unknown option or a missing value, and a usage error
-// is the caller's to fix, so it exits 2 with the usage instead of a stack trace.
-function tryParseCLIArgs(argv: readonly string[]) {
-  try {
-    return parseArgs({
-      args: [...argv],
-      allowPositionals: true,
-      options: {
-        classifier: { type: 'string' },
-        rules: { type: 'string' },
-        explain: { type: 'boolean' },
-        'local-only': { type: 'boolean' },
-        'jev-only': { type: 'boolean' },
-        'evaluation-deadline': { type: 'string' },
-        help: { type: 'boolean', short: 'h' },
-      },
-    });
-  } catch (error) {
-    return error instanceof Error ? error : new Error(String(error));
-  }
-}
 
 async function run(
   io: Readonly<CLIIO>,
