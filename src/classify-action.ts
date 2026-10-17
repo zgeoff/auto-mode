@@ -16,8 +16,7 @@ import {
   DEFAULT_SCOPE_SOURCES,
 } from './config/config.ts';
 import { loadClaudeSettings } from './config/load-claude-settings.ts';
-import { readRuntime } from './config/read-runtime.ts';
-import type { EvaluationOptions, HostEnvironment, OutputStream, Runtime } from './config/types.ts';
+import type { EvaluationOptions, HostEnvironment, OutputStream } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { ContainmentDeny } from './containment/check-containment.ts';
 import { findUserNamedGrant } from './containment/find-user-named-grant.ts';
@@ -54,32 +53,26 @@ export interface ActionOutcome {
   readonly escalation?: boolean;
 }
 
-export interface ClassifyOptions extends Omit<EvaluationOptions, 'runtime'> {
+export interface ClassifyOptions extends EvaluationOptions {
   readonly localOnly?: boolean;
   readonly budget?: boolean;
   readonly actionLog?: boolean;
-  readonly stderr?: Readonly<OutputStream> | undefined;
-
-  // A library caller has no cli.ts to build a runtime, so a call without one
-  // reads the process's own.
-  readonly runtime?: Readonly<Runtime> | undefined;
+  readonly stderr: Readonly<OutputStream>;
 
   // A caller that classifies more than one action passes a judge session, so
   // the judge process stays warm between them.
   readonly judgeSession?: JudgeSession | undefined;
 }
 
-type StageOptions = ClassifyOptions &
-  Readonly<{ runtime: Readonly<Runtime>; stderr: Readonly<OutputStream> }>;
+type StageOptions = Readonly<ClassifyOptions>;
 
 export async function classifyAction(
   request: ActionRequest,
   config: Config,
-  options: ClassifyOptions = {},
+  options: Readonly<ClassifyOptions>,
 ): Promise<ActionOutcome> {
-  const runtime = options.runtime ?? readRuntime();
-  const stderr = options.stderr ?? process.stderr;
-  const host = runtime.host;
+  const stderr = options.stderr;
+  const host = options.runtime.host;
   const invocationID = randomUUID();
 
   if (options.actionLog === true) {
@@ -88,8 +81,8 @@ export async function classifyAction(
 
   const outcome =
     options.budget === true
-      ? await classifyWithBudget(request, config, { ...options, runtime, stderr })
-      : await classifyStages(request, config, { ...options, runtime, stderr });
+      ? await classifyWithBudget(request, config, options)
+      : await classifyStages(request, config, options);
 
   if (options.actionLog === true) {
     await writeActionDiagnostic(

@@ -6,7 +6,6 @@ import type { JudgeOverturns } from '../judge/types.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 import { MESSAGES_DEFAULTS, PRESETS, findPreset } from './presets.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
-import { readHostEnvironment } from './read-host-environment.ts';
 import type { HostEnvironment, KeyOptions } from './types.ts';
 
 export interface ProviderConfig {
@@ -83,8 +82,8 @@ export function resolveConfigPath(host: Readonly<HostEnvironment>): string {
 }
 
 export async function loadConfig(
-  configPath?: string,
-  host: Readonly<HostEnvironment> = readHostEnvironment(),
+  configPath: string | undefined,
+  host: Readonly<HostEnvironment>,
 ): Promise<Config> {
   const path = configPath ?? resolveConfigPath(host);
   let raw: string;
