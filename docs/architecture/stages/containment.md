@@ -39,8 +39,8 @@ read is a new entry with its tests, never a new branch of code. A program the ta
 yields no finding and goes to Jev. The reader splits the call's words by the entry, then applies the
 entry's write rules to them. Two readings stay outside the table, because each reads more than one
 program call: an `xargs` whose command takes no listed name runs that command as written, and a
-branch list piped into a branch deletion is a sweep. A call that runs `auto-mode record`, directly
-or through a JavaScript runtime or package runner, is read beside its entry.
+branch list piped into a branch deletion is a sweep. A call that runs `auto-mode record` is read
+beside its entry.
 
 An entry splits the words this way:
 
@@ -149,9 +149,9 @@ an MCP tool, is a finding. `gh api graphql` counts as a read unless its query ho
 A call that runs `auto-mode record` itself is a credential finding. The mod alone reports finished
 calls, so a record the agent sends is a claim on scope the agent did not make
 ([the task scope](../evidence/task-scope.md#what-the-session-created)). The call runs it when
-auto-mode is the program, or when a JavaScript runtime or package runner such as bun or npx launches
-it. Another program whose operands name auto-mode and record, such as a rename, runs nothing and
-gets no finding.
+auto-mode is the program, or when a launcher starts it: a JavaScript runtime or package runner such
+as bun or npx, or a process wrapper such as nohup or xargs. Another program whose operands name
+auto-mode and record, such as a rename, runs nothing and gets no finding.
 
 ## What counts as in scope
 

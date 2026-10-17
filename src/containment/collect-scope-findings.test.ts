@@ -832,6 +832,9 @@ test.each([
   ['the built script', 'node ~/src/auto-mode/dist/cli.js record < r.json'],
   ['node and a path to the bin', 'node /home/dev/.bun/bin/auto-mode record < r.json'],
   ['a path to the bin', '/home/dev/.bun/bin/auto-mode record < r.json'],
+  ['exec', 'exec auto-mode record'],
+  ['a process wrapper', 'nice -n 5 auto-mode record'],
+  ['xargs', 'xargs -0 auto-mode record < r.json'],
 ])('it finds an agent recording scope for itself through %s', (_label, command) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
