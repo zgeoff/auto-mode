@@ -28,7 +28,7 @@ The root package is the published `auto-mode`, and `evals/` is a private Bun wor
 beside it.
 
 ```text
-src/               the classifier, one folder per stage or concern; process/ alone runs child processes
+src/               the classifier, a folder per stage or concern; only process/ spawns a child
 mods/auto-mode/    the Claude Code mod, shipped as raw TypeScript
   contract/        the request and verdict shapes the mod and the CLI share; no dependencies
   hooks/           the hooks modules and their *.claude-check.ts checks
