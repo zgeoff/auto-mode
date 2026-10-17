@@ -102,7 +102,7 @@ export async function classifyWithJev(
 
     stage = 'request';
 
-    const result = await sendDecision(config.provider, key, request, signal);
+    const result = await sendDecision(config.provider, key, request, { signal });
 
     stage = 'response';
 

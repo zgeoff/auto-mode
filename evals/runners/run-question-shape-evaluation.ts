@@ -231,13 +231,11 @@ async function main(): Promise<void> {
 
     const started = performance.now();
 
-    const outcome = await sendShapeRequest(
-      config.provider,
-      key,
-      plan.baseline.state,
-      plan.questions,
-      AbortSignal.timeout(TIMEOUT_MS),
-    );
+    const outcome = await sendShapeRequest(config.provider, key, {
+      state: plan.baseline.state,
+      questions: plan.questions,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
 
     const elapsedMs = Math.round(performance.now() - started);
 

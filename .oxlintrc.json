@@ -6,8 +6,6 @@
     "es2024": true
   },
   "rules": {
-    // 27 functions take more than 4 parameters; GEO-1201 trims them
-    "max-params": "off",
     // zod schemas and jest-extended matchers are imported wholesale on purpose
     "import/no-namespace": "off",
 

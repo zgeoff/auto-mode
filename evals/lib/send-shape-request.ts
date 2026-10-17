@@ -21,14 +21,18 @@ export type ShapeOutcome =
     }
   | { readonly kind: 'failure'; readonly reason: string; readonly detail?: unknown };
 
+export interface SendShapeOptions {
+  readonly state: DecisionRequest['state'];
+  readonly questions: Readonly<Record<string, CategoricalQuestion>>;
+  readonly signal: AbortSignal;
+}
+
 export async function sendShapeRequest(
   provider: ProviderConfig,
   key: string,
-  state: DecisionRequest['state'],
-  questions: Readonly<Record<string, CategoricalQuestion>>,
-  signal: AbortSignal,
+  options: Readonly<SendShapeOptions>,
 ): Promise<ShapeOutcome> {
-  const [first, ...others] = Object.values(questions);
+  const [first, ...others] = Object.values(options.questions);
 
   invariant(first !== undefined, 'A shape asks at least one question.');
 
@@ -44,10 +48,16 @@ export async function sendShapeRequest(
   const responses: ResponseCopy[] = [];
 
   try {
-    const result = await sendDecision(provider, key, { state, questions }, signal, {
-      choices: [choice, ...choices],
-      fetch: makeRecordingFetch(fetch, { redirect: 'manual', responses }),
-    });
+    const result = await sendDecision(
+      provider,
+      key,
+      { state: options.state, questions: options.questions },
+      {
+        signal: options.signal,
+        choices: [choice, ...choices],
+        fetch: makeRecordingFetch(fetch, { redirect: 'manual', responses }),
+      },
+    );
 
     return {
       kind: 'success',
