@@ -835,6 +835,8 @@ test.each([
   ['exec', 'exec auto-mode record'],
   ['a process wrapper', 'nice -n 5 auto-mode record'],
   ['xargs', 'xargs -0 auto-mode record < r.json'],
+  ['a path to env', '/usr/bin/env auto-mode record'],
+  ['a path to timeout', '/usr/bin/timeout 10 auto-mode record'],
 ])('it finds an agent recording scope for itself through %s', (_label, command) => {
   const findings = collectScopeFindings(
     { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
