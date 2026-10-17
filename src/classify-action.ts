@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import invariant from 'tiny-invariant';
 import { findCurrentDirectUserMessage } from '../mods/auto-mode/contract/find-current-direct-user-message.ts';
 import { buildRetryKey } from './budget/build-retry-key.ts';
 import { findRetryDeny } from './budget/find-retry-deny.ts';
@@ -190,9 +189,13 @@ interface Stage {
   readonly decide: (ctx: Readonly<StageContext>) => StageDecision | Promise<StageDecision>;
 }
 
-// The first stage that decides ends the run, and Jev decides every action that
-// reaches it. The read-only allow comes before the task scope loads, and the
-// regenerable-output allow after the containment check, because it deletes files.
+interface FinalStage {
+  readonly decide: (ctx: Readonly<StageContext>) => Promise<StageOutcome>;
+}
+
+// The first stage that decides ends the run. The read-only allow comes before
+// the task scope loads, and the regenerable-output allow after the containment
+// check, because it deletes files.
 const STAGES: readonly Stage[] = [
   { decide: classifyClaudeSettings },
   { decide: classifyReadOnly },
@@ -200,8 +203,10 @@ const STAGES: readonly Stage[] = [
   { decide: classifyRegenerable },
   { decide: classifyEditBypass },
   { decide: classifyLocalOnly },
-  { decide: classifyJev },
 ];
+
+// Jev decides every action the stages before it pass on.
+const FINAL_STAGE: FinalStage = { decide: classifyJev };
 
 async function classifyStages(
   request: ActionRequest,
@@ -224,34 +229,35 @@ async function classifyStages(
     grant: null,
   };
 
+  const outcome = await runStages(ctx);
+  const reviewed = await classifyWithGrant(ctx, outcome);
+
+  if (reviewed.verdict?.kind !== 'deny') {
+    return reviewed;
+  }
+
+  const guidance = await tryReadDenialGuidance();
+
+  return { ...reviewed, verdict: buildGuidedVerdict(reviewed.verdict, guidance) };
+}
+
+async function runStages(ctx: StageContext): Promise<StageOutcome> {
   for (const stage of STAGES) {
     const decision = await stage.decide(ctx);
 
     if (decision.kind === 'decided') {
-      const reviewed = await classifyWithGrant(ctx, decision.outcome);
-
-      if (reviewed.verdict?.kind !== 'deny') {
-        return reviewed;
-      }
-
-      const guidance = await tryReadDenialGuidance();
-
-      return { ...reviewed, verdict: buildGuidedVerdict(reviewed.verdict, guidance) };
+      return decision.outcome;
     }
 
     Object.assign(ctx, decision.facts);
   }
 
-  invariant(false, 'the Jev stage decides every action that reaches it');
+  return FINAL_STAGE.decide(ctx);
 }
 
 async function classifyClaudeSettings(ctx: Readonly<StageContext>): Promise<StageDecision> {
-  const settings =
-    ctx.claudeSettings === undefined
-      ? await loadClaudeSettings(ctx.config.claudeSettingsPath, ctx.options.runtime.host).catch(
-          () => null,
-        )
-      : ctx.claudeSettings;
+  const settings = await (ctx.claudeSettings ??
+    loadClaudeSettings(ctx.config.claudeSettingsPath, ctx.options.runtime.host).catch(() => null));
 
   if (settings === null) {
     const unavailable = buildUnavailableVerdict(
@@ -436,7 +442,7 @@ function classifyLocalOnly(ctx: Readonly<StageContext>): StageDecision {
   };
 }
 
-async function classifyJev(ctx: Readonly<StageContext>): Promise<StageDecision> {
+async function classifyJev(ctx: Readonly<StageContext>): Promise<StageOutcome> {
   const outcome = await classifyWithJev(ctx.request, ctx.config, {
     ...ctx.options,
     taskScope: ctx.scope === null ? undefined : buildTaskScopeSummary(ctx.scope),
@@ -446,12 +452,9 @@ async function classifyJev(ctx: Readonly<StageContext>): Promise<StageDecision> 
   });
 
   return {
-    kind: 'decided',
-    outcome: {
-      ...outcome,
-      decidingStage: 'jev',
-      status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
-    },
+    ...outcome,
+    decidingStage: 'jev',
+    status: outcome.diagnostics?.status ?? outcome.verdict?.kind ?? 'failure',
   };
 }
 
