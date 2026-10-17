@@ -17,15 +17,13 @@ export function buildJevStage(reading: JevReading): Stage<MeasurementCase> {
     name: JEV_STAGE,
     sends: true,
     run: async (entry, context) => {
-      const request = buildDecisionRequest(
-        entry.case.action,
-        context.policy,
-        entry.case.configuredRules ?? context.configuredRules,
-        entry.case.lastUserMessage,
-        'shipped',
-        entry.case.repository,
-        entry.case.mcpServers,
-      );
+      const request = buildDecisionRequest(entry.case.action, context.policy, {
+        configuredRules: entry.case.configuredRules ?? context.configuredRules,
+        lastUserMessage: entry.case.lastUserMessage,
+        rulesSource: 'shipped',
+        repositoryContext: entry.case.repository,
+        mcpServers: entry.case.mcpServers,
+      });
 
       const result = await context.send(request);
 

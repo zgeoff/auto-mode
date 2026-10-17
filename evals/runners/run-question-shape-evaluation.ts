@@ -103,11 +103,13 @@ async function main(): Promise<void> {
         toolInput: input,
       },
       policy,
-      configuredRules,
-      entry.lastUserMessage ?? corpus.lastUserMessage,
-      'shipped',
-      repository,
-      entry.mcpServers ?? corpus.mcpServers ?? [],
+      {
+        configuredRules,
+        lastUserMessage: entry.lastUserMessage ?? corpus.lastUserMessage,
+        rulesSource: 'shipped',
+        repositoryContext: repository,
+        mcpServers: entry.mcpServers ?? corpus.mcpServers ?? [],
+      },
     );
 
     return shapes.map((shape) => {

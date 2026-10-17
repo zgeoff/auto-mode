@@ -180,13 +180,12 @@ async function runClassification(
   values: Readonly<CLIValues>,
 ): Promise<number> {
   try {
-    return await run(
-      io,
-      values.explain === true,
-      values['local-only'] === true,
-      values['jev-only'] === true,
-      values['evaluation-deadline'],
-    );
+    return await run(io, {
+      explain: values.explain === true,
+      localOnly: values['local-only'] === true,
+      jevOnly: values['jev-only'] === true,
+      deadline: values['evaluation-deadline'],
+    });
   } catch {
     io.stderr.write('auto-mode: configuration unreadable; no verdict\n');
 
@@ -311,13 +310,14 @@ async function runJudgeServer(
 // long without a review, and a finished session leaves no judge process behind.
 const JUDGE_IDLE_MS = 900_000;
 
-async function run(
-  io: Readonly<CLIIO>,
-  explain: boolean,
-  localOnly: boolean,
-  jevOnly: boolean,
-  deadline?: string,
-): Promise<number> {
+interface RunOptions {
+  readonly explain: boolean;
+  readonly localOnly: boolean;
+  readonly jevOnly: boolean;
+  readonly deadline?: string | undefined;
+}
+
+async function run(io: Readonly<CLIIO>, options: Readonly<RunOptions>): Promise<number> {
   const raw = await io.stdin();
 
   let body: unknown;
@@ -325,7 +325,7 @@ async function run(
   try {
     body = JSON.parse(raw);
   } catch {
-    return printNote(io.stderr, explain, 'stdin is not JSON, so no verdict');
+    return printNote(io.stderr, options.explain, 'stdin is not JSON, so no verdict');
   }
 
   const request = parseActionRequest(body);
@@ -333,7 +333,7 @@ async function run(
   if (request === null) {
     return printNote(
       io.stderr,
-      explain,
+      options.explain,
       'not an action request this classifier judges, so no verdict',
     );
   }
@@ -351,12 +351,12 @@ async function run(
 
   printWarnings(io.stderr, loaded.warnings);
 
-  const config = jevOnly ? buildJevOnlyConfig(loaded) : loaded;
-  const deadlineAt = deadline === undefined ? undefined : Number(deadline);
+  const config = options.jevOnly ? buildJevOnlyConfig(loaded) : loaded;
+  const deadlineAt = options.deadline === undefined ? undefined : Number(options.deadline);
 
   if (
     deadlineAt !== undefined &&
-    (!jevOnly || !Number.isSafeInteger(deadlineAt) || deadlineAt <= 0)
+    (!options.jevOnly || !Number.isSafeInteger(deadlineAt) || deadlineAt <= 0)
   ) {
     await writeActionFailure(request, host, io.stderr);
 
@@ -365,7 +365,7 @@ async function run(
 
   const controller = new AbortController();
 
-  const unsubscribe = jevOnly
+  const unsubscribe = options.jevOnly
     ? io.subscribeToStopSignals(() => {
         controller.abort();
       })
@@ -373,7 +373,7 @@ async function run(
 
   try {
     const outcome = await classifyAction(request, config, {
-      localOnly,
+      localOnly: options.localOnly,
       deadlineAt,
       signal: controller.signal,
       host,
@@ -400,7 +400,7 @@ async function run(
       printCaptureNote(io.stderr, captured);
     }
 
-    return printNote(io.stderr, explain || outcome.unavailable === true, outcome.note);
+    return printNote(io.stderr, options.explain || outcome.unavailable === true, outcome.note);
   } finally {
     unsubscribe?.();
   }

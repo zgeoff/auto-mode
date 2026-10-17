@@ -9,14 +9,12 @@ export function buildEvaluationRequest(
   configuredRules: ClaudeRules,
   guidance: Readonly<Record<string, string>> | null,
 ): DecisionRequest {
-  const request = buildDecisionRequest(
-    buildEvaluationPayload(entry),
-    policy,
+  const request = buildDecisionRequest(buildEvaluationPayload(entry), policy, {
     configuredRules,
-    entry.lastUserMessage,
-    'shipped',
-    entry.repositoryContext,
-  );
+    lastUserMessage: entry.lastUserMessage,
+    rulesSource: 'shipped',
+    repositoryContext: entry.repositoryContext,
+  });
 
   if (guidance === null) {
     return request;

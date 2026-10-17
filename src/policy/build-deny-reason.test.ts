@@ -46,13 +46,11 @@ test('it states that nothing clears a shipped hard rule without a clarification 
 test('it renders a matched reason for every rule the shipped policy names', async () => {
   const policy = await readFile(join(import.meta.dirname, '../../policy/rules.md'), 'utf8');
 
-  const request = buildDecisionRequest(
-    buildMockActionRequest(),
-    policy,
-    buildMockClaudeRules(),
-    null,
-    'shipped',
-  );
+  const request = buildDecisionRequest(buildMockActionRequest(), policy, {
+    configuredRules: buildMockClaudeRules(),
+    lastUserMessage: null,
+    rulesSource: 'shipped',
+  });
 
   expect(Object.values(request.rules).map((rule) => buildDenyReason(rule, 'matched'))).toSatisfyAll(
     (reason: string) => reason.startsWith('The action matches this rule: '),

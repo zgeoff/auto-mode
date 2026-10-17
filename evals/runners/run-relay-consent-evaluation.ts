@@ -102,14 +102,12 @@ async function main(): Promise<void> {
           },
         };
 
-        const base = buildDecisionRequest(
-          payload,
-          policy,
+        const base = buildDecisionRequest(payload, policy, {
           configuredRules,
-          text,
-          'shipped',
-          action.repositoryContext,
-        );
+          lastUserMessage: text,
+          rulesSource: 'shipped',
+          repositoryContext: action.repositoryContext,
+        });
 
         const prototype =
           cell.presentation === 'mark' ? buildMarkedRequest(base, corpus.markGuidance) : base;
@@ -536,14 +534,14 @@ function buildRuntimeMarkedRequest(
     decisionContext: { ...context, lastDirectUserMessage: { ...message, freshness: 'stale' } },
   };
 
-  return buildDecisionRequest(
-    stalePayload,
-    policy,
+  return buildDecisionRequest(stalePayload, policy, {
     configuredRules,
-    findCurrentDirectUserMessage(stalePayload.decisionContext?.lastDirectUserMessage),
-    'shipped',
+    lastUserMessage: findCurrentDirectUserMessage(
+      stalePayload.decisionContext?.lastDirectUserMessage,
+    ),
+    rulesSource: 'shipped',
     repositoryContext,
-  );
+  });
 }
 
 function sortSeeded<T>(items: readonly T[], seed: number): T[] {

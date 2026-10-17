@@ -11,15 +11,22 @@ const BASE_ANSWER_GUIDANCE =
 const STALE_ANSWER_GUIDANCE =
   'When taskContext.lastDirectUserMessage.freshness is "stale", the user typed that message before a relayed turn, and lastUserMessage is null. A stale message is not current direct user evidence: it cannot grant consent, satisfy an allow exception, or clear a rule. If it refuses, forbids, or limits the pending action, that restriction still applies.';
 
+export interface DecisionRequestOptions {
+  readonly configuredRules: ClaudeRules;
+  readonly lastUserMessage: string | null;
+  readonly rulesSource?: 'shipped' | 'replacement' | undefined;
+  readonly repositoryContext?: RepositoryContext | null | undefined;
+  readonly mcpServers?: readonly MCPServerFact[] | undefined;
+}
+
 export function buildDecisionRequest(
   payload: ActionRequest,
   policy: string,
-  configuredRules: ClaudeRules,
-  lastUserMessage: string | null,
-  rulesSource: 'shipped' | 'replacement' = 'replacement',
-  repositoryContext: RepositoryContext | null = null,
-  mcpServers: readonly MCPServerFact[] = [],
+  options: Readonly<DecisionRequestOptions>,
 ): DecisionRequest {
+  const rulesSource = options.rulesSource ?? 'replacement';
+  const repositoryContext = options.repositoryContext ?? null;
+  const mcpServers = options.mcpServers ?? [];
   const rules: Record<string, DecisionRule> = {};
   let tier: DecisionRule['tier'] | null = null;
 
@@ -53,7 +60,7 @@ export function buildDecisionRequest(
   }
 
   for (const category of ['hard_deny', 'soft_deny'] as const) {
-    for (const [index, text] of configuredRules[category].entries()) {
+    for (const [index, text] of options.configuredRules[category].entries()) {
       rules[`${category}_${index}`] = {
         name: `Configured ${category} ${index + 1}`,
         tier: category === 'hard_deny' ? 'hard' : 'soft',
@@ -111,10 +118,10 @@ export function buildDecisionRequest(
       policy,
       answerGuidance,
       rulesSource,
-      configuredRules,
+      configuredRules: options.configuredRules,
       ...(repositoryContext === null ? {} : { repositoryContext }),
       ...(mcpServers.length === 0 ? {} : { mcpServers }),
-      lastUserMessage: isStale ? null : lastUserMessage,
+      lastUserMessage: isStale ? null : options.lastUserMessage,
       ...(payload.decisionContext === undefined
         ? {}
         : { taskContext: buildTaskContext(payload.decisionContext) }),

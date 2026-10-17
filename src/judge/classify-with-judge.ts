@@ -121,13 +121,10 @@ export async function classifyWithJudge(
     // did, so only consent clears a containment finding.
     const overturns = entry.containment === undefined ? options.overturns : 'consent';
 
-    const verdict = buildJudgedVerdict(
-      entry.rule,
-      entry.basis,
-      reply,
+    const verdict = buildJudgedVerdict(entry.rule, entry.basis, reply, {
       overturns,
-      entry.containment?.reason,
-    );
+      heldReason: entry.containment?.reason,
+    });
 
     return {
       ...verdict,

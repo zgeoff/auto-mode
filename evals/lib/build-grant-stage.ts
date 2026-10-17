@@ -47,13 +47,10 @@ export function buildGrantStage(): Stage<MeasurementCase> {
 
       const [parsed = UNREADABLE] = parseJudgeReplies(reply.text, [review.rule.name]);
 
-      const judged = buildJudgedVerdict(
-        review.rule,
-        'matched',
-        parsed,
-        'consent',
-        review.containment.reason,
-      );
+      const judged = buildJudgedVerdict(review.rule, 'matched', parsed, {
+        overturns: 'consent',
+        heldReason: review.containment.reason,
+      });
 
       if (judged.status === 'failed') {
         return { status: 'not-scorable', reason: 'judge-unreadable' };

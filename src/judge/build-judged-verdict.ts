@@ -11,6 +11,11 @@ export interface JudgedVerdict {
 
 export const JUDGE_REASON_MAX_CHARS = 600;
 
+export interface JudgedVerdictOptions {
+  readonly overturns: JudgeOverturns;
+  readonly heldReason?: string | undefined;
+}
+
 // A hard rule never clears, and a misread overturn clears only when the config
 // allows it, so either keeps the deny; the judge's reason argues for the allow,
 // so the agent reads the template reason, or the held reason given, instead.
@@ -18,13 +23,12 @@ export function buildJudgedVerdict(
   rule: Pick<DecisionRule, 'name' | 'tier' | 'source'>,
   basis: DenyBasis,
   reply: Readonly<JudgeReply> | null,
-  overturns: JudgeOverturns,
-  heldReason?: string,
+  options: Readonly<JudgedVerdictOptions>,
 ): JudgedVerdict {
   const template: Verdict = {
     kind: 'deny',
     rule: rule.name,
-    reason: heldReason ?? buildDenyReason(rule, basis),
+    reason: options.heldReason ?? buildDenyReason(rule, basis),
   };
 
   if (reply === null || reply.kind === 'unreadable') {
@@ -32,7 +36,8 @@ export function buildJudgedVerdict(
   }
 
   if (reply.kind === 'overturn') {
-    const isHeld = rule.tier === 'hard' || (reply.basis === 'misread' && overturns === 'consent');
+    const isHeld =
+      rule.tier === 'hard' || (reply.basis === 'misread' && options.overturns === 'consent');
 
     return isHeld
       ? { verdict: template, status: 'held', overturnBasis: reply.basis }

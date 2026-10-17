@@ -211,7 +211,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         index = quoted.end;
 
         if (quoted.isUnterminated) {
-          return buildScannedWord(text, start, index, value, paren, true);
+          return buildScannedWord(text, start, index, { value, paren, isUnterminated: true });
         }
 
         continue;
@@ -230,7 +230,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         index = expansion.end;
 
         if (expansion.isUnterminated) {
-          return buildScannedWord(text, start, index, value, paren, true);
+          return buildScannedWord(text, start, index, { value, paren, isUnterminated: true });
         }
 
         continue;
@@ -258,7 +258,11 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
       index += 1;
     }
 
-    return buildScannedWord(text, start, Math.min(index, level.limit), value, paren, false);
+    return buildScannedWord(text, start, Math.min(index, level.limit), {
+      value,
+      paren,
+      isUnterminated: false,
+    });
   };
 
   // A double-quoted string still expands `$(…)`, backticks and `${…}`, and a
@@ -591,13 +595,23 @@ function buildWordToken(word: Readonly<ScannedWord>, start: number): ShellToken 
   return { kind: 'word', value: word.value, raw: word.raw, start, end: word.end };
 }
 
+interface ScannedWordOptions {
+  readonly value: string;
+  readonly paren: WordParen | null;
+  readonly isUnterminated: boolean;
+}
+
 function buildScannedWord(
   text: string,
   start: number,
   end: number,
-  value: string,
-  paren: WordParen | null,
-  isUnterminated: boolean,
+  options: Readonly<ScannedWordOptions>,
 ): ScannedWord {
-  return { value, raw: text.slice(start, end), end, paren, isUnterminated };
+  return {
+    value: options.value,
+    raw: text.slice(start, end),
+    end,
+    paren: options.paren,
+    isUnterminated: options.isUnterminated,
+  };
 }

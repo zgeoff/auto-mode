@@ -6,6 +6,7 @@ import { collectShellScripts } from '../shell/collect-shell-scripts.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import { collectProgramFindings } from './collect-program-findings.ts';
+import type { ProgramContext } from './collect-program-findings.ts';
 import { collectTargetFindings } from './collect-target-findings.ts';
 import { isOwnedPullRequest } from './is-owned-pull-request.ts';
 import type { ScopeFinding } from './types.ts';
@@ -33,7 +34,12 @@ export function collectScopeFindings(
       : []),
     ...(action.tool.startsWith('mcp__') ? collectToolFindings(action, scope) : []),
     ...(action.tool === 'Bash' && typeof command === 'string'
-      ? collectCommandFindings(command, action.cwd, action.cwd, scope, scratchPaths)
+      ? collectCommandFindings(command, {
+          directory: action.cwd,
+          cwd: action.cwd,
+          scope,
+          scratchPaths,
+        })
       : []),
   ];
 
@@ -94,13 +100,10 @@ function collectToolFindings(
 // check reads each one from the directory its segment runs in.
 function collectCommandFindings(
   command: string,
-  directory: string | null,
-  cwd: string,
-  scope: Readonly<OwnedScope>,
-  scratchPaths: readonly string[],
+  context: Readonly<ProgramContext>,
 ): ScopeFinding[] {
   const findings: ScopeFinding[] = [];
-  const entries = collectShellCommands(command, directory, scope.home);
+  const entries = collectShellCommands(command, context.directory, context.scope.home);
   const piped = collectPipedSegments(command);
   const segments = splitShellCommand(command).segments;
   const scripts = collectShellScripts(command);
@@ -111,23 +114,25 @@ function collectCommandFindings(
 
     if (fixed !== null) {
       findings.push(
-        ...collectCallFindings(fixed.name, fixed.args, entry.directory, cwd, scope, scratchPaths),
+        ...collectCallFindings(fixed.name, fixed.args, { ...context, directory: entry.directory }),
       );
     } else if (isBranchSweep(entries.slice(0, index + 1), piped.slice(0, index + 1))) {
       findings.push({ kind: 'discard', target: 'git branch delete by exclusion' });
     }
 
     for (const target of entry.writeTargets) {
-      findings.push(...collectTargetFindings(entry.directory, target, scope, scratchPaths));
+      findings.push(
+        ...collectTargetFindings(entry.directory, target, context.scope, context.scratchPaths),
+      );
     }
 
     if (name !== undefined && name !== 'cd') {
-      findings.push(...collectCallFindings(name, args, entry.directory, cwd, scope, scratchPaths));
+      findings.push(...collectCallFindings(name, args, { ...context, directory: entry.directory }));
     }
 
     for (const script of scripts.filter((candidate) => candidate.segment === index)) {
       findings.push(
-        ...collectCommandFindings(script.text, entry.directory, cwd, scope, scratchPaths),
+        ...collectCommandFindings(script.text, { ...context, directory: entry.directory }),
       );
     }
   }
@@ -349,15 +354,9 @@ function isSubstitutionOnly(args: readonly string[]): boolean {
 function collectCallFindings(
   name: string,
   args: readonly string[],
-  directory: string | null,
-  cwd: string,
-  scope: Readonly<OwnedScope>,
-  scratchPaths: readonly string[],
+  context: Readonly<ProgramContext>,
 ): ScopeFinding[] {
-  return [
-    ...collectProgramFindings(name, args, { directory, cwd, scope, scratchPaths }),
-    ...collectRecordFindings(name, args),
-  ];
+  return [...collectProgramFindings(name, args, context), ...collectRecordFindings(name, args)];
 }
 
 // The mod alone reports finished calls; a record the agent sends is a claim

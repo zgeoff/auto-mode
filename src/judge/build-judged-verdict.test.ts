@@ -9,7 +9,7 @@ test.each([['consent'], ['any']] as const)(
         { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
         'matched',
         { kind: 'overturn', basis: 'consent', reason: 'The user asked for this commit on main.' },
-        overturns,
+        { overturns },
       ),
     ).toStrictEqual({ verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'consent' });
   },
@@ -21,7 +21,7 @@ test('it holds a soft-rule deny the judge overturns as a misread when only conse
       { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
       'matched',
       { kind: 'overturn', basis: 'misread', reason: 'main is the task branch.' },
-      'consent',
+      { overturns: 'consent' },
     ),
   ).toStrictEqual({
     verdict: {
@@ -41,7 +41,7 @@ test('it allows an action whose soft-rule deny the judge overturns as a misread 
       { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
       'matched',
       { kind: 'overturn', basis: 'misread', reason: 'main is the task branch.' },
-      'any',
+      { overturns: 'any' },
     ),
   ).toStrictEqual({ verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'misread' });
 });
@@ -57,7 +57,7 @@ test.each([
         { name: 'Data Exfiltration', tier: 'hard', source: 'shipped' },
         'matched',
         { kind: 'overturn', basis, reason: 'The destination is the user’s own server.' },
-        overturns,
+        { overturns },
       ),
     ).toStrictEqual({
       verdict: {
@@ -78,7 +78,7 @@ test('it denies with the judge’s reason when the judge confirms', () => {
       { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
       'matched',
       { kind: 'confirm', reason: 'The user asked for a branch, not a commit on main.' },
-      'consent',
+      { overturns: 'consent' },
     ),
   ).toStrictEqual({
     verdict: {
@@ -98,7 +98,7 @@ test('it collapses the whitespace in a confirmed reason to single spaces', () =>
       { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
       'matched',
       { kind: 'confirm', reason: '  The commit\n\nlands   on main.\t' },
-      'consent',
+      { overturns: 'consent' },
     ).verdict,
   ).toStrictEqual({
     kind: 'deny',
@@ -112,7 +112,7 @@ test('it cuts a confirmed reason longer than the limit at the last word break an
     { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
     'matched',
     { kind: 'confirm', reason: 'alpha '.repeat(150) },
-    'consent',
+    { overturns: 'consent' },
   ).verdict;
 
   expect(JUDGE_REASON_MAX_CHARS).toBe(600);
@@ -129,7 +129,7 @@ test('it cuts a confirmed reason with no word break inside the limit at the limi
     { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
     'matched',
     { kind: 'confirm', reason: 'x'.repeat(700) },
-    'consent',
+    { overturns: 'consent' },
   ).verdict;
 
   expect(verdict).toStrictEqual({
@@ -148,7 +148,7 @@ test.each([
       { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
       'unresolved',
       reply,
-      'any',
+      { overturns: 'any' },
     ),
   ).toStrictEqual({
     verdict: {
@@ -168,8 +168,10 @@ test('it keeps the held reason it is given when the review fails', () => {
       { name: 'Outside Task Scope', tier: 'soft', source: 'shipped' },
       'matched',
       null,
-      'consent',
-      'This action writes outside the task scope: branch other.',
+      {
+        overturns: 'consent',
+        heldReason: 'This action writes outside the task scope: branch other.',
+      },
     ),
   ).toStrictEqual({
     verdict: {
