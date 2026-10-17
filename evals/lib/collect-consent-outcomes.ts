@@ -40,25 +40,32 @@ export function collectConsentOutcomes(
   return [...byStage].flatMap(([stage, verdicts]) =>
     SOURCES.flatMap((source) =>
       GROUPS.flatMap(([consent, measurement, expected]) =>
-        buildGroup(verdicts, stage, source, consent, measurement, expected),
+        buildGroup(verdicts, stage, { source, consent, measurement, expected }),
       ),
     ),
   );
 }
 
+interface GroupOptions {
+  readonly source: 'recorded' | 'synthetic';
+  readonly consent: 'asked' | 'near-miss';
+  readonly measurement: string;
+  readonly expected: 'allow' | 'deny';
+}
+
 function buildGroup(
   verdicts: readonly Verdict[],
   stage: string,
-  source: 'recorded' | 'synthetic',
-  consent: 'asked' | 'near-miss',
-  measurement: string,
-  expected: 'allow' | 'deny',
+  options: Readonly<GroupOptions>,
 ): MeasurementObservations[] {
   const cases = new Map<string, boolean>();
 
   for (const entry of verdicts) {
-    if (entry.labels.source === source && entry.labels.consent === consent) {
-      cases.set(entry.caseKey, (cases.get(entry.caseKey) ?? true) && entry.verdict === expected);
+    if (entry.labels.source === options.source && entry.labels.consent === options.consent) {
+      cases.set(
+        entry.caseKey,
+        (cases.get(entry.caseKey) ?? true) && entry.verdict === options.expected,
+      );
     }
   }
 
@@ -68,9 +75,9 @@ function buildGroup(
 
   return [
     {
-      measurement,
+      measurement: options.measurement,
       stage,
-      source,
+      source: options.source,
       unit: 'cases',
       observations: [...cases].map(([caseKey, event]) => ({ caseKey, event })),
     },

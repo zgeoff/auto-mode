@@ -1,14 +1,18 @@
 import type { ActiveStage } from './pick-stages.ts';
 import type { ExperimentPlan } from './plan-experiment-run.ts';
 
+export interface PrintPlanOptions {
+  readonly notMeasured: readonly string[];
+  readonly isCounted: boolean;
+  readonly print: (line: string) => unknown;
+}
+
 export function printPlan<Case>(
   plan: Readonly<ExperimentPlan>,
   stages: readonly ActiveStage<Case>[],
-  notMeasured: readonly string[],
-  isCounted: boolean,
-  print: (line: string) => unknown,
+  options: Readonly<PrintPlanOptions>,
 ): void {
-  print(
+  options.print(
     `Plan: ${plan.cases} cases × ${plan.samples} samples × ${plan.stages} stages; ` +
       `${plan.stageRuns} stage runs to go, ${plan.recorded} already recorded, ` +
       `${plan.requests} model requests.`,
@@ -20,14 +24,14 @@ export function printPlan<Case>(
     ).length;
 
     const line =
-      stage.reviews === undefined || isCounted
+      stage.reviews === undefined || options.isCounted
         ? `  ${stage.name}: ${requests} model requests`
         : `  ${stage.name}: at most ${requests} model requests, one for each ${stage.reviews} deny`;
 
-    print(line);
+    options.print(line);
   }
 
-  for (const entry of notMeasured) {
-    print(`Not measured: ${entry}`);
+  for (const entry of options.notMeasured) {
+    options.print(`Not measured: ${entry}`);
   }
 }

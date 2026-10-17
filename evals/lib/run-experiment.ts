@@ -162,14 +162,15 @@ export async function runExperiment<Case>(
   const plan = isCounted
     ? planExperimentRun({
         ...planInput,
-        sending: await collectSendingRuns(bounds, stages.active, getLabelledCase, records, {
+        sending: await collectSendingRuns(bounds, stages.active, getLabelledCase, {
           ...options,
+          records,
           models: previous?.summary.config.models ?? {},
         }),
       })
     : bounds;
 
-  printPlan(plan, stages.active, notMeasured, isCounted, options.print);
+  printPlan(plan, stages.active, { notMeasured, isCounted, print: options.print });
 
   if (!options.live && plan.requests > 0) {
     options.print('Nothing was sent. Pass --live --max-requests <n> to send these requests.');
@@ -216,14 +217,11 @@ export async function runExperiment<Case>(
   }
 
   const buildCurrentSummary = (completedAt: string | null): RunSummary =>
-    buildRunSummary(
-      runID,
-      { ...config, models: { ...models }, completedAt },
-      experiment,
+    buildRunSummary(runID, { ...config, models: { ...models }, completedAt }, experiment, {
       records,
       notMeasured,
-      stages.dropped,
-    );
+      dropped: stages.dropped,
+    });
 
   // Written before the first stage runs, so an unwritable results directory fails
   // before any request and an interrupted run can be resumed.
@@ -351,11 +349,15 @@ export async function runExperiment<Case>(
       const answerHash =
         recorded === undefined ? exchange.answerHash : toHash(JSON.stringify(recorded.answer));
 
-      const record = buildSampleRecord(labelled, unit.sample, stage.name, checked, latencyMs, {
-        requestHash: exchange.requestHash,
-        answerHash,
-        model: responseModel,
-        fallback: recorded === undefined ? exchange.fallback : null,
+      const record = buildSampleRecord(labelled, unit.sample, stage.name, {
+        checked,
+        latencyMs,
+        exchange: {
+          requestHash: exchange.requestHash,
+          answerHash,
+          model: responseModel,
+          fallback: recorded === undefined ? exchange.fallback : null,
+        },
       });
 
       records.push(record);
@@ -399,14 +401,20 @@ interface CheckedOutcome {
   readonly reason: string | null;
 }
 
+interface SampleRecordOptions {
+  readonly checked: Readonly<CheckedOutcome>;
+  readonly latencyMs: number | null;
+  readonly exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash' | 'model' | 'fallback'>>;
+}
+
 function buildSampleRecord<Case>(
   labelled: Readonly<LabelledCase<Case>>,
   sample: number,
   stage: string,
-  checked: Readonly<CheckedOutcome>,
-  latencyMs: number | null,
-  exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash' | 'model' | 'fallback'>>,
+  options: Readonly<SampleRecordOptions>,
 ): SampleRecord {
+  const checked = options.checked;
+
   return {
     caseKey: labelled.key,
     labels: labelled.labels,
@@ -416,11 +424,11 @@ function buildSampleRecord<Case>(
     verdict: checked.status === 'scored' ? checked.verdict : null,
     pBlock: checked.status === 'scored' ? checked.pBlock : null,
     reason: checked.reason,
-    latencyMs,
-    requestHash: exchange.requestHash,
-    answerHash: exchange.answerHash,
-    model: exchange.model,
-    fallback: exchange.fallback,
+    latencyMs: options.latencyMs,
+    requestHash: options.exchange.requestHash,
+    answerHash: options.exchange.answerHash,
+    model: options.exchange.model,
+    fallback: options.exchange.fallback,
   };
 }
 
@@ -431,12 +439,16 @@ class PlannedSendError extends Error {
 // A replayed answer is known before the run, so each unit runs once with sends
 // that only note the attempt. After a unit's first send its later records are
 // unknown, so each later stage that sends counts as sending.
+interface SendingRunOptions extends RunOptions {
+  readonly records: readonly SampleRecord[];
+  readonly models: Readonly<Record<string, string>>;
+}
+
 async function collectSendingRuns<Case>(
   bounds: Readonly<ExperimentPlan>,
   active: readonly ActiveStage<Case>[],
   getLabelledCase: (caseKey: string) => LabelledCase<Case>,
-  records: readonly SampleRecord[],
-  options: Readonly<RunOptions & { readonly models: Readonly<Record<string, string>> }>,
+  options: Readonly<SendingRunOptions>,
 ): Promise<string[]> {
   const sending: string[] = [];
   const models: Record<string, string> = { ...options.models };
@@ -444,7 +456,7 @@ async function collectSendingRuns<Case>(
   for (const unit of bounds.units) {
     const labelled = getLabelledCase(unit.caseKey);
 
-    const previous = records.filter(
+    const previous = options.records.filter(
       (record) => record.caseKey === unit.caseKey && record.sample === unit.sample,
     );
 
@@ -508,11 +520,10 @@ async function collectSendingRuns<Case>(
       }
 
       previous.push(
-        buildSampleRecord(labelled, unit.sample, stage.name, checked, null, {
-          requestHash: null,
-          answerHash: null,
-          model: responseModel,
-          fallback: null,
+        buildSampleRecord(labelled, unit.sample, stage.name, {
+          checked,
+          latencyMs: null,
+          exchange: { requestHash: null, answerHash: null, model: responseModel, fallback: null },
         }),
       );
     }
