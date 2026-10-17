@@ -47,7 +47,7 @@ export function buildMockDecisionRequest(
       taskContext: buildMockDecisionContext(taskContext),
       action: {
         tool: 'Bash',
-        cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
+        cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
         input: { command: faker.git.commitMessage() },
         ...action,
       },

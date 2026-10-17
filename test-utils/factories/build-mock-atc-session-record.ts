@@ -28,7 +28,7 @@ export function buildMockAtcSessionRecord(
       pullRequests: [],
       ...scopeRest,
       workspace: {
-        path: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
+        path: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
         branch: faker.git.branch(),
         ...workspace,
       },

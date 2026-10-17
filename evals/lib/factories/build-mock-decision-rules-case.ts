@@ -15,7 +15,7 @@ export function buildMockDecisionRulesCase(
     severity: 'safe',
     tool: 'Bash',
     input: { command: faker.lorem.words(3) },
-    cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
+    cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     ...rest,
     repository: { branch: faker.git.branch(), defaultBranch: faker.git.branch(), ...repository },
   };

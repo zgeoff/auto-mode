@@ -274,8 +274,8 @@ test('it records each live answer with its stage model, probability of block, re
     (record: SampleRecord) =>
       record.status === 'scored' &&
       record.pBlock === 0 &&
-      /^[0-9a-f]{64}$/.test(record.requestHash ?? '') &&
-      /^[0-9a-f]{64}$/.test(record.answerHash ?? ''),
+      /^[0-9a-f]{64}$/u.test(record.requestHash ?? '') &&
+      /^[0-9a-f]{64}$/u.test(record.answerHash ?? ''),
   );
 });
 
@@ -858,7 +858,7 @@ test('it replays a recording through the stages that can, names the stage that c
       record.stage === 'jev' &&
       record.latencyMs === 412 &&
       record.requestHash === null &&
-      /^[0-9a-f]{64}$/.test(record.answerHash ?? ''),
+      /^[0-9a-f]{64}$/u.test(record.answerHash ?? ''),
   );
 
   expect(new Set(run.records.map((record) => record.answerHash)).size).toBe(1);
@@ -964,7 +964,7 @@ test('it replays the recorded stages and sends only the recording’s live stage
 
   expect(judge).toSatisfyAll(
     (record: SampleRecord) =>
-      record.reason === 'confirm' && /^[0-9a-f]{64}$/.test(record.requestHash ?? ''),
+      record.reason === 'confirm' && /^[0-9a-f]{64}$/u.test(record.requestHash ?? ''),
   );
 });
 
@@ -2245,7 +2245,7 @@ test('it refuses to write a run with no results directory named', async () => {
     },
   );
 
-  expect(run).rejects.toThrowWithMessage(Error, /--results or AUTO_MODE_EVALS_DIR/);
+  expect(run).rejects.toThrowWithMessage(Error, /--results or AUTO_MODE_EVALS_DIR/u);
 });
 
 test('it writes a run whose summary and samples the result schemas read back', async () => {

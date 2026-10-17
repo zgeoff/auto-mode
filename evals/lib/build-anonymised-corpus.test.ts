@@ -120,8 +120,10 @@ test('it replaces the user name in a home path and wherever else the name appear
   const request: unknown = corpus.cases[0]?.request;
 
   expect(request).toStrictEqual({
-    file: expect.toSatisfy((value: string) => /^\/Users\/user-[0-9a-f]{8}\/notes\.md$/.test(value)),
-    text: expect.toSatisfy((value: string) => /^ask user-[0-9a-f]{8} first$/.test(value)),
+    file: expect.toSatisfy((value: string) =>
+      /^\/Users\/user-[0-9a-f]{8}\/notes\.md$/u.test(value),
+    ),
+    text: expect.toSatisfy((value: string) => /^ask user-[0-9a-f]{8} first$/u.test(value)),
   });
 });
 
@@ -135,7 +137,7 @@ test('it replaces an email address whole', () => {
 
   expect(request).toStrictEqual({
     text: expect.toSatisfy((value: string) =>
-      /^cc email-[0-9a-f]{8}@example\.invalid$/.test(value),
+      /^cc email-[0-9a-f]{8}@example\.invalid$/u.test(value),
     ),
   });
 });
@@ -157,7 +159,7 @@ test('it replaces the host, user, path names and query values of a URL and keeps
 
   expect(request).toStrictEqual({
     command: expect.toSatisfy((value: string) =>
-      /^curl https:\/\/user-[0-9a-f]{8}@host-[0-9a-f]{8}\.example:8443\/owner-[0-9a-f]{8}\?x=token-[0-9a-f]{8}$/.test(
+      /^curl https:\/\/user-[0-9a-f]{8}@host-[0-9a-f]{8}\.example:8443\/owner-[0-9a-f]{8}\?x=token-[0-9a-f]{8}$/u.test(
         value,
       ),
     ),
@@ -257,12 +259,12 @@ test('it replaces the repository owner and name of a remote everywhere they appe
 
   expect(request).toStrictEqual({
     command: expect.toSatisfy((value: string) =>
-      /^git remote add up git@host-[0-9a-f]{8}\.example:owner-[0-9a-f]{8}\/repo-[0-9a-f]{8}\.git$/.test(
+      /^git remote add up git@host-[0-9a-f]{8}\.example:owner-[0-9a-f]{8}\/repo-[0-9a-f]{8}\.git$/u.test(
         value,
       ),
     ),
     text: expect.toSatisfy((value: string) =>
-      /^the repo-[0-9a-f]{8} repo at owner-[0-9a-f]{8}$/.test(value),
+      /^the repo-[0-9a-f]{8} repo at owner-[0-9a-f]{8}$/u.test(value),
     ),
   });
 });
@@ -284,7 +286,9 @@ test('it replaces a branch name and keeps the default branch', () => {
 
   expect(request).toStrictEqual({
     command: expect.toSatisfy((value: string) =>
-      /^git switch -c branch-(?<id>[0-9a-f]{8}) && git push origin branch-\k<id> main$/.test(value),
+      /^git switch -c branch-(?<id>[0-9a-f]{8}) && git push origin branch-\k<id> main$/u.test(
+        value,
+      ),
     ),
   });
 });
@@ -308,9 +312,9 @@ test('it keeps commit and push in prose and still replaces a name', () => {
   const request: unknown = corpus.cases[0]?.request;
 
   expect(request).toStrictEqual({
-    file: expect.toSatisfy((value: string) => /^\/home\/user-[0-9a-f]{8}\/notes\.md$/.test(value)),
+    file: expect.toSatisfy((value: string) => /^\/home\/user-[0-9a-f]{8}\/notes\.md$/u.test(value)),
     text: expect.toSatisfy((value: string) =>
-      /^user-[0-9a-f]{8} asks: push the commit to main, then push the tag$/.test(value),
+      /^user-[0-9a-f]{8} asks: push the commit to main, then push the tag$/u.test(value),
     ),
   });
 });
@@ -338,122 +342,128 @@ test('it keeps the words after a git push in file content', () => {
 });
 
 test.each([
-  ['sudo git push origin feat-login', /^sudo git push origin branch-[0-9a-f]{8}$/],
+  ['sudo git push origin feat-login', /^sudo git push origin branch-[0-9a-f]{8}$/u],
   [
     'if true; then git push origin feat-login; fi',
-    /^if true; then git push origin branch-[0-9a-f]{8}; fi$/,
+    /^if true; then git push origin branch-[0-9a-f]{8}; fi$/u,
   ],
-  ['bash -c "git push origin feat-login"', /^bash -c "git push origin branch-[0-9a-f]{8}"$/],
-  ['git push origin "feat-login"', /^git push origin "branch-[0-9a-f]{8}"$/],
+  ['bash -c "git push origin feat-login"', /^bash -c "git push origin branch-[0-9a-f]{8}"$/u],
+  ['git push origin "feat-login"', /^git push origin "branch-[0-9a-f]{8}"$/u],
   [
     'GIT_SSH_COMMAND="ssh -i k" git push origin feat-login',
-    /^GIT_SSH_COMMAND="ssh -i k" git push origin branch-[0-9a-f]{8}$/,
+    /^GIT_SSH_COMMAND="ssh -i k" git push origin branch-[0-9a-f]{8}$/u,
   ],
-  ['git push \\\n  origin feat-login', /^git push \\\n {2}origin branch-[0-9a-f]{8}$/],
+  ['git push \\\n  origin feat-login', /^git push \\\n {2}origin branch-[0-9a-f]{8}$/u],
   [
     'git push origin feat-login # retry the push',
-    /^git push origin branch-[0-9a-f]{8} # retry the push$/,
+    /^git push origin branch-[0-9a-f]{8} # retry the push$/u,
   ],
-  ['(cd x && git push origin feat-login)', /^\(cd x && git push origin branch-[0-9a-f]{8}\)$/],
-  ['{ git push origin feat-login; }', /^\{ git push origin branch-[0-9a-f]{8}; \}$/],
-  ['/usr/bin/git push origin feat-login', /^\/usr\/bin\/git push origin branch-[0-9a-f]{8}$/],
+  ['(cd x && git push origin feat-login)', /^\(cd x && git push origin branch-[0-9a-f]{8}\)$/u],
+  ['{ git push origin feat-login; }', /^\{ git push origin branch-[0-9a-f]{8}; \}$/u],
+  ['/usr/bin/git push origin feat-login', /^\/usr\/bin\/git push origin branch-[0-9a-f]{8}$/u],
   [
     '/bin/bash -c "git push origin feat-login"',
-    /^\/bin\/bash -c "git push origin branch-[0-9a-f]{8}"$/,
+    /^\/bin\/bash -c "git push origin branch-[0-9a-f]{8}"$/u,
   ],
-  ['sudo -u bob git push origin feat-login', /^sudo -u bob git push origin branch-[0-9a-f]{8}$/],
-  ['out=$(git push origin feat-login 2>&1)', /^out=\$\(git push origin branch-[0-9a-f]{8} 2>&1\)$/],
-  ['echo "$(git push origin feat-login)"', /^echo "\$\(git push origin branch-[0-9a-f]{8}\)"$/],
+  ['sudo -u bob git push origin feat-login', /^sudo -u bob git push origin branch-[0-9a-f]{8}$/u],
+  [
+    'out=$(git push origin feat-login 2>&1)',
+    /^out=\$\(git push origin branch-[0-9a-f]{8} 2>&1\)$/u,
+  ],
+  ['echo "$(git push origin feat-login)"', /^echo "\$\(git push origin branch-[0-9a-f]{8}\)"$/u],
   [
     `echo "it's $(git push origin feat-login)"`,
-    /^echo "it's \$\(git push origin branch-[0-9a-f]{8}\)"$/,
+    /^echo "it's \$\(git push origin branch-[0-9a-f]{8}\)"$/u,
   ],
   [
     "out=$(echo ')'; git push origin feat-login)",
-    /^out=\$\(echo '\)'; git push origin branch-[0-9a-f]{8}\)$/,
+    /^out=\$\(echo '\)'; git push origin branch-[0-9a-f]{8}\)$/u,
   ],
-  ['echo `git push origin feat-login`', /^echo `git push origin branch-[0-9a-f]{8}`$/],
+  ['echo `git push origin feat-login`', /^echo `git push origin branch-[0-9a-f]{8}`$/u],
   [
     `git commit -m "$(cat <<'EOF'\nDon't break the build\nEOF\n)" && echo "$(git push origin feat-login)"`,
-    /^git commit -m "\$\(cat <<'EOF'\nDon't break the build\nEOF\n\)" && echo "\$\(git push origin branch-[0-9a-f]{8}\)"$/,
+    /^git commit -m "\$\(cat <<'EOF'\nDon't break the build\nEOF\n\)" && echo "\$\(git push origin branch-[0-9a-f]{8}\)"$/u,
   ],
   [
     `# don't force\necho $(git push origin feat-login) # it's done`,
-    /^# don't force\necho \$\(git push origin branch-[0-9a-f]{8}\) # it's done$/,
+    /^# don't force\necho \$\(git push origin branch-[0-9a-f]{8}\) # it's done$/u,
   ],
   [
     `cat <<EOF\nit's $(git push origin feat-login)\nEOF`,
-    /^cat <<EOF\nit's \$\(git push origin branch-[0-9a-f]{8}\)\nEOF$/,
+    /^cat <<EOF\nit's \$\(git push origin branch-[0-9a-f]{8}\)\nEOF$/u,
   ],
   [
     String.raw`echo $'it\'s' $(git push origin feat-login)`,
-    /^echo \$'it\\'s' \$\(git push origin branch-[0-9a-f]{8}\)$/,
+    /^echo \$'it\\'s' \$\(git push origin branch-[0-9a-f]{8}\)$/u,
   ],
   [
     `(echo ok)# 'not a quote\necho "$(git push origin feat-login)"\necho 'end'`,
-    /^\(echo ok\)# 'not a quote\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/,
+    /^\(echo ok\)# 'not a quote\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/u,
   ],
   [
     'ref=$(git rev-parse HEAD)#L1 && echo $(git push origin feat-login)',
-    /^ref=\$\(git rev-parse HEAD\)#L1 && echo \$\(git push origin branch-[0-9a-f]{8}\)$/,
+    /^ref=\$\(git rev-parse HEAD\)#L1 && echo \$\(git push origin branch-[0-9a-f]{8}\)$/u,
   ],
   [
     `echo "\${x:-"it's"}" $(git push origin feat-login) 'y'`,
-    /^echo "\$\{x:-"it's"\}" \$\(git push origin branch-[0-9a-f]{8}\) 'y'$/,
+    /^echo "\$\{x:-"it's"\}" \$\(git push origin branch-[0-9a-f]{8}\) 'y'$/u,
   ],
   [
     "echo `echo it's` $(git push origin feat-login) 'x'",
-    /^echo `echo it's` \$\(git push origin branch-[0-9a-f]{8}\) 'x'$/,
+    /^echo `echo it's` \$\(git push origin branch-[0-9a-f]{8}\) 'x'$/u,
   ],
   [
     String.raw`echo \$'a\' $(git push origin feat-login) 'b'`,
-    /^echo \\\$'a\\' \$\(git push origin branch-[0-9a-f]{8}\) 'b'$/,
+    /^echo \\\$'a\\' \$\(git push origin branch-[0-9a-f]{8}\) 'b'$/u,
   ],
   [
     String.raw`echo foo\ #$(git push origin feat-login)`,
-    /^echo foo\\ #\$\(git push origin branch-[0-9a-f]{8}\)$/,
+    /^echo foo\\ #\$\(git push origin branch-[0-9a-f]{8}\)$/u,
   ],
   [
     String.raw`echo foo\;#$(git push origin feat-login)`,
-    /^echo foo\\;#\$\(git push origin branch-[0-9a-f]{8}\)$/,
+    /^echo foo\\;#\$\(git push origin branch-[0-9a-f]{8}\)$/u,
   ],
   [
     "echo a \\\n# don't\necho \"$(git push origin feat-login)\"\necho 'end'",
-    /^echo a \\\n# don't\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/,
+    /^echo a \\\n# don't\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/u,
   ],
   [
     'cat <<\\\nEOF\n$(git push origin feat-login)\nEOF',
-    /^cat <<\\\nEOF\n\$\(git push origin branch-[0-9a-f]{8}\)\nEOF$/,
+    /^cat <<\\\nEOF\n\$\(git push origin branch-[0-9a-f]{8}\)\nEOF$/u,
   ],
   [
     "echo a\\\\\n# don't\necho \"$(git push origin feat-login)\"\necho 'end'",
-    /^echo a\\\\\n# don't\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/,
+    /^echo a\\\\\n# don't\necho "\$\(git push origin branch-[0-9a-f]{8}\)"\necho 'end'$/u,
   ],
   [
     'echo foo\\\n#$(git push origin feat-login)',
-    /^echo foo\\\n#\$\(git push origin branch-[0-9a-f]{8}\)$/,
+    /^echo foo\\\n#\$\(git push origin branch-[0-9a-f]{8}\)$/u,
   ],
-  ['git push origin feat-\\\n#login', /^git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}$/],
+  [
+    'git push origin feat-\\\n#login',
+    /^git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}$/u,
+  ],
   [
     'git push origin feat-login \\\n#retry-later',
-    /^git push origin branch-[0-9a-f]{8} \\\n#retry-later$/,
+    /^git push origin branch-[0-9a-f]{8} \\\n#retry-later$/u,
   ],
   [
     'echo $(git push origin feat-\\\n#login)',
-    /^echo \$\(git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}\)$/,
+    /^echo \$\(git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}\)$/u,
   ],
-  ['git push origin feat-\\\nlogin', /^git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}$/],
+  ['git push origin feat-\\\nlogin', /^git push origin branch-[0-9a-f]{8}\\\nbranch-[0-9a-f]{8}$/u],
   [
     "cat <<$'EOF'\nnotes\nEOF\ngit push origin feat-login",
-    /^cat <<\$'EOF'\nnotes\nEOF\ngit push origin branch-[0-9a-f]{8}$/,
+    /^cat <<\$'EOF'\nnotes\nEOF\ngit push origin branch-[0-9a-f]{8}$/u,
   ],
   [
     "bash <<'EOF'\ngit push origin feat-login\nEOF",
-    /^bash <<'EOF'\ngit push origin branch-[0-9a-f]{8}\nEOF$/,
+    /^bash <<'EOF'\ngit push origin branch-[0-9a-f]{8}\nEOF$/u,
   ],
   [
     `echo "\${x:-'$(git push origin feat-login)'}"`,
-    /^echo "\$\{x:-'\$\(git push origin branch-[0-9a-f]{8}\)'\}"$/,
+    /^echo "\$\{x:-'\$\(git push origin branch-[0-9a-f]{8}\)'\}"$/u,
   ],
 ])('it replaces the branch that %j pushes', (command, expected) => {
   const corpus = buildAnonymisedCorpus(
@@ -507,7 +517,7 @@ test('it replaces the branch of a git push that follows global options', () => {
 
   expect(request).toStrictEqual({
     command: expect.toSatisfy((value: string) =>
-      /^cd \/tmp && git -C harbor --no-pager push origin branch-[0-9a-f]{8}$/.test(value),
+      /^cd \/tmp && git -C harbor --no-pager push origin branch-[0-9a-f]{8}$/u.test(value),
     ),
   });
 });
@@ -537,12 +547,12 @@ test('it replaces tokens it recognises by shape, by assignment and by auth schem
   const request: unknown = corpus.cases[0]?.request;
 
   expect(request).toStrictEqual({
-    shape: expect.toSatisfy((value: string) => /^use token-[0-9a-f]{8}$/.test(value)),
+    shape: expect.toSatisfy((value: string) => /^use token-[0-9a-f]{8}$/u.test(value)),
     assignment: expect.toSatisfy((value: string) =>
-      /^export DEPLOY_KEY=token-[0-9a-f]{8}$/.test(value),
+      /^export DEPLOY_KEY=token-[0-9a-f]{8}$/u.test(value),
     ),
     scheme: expect.toSatisfy((value: string) =>
-      /^curl -H "Authorization: Bearer token-[0-9a-f]{8}"$/.test(value),
+      /^curl -H "Authorization: Bearer token-[0-9a-f]{8}"$/u.test(value),
     ),
   });
 });
@@ -563,9 +573,9 @@ test('it replaces the session, tool-use and agent identifiers', () => {
   const request: unknown = corpus.cases[0]?.request;
 
   expect(request).toStrictEqual({
-    sessionID: expect.toSatisfy((value: string) => /^session-[0-9a-f]{8}$/.test(value)),
-    toolUseID: expect.toSatisfy((value: string) => /^tool-[0-9a-f]{8}$/.test(value)),
-    context: { agentID: expect.toSatisfy((value: string) => /^agent-[0-9a-f]{8}$/.test(value)) },
+    sessionID: expect.toSatisfy((value: string) => /^session-[0-9a-f]{8}$/u.test(value)),
+    toolUseID: expect.toSatisfy((value: string) => /^tool-[0-9a-f]{8}$/u.test(value)),
+    context: { agentID: expect.toSatisfy((value: string) => /^agent-[0-9a-f]{8}$/u.test(value)) },
   });
 });
 

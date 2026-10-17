@@ -141,7 +141,7 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -220,7 +220,7 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -301,7 +301,7 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -378,7 +378,7 @@ test('it retains manual approval for a truncated response', async ($, on) => {
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -452,7 +452,7 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -511,7 +511,7 @@ test('it retains manual approval when the child run fails', async ($, on) => {
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -609,7 +609,7 @@ test(
           'run',
           '--jev-only',
           '--evaluation-deadline',
-          expect.stringMatching(/^\d+$/),
+          expect.stringMatching(/^\d+$/u),
         ],
         timeoutMs: CLI_LIMITS.evaluationMs,
         request: {
@@ -672,7 +672,7 @@ test('it takes the session identity from a user prompt when no session has start
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -728,7 +728,7 @@ test('it carries the session identity and the direct user message', async ($, on
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -823,7 +823,7 @@ test('it preserves the complete action without truncation', async ($, on) => {
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -889,7 +889,7 @@ test('it does not replace the main context with a subagent prompt', async ($, on
         'run',
         '--jev-only',
         '--evaluation-deadline',
-        expect.stringMatching(/^\d+$/),
+        expect.stringMatching(/^\d+$/u),
       ],
       timeoutMs: CLI_LIMITS.evaluationMs,
       request: {
@@ -943,7 +943,7 @@ test('it reads the current directory between two calls without a new prompt', as
       'run',
       '--jev-only',
       '--evaluation-deadline',
-      expect.stringMatching(/^\d+$/),
+      expect.stringMatching(/^\d+$/u),
     ],
     timeoutMs: CLI_LIMITS.evaluationMs,
     request: {

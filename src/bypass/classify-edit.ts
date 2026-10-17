@@ -196,17 +196,20 @@ const EXCLUDED_PATHS: readonly (readonly [string, string])[] = [
 ];
 
 const EXCLUDED_NAMES: readonly (readonly [RegExp, string])[] = [
-  [/^(?:agents|claude)(?:\.[\w-]+)?\.md$/i, 'agent configuration'],
-  [/^\.mcp\.json$/i, 'agent configuration'],
-  [/^settings(?:\.[\w-]+)?\.json$/i, 'a settings file'],
-  [/^(?:hooks\.json|\.?lefthook(?:-local)?\.ya?ml|\.pre-commit-config\.ya?ml)$/i, 'a hook file'],
-  [/^(?:package\.json|\.?bunfig\.toml|\.gitattributes)$/i, 'a hook file'],
-  [/^\.gitlab-ci\.ya?ml$/i, 'a CI workflow'],
-  [/^\.env(?:\..*)?$|^\.envrc$/i, 'an env file'],
-  [/^(?:\.netrc|\.npmrc|\.pypirc|\.git-credentials|\.dockercfg|kubeconfig)$/i, 'a credential file'],
-  [/^credentials(?:\.\w+)?$|^secrets?\.(?:json|ya?ml|toml|env)$/i, 'a credential file'],
+  [/^(?:agents|claude)(?:\.[\w-]+)?\.md$/iu, 'agent configuration'],
+  [/^\.mcp\.json$/iu, 'agent configuration'],
+  [/^settings(?:\.[\w-]+)?\.json$/iu, 'a settings file'],
+  [/^(?:hooks\.json|\.?lefthook(?:-local)?\.ya?ml|\.pre-commit-config\.ya?ml)$/iu, 'a hook file'],
+  [/^(?:package\.json|\.?bunfig\.toml|\.gitattributes)$/iu, 'a hook file'],
+  [/^\.gitlab-ci\.ya?ml$/iu, 'a CI workflow'],
+  [/^\.env(?:\..*)?$|^\.envrc$/iu, 'an env file'],
   [
-    /^id_(?:rsa|dsa|ecdsa|ed25519)|\.(?:pem|key|p12|pfx|jks|keystore|tfvars)$/i,
+    /^(?:\.netrc|\.npmrc|\.pypirc|\.git-credentials|\.dockercfg|kubeconfig)$/iu,
+    'a credential file',
+  ],
+  [/^credentials(?:\.\w+)?$|^secrets?\.(?:json|ya?ml|toml|env)$/iu, 'a credential file'],
+  [
+    /^id_(?:rsa|dsa|ecdsa|ed25519)|\.(?:pem|key|p12|pfx|jks|keystore|tfvars)$/iu,
     'a credential file',
   ],
 ];

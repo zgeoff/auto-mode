@@ -14,7 +14,7 @@ export function buildMockRepositoryContext(
   const { taskScope, ...rest } = overrides;
 
   return {
-    cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/g, '')}`,
+    cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     branch: faker.git.branch(),
     defaultBranch: faker.git.branch(),
     remotes: [

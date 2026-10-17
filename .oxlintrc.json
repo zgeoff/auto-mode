@@ -12,7 +12,6 @@
     "max-params": "off",
     // zod schemas and jest-extended matchers are imported wholesale on purpose
     "import/no-namespace": "off",
-    "require-unicode-regexp": "off",
 
     // one-var wants consecutive `const` statements merged into one declaration,
     // which reads worse than what it replaces; sort-vars then wants the merged

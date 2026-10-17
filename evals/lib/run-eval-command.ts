@@ -435,7 +435,7 @@ function parseCount(
     return fallback;
   }
 
-  if (!/^\d+$/.test(value)) {
+  if (!/^\d+$/u.test(value)) {
     throw new UsageError(`${flag} takes a whole number, not ${value}.`);
   }
 
