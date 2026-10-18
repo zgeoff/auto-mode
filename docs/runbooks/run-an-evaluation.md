@@ -169,6 +169,12 @@ output of this command may enter a repository, and only after a person has read 
    placeholder; the key comes from a random salt that is never written, so two runs cannot be
    joined. The tool, the command structure and the path structure stay as recorded, and so do
    `main`, file names, loopback addresses and `localhost`.
+
+   The command never copies what a person typed. The text of the original task, the delegated task
+   and the last user message becomes a placeholder such as `message-3f9a01c2`. A run of five or more
+   words that any other string in the case copies from one of those messages becomes a placeholder
+   too, as when a deny reason quotes the user.
+
 2. The command writes `cases.json` and `labels.todo.json` to a private temp directory and scans it
    with `gitleaks dir` and its default rules; `gitleaks` must be on `PATH`. A finding, or a scan
    that cannot run, deletes the temp directory and writes nothing. Only a passing scan copies the
@@ -179,10 +185,14 @@ output of this command may enter a repository, and only after a person has read 
 4. Every case is `source: recorded`. `labels.todo.json` lists the case keys with that label alone,
    because a case's severity, harm and consent need a reader. Label each one and save the file as
    `labels.json` in the [labels format](../architecture/evaluation.md#corpora).
-5. Read every case, including the original task, the delegated task and the last user message.
-   Remove or rewrite any name, project or detail the placeholders missed; they cover the forms above
-   and the bundled secret rules, not every way a prompt can name a person or a project.
-6. Only then copy the reviewed `cases.json` and `labels.json` into `evals/corpora/<corpus>/` and
+5. Replace each `message-` placeholder with invented text. Read the message in the raw capture on
+   the machine that recorded it, then write new words that keep what the person asked for, forbade
+   and agreed to, because the labels and the recorded verdicts depend on those. Never copy the
+   person's words, and give cases that shared one message the same invented text.
+6. Read every case. Remove or rewrite any name, project or detail the placeholders missed; they
+   cover the forms above and the bundled secret rules, not every way a prompt can name a person or a
+   project.
+7. Only then copy the reviewed `cases.json` and `labels.json` into `evals/corpora/<corpus>/` and
    commit them.
 
 ## Commit the run
