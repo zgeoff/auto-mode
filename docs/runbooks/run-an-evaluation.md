@@ -185,6 +185,19 @@ output of this command may enter a repository, and only after a person has read 
 6. Only then copy the reviewed `cases.json` and `labels.json` into `evals/corpora/<corpus>/` and
    commit them.
 
+`evals/replay/anonymised-corpora.test.ts` fails when a file under `evals/corpora/` holds a home path
+whose user is neither a placeholder nor one of the invented users `robin`, `dev` and `user`. The
+failure names the file and a count, never the user. To bring a corpus committed in another form
+under the same rules, run it through the anonymiser in place:
+
+```sh
+bun --conditions=auto-mode-eval evals/runners/anonymise-corpus-files.ts <salt> <cases.json> [samples.jsonl...]
+```
+
+It keeps the fields that join a case to its labels and recordings, such as `id`, and rewrites the
+`reason` of each recorded sample of that corpus with the same placeholders. Pass a random salt and
+never write it down, as step 1 describes.
+
 ## Commit the run
 
 In the results clone, commit the new `runs/<experiment>/<run>/` or `runs/live-use/<run>/` directory
