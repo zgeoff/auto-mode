@@ -293,6 +293,32 @@ test('it replaces a branch name and keeps the default branch', () => {
   });
 });
 
+test('it gives a worktree named before punctuation in prose the placeholder of its path', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: {
+          text: 'Work in /srv/harbor/.worktrees/fix-login, then in /srv/harbor/.worktrees/fix-login and stop.',
+        },
+      },
+    ],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+
+  expect(request).toStrictEqual({
+    text: expect.toSatisfy((value: string) =>
+      /^Work in \/srv\/harbor\/\.worktrees\/branch-(?<id>[0-9a-f]{8}), then in \/srv\/harbor\/\.worktrees\/branch-\k<id> and stop\.$/u.test(
+        value,
+      ),
+    ),
+  });
+});
+
 test('it keeps commit and push in prose and still replaces a name', () => {
   const corpus = buildAnonymisedCorpus(
     [
