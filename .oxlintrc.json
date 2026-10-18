@@ -164,7 +164,7 @@
   },
   "overrides": [
     {
-      // synced copy; names follow its source
+      // synced copy from tools; names follow its source
       "files": ["scripts/collect-branch-files.ts"],
       "rules": { "zgeoff/no-abbreviated-names": "off" }
     }
