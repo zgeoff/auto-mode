@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
+import * as z from 'zod';
 import { INVENTED_CORPUS_MESSAGES } from './invented-corpus-messages.ts';
 
 // The script holds no recorded text, because a public file must not carry
@@ -12,6 +13,13 @@ interface OldMessage {
   readonly replacement: string;
   readonly text: string;
 }
+
+const sampleRowSchema = z.looseObject({
+  caseKey: z.string(),
+  reason: z.string().nullable().optional(),
+});
+
+type SampleRow = z.infer<typeof sampleRowSchema>;
 
 interface QuoteSite {
   readonly caseKey: string;
@@ -55,19 +63,23 @@ async function main(): Promise<void> {
       .trimEnd()
       .split('\n')
       .map((line) => {
-        const row = JSON.parse(line) as Record<string, unknown>;
-        const caseKey = String(row['caseKey']);
+        const row: unknown = JSON.parse(line);
+
+        invariant(isSampleRow(row), `${path} holds a row with no case key.`);
+
+        const caseKey = row.caseKey;
+        const reason = row.reason;
         const old = oldMessages.get(caseKey);
 
-        if (old === undefined || typeof row['reason'] !== 'string') {
+        if (old === undefined || typeof reason !== 'string') {
           return line;
         }
 
-        const rewritten = buildUnquotedText(row['reason'], [old], (key) =>
-          missing.push({ caseKey, key }),
-        );
+        const rewritten = buildUnquotedText(reason, [old], (key) => {
+          missing.push({ caseKey, key });
+        });
 
-        return rewritten === row['reason'] ? line : JSON.stringify({ ...row, reason: rewritten });
+        return rewritten === reason ? line : JSON.stringify({ ...row, reason: rewritten });
       });
 
     samples.set(path, `${rows.join('\n')}\n`);
@@ -85,12 +97,14 @@ async function main(): Promise<void> {
     ['answer-guidance', answerGuidance],
   ] as const) {
     for (const entry of file.cases) {
-      const caseKey = `${corpus}/${entry.id ?? entry.name}`;
+      const caseKey = `${corpus}/${getCaseID(entry)}`;
       const own = oldMessages.get(caseKey);
       const candidates = own === undefined ? pool : [own, ...pool];
 
       entry.input = buildUnquotedInput(entry.input, null, (text) =>
-        buildUnquotedText(text, candidates, (key) => missing.push({ caseKey, key })),
+        buildUnquotedText(text, candidates, (key) => {
+          missing.push({ caseKey, key });
+        }),
       );
     }
   }
@@ -116,15 +130,48 @@ async function main(): Promise<void> {
   await writeCorpusFile('answer-guidance/cases.json', answerGuidance);
 }
 
-interface CorpusFile {
-  readonly cases: { id: string; name?: string; lastUserMessage?: string | null; input?: unknown }[];
-  readonly messages?: Record<string, string>;
-}
+// Each loose schema checks only the fields the script reads, and the script
+// edits the parsed value in place, so every other field keeps its order.
+const corpusCaseSchema = z.looseObject({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  message: z.string().optional(),
+  lastUserMessage: z.string().nullable().optional(),
+  input: z.unknown(),
+});
+
+const corpusFileSchema = z.looseObject({
+  cases: z.array(corpusCaseSchema),
+  messages: z.record(z.string(), z.string()).optional(),
+});
+
+type CorpusFile = z.infer<typeof corpusFileSchema>;
 
 async function loadCorpusFile(path: string): Promise<CorpusFile> {
   const text = await readFile(join(CORPORA, path), 'utf8');
 
-  return JSON.parse(text) as CorpusFile;
+  const raw: unknown = JSON.parse(text);
+
+  invariant(isCorpusFile(raw), `${path} is not a corpus of cases.`);
+
+  return raw;
+}
+
+// The answer-guidance corpus keys its cases by name instead of ID.
+function getCaseID(entry: CorpusFile['cases'][number]): string {
+  const id = entry.id ?? entry.name;
+
+  invariant(id !== undefined, 'A corpus case has neither an ID nor a name.');
+
+  return id;
+}
+
+function isSampleRow(value: unknown): value is SampleRow {
+  return sampleRowSchema.safeParse(value).success;
+}
+
+function isCorpusFile(value: unknown): value is CorpusFile {
+  return corpusFileSchema.safeParse(value).success;
 }
 
 function collectOldMessages(
@@ -132,19 +179,20 @@ function collectOldMessages(
   file: CorpusFile,
   replacements: Readonly<Record<string, string>>,
 ): [string, OldMessage][] {
-  const ids = new Set(file.cases.map((entry) => entry.id));
+  const ids = new Set(file.cases.map((entry) => getCaseID(entry)));
 
   const unknown = Object.keys(replacements).filter((id) => !ids.has(id));
 
   invariant(unknown.length === 0, `${corpus} has no cases ${unknown.join(', ')}.`);
 
   return file.cases.flatMap((entry) => {
-    const replacement = replacements[entry.id];
+    const id = getCaseID(entry);
+    const replacement = replacements[id];
     const text = entry.lastUserMessage;
 
     return replacement === undefined || typeof text !== 'string'
       ? []
-      : [[`${corpus}/${entry.id}`, { replacement, text }]];
+      : [[`${corpus}/${id}`, { replacement, text }]];
   });
 }
 
@@ -152,19 +200,19 @@ function collectSecondJudgeMessages(file: CorpusFile): [string, OldMessage][] {
   const messages = file.messages ?? {};
 
   return file.cases.flatMap((entry) => {
-    const key = (entry as { message?: string }).message;
+    const key = entry.message;
     const text = key === undefined ? undefined : messages[key];
     const replacement = key === undefined ? undefined : INVENTED_CORPUS_MESSAGES.secondJudge[key];
 
     return text === undefined || replacement === undefined
       ? []
-      : [[`second-judge/${entry.id}`, { replacement, text }]];
+      : [[`second-judge/${getCaseID(entry)}`, { replacement, text }]];
   });
 }
 
 function updateCases(file: CorpusFile, replacements: Readonly<Record<string, string>>): void {
   for (const entry of file.cases) {
-    const replacement = replacements[entry.id];
+    const replacement = replacements[getCaseID(entry)];
 
     if (replacement !== undefined) {
       entry.lastUserMessage = replacement;
