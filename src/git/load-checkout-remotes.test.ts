@@ -4,19 +4,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadCheckoutRemotes } from './load-checkout-remotes.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'checkout-remotes-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'checkout-remotes-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it reads remote URLs the way Git does, without quotes, escapes, or comments', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'config'),
+    join(ctx.directory, 'config'),
     [
       '[core]',
       '\turl = https://not-a-remote.example.com',
@@ -29,7 +29,7 @@ test('it reads remote URLs the way Git does, without quotes, escapes, or comment
     ].join('\n'),
   );
 
-  const remotes = await loadCheckoutRemotes(ctx.dir);
+  const remotes = await loadCheckoutRemotes(ctx.directory);
 
   expect(remotes).toStrictEqual([
     { name: 'origin', url: 'git@github.com:dev/app.git' },
@@ -40,7 +40,7 @@ test('it reads remote URLs the way Git does, without quotes, escapes, or comment
 
 test('it reads no remote when the checkout has no config file', async () => {
   const ctx = await setupTest();
-  const remotes = await loadCheckoutRemotes(ctx.dir);
+  const remotes = await loadCheckoutRemotes(ctx.directory);
 
   expect(remotes).toStrictEqual([]);
 });

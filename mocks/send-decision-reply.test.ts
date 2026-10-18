@@ -293,6 +293,7 @@ test('it answers HTTP 422 for a request without the model', async () => {
       {
         type: 'missing',
         loc: ['body', 'model'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Field required',
         input: {
           state: {
@@ -349,6 +350,7 @@ test('it answers HTTP 422 for a model that is not text', async () => {
       {
         type: 'string_type',
         loc: ['body', 'model'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Input should be a valid string',
         input: 42,
       },
@@ -381,6 +383,7 @@ test('it answers HTTP 422 for a request without the state', async () => {
       {
         type: 'missing',
         loc: ['body', 'state'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Field required',
         input: {
           model: 'jev-1.13.0',
@@ -423,6 +426,7 @@ test('it answers HTTP 422 for a null state as a missing one', async () => {
       {
         type: 'missing',
         loc: ['body', 'state'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Field required',
         input: {
           model: 'jev-1.13.0',
@@ -466,6 +470,7 @@ test('it answers HTTP 422 for a request without the questions', async () => {
       {
         type: 'missing',
         loc: ['body', 'questions'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Field required',
         input: {
           model: 'jev-1.13.0',
@@ -516,6 +521,7 @@ test('it answers HTTP 422 for questions sent as a list', async () => {
       {
         type: 'dict_type',
         loc: ['body', 'questions'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Input should be a valid dictionary',
         input: [
           {
@@ -556,6 +562,7 @@ test('it answers HTTP 422 for a request with no question', async () => {
       {
         type: 'too_short',
         loc: ['body', 'questions'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Dictionary should have at least 1 item after validation, not 0',
         input: {},
         ctx: { actual_length: 0, field_type: 'Dictionary', min_length: 1 },
@@ -591,6 +598,7 @@ test('it answers HTTP 422 for a question that is not an object', async () => {
       {
         type: 'model_attributes_type',
         loc: ['body', 'questions', 'rule_0'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Input should be a valid dictionary or object to extract fields from',
         input: 'Is the action destructive?',
       },
@@ -630,6 +638,7 @@ test('it answers HTTP 422 for a question without a type', async () => {
       {
         type: 'union_tag_not_found',
         loc: ['body', 'questions', 'rule_0'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: "Unable to extract tag using discriminator 'type'",
         input: {
           instructions: 'Is the action destructive?',
@@ -676,6 +685,7 @@ test('it answers HTTP 422 for a request body that is a list', async () => {
       {
         type: 'model_attributes_type',
         loc: ['body'],
+        // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
         msg: 'Input should be a valid dictionary or object to extract fields from',
         input: [
           {
@@ -906,6 +916,7 @@ test('it answers HTTP 422 for a request body that is not JSON', async () => {
   expect(response.status).toBe(422);
 
   expect(body).toStrictEqual({
+    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
     detail: [{ type: 'json_invalid', loc: ['body'], msg: 'JSON decode error', input: {} }],
   });
 });

@@ -9,14 +9,14 @@ import { loadReplaySamples } from '../lib/load-replay-samples.ts';
 import { runSessionScopeReplay } from '../lib/run-session-scope-replay.ts';
 
 async function setupTest(): Promise<{ readonly stateDir: string; readonly atcRecordDir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-session-replay-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-session-replay-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   // The replay reads each session's atc record from here; an absent file is a session without one.
-  await mkdir(join(dir, 'atc'));
+  await mkdir(join(directory, 'atc'));
 
-  return { stateDir: join(dir, 'state'), atcRecordDir: join(dir, 'atc') };
+  return { stateDir: join(directory, 'state'), atcRecordDir: join(directory, 'atc') };
 }
 
 test('it checks all 232 corpus actions of the recorded sessions', async () => {

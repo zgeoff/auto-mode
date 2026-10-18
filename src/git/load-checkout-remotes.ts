@@ -28,6 +28,12 @@ export async function loadCheckoutRemotes(commonDir: string): Promise<ScopeRemot
   return remotes;
 }
 
+const CONFIG_ESCAPES: ReadonlyMap<string, string> = new Map([
+  ['n', '\n'],
+  ['t', '\t'],
+  ['b', ''],
+]);
+
 // Git reads a config value with its quotes removed, its escapes resolved, and
 // an unquoted `#` or `;` starting a comment.
 function parseConfigValue(raw: string): string {
@@ -40,7 +46,7 @@ function parseConfigValue(raw: string): string {
     if (char === '\\') {
       const next = raw[index + 1] ?? '';
 
-      value += ({ n: '\n', t: '\t', b: '' } as Record<string, string>)[next] ?? next;
+      value += CONFIG_ESCAPES.get(next) ?? next;
       index += 1;
     } else if (char === '"') {
       isQuoted = !isQuoted;

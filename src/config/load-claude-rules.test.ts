@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { loadClaudeRules } from './load-claude-rules.ts';
 
-async function setupTest(): Promise<{ readonly dir: string; readonly path: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'claude-rules-'));
+async function setupTest(): Promise<{ readonly directory: string; readonly path: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'claude-rules-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, path: join(dir, 'settings.json') };
+  return { directory, path: join(directory, 'settings.json') };
 }
 
 test('it imports explicit rules without credentials or default markers', async () => {
@@ -32,7 +32,7 @@ test('it imports explicit rules without credentials or default markers', async (
 
   const rules = await loadClaudeRules(
     ctx.path,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(rules).toStrictEqual({
@@ -48,7 +48,7 @@ test('it uses the shipped policy when the settings file is absent', async () => 
 
   const rules = await loadClaudeRules(
     ctx.path,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(rules).toStrictEqual({ environment: [], allow: [], soft_deny: [], hard_deny: [] });
@@ -58,13 +58,13 @@ test('it reads the settings in the Claude config directory when no path is confi
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'settings.json'),
+    join(ctx.directory, 'settings.json'),
     JSON.stringify({ autoMode: { allow: ['Local cleanup is routine'] } }),
   );
 
   const rules = await loadClaudeRules(
     undefined,
-    buildMockHostEnvironment({ env: { CLAUDE_CONFIG_DIR: ctx.dir }, home: ctx.dir }),
+    buildMockHostEnvironment({ env: { CLAUDE_CONFIG_DIR: ctx.directory }, home: ctx.directory }),
   );
 
   expect(rules).toStrictEqual({
@@ -78,16 +78,16 @@ test('it reads the settings in the Claude config directory when no path is confi
 test('it reads the settings in the home Claude directory when no config directory is set', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.claude'));
+  await mkdir(join(ctx.directory, '.claude'));
 
   await writeFile(
-    join(ctx.dir, '.claude', 'settings.json'),
+    join(ctx.directory, '.claude', 'settings.json'),
     JSON.stringify({ autoMode: { hard_deny: ['Never send keys'] } }),
   );
 
   const rules = await loadClaudeRules(
     undefined,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(rules).toStrictEqual({
@@ -101,11 +101,14 @@ test('it reads the settings in the home Claude directory when no config director
 test('it disables importing Claude settings when the path is null', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'settings.json'), JSON.stringify({ autoMode: { allow: ['x'] } }));
+  await writeFile(
+    join(ctx.directory, 'settings.json'),
+    JSON.stringify({ autoMode: { allow: ['x'] } }),
+  );
 
   const rules = await loadClaudeRules(
     null,
-    buildMockHostEnvironment({ env: { CLAUDE_CONFIG_DIR: ctx.dir }, home: ctx.dir }),
+    buildMockHostEnvironment({ env: { CLAUDE_CONFIG_DIR: ctx.directory }, home: ctx.directory }),
   );
 
   expect(rules).toStrictEqual({ environment: [], allow: [], soft_deny: [], hard_deny: [] });
@@ -117,7 +120,7 @@ test('it refuses settings it cannot read', async () => {
   await mkdir(ctx.path);
 
   expect(
-    loadClaudeRules(ctx.path, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadClaudeRules(ctx.path, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(Error, 'Claude settings unreadable');
 });
 
@@ -127,7 +130,7 @@ test('it refuses settings that are not JSON', async () => {
   await writeFile(ctx.path, '{');
 
   expect(
-    loadClaudeRules(ctx.path, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadClaudeRules(ctx.path, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(Error, 'Claude settings contain invalid JSON');
 });
 
@@ -147,6 +150,6 @@ test('it refuses autoMode settings whose allow entries are not a list', async ()
   );
 
   expect(
-    loadClaudeRules(ctx.path, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadClaudeRules(ctx.path, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(Error, 'Claude autoMode settings are invalid');
 });

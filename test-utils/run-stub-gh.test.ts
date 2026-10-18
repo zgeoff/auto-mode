@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-stub-gh-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-stub-gh-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { statePath: join(dir, 'pull-requests.json') };
+  return { statePath: join(directory, 'pull-requests.json') };
 }
 
 test('it prints the head and creation time of a pull request it holds as one tab-separated row', async () => {

@@ -55,7 +55,9 @@ export function classifyEdit(
   // both the path as written and the path it resolves to must pass.
   const paths = [action.target, action.requested];
 
-  const exclusion = paths.some((each) => scope.protectedDirs.some((dir) => isWithin(each, dir)))
+  const exclusion = paths.some((each) =>
+    scope.protectedDirs.some((directory) => isWithin(each, directory)),
+  )
     ? 'auto-mode configuration or state'
     : (findExclusion(path) ?? findExclusion(toWorktreePath(action.requested, scope.worktrees)));
 
@@ -169,11 +171,11 @@ function toWorktreePath(path: string, worktrees: readonly string[]): string {
 function findWorktree(target: string, worktrees: readonly string[]): string | null {
   const holding = worktrees.filter((worktree) => isWithin(target, worktree));
 
-  return holding.toSorted((a, b) => b.length - a.length)[0] ?? null;
+  return holding.toSorted((left, right) => right.length - left.length)[0] ?? null;
 }
 
-function isWithin(path: string, dir: string): boolean {
-  const offset = relative(dir, path);
+function isWithin(path: string, directory: string): boolean {
+  const offset = relative(directory, path);
 
   return offset !== '' && !offset.startsWith('..') && !offset.startsWith(sep);
 }

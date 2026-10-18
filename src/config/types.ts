@@ -14,7 +14,7 @@ export interface HostEnvironment {
 export interface Runtime {
   readonly host: Readonly<HostEnvironment>;
   readonly now: () => number;
-  readonly timeout: (ms: number) => AbortSignal;
+  readonly timeout: (timeoutMs: number) => AbortSignal;
   readonly fetch: (url: string, init: Readonly<RequestInit>) => Promise<Response>;
   readonly findCheckout: CheckoutFinder;
 }

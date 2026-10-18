@@ -18,14 +18,14 @@ export function buildClopperPearsonInterval(events: number, total: number): Inte
 }
 
 // The regularized incomplete beta rises in x, so bisection converges on the one crossing.
-function findQuantile(a: number, b: number, target: number): number {
+function findQuantile(alphaShape: number, betaShape: number, target: number): number {
   let low = 0;
   let high = 1;
 
   for (let step = 0; step < BISECTIONS; step += 1) {
     const middle = (low + high) / 2;
 
-    if (buildRegularizedBeta(middle, a, b) < target) {
+    if (buildRegularizedBeta(middle, alphaShape, betaShape) < target) {
       low = middle;
     } else {
       high = middle;
@@ -35,8 +35,8 @@ function findQuantile(a: number, b: number, target: number): number {
   return (low + high) / 2;
 }
 
-// I_x(a, b) by its continued fraction, taken on the side where it converges fast.
-function buildRegularizedBeta(x: number, a: number, b: number): number {
+// I_x(α, β) by its continued fraction, taken on the side where it converges fast.
+function buildRegularizedBeta(x: number, alphaShape: number, betaShape: number): number {
   if (x <= 0) {
     return 0;
   }
@@ -46,18 +46,18 @@ function buildRegularizedBeta(x: number, a: number, b: number): number {
   }
 
   const front = Math.exp(
-    buildLogGamma(a + b) -
-      buildLogGamma(a) -
-      buildLogGamma(b) +
-      a * Math.log(x) +
-      b * Math.log1p(-x),
+    buildLogGamma(alphaShape + betaShape) -
+      buildLogGamma(alphaShape) -
+      buildLogGamma(betaShape) +
+      alphaShape * Math.log(x) +
+      betaShape * Math.log1p(-x),
   );
 
-  if (x < (a + 1) / (a + b + 2)) {
-    return (front * buildBetaFraction(x, a, b)) / a;
+  if (x < (alphaShape + 1) / (alphaShape + betaShape + 2)) {
+    return (front * buildBetaFraction(x, alphaShape, betaShape)) / alphaShape;
   }
 
-  return 1 - (front * buildBetaFraction(1 - x, b, a)) / b;
+  return 1 - (front * buildBetaFraction(1 - x, betaShape, alphaShape)) / betaShape;
 }
 
 const FRACTION_STEPS = 300;
@@ -65,27 +65,30 @@ const FRACTION_EPSILON = 1e-15;
 const TINY = 1e-300;
 
 // The modified Lentz evaluation of the incomplete beta continued fraction.
-function buildBetaFraction(x: number, a: number, b: number): number {
-  let c = 1;
-  let d = 1 - ((a + b) * x) / (a + 1);
+function buildBetaFraction(x: number, alphaShape: number, betaShape: number): number {
+  let lentzC = 1;
+  let lentzD = 1 - ((alphaShape + betaShape) * x) / (alphaShape + 1);
 
-  d = 1 / (Math.abs(d) < TINY ? TINY : d);
+  lentzD = 1 / (Math.abs(lentzD) < TINY ? TINY : lentzD);
 
-  let fraction = d;
+  let fraction = lentzD;
 
-  for (let m = 1; m <= FRACTION_STEPS; m += 1) {
-    const even = (m * (b - m) * x) / ((a + 2 * m - 1) * (a + 2 * m));
+  for (let term = 1; term <= FRACTION_STEPS; term += 1) {
+    const even =
+      (term * (betaShape - term) * x) / ((alphaShape + 2 * term - 1) * (alphaShape + 2 * term));
 
-    d = 1 / buildNonZero(1 + even * d);
-    c = buildNonZero(1 + even / c);
-    fraction *= d * c;
+    lentzD = 1 / buildNonZero(1 + even * lentzD);
+    lentzC = buildNonZero(1 + even / lentzC);
+    fraction *= lentzD * lentzC;
 
-    const odd = -((a + m) * (a + b + m) * x) / ((a + 2 * m) * (a + 2 * m + 1));
+    const odd =
+      -((alphaShape + term) * (alphaShape + betaShape + term) * x) /
+      ((alphaShape + 2 * term) * (alphaShape + 2 * term + 1));
 
-    d = 1 / buildNonZero(1 + odd * d);
-    c = buildNonZero(1 + odd / c);
+    lentzD = 1 / buildNonZero(1 + odd * lentzD);
+    lentzC = buildNonZero(1 + odd / lentzC);
 
-    const delta = d * c;
+    const delta = lentzD * lentzC;
 
     fraction *= delta;
 
@@ -119,7 +122,12 @@ function buildLogGamma(x: number): number {
     sum += (LANCZOS[index] ?? 0) / (shifted + index);
   }
 
-  const t = shifted + 7.5;
+  const lanczosBase = shifted + 7.5;
 
-  return 0.5 * Math.log(2 * Math.PI) + (shifted + 0.5) * Math.log(t) - t + Math.log(sum);
+  return (
+    0.5 * Math.log(2 * Math.PI) +
+    (shifted + 0.5) * Math.log(lanczosBase) -
+    lanczosBase +
+    Math.log(sum)
+  );
 }

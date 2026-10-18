@@ -8,12 +8,12 @@ import { buildMockActionRequest } from '../test-utils/factories/build-mock-actio
 import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
 import { writeActionFailure } from './write-action-failure.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-action-failure-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-action-failure-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it writes a started record and a deferred failure under one invocation', async () => {
@@ -22,12 +22,12 @@ test('it writes a started record and a deferred failure under one invocation', a
   await writeActionFailure(
     buildMockActionRequest(),
     buildMockHostEnvironment({
-      env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.dir, 'actions.jsonl') },
+      env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.directory, 'actions.jsonl') },
     }),
     buildStubOutput(),
   );
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const records = log
     .trim()

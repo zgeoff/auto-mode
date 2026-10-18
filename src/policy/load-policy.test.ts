@@ -8,13 +8,16 @@ async function setupTest(): Promise<{
   readonly classifierPath: string;
   readonly rulesPath: string;
 }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-policy-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-policy-'));
 
   onTestFinished(async () => {
-    await rm(dir, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true });
   });
 
-  return { classifierPath: join(dir, 'classifier.md'), rulesPath: join(dir, 'rules.md') };
+  return {
+    classifierPath: join(directory, 'classifier.md'),
+    rulesPath: join(directory, 'rules.md'),
+  };
 }
 
 test.each(['decision.md', 'judge.md'] as const)(

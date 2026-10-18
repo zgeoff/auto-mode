@@ -37,8 +37,8 @@ test('it retains manual approval for a tool input that is not an object', async 
 
   const logs: string[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push(e.text);
+  on('ui.log', (_api, event) => {
+    logs.push(event.text);
 
     return { value: undefined };
   });
@@ -91,8 +91,8 @@ test('it retains manual approval before the session context arrives', async ($, 
   const decided = buildMockPermissionDecision({ decision: 'ask' });
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });
@@ -127,8 +127,8 @@ test('it skips evaluation for a tool call it never saw start', async ($, on) => 
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });

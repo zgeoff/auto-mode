@@ -20,7 +20,10 @@ export function collectPipelineVerdicts(
 ): PipelineVerdict[] {
   const isReviewer = (record: SampleRecord): boolean => reviewers.includes(record.stage);
 
-  const stages = new Set(records.filter((record) => !isReviewer(record)).map((r) => r.stage));
+  const stages = new Set(
+    records.filter((record) => !isReviewer(record)).map((record) => record.stage),
+  );
+
   const samples = new Map<string, SampleRecord[]>();
 
   for (const record of records) {

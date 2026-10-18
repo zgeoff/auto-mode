@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { loadRun } from './load-run.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'load-run-'));
+  const directory = await mkdtemp(join(tmpdir(), 'load-run-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it reads the summary and one record per samples line', async () => {
@@ -57,10 +57,10 @@ test('it reads the summary and one record per samples line', async () => {
     answerHash: null,
   } as const;
 
-  await writeFile(join(ctx.dir, 'summary.json'), JSON.stringify(summary));
-  await writeFile(join(ctx.dir, 'samples.jsonl'), `${JSON.stringify(record)}\n`);
+  await writeFile(join(ctx.directory, 'summary.json'), JSON.stringify(summary));
+  await writeFile(join(ctx.directory, 'samples.jsonl'), `${JSON.stringify(record)}\n`);
 
-  const run = await loadRun(ctx.dir);
+  const run = await loadRun(ctx.directory);
 
   expect(run).toStrictEqual({ summary, records: [record], tornLine: null });
 });
@@ -96,9 +96,9 @@ test('it reads a run interrupted before its first sample as no records', async (
     requiredCases: [],
   } as const;
 
-  await writeFile(join(ctx.dir, 'summary.json'), JSON.stringify(summary));
+  await writeFile(join(ctx.directory, 'summary.json'), JSON.stringify(summary));
 
-  const run = await loadRun(ctx.dir);
+  const run = await loadRun(ctx.directory);
 
   expect(run).toStrictEqual({ summary, records: [], tornLine: null });
 });
@@ -107,7 +107,7 @@ test('it drops a torn last samples line and returns it', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'summary.json'),
+    join(ctx.directory, 'summary.json'),
     JSON.stringify({
       runID: '20261010T120000Z-0a1b2c3d',
       config: {
@@ -152,11 +152,11 @@ test('it drops a torn last samples line and returns it', async () => {
   } as const;
 
   await writeFile(
-    join(ctx.dir, 'samples.jsonl'),
+    join(ctx.directory, 'samples.jsonl'),
     `${JSON.stringify(record)}\n{"caseKey":"decision-rules/T0`,
   );
 
-  const run = await loadRun(ctx.dir);
+  const run = await loadRun(ctx.directory);
 
   expect(run.records).toStrictEqual([record]);
   expect(run.tornLine).toBe('{"caseKey":"decision-rules/T0');
@@ -166,7 +166,7 @@ test('it rejects an unparseable samples line that a newline ends', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'summary.json'),
+    join(ctx.directory, 'summary.json'),
     JSON.stringify({
       runID: '20261010T120000Z-0a1b2c3d',
       config: {
@@ -196,16 +196,16 @@ test('it rejects an unparseable samples line that a newline ends', async () => {
     }),
   );
 
-  await writeFile(join(ctx.dir, 'samples.jsonl'), '{"caseKey":"decision-rules/T0\n');
+  await writeFile(join(ctx.directory, 'samples.jsonl'), '{"caseKey":"decision-rules/T0\n');
 
-  expect(loadRun(ctx.dir)).rejects.toThrow();
+  expect(loadRun(ctx.directory)).rejects.toThrow();
 });
 
 test('it rejects a samples line that is not a sample record', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'summary.json'),
+    join(ctx.directory, 'summary.json'),
     JSON.stringify({
       runID: '20261010T120000Z-0a1b2c3d',
       config: {
@@ -235,7 +235,7 @@ test('it rejects a samples line that is not a sample record', async () => {
     }),
   );
 
-  await writeFile(join(ctx.dir, 'samples.jsonl'), '{"caseKey":"T001"}\n');
+  await writeFile(join(ctx.directory, 'samples.jsonl'), '{"caseKey":"T001"}\n');
 
-  expect(loadRun(ctx.dir)).rejects.toThrow();
+  expect(loadRun(ctx.directory)).rejects.toThrow();
 });

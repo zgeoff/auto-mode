@@ -8,8 +8,8 @@ test('it logs the invocation and the fallback without copying child output', asy
   const decided = buildMockPermissionDecision({ decision: 'ask' });
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });
@@ -48,8 +48,8 @@ test('it logs a subprocess failure when the child run fails', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });
@@ -78,8 +78,8 @@ test('it logs a subprocess failure when the child run fails', async ($, on) => {
 test('it names a call_ action ID in its log lines', async ($, on) => {
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });

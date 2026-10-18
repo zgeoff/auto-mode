@@ -72,7 +72,7 @@ test('it carries the session identity and the direct user message', async ($, on
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('classic.SessionStart', () => ({}));
-  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('prompt.submit', (_api, event) => ({ text: event.text }));
   on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
   on('process.run', processRun.hook);
@@ -128,7 +128,7 @@ test('it sends the earlier direct message as stale after a relayed plugin prompt
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('classic.SessionStart', () => ({}));
-  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('prompt.submit', (_api, event) => ({ text: event.text }));
   on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
   on('process.run', processRun.hook);
@@ -339,7 +339,7 @@ test('it keeps the user prompts of a session across its compaction', async ($, o
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('classic.SessionStart', () => ({}));
-  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('prompt.submit', (_api, event) => ({ text: event.text }));
   on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
   on('process.run', processRun.hook);
@@ -383,7 +383,7 @@ test('it keeps the main session and its prompts when a subagent session starts',
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('classic.SessionStart', () => ({}));
-  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('prompt.submit', (_api, event) => ({ text: event.text }));
   on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
   on('process.run', processRun.hook);
@@ -427,7 +427,7 @@ test('it drops the stored prompts when another session compacts', async ($, on) 
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('classic.SessionStart', () => ({}));
-  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('prompt.submit', (_api, event) => ({ text: event.text }));
   on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
   on('process.run', processRun.hook);
@@ -471,7 +471,7 @@ test('it drops the stored prompts when the session starts again', async ($, on) 
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('classic.SessionStart', () => ({}));
-  on('prompt.submit', (_api, e) => ({ text: e.text }));
+  on('prompt.submit', (_api, event) => ({ text: event.text }));
   on('session.cwd', () => ({ value: '/repo' }));
   on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
   on('process.run', processRun.hook);

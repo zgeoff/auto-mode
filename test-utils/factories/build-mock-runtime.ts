@@ -13,7 +13,7 @@ export function buildMockRuntime(overrides: MockRuntimeOverrides = {}): Runtime 
   return {
     host: buildMockHostEnvironment(host),
     now: now ?? Date.now,
-    timeout: timeout ?? ((ms) => AbortSignal.timeout(ms)),
+    timeout: timeout ?? ((timeoutMs) => AbortSignal.timeout(timeoutMs)),
     fetch: send ?? ((url, init) => fetch(url, init)),
     findCheckout: find ?? ((start, env) => findCheckout(start, env)),
   };

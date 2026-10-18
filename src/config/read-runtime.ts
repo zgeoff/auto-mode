@@ -6,7 +6,7 @@ export function readRuntime(): Runtime {
   return {
     host: readHostEnvironment(),
     now: Date.now,
-    timeout: (ms) => AbortSignal.timeout(ms),
+    timeout: (timeoutMs) => AbortSignal.timeout(timeoutMs),
     fetch: (url, init) => fetch(url, init),
     findCheckout: (start, env) => findCheckout(start, env),
   };

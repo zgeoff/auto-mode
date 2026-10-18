@@ -62,6 +62,6 @@ await updateJSONFile(
 
       return Number(startAt);
     },
-    wait: (ms) => waitFor(ms),
+    wait: (delayMs) => waitFor(delayMs),
   },
 );

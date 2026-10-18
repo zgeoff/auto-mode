@@ -48,7 +48,7 @@ export async function tryClassifyEdit(
     const [target, worktrees, protectedDirs] = await Promise.all([
       files.resolveEditTarget(requested),
       Promise.all(scope.worktrees.map((worktree) => files.resolveEditTarget(worktree))),
-      Promise.all(ownDirs.map((dir) => files.resolveEditTarget(dir))),
+      Promise.all(ownDirs.map((directory) => files.resolveEditTarget(directory))),
     ]);
 
     if (target === null || GIT_OVERRIDES.some((name) => host.env[name] !== undefined)) {
@@ -75,7 +75,7 @@ export async function tryClassifyEdit(
       },
       {
         worktrees: worktrees.filter((worktree) => worktree !== null),
-        protectedDirs: [...ownDirs, ...protectedDirs.filter((dir) => dir !== null)],
+        protectedDirs: [...ownDirs, ...protectedDirs.filter((directory) => directory !== null)],
       },
     );
   } catch {

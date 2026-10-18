@@ -11,10 +11,10 @@ export function resolveClaudeConfigPath(
 ): string {
   const configDir = host.env['CLAUDE_CONFIG_DIR'];
 
-  const dir =
+  const directory =
     configDir === undefined || configDir === ''
       ? join(host.home, ...DEFAULT_DIRS[file])
       : configDir;
 
-  return join(dir, file);
+  return join(directory, file);
 }

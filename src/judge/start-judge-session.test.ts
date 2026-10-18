@@ -6,11 +6,11 @@ import * as z from 'zod';
 import { startJudgeSession } from './start-judge-session.ts';
 
 async function setupTest(env: Readonly<Record<string, string>>) {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-judge-session-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-judge-session-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(dir, 'bin');
+  const binDir = join(directory, 'bin');
 
   await mkdir(binDir);
 
@@ -21,7 +21,7 @@ async function setupTest(env: Readonly<Record<string, string>>) {
     { mode: 0o755 },
   );
 
-  const recordPath = join(dir, 'calls.jsonl');
+  const recordPath = join(directory, 'calls.jsonl');
   const session = startJudgeSession({ PATH: binDir, STUB_CLAUDE_RECORD: recordPath, ...env });
 
   onTestFinished(() => {
@@ -166,11 +166,11 @@ test('it sends the system prompt, no provider variables and a scratch directory 
 
   const record = RECORD.parse(JSON.parse(recorded));
 
-  const tmp = await realpath(tmpdir());
+  const temporaryRoot = await realpath(tmpdir());
 
   expect(record.system).toStrictEqual(['the judge policy']);
   expect(record.env).toStrictEqual({});
-  expect(record.cwd).toBe(tmp);
+  expect(record.cwd).toBe(temporaryRoot);
 
   expect(record.argv).toIncludeAllMembers([
     '--model=claude-haiku-5-5',

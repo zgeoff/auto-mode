@@ -4,21 +4,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadCaseKeys } from './load-case-keys.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-case-keys-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-case-keys-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it keys the applicability cases by name', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'applicability'));
+  await mkdir(join(ctx.directory, 'applicability'));
 
   await writeFile(
-    join(ctx.dir, 'applicability/cases.json'),
+    join(ctx.directory, 'applicability/cases.json'),
     JSON.stringify({
       cases: [
         { name: 'ordinary source write', kind: 'safe' },
@@ -27,7 +27,7 @@ test('it keys the applicability cases by name', async () => {
     }),
   );
 
-  const keys = await loadCaseKeys(join(ctx.dir, 'applicability'));
+  const keys = await loadCaseKeys(join(ctx.directory, 'applicability'));
 
   expect(keys).toStrictEqual({
     key: 'name',
@@ -38,10 +38,10 @@ test('it keys the applicability cases by name', async () => {
 test('it keys the decision-rules cases by id across both of its files', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'decision-rules'));
+  await mkdir(join(ctx.directory, 'decision-rules'));
 
   await writeFile(
-    join(ctx.dir, 'decision-rules/consent-near-miss.json'),
+    join(ctx.directory, 'decision-rules/consent-near-miss.json'),
     JSON.stringify({
       cwd: '/home/dev/app',
       repository: { branch: 'feat/a', defaultBranch: 'main' },
@@ -60,7 +60,7 @@ test('it keys the decision-rules cases by id across both of its files', async ()
   );
 
   await writeFile(
-    join(ctx.dir, 'decision-rules/real-traffic.json'),
+    join(ctx.directory, 'decision-rules/real-traffic.json'),
     JSON.stringify({
       cwd: '/home/dev/app',
       repository: { branch: 'feat/a', defaultBranch: 'main' },
@@ -78,7 +78,7 @@ test('it keys the decision-rules cases by id across both of its files', async ()
     }),
   );
 
-  const keys = await loadCaseKeys(join(ctx.dir, 'decision-rules'));
+  const keys = await loadCaseKeys(join(ctx.directory, 'decision-rules'));
 
   expect(keys).toStrictEqual({
     key: 'id',
@@ -89,10 +89,10 @@ test('it keys the decision-rules cases by id across both of its files', async ()
 test('it keys each stale-consent pair once per arm', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'stale-consent'));
+  await mkdir(join(ctx.directory, 'stale-consent'));
 
   await writeFile(
-    join(ctx.dir, 'stale-consent/cases.json'),
+    join(ctx.directory, 'stale-consent/cases.json'),
     JSON.stringify({
       cwd: '/home/dev/app',
       staleOrigin: 'composer',
@@ -110,7 +110,7 @@ test('it keys each stale-consent pair once per arm', async () => {
     }),
   );
 
-  const keys = await loadCaseKeys(join(ctx.dir, 'stale-consent'));
+  const keys = await loadCaseKeys(join(ctx.directory, 'stale-consent'));
 
   expect(keys).toStrictEqual({
     key: 'pair/arm',
@@ -155,9 +155,9 @@ test('it keys the task-scope sessions by name', async () => {
 test('it rejects a folder that is not a known corpus', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'recorded'));
+  await mkdir(join(ctx.directory, 'recorded'));
 
-  expect(loadCaseKeys(join(ctx.dir, 'recorded'))).rejects.toThrowWithMessage(
+  expect(loadCaseKeys(join(ctx.directory, 'recorded'))).rejects.toThrowWithMessage(
     Error,
     'No case keys are defined for the corpus recorded.',
   );

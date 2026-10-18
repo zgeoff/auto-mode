@@ -11,7 +11,7 @@ import { runGit } from '../test-utils/run-git.ts';
 async function setupTest(): Promise<{
   readonly node: string;
   readonly root: string;
-  readonly dir: string;
+  readonly directory: string;
   readonly repo: string;
   readonly env: Readonly<Record<string, string | undefined>>;
 }> {
@@ -24,13 +24,13 @@ async function setupTest(): Promise<{
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  const repo = join(dir, 'repo');
+  const repo = join(directory, 'repo');
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(dir, ['init', '-q', '-b', 'main', repo]);
+  runGit(directory, ['init', '-q', '-b', 'main', repo]);
 
   // A version manager's node shim reads its config under the user's HOME, which
   // the child does not get, so the child runs the binary the shim resolves to.
@@ -50,7 +50,7 @@ async function setupTest(): Promise<{
   return {
     node: runtime.node,
     root,
-    dir,
+    directory,
     repo,
 
     // No API key reaches the child, so no run can reach a model.
@@ -59,19 +59,19 @@ async function setupTest(): Promise<{
       PATH: process.env['PATH'],
 
       // the home the CLI falls back to for its config and state
-      HOME: dir,
+      HOME: directory,
 
       // the CLI reads its config.json under this directory
-      XDG_CONFIG_HOME: dir,
+      XDG_CONFIG_HOME: directory,
 
       // the CLI keeps its denial counts under this directory
-      XDG_STATE_HOME: dir,
+      XDG_STATE_HOME: directory,
 
       // the CLI appends a diagnostic record per run to this file
-      AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
+      AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
 
       // the CLI reads Claude Code's settings.json under this directory
-      CLAUDE_CONFIG_DIR: dir,
+      CLAUDE_CONFIG_DIR: directory,
     },
   };
 }
@@ -79,21 +79,21 @@ async function setupTest(): Promise<{
 test('it keeps a fail-closed denial under node when the safer-path guidance is missing', async () => {
   const ctx = await setupTest();
 
-  const copy = join(ctx.dir, 'package');
+  const copy = join(ctx.directory, 'package');
 
   await cp(join(ctx.root, 'dist'), join(copy, 'dist'), { recursive: true });
   await cp(join(ctx.root, 'policy'), join(copy, 'policy'), { recursive: true });
   await rm(join(copy, 'policy', 'denial.md'));
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,

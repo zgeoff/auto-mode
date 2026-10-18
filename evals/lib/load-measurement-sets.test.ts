@@ -23,7 +23,7 @@ test('it loads each named corpus as one set keyed as its labels key the cases', 
   );
 
   expect(
-    loaded.sets.map((set) => [set.corpus, set.dir, Object.keys(set.cases).length]),
+    loaded.sets.map((set) => [set.corpus, set.directory, Object.keys(set.cases).length]),
   ).toStrictEqual([
     ['containment', join(ctx.corporaDir, 'containment'), 13],
     ['second-judge', join(ctx.corporaDir, 'second-judge'), 83],
@@ -100,7 +100,7 @@ test('it reads the held-out set from the results clone, joining a relative file 
     sets: [
       {
         corpus: 'held-out',
-        dir: join(ctx.resultsDir, 'held-out'),
+        directory: join(ctx.resultsDir, 'held-out'),
         cases: {
           'held-01': {
             id: 'held-01',

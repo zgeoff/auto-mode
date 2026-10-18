@@ -4,19 +4,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadDecisionRulesCases } from './load-decision-rules-cases.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-decision-rules-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-decision-rules-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it gives a case without its own cwd and repository the corpus-wide ones', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'corpus.json'),
+    join(ctx.directory, 'corpus.json'),
     JSON.stringify({
       cwd: '/home/dev/app',
       repository: { branch: 'feat/a', defaultBranch: 'main' },
@@ -34,7 +34,7 @@ test('it gives a case without its own cwd and repository the corpus-wide ones', 
     }),
   );
 
-  const cases = await loadDecisionRulesCases(join(ctx.dir, 'corpus.json'));
+  const cases = await loadDecisionRulesCases(join(ctx.directory, 'corpus.json'));
 
   expect(cases).toStrictEqual([
     {
@@ -52,7 +52,7 @@ test('it keeps the cwd and repository a case recorded for itself', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'corpus.json'),
+    join(ctx.directory, 'corpus.json'),
     JSON.stringify({
       cwd: '/home/dev/app',
       repository: { branch: 'main', defaultBranch: 'main' },
@@ -72,7 +72,7 @@ test('it keeps the cwd and repository a case recorded for itself', async () => {
     }),
   );
 
-  const cases = await loadDecisionRulesCases(join(ctx.dir, 'corpus.json'));
+  const cases = await loadDecisionRulesCases(join(ctx.directory, 'corpus.json'));
 
   expect(cases).toStrictEqual([
     {

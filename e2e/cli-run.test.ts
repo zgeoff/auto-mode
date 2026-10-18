@@ -23,13 +23,13 @@ async function setupTest(): Promise<{
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  const repo = join(dir, 'repo');
+  const repo = join(directory, 'repo');
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(dir, ['init', '-q', '-b', 'main', repo]);
+  runGit(directory, ['init', '-q', '-b', 'main', repo]);
 
   // A version manager's node shim reads its config under the user's HOME, which
   // the child does not get, so the child runs the binary the shim resolves to.
@@ -57,19 +57,19 @@ async function setupTest(): Promise<{
       PATH: process.env['PATH'],
 
       // the home the CLI falls back to for its config and state
-      HOME: dir,
+      HOME: directory,
 
       // the CLI reads its config.json under this directory
-      XDG_CONFIG_HOME: dir,
+      XDG_CONFIG_HOME: directory,
 
       // the CLI keeps its denial counts under this directory
-      XDG_STATE_HOME: dir,
+      XDG_STATE_HOME: directory,
 
       // the CLI appends a diagnostic record per run to this file
-      AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
+      AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
 
       // the CLI reads Claude Code's settings.json under this directory
-      CLAUDE_CONFIG_DIR: dir,
+      CLAUDE_CONFIG_DIR: directory,
     },
   };
 }

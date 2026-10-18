@@ -53,7 +53,7 @@ export const containmentReplay = defineExperiment<ReplayCase>({
       sets: [
         {
           corpus: 'decision-rules',
-          dir: corpusDir,
+          directory: corpusDir,
           cases: Object.fromEntries(
             loaded.flatMap((entry) => entry.cases).map((entry) => [entry.call.id, entry]),
           ),

@@ -9,16 +9,19 @@ const RESULTS_REMOTE =
 const RESULTS_README_TITLE = '# auto-mode-evals';
 
 export interface ResultsClone {
-  readonly dir: string;
+  readonly directory: string;
   readonly root: string;
 }
 
 // Paths are compared after resolving symlinks, so a link into the public
 // repository cannot pass for a results clone. The clone is recognised by its
 // origin remote, or by the README title and manifest a fork or mirror keeps.
-export async function requireResultsClone(dir: string, publicRoot: string): Promise<ResultsClone> {
-  const real = await realpath(dir).catch(() => {
-    throw new Error(`The results directory does not exist: ${dir}`);
+export async function requireResultsClone(
+  directory: string,
+  publicRoot: string,
+): Promise<ResultsClone> {
+  const real = await realpath(directory).catch(() => {
+    throw new Error(`The results directory does not exist: ${directory}`);
   });
 
   const publicReal = await realpath(publicRoot);
@@ -37,19 +40,19 @@ export async function requireResultsClone(dir: string, publicRoot: string): Prom
     throw new Error(`The results directory is not a clone of zgeoff/auto-mode-evals: ${root}`);
   }
 
-  return { dir: real, root };
+  return { directory: real, root };
 }
 
-function isInside(root: string, dir: string): boolean {
-  const path = relative(root, dir);
+function isInside(root: string, directory: string): boolean {
+  const path = relative(root, directory);
 
   return path === '' || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path));
 }
 
-function readGitRoot(dir: string): string | null {
+function readGitRoot(directory: string): string | null {
   try {
     return execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      cwd: dir,
+      cwd: directory,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();

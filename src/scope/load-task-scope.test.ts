@@ -8,27 +8,27 @@ import { buildMockSessionScope } from '../../test-utils/factories/build-mock-ses
 import { runGit } from '../../test-utils/run-git.ts';
 import { loadTaskScope } from './load-task-scope.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
+async function setupTest(): Promise<{ readonly directory: string }> {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-scope-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
   // git writes the real path of a linked worktree's git directory.
-  return { dir: await realpath(created) };
+  return { directory: await realpath(created) };
 }
 
 test('it owns the linked worktree that holds the cwd, its branch, and the remotes', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'app');
+  const repo = join(ctx.directory, 'app');
   const worktree = join(repo, '.worktrees', 'feature');
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.dir, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
-  runGit(ctx.dir, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
-  runGit(ctx.dir, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  runGit(ctx.directory, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
 
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
     repo,
     'symbolic-ref',
@@ -39,14 +39,14 @@ test('it owns the linked worktree that holds the cwd, its branch, and the remote
   await mkdir(join(worktree, 'src'));
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: join(worktree, 'src'), stateDir: join(ctx.dir, 'state') },
+    { sessionID: 'session-1', cwd: join(worktree, 'src'), stateDir: join(ctx.directory, 'state') },
     { cwd: { kind: 'cwd' } },
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },
   );
 
   expect(scope).toStrictEqual({
-    home: ctx.dir,
+    home: ctx.directory,
     worktrees: [worktree],
     branches: ['feature'],
     currentBranch: 'feature',
@@ -59,12 +59,12 @@ test('it owns the linked worktree that holds the cwd, its branch, and the remote
 test('it owns the main checkout but not its default branch', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'app');
+  const repo = join(ctx.directory, 'app');
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.dir, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
 
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
     repo,
     'symbolic-ref',
@@ -73,14 +73,14 @@ test('it owns the main checkout but not its default branch', async () => {
   ]);
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.dir, 'state') },
+    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.directory, 'state') },
     { cwd: { kind: 'cwd' } },
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },
   );
 
   expect(scope).toStrictEqual({
-    home: ctx.dir,
+    home: ctx.directory,
     worktrees: [repo],
     branches: [],
     currentBranch: 'main',
@@ -93,20 +93,20 @@ test('it owns the main checkout but not its default branch', async () => {
 test('it owns only the cwd when git directory overrides hide the checkout', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'app');
+  const repo = join(ctx.directory, 'app');
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.dir, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.dir, 'state') },
+    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.directory, 'state') },
     { cwd: { kind: 'cwd' } },
-    buildMockHostEnvironment({ env: { GIT_DIR: join(repo, '.git') }, home: ctx.dir }),
+    buildMockHostEnvironment({ env: { GIT_DIR: join(repo, '.git') }, home: ctx.directory }),
     { write: mock() },
   );
 
   expect(scope).toStrictEqual({
-    home: ctx.dir,
+    home: ctx.directory,
     worktrees: [repo],
     branches: [],
     currentBranch: null,
@@ -119,16 +119,16 @@ test('it owns only the cwd when git directory overrides hide the checkout', asyn
 test('it unites the sources and owns the PRs whose head branch and repository are in scope', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'app');
-  const stateDir = join(ctx.dir, 'state');
+  const repo = join(ctx.directory, 'app');
+  const stateDir = join(ctx.directory, 'state');
 
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.dir, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
 
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
     repo,
     'symbolic-ref',
@@ -160,12 +160,12 @@ test('it unites the sources and owns the PRs whose head branch and repository ar
       session: { kind: 'session' },
       scratch: { kind: 'globs', paths: ['/scratch/**'] },
     },
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },
   );
 
   expect(scope).toStrictEqual({
-    home: ctx.dir,
+    home: ctx.directory,
     worktrees: [repo, join(repo, '.worktrees', 'docs')],
     branches: ['docs'],
     currentBranch: 'main',
@@ -178,15 +178,15 @@ test('it unites the sources and owns the PRs whose head branch and repository ar
 test('it reads no session scope when the registry has no session source', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'app');
-  const stateDir = join(ctx.dir, 'state');
+  const repo = join(ctx.directory, 'app');
+  const stateDir = join(ctx.directory, 'state');
 
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
 
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
     repo,
     'symbolic-ref',
@@ -200,12 +200,12 @@ test('it reads no session scope when the registry has no session source', async 
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: repo, stateDir },
     { cwd: { kind: 'cwd' } },
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },
   );
 
   expect(scope).toStrictEqual({
-    home: ctx.dir,
+    home: ctx.directory,
     worktrees: [repo],
     branches: [],
     currentBranch: 'main',
@@ -218,15 +218,15 @@ test('it reads no session scope when the registry has no session source', async 
 test('it owns the atc record that the host environment names, from the main checkout', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'app');
+  const repo = join(ctx.directory, 'app');
   const worktree = join(repo, '.worktrees', 'feature');
-  const recordPath = join(ctx.dir, 'record.json');
+  const recordPath = join(ctx.directory, 'record.json');
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.dir, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
-  runGit(ctx.dir, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  runGit(ctx.directory, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
 
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
     repo,
     'symbolic-ref',
@@ -245,17 +245,17 @@ test('it owns the atc record that the host environment names, from the main chec
   );
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.dir, 'state') },
+    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.directory, 'state') },
     { atc: { kind: 'atc' } },
     buildMockHostEnvironment({
       env: { ATC_SESSION_RECORD: recordPath, ATC_SESSION_ID: 'atc-1' },
-      home: ctx.dir,
+      home: ctx.directory,
     }),
     { write: mock() },
   );
 
   expect(scope).toStrictEqual({
-    home: ctx.dir,
+    home: ctx.directory,
     worktrees: [worktree],
     branches: ['feature'],
     currentBranch: 'main',
@@ -268,17 +268,17 @@ test('it owns the atc record that the host environment names, from the main chec
 test('it never owns a recorded branch of another repository', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'app');
-  const other = join(ctx.dir, 'other');
-  const stateDir = join(ctx.dir, 'state');
+  const repo = join(ctx.directory, 'app');
+  const other = join(ctx.directory, 'other');
+  const stateDir = join(ctx.directory, 'state');
 
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', other]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', other]);
 
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
     repo,
     'symbolic-ref',
@@ -302,12 +302,12 @@ test('it never owns a recorded branch of another repository', async () => {
   const scope = await loadTaskScope(
     { sessionID: 'session-1', cwd: repo, stateDir },
     { session: { kind: 'session' } },
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },
   );
 
   expect(scope).toStrictEqual({
-    home: ctx.dir,
+    home: ctx.directory,
     worktrees: [],
     branches: ['docs'],
     currentBranch: 'main',

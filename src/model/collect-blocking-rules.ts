@@ -25,9 +25,9 @@ export function collectBlockingRules(
   return entries
     .filter((entry) => entry.answer.probabilities.block >= blockThreshold)
     .toSorted(
-      (a, b) =>
-        b.answer.probabilities.block - a.answer.probabilities.block ||
-        TIER_ORDER[a.rule.tier] - TIER_ORDER[b.rule.tier],
+      (left, right) =>
+        right.answer.probabilities.block - left.answer.probabilities.block ||
+        TIER_ORDER[left.rule.tier] - TIER_ORDER[right.rule.tier],
     );
 }
 

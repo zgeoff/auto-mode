@@ -1,4 +1,5 @@
 import { basename, join } from 'node:path';
+import { match } from 'ts-pattern';
 import * as z from 'zod';
 import { answerGuidanceCorpusSchema } from './answer-guidance-corpus-schema.ts';
 import { taskScopeSessionsSchema } from './corpora/task-scope-sessions-schema.ts';
@@ -12,26 +13,27 @@ export interface CorpusCaseKeys {
   readonly keys: readonly string[];
 }
 
-export async function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
+export function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
   const corpus = basename(corpusDir);
 
-  switch (corpus) {
-    case 'answer-guidance': {
+  return match(corpus)
+    .returnType<Promise<CorpusCaseKeys>>()
+    .with('answer-guidance', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), answerGuidanceCorpusSchema);
 
       return { key: 'name', keys: loaded.data.cases.map((entry) => entry.name) };
-    }
-    case 'applicability': {
+    })
+    .with('applicability', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), namedCasesSchema);
 
       return { key: 'name', keys: loaded.data.cases.map((entry) => entry.name) };
-    }
-    case 'containment': {
+    })
+    .with('containment', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'twins.json'), idCasesSchema);
 
       return { key: 'id', keys: loaded.data.cases.map((entry) => entry.id) };
-    }
-    case 'decision-rules': {
+    })
+    .with('decision-rules', async () => {
       const [nearMiss, realTraffic] = await Promise.all([
         loadCorpus(join(corpusDir, 'consent-near-miss.json'), decisionRulesCorpusSchema),
         loadCorpus(join(corpusDir, 'real-traffic.json'), decisionRulesCorpusSchema),
@@ -40,38 +42,35 @@ export async function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
       const cases = [...nearMiss.data.cases, ...realTraffic.data.cases];
 
       return { key: 'id', keys: cases.map((entry) => entry.id) };
-    }
-    case 'default-branch-write':
-    case 'held-out':
-    case 'question-severity': {
+    })
+    .with('default-branch-write', 'held-out', 'question-severity', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), decisionRulesCorpusSchema);
 
       return { key: 'id', keys: loaded.data.cases.map((entry) => entry.id) };
-    }
-    case 'relay-consent': {
+    })
+    .with('relay-consent', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), relayConsentCorpusSchema);
 
       return { key: 'action/cell', keys: buildRelayConsentKeys(loaded.data) };
-    }
-    case 'second-judge': {
+    })
+    .with('second-judge', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), idCasesSchema);
 
       return { key: 'id', keys: loaded.data.cases.map((entry) => entry.id) };
-    }
-    case 'stale-consent': {
+    })
+    .with('stale-consent', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), staleConsentCorpusSchema);
 
       return { key: 'pair/arm', keys: buildStaleConsentKeys(loaded.data) };
-    }
-    case 'task-scope': {
+    })
+    .with('task-scope', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'sessions.json'), taskScopeSessionsSchema);
 
       return { key: 'name', keys: loaded.data.sessions.map((session) => session.name) };
-    }
-    default: {
-      throw new Error(`No case keys are defined for the corpus ${corpus}.`);
-    }
-  }
+    })
+    .otherwise(() =>
+      Promise.reject(new Error(`No case keys are defined for the corpus ${corpus}.`)),
+    );
 }
 
 const namedCaseSchema = z.object({ name: z.string() });

@@ -7,13 +7,13 @@ import { loadSessionScope } from './load-session-scope.ts';
 import { writeSessionScope } from './write-session-scope.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-session-scope-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-session-scope-'));
 
   onTestFinished(async () => {
-    await rm(dir, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true });
   });
 
-  return { path: join(dir, 'session-scope', 'session.json') };
+  return { path: join(directory, 'session-scope', 'session.json') };
 }
 
 test('it merges the added scope into the scope already written', async () => {

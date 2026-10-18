@@ -1,7 +1,7 @@
 import { mock } from 'bun:test';
 
 export interface StubTimeout {
-  readonly timeout: ReturnType<typeof mock<(ms: number) => AbortSignal>>;
+  readonly timeout: ReturnType<typeof mock<(timeoutMs: number) => AbortSignal>>;
   readonly emitTimeout: (call: number) => void;
 }
 
@@ -27,7 +27,7 @@ export function buildStubTimeout(): StubTimeout {
   };
 
   return {
-    timeout: mock<(ms: number) => AbortSignal>(() => {
+    timeout: mock<(timeoutMs: number) => AbortSignal>(() => {
       calls += 1;
 
       return getTimer(calls).signal;

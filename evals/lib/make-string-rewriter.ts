@@ -48,7 +48,7 @@ export function makeStringRewriter(
   };
 
   const names = Object.keys(identifiers)
-    .toSorted((a, b) => b.length - a.length)
+    .toSorted((left, right) => right.length - left.length)
     .map((name) => name.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`));
 
   const identifierPattern =

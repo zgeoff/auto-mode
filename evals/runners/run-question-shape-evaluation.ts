@@ -452,9 +452,9 @@ function formatAnswers(
       const probabilities =
         questionID === 'categorical'
           ? Object.fromEntries(
-              Object.entries(answer.probabilities).map(([option, p]) => [
+              Object.entries(answer.probabilities).map(([option, probability]) => [
                 getRuleLabel(rules, option),
-                p,
+                probability,
               ]),
             )
           : answer.probabilities;

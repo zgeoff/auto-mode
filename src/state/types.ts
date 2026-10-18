@@ -1,4 +1,4 @@
 export interface LockClock {
   readonly now: () => number;
-  readonly wait: (ms: number) => Promise<void>;
+  readonly wait: (delayMs: number) => Promise<void>;
 }

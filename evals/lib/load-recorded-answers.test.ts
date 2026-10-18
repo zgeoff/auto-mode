@@ -10,12 +10,12 @@ import { buildMockSampleRecord } from './factories/build-mock-sample-record.ts';
 import { loadRecordedAnswers } from './load-recorded-answers.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'recorded-answers-'));
+  const directory = await mkdtemp(join(tmpdir(), 'recorded-answers-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const corporaDir = join(dir, 'corpora');
-  const resultsDir = join(dir, 'results');
+  const corporaDir = join(directory, 'corpora');
+  const resultsDir = join(directory, 'results');
 
   await mkdir(corporaDir);
   await mkdir(resultsDir);

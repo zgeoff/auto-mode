@@ -41,7 +41,7 @@ function sortKeys(value: unknown): unknown {
   if (typeof value === 'object' && value !== null) {
     return Object.fromEntries(
       Object.entries(value)
-        .toSorted(([a], [b]) => (a < b ? -1 : 1))
+        .toSorted(([leftKey], [rightKey]) => (leftKey < rightKey ? -1 : 1))
         .map(([key, item]) => [key, sortKeys(item)]),
     );
   }

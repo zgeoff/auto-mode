@@ -14,14 +14,14 @@ async function setupTest() {
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  const repo = join(dir, 'repo');
+  const repo = join(directory, 'repo');
 
   // the classifier finds the target's checkout through git, so a real repository has to exist
-  runGit(dir, ['init', '-q', '-b', 'main', repo]);
+  runGit(directory, ['init', '-q', '-b', 'main', repo]);
 
-  return { dir, repo };
+  return { directory, repo };
 }
 
 test('it lets a Write inside an in-scope checkout skip Jev', async () => {
@@ -34,7 +34,7 @@ test('it lets a Write inside an in-scope checkout skip Jev', async () => {
       toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
     }),
     buildMockOwnedScope({ worktrees: [ctx.repo] }),
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(classification).toStrictEqual({ kind: 'bypass', target: join(ctx.repo, 'src', 'a.ts') });
@@ -52,7 +52,7 @@ test('it sends an Edit to Jev when its text is not in the file on disk', async (
       toolInput: { file_path: 'a.ts', old_string: 'a = 1', new_string: 'a = 3' },
     }),
     buildMockOwnedScope({ worktrees: [ctx.repo] }),
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(classification).toStrictEqual({ kind: 'jev', reason: 'the edit text is not in the file' });

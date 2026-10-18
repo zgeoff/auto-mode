@@ -38,15 +38,15 @@ test('it plans a model experiment without live mode and sends and writes nothing
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -127,15 +127,15 @@ test('it refuses a live run whose plan needs more requests than the cap', async 
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -204,15 +204,15 @@ test('it records each live answer with its stage model, probability of block, re
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -291,15 +291,15 @@ test('it keeps the stage model of a live run that stops after its first answer',
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -379,15 +379,15 @@ test('it scores a fallback judge reply under the configured judge model and coun
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -488,15 +488,15 @@ test('it leaves unscored a judge reply to a request that named another model tha
     corpora: ['containment'],
     samples: 1,
     loadCases: async (source) => {
-      const dir = join(source.corporaDir, 'containment');
+      const directory = join(source.corporaDir, 'containment');
 
-      const loaded = await loadCaseKeys(dir);
+      const loaded = await loadCaseKeys(directory);
 
       return {
         sets: [
           {
             corpus: 'containment',
-            dir,
+            directory,
             cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
           },
         ],
@@ -622,15 +622,15 @@ test('it refuses a run limited to a case the experiment lacks', async () => {
         corpora: ['containment'],
         samples: 1,
         loadCases: async (source) => {
-          const dir = join(source.corporaDir, 'containment');
+          const directory = join(source.corporaDir, 'containment');
 
-          const loaded = await loadCaseKeys(dir);
+          const loaded = await loadCaseKeys(directory);
 
           return {
             sets: [
               {
                 corpus: 'containment',
-                dir,
+                directory,
                 cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
               },
             ],
@@ -692,15 +692,15 @@ test('it records a failed request as not scorable with its reason', async () => 
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -775,15 +775,15 @@ test('it replays a recording through the stages that can, names the stage that c
       samples: 1,
       recordings: [{ name: 'baseline', description: 'the baseline answers' }],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -879,15 +879,15 @@ test('it replays the recorded stages and sends only the recording’s live stage
       samples: 1,
       recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -985,15 +985,15 @@ test('it caps a live replay run at the judge requests its recorded Jev denies ne
       samples: 1,
       recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1093,15 +1093,15 @@ test('it refuses a live replay run whose recorded Jev denies need more judge req
       samples: 1,
       recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1201,15 +1201,15 @@ test('it counts each live stage after a unit’s first live send in a live repla
         },
       ],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1433,15 +1433,15 @@ test('it measures only the cases the experiment selects, keyed by their corpus',
       samples: 1,
       selectCase: (_label, key) => key === 'containment/twin-01' || key === 'containment/twin-02',
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1512,15 +1512,15 @@ test('it refuses a run whose cases lack a required case', async () => {
       requiredCases: ['containment/twin-01'],
       selectCase: (_label, key) => key === 'containment/twin-02',
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1574,15 +1574,15 @@ test('it reports each required case by key with every stage verdict', async () =
       samples: 2,
       requiredCases: ['containment/twin-01'],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1656,15 +1656,15 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
       corpora: ['containment'],
       samples: 2,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1718,15 +1718,15 @@ test('it resumes a run by running only the stage runs its samples file lacks', a
       corpora: ['containment'],
       samples: 2,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1818,15 +1818,15 @@ test('it counts a resumed live replay run with the model each stage answered wit
       samples: 1,
       recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1877,15 +1877,15 @@ test('it counts a resumed live replay run with the model each stage answered wit
       samples: 1,
       recordings: [{ name: 'jev-only', description: 'the Jev answers', liveStages: ['judge'] }],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -1949,15 +1949,15 @@ test('it resumes a run whose last samples line is torn, says so, and runs that s
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2013,15 +2013,15 @@ test('it resumes a run whose last samples line is torn, says so, and runs that s
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2082,15 +2082,15 @@ test('it refuses to resume a run with another seed', async () => {
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2136,15 +2136,15 @@ test('it refuses to resume a run with another seed', async () => {
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2194,15 +2194,15 @@ test('it refuses to write a run with no results directory named', async () => {
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2258,15 +2258,15 @@ test('it writes a run whose summary and samples the result schemas read back', a
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2361,15 +2361,15 @@ test.each([
         corpora: ['containment'],
         samples: 1,
         loadCases: async (source) => {
-          const dir = join(source.corporaDir, 'containment');
+          const directory = join(source.corporaDir, 'containment');
 
-          const loaded = await loadCaseKeys(dir);
+          const loaded = await loadCaseKeys(directory);
 
           return {
             sets: [
               {
                 corpus: 'containment',
-                dir,
+                directory,
                 cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
               },
             ],
@@ -2434,15 +2434,15 @@ test('it stops a live run whose judge stage has no judge transport instead of re
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2503,15 +2503,15 @@ test('it names the stages a recording left out in the all-stages count', async (
       samples: 1,
       recordings: [{ name: 'baseline', description: 'the baseline answers' }],
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2597,15 +2597,15 @@ test('it refuses to resume a run started from a dirty tree', async () => {
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],
@@ -2651,15 +2651,15 @@ test('it refuses to resume a run started from a dirty tree', async () => {
       corpora: ['containment'],
       samples: 1,
       loadCases: async (source) => {
-        const dir = join(source.corporaDir, 'containment');
+        const directory = join(source.corporaDir, 'containment');
 
-        const loaded = await loadCaseKeys(dir);
+        const loaded = await loadCaseKeys(directory);
 
         return {
           sets: [
             {
               corpus: 'containment',
-              dir,
+              directory,
               cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
             },
           ],

@@ -16,11 +16,11 @@ async function setupTest() {
 
   onTestFinished(() => stack.disposeAsync());
 
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-stub-key-helper-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-stub-key-helper-'));
 
-  stack.defer(() => rm(dir, { recursive: true, force: true }));
+  stack.defer(() => rm(directory, { recursive: true, force: true }));
 
-  const socketPath = join(dir, 'ready.sock');
+  const socketPath = join(directory, 'ready.sock');
   const report = Promise.withResolvers<string>();
 
   const server = createServer((socket) => {

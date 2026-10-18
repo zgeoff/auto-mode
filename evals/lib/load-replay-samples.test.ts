@@ -4,19 +4,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadReplaySamples } from './load-replay-samples.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-replay-samples-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-replay-samples-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it pairs each replay sample with the case it replays', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'corpus.json'),
+    join(ctx.directory, 'corpus.json'),
     JSON.stringify({
       cwd: '/home/dev/app',
       repository: { branch: 'feat/a', defaultBranch: 'main' },
@@ -35,7 +35,7 @@ test('it pairs each replay sample with the case it replays', async () => {
   );
 
   await writeFile(
-    join(ctx.dir, 'replay.json'),
+    join(ctx.directory, 'replay.json'),
     JSON.stringify({
       records: [
         ['R1', 1, 1],
@@ -45,8 +45,8 @@ test('it pairs each replay sample with the case it replays', async () => {
   );
 
   const samples = await loadReplaySamples(
-    join(ctx.dir, 'corpus.json'),
-    join(ctx.dir, 'replay.json'),
+    join(ctx.directory, 'corpus.json'),
+    join(ctx.directory, 'replay.json'),
   );
 
   expect(samples).toStrictEqual([
@@ -81,7 +81,7 @@ test('it rejects a replay sample of a case the corpus lacks', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'corpus.json'),
+    join(ctx.directory, 'corpus.json'),
     JSON.stringify({
       cwd: '/home/dev/app',
       repository: { branch: 'feat/a', defaultBranch: 'main' },
@@ -99,9 +99,9 @@ test('it rejects a replay sample of a case the corpus lacks', async () => {
     }),
   );
 
-  await writeFile(join(ctx.dir, 'replay.json'), JSON.stringify({ records: [['R2', 1, 1]] }));
+  await writeFile(join(ctx.directory, 'replay.json'), JSON.stringify({ records: [['R2', 1, 1]] }));
 
   expect(
-    loadReplaySamples(join(ctx.dir, 'corpus.json'), join(ctx.dir, 'replay.json')),
+    loadReplaySamples(join(ctx.directory, 'corpus.json'), join(ctx.directory, 'replay.json')),
   ).rejects.toThrowWithMessage(Error, /the corpus lacks: R2/u);
 });

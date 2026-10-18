@@ -156,7 +156,7 @@ export async function sendDecision(
     const distribution: number[] = Object.values(value.probabilities);
 
     if (
-      Math.abs(distribution.reduce((sum, p) => sum + p, 0) - 1) >
+      Math.abs(distribution.reduce((sum, probability) => sum + probability, 0) - 1) >
         probabilitySumTolerance + floatSumSlack ||
       (value.probabilities[value.choice] ?? 0) < Math.max(...distribution)
     ) {

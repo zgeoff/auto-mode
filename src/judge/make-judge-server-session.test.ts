@@ -7,11 +7,11 @@ import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-judge-client-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-judge-client-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(dir, 'bin');
+  const binDir = join(directory, 'bin');
 
   await mkdir(binDir);
 
@@ -23,9 +23,9 @@ async function setupTest() {
   );
 
   return {
-    dir,
+    directory,
     binDir,
-    socketPath: join(dir, 'judge.sock'),
+    socketPath: join(directory, 'judge.sock'),
     stubServer: join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-judge-server.ts'),
   };
 }
@@ -33,7 +33,7 @@ async function setupTest() {
 test('it starts the judge server when none answers, and a later review reaches the same server', async () => {
   const ctx = await setupTest();
 
-  const serversPath = join(ctx.dir, 'servers.jsonl');
+  const serversPath = join(ctx.directory, 'servers.jsonl');
 
   const target = {
     socketPath: ctx.socketPath,

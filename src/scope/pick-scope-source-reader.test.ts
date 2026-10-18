@@ -8,12 +8,12 @@ import { buildMockScopeSourceContext } from '../../test-utils/factories/build-mo
 import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
 import { pickScopeSourceReader } from './pick-scope-source-reader.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-scope-source-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-scope-source-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it owns the worktree and the branch of the cwd', async () => {
@@ -45,7 +45,7 @@ test('it owns no branch from the cwd when the checkout has none checked out', as
 test('it owns what the session recorded, keeping only the branches of the action repository', async () => {
   const ctx = await setupTest();
 
-  const stateDir = join(ctx.dir, 'state');
+  const stateDir = join(ctx.directory, 'state');
 
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
@@ -81,7 +81,7 @@ test('it owns what the session recorded, keeping only the branches of the action
 test("it owns nothing from another session's recorded scope", async () => {
   const ctx = await setupTest();
 
-  const stateDir = join(ctx.dir, 'state');
+  const stateDir = join(ctx.directory, 'state');
 
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
@@ -118,9 +118,9 @@ test('it owns no path glob when the globs source lists no paths', async () => {
 test('it owns the atc checkouts and only the branches that share the action repository', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'repo');
-  const other = join(ctx.dir, 'other');
-  const recordPath = join(ctx.dir, 'record.json');
+  const repo = join(ctx.directory, 'repo');
+  const other = join(ctx.directory, 'other');
+  const recordPath = join(ctx.directory, 'record.json');
 
   await mkdir(join(repo, '.git'), { recursive: true });
   await mkdir(join(other, '.git'), { recursive: true });
@@ -159,8 +159,8 @@ test('it owns the atc checkouts and only the branches that share the action repo
 test('it owns no atc branch when the action is outside every checkout', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'repo');
-  const recordPath = join(ctx.dir, 'record.json');
+  const repo = join(ctx.directory, 'repo');
+  const recordPath = join(ctx.directory, 'record.json');
 
   await mkdir(join(repo, '.git'), { recursive: true });
 
@@ -188,7 +188,7 @@ test('it owns no atc branch when the action is outside every checkout', async ()
 test('it owns nothing from an atc record of another version', async () => {
   const ctx = await setupTest();
 
-  const recordPath = join(ctx.dir, 'record.json');
+  const recordPath = join(ctx.directory, 'record.json');
 
   await writeFile(
     recordPath,
@@ -205,7 +205,7 @@ test('it owns nothing from an atc record of another version', async () => {
 test('it writes one diagnostic line for an atc record of another version', async () => {
   const ctx = await setupTest();
 
-  const recordPath = join(ctx.dir, 'record.json');
+  const recordPath = join(ctx.directory, 'record.json');
   const write = mock();
 
   await writeFile(
@@ -247,7 +247,7 @@ test('it writes no diagnostic when the session has no atc record', async () => {
 test('it owns only the atc branches whose checkout shares the action repository by the checkout lookup it is given', async () => {
   const ctx = await setupTest();
 
-  const recordPath = join(ctx.dir, 'record.json');
+  const recordPath = join(ctx.directory, 'record.json');
 
   await writeFile(
     recordPath,

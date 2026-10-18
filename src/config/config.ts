@@ -32,7 +32,7 @@ const SCOPE_SOURCE_KINDS = ['cwd', 'session', 'globs', 'atc'] as const;
 
 export interface CaptureConfig {
   readonly enabled: boolean;
-  readonly dir?: string | undefined;
+  readonly directory?: string | undefined;
 }
 
 export interface Config {
@@ -145,6 +145,7 @@ const configFileSchema = z.strictObject({
   capture: z
     .strictObject({
       enabled: z.boolean().optional(),
+      // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
       dir: text.optional(),
     })
     .optional(),
@@ -228,7 +229,7 @@ function buildConfig(json: unknown, path: string, home: string): Config {
       : {
           capture: {
             enabled: file.capture.enabled ?? false,
-            dir: expandHomePath(file.capture.dir, home),
+            directory: expandHomePath(file.capture.dir, home),
           },
         }),
     warnings,

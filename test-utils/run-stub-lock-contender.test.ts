@@ -5,18 +5,18 @@ import { dirname, join } from 'node:path';
 import { waitFor } from './wait-for.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-stub-lock-contender-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-stub-lock-contender-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const barrierDir = join(dir, 'barrier');
+  const barrierDir = join(directory, 'barrier');
 
   await mkdir(barrierDir);
 
   return {
     stubPath: join(import.meta.dir, 'run-stub-lock-contender.ts'),
-    statePath: join(dir, 'state', 'session.json'),
-    logPath: join(dir, 'turns.log'),
+    statePath: join(directory, 'state', 'session.json'),
+    logPath: join(directory, 'turns.log'),
     barrierDir,
   };
 }

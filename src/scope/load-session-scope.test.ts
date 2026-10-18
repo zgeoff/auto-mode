@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { loadSessionScope } from './load-session-scope.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-load-session-scope-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-load-session-scope-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { path: join(dir, 'session.json') };
+  return { path: join(directory, 'session.json') };
 }
 
 test('it loads the scope a session has recorded', async () => {

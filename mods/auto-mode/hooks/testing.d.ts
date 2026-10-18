@@ -57,10 +57,10 @@ declare module 'claude-code/testing' {
 
   interface MockClock {
     readonly now: () => number;
-    readonly advance: (ms: number) => Promise<void>;
-    readonly set: (ms: number) => Promise<void>;
+    readonly advance: (durationMs: number) => Promise<void>;
+    readonly set: (epochMs: number) => Promise<void>;
     readonly settle: () => Promise<void>;
-    readonly sleep: (ms: number) => Promise<void>;
+    readonly sleep: (durationMs: number) => Promise<void>;
   }
 
   interface MockClockOptions {

@@ -11,19 +11,19 @@ async function setupTest() {
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  return { dir: await realpath(created) };
+  return { directory: await realpath(created) };
 }
 
 test('it reads the checkout, its branches and its remotes from one walk', async () => {
   const ctx = await setupTest();
 
-  const repo = join(ctx.dir, 'app');
+  const repo = join(ctx.directory, 'app');
   const worktree = join(repo, '.worktrees', 'feature');
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.dir, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
-  runGit(ctx.dir, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
-  runGit(ctx.dir, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  runGit(ctx.directory, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
 
   await mkdir(join(repo, '.git', 'refs', 'remotes', 'origin'), { recursive: true });
 
@@ -52,25 +52,29 @@ test('it reads the checkout, its branches and its remotes from one walk', async 
 
 test('it reads no facts outside a checkout', async () => {
   const ctx = await setupTest();
-  const facts = await loadCheckoutFacts(ctx.dir, {}, { stopDir: ctx.dir });
+  const facts = await loadCheckoutFacts(ctx.directory, {}, { stopDir: ctx.directory });
 
-  expect(facts).toStrictEqual({ cwd: ctx.dir, checkout: null, head: null, remotes: [] });
+  expect(facts).toStrictEqual({ cwd: ctx.directory, checkout: null, head: null, remotes: [] });
 });
 
 test('it keeps the checkout and its remotes when HEAD cannot be read', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.git'));
-  await writeFile(join(ctx.dir, '.git', 'config'), '[remote "origin"]\n\turl = https://x/y.git\n');
+  await mkdir(join(ctx.directory, '.git'));
 
-  const facts = await loadCheckoutFacts(ctx.dir, {}, { stopDir: ctx.dir });
+  await writeFile(
+    join(ctx.directory, '.git', 'config'),
+    '[remote "origin"]\n\turl = https://x/y.git\n',
+  );
+
+  const facts = await loadCheckoutFacts(ctx.directory, {}, { stopDir: ctx.directory });
 
   expect(facts).toStrictEqual({
-    cwd: ctx.dir,
+    cwd: ctx.directory,
     checkout: {
-      worktree: ctx.dir,
-      gitDir: join(ctx.dir, '.git'),
-      commonDir: join(ctx.dir, '.git'),
+      worktree: ctx.directory,
+      gitDir: join(ctx.directory, '.git'),
+      commonDir: join(ctx.directory, '.git'),
     },
     head: null,
     remotes: [{ name: 'origin', url: 'https://x/y.git' }],

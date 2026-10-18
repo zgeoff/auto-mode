@@ -18,10 +18,10 @@ async function setupTest(files: Readonly<Record<string, string>>): Promise<{
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
   // the rule roots its globs at the nearest .git, so the tree is a repo of its own
-  runGit(dir, ['init', '-q']);
+  runGit(directory, ['init', '-q']);
 
   const text = await Bun.file(join(root, '.oxlintrc.json')).text();
 
@@ -48,8 +48,8 @@ async function setupTest(files: Readonly<Record<string, string>>): Promise<{
   };
 
   for (const [path, content] of Object.entries(tree)) {
-    await mkdir(dirname(join(dir, path)), { recursive: true });
-    await writeFile(join(dir, path), content);
+    await mkdir(dirname(join(directory, path)), { recursive: true });
+    await writeFile(join(directory, path), content);
   }
 
   return {
@@ -67,9 +67,12 @@ async function setupTest(files: Readonly<Record<string, string>>): Promise<{
         target,
       ];
 
-      const proc = Bun.spawn(args, { cwd: dir, stdout: 'pipe', stderr: 'pipe' });
+      const child = Bun.spawn(args, { cwd: directory, stdout: 'pipe', stderr: 'pipe' });
 
-      const [exitCode, stdout] = await Promise.all([proc.exited, new Response(proc.stdout).text()]);
+      const [exitCode, stdout] = await Promise.all([
+        child.exited,
+        new Response(child.stdout).text(),
+      ]);
 
       return { exitCode, stdout };
     },

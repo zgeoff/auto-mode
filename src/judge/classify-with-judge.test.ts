@@ -18,11 +18,11 @@ import { waitFor } from '../../test-utils/wait-for.ts';
 import { classifyWithJudge } from './classify-with-judge.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-classify-with-judge-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-classify-with-judge-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(dir, 'bin');
+  const binDir = join(directory, 'bin');
 
   await mkdir(binDir);
 
@@ -33,7 +33,7 @@ async function setupTest() {
     { mode: 0o755 },
   );
 
-  return { dir, binDir, recordPath: join(dir, 'calls.jsonl') };
+  return { directory, binDir, recordPath: join(directory, 'calls.jsonl') };
 }
 
 test('it allows an action whose soft-rule deny the judge overturns', async () => {
@@ -61,7 +61,7 @@ test('it allows an action whose soft-rule deny the judge overturns', async () =>
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"consent","reason":"The user asked to push to main."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -116,7 +116,7 @@ test('it records the fallback model and the safety stops of a reply moved off th
           }),
           STUB_CLAUDE_SAFETY_STOPS: '2',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -161,7 +161,7 @@ test('it holds a hard-rule deny the judge overturns, with the template reason', 
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"consent","reason":"The host is the user’s."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -215,7 +215,7 @@ test('it denies with the judge’s reason when the judge confirms', async () => 
           STUB_CLAUDE_REPLY:
             '{"verdict":"confirm","basis":null,"reason":"The user asked for a branch, not main."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -270,7 +270,7 @@ test('it keeps the deny on a stored-password change the user only asked to check
           STUB_CLAUDE_REPLY:
             '{"verdict":"confirm","basis":null,"reason":"The user asked only to check that the item exists; this replaces its password."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -338,7 +338,7 @@ test('it records a configured hard_deny rule by its source and holds its deny wh
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"consent","reason":"Deploys are routine."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -374,7 +374,7 @@ test('it records a rule outside the shipped policy by its source, never its name
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Deploys are gated."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -412,7 +412,7 @@ test('it keeps the template deny and records a timeout when the judge outlasts i
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Too late."}',
           STUB_CLAUDE_DELAY_MS: '60000',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         timeout: timer.timeout,
       }),
     },
@@ -479,7 +479,7 @@ test('it records a timeout without starting claude when the deadline has already
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Fine."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         now: () => 10_000,
       }),
       deadlineAt: 9000,
@@ -516,7 +516,7 @@ test('it keeps the template deny and records an unreadable reply', async () => {
       overturns: 'consent',
       runtime: buildMockRuntime({
         env: { PATH: ctx.binDir, STUB_CLAUDE_REPLY: 'I would overturn this deny.' },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -570,7 +570,7 @@ test('it keeps the template deny and records a failed request when claude exits 
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Fine."}',
           STUB_CLAUDE_CRASH: 'true',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -603,7 +603,7 @@ test('it keeps the template deny and records a missing credential for a Messages
       baseURL: 'https://gateway.test',
       model: 'claude-haiku-5-5',
     }),
-    { overturns: 'consent', runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
+    { overturns: 'consent', runtime: buildMockRuntime({ env: {}, home: ctx.directory }) },
   );
 
   expect(outcome).toStrictEqual({
@@ -677,7 +677,7 @@ test('it confirms a deny through a Messages judge with the judge policy as the s
       overturns: 'consent',
       runtime: buildMockRuntime({
         env: { AUTO_MODE_JUDGE_TEST_KEY: 'judge-test-key' },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -728,7 +728,7 @@ test('it sends the main agent’s last direct user message to the judge', async 
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -775,7 +775,7 @@ test('it sends no last direct user message to the judge when the message is stal
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Not asked."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -815,7 +815,7 @@ test('it holds a soft-rule deny the judge overturns as a misread when only conse
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"misread","reason":"main is the task branch."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -869,7 +869,7 @@ test('it allows an action whose soft-rule deny the judge overturns as a misread 
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"misread","reason":"main is the task branch."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -922,7 +922,7 @@ test('it holds a containment deny the judge overturns as a misread, with the con
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"misread","reason":"The other worktree looks like the task’s."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -984,7 +984,7 @@ test('it keeps a containment deny with the containment reason when the judge fai
       overturns: 'consent',
       runtime: buildMockRuntime({
         env: { PATH: ctx.binDir, STUB_CLAUDE_REPLY: 'I would rather not say.' },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );
@@ -1036,7 +1036,7 @@ test('it sends the targets of a containment deny with the words that name them t
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
       }),
     },
   );

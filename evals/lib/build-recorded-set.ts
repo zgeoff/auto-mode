@@ -17,5 +17,5 @@ export function buildRecordedSet(
       : [key, { ...entry, recorded: { ...entry.recorded, [stage]: answers } }];
   });
 
-  return { corpus: set.corpus, dir: set.dir, cases: Object.fromEntries(cases) };
+  return { corpus: set.corpus, directory: set.directory, cases: Object.fromEntries(cases) };
 }

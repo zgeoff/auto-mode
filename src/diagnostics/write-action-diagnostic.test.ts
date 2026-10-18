@@ -7,12 +7,12 @@ import { buildMockActionRequest } from '../../test-utils/factories/build-mock-ac
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { writeActionDiagnostic } from './write-action-diagnostic.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'action-diagnostics-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'action-diagnostics-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it appends private correlated records without action, task, credential, or identifier contents', async () => {
@@ -27,11 +27,11 @@ test('it appends private correlated records without action, task, credential, or
     decisionContext: { originalUserTask: { text: 'private-task-canary' } },
   });
 
-  const path = join(ctx.dir, 'private', 'actions.jsonl');
+  const path = join(ctx.directory, 'private', 'actions.jsonl');
 
   const host = buildMockHostEnvironment({
     env: { AUTO_MODE_DIAGNOSTICS_PATH: path },
-    home: ctx.dir,
+    home: ctx.directory,
   });
 
   await writeActionDiagnostic(payload, { invocationID: 'invocation', status: 'started' }, host, {
@@ -102,11 +102,11 @@ test('it appends private correlated records without action, task, credential, or
 test('it records a subagent under an agent hash apart from its parent session', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'actions.jsonl');
+  const path = join(ctx.directory, 'actions.jsonl');
 
   const host = buildMockHostEnvironment({
     env: { AUTO_MODE_DIAGNOSTICS_PATH: path },
-    home: ctx.dir,
+    home: ctx.directory,
   });
 
   await writeActionDiagnostic(
@@ -143,13 +143,13 @@ test('it records a subagent under an agent hash apart from its parent session', 
 test('it stamps a record with the time it was written', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'actions.jsonl');
+  const path = join(ctx.directory, 'actions.jsonl');
   const before = Date.now();
 
   await writeActionDiagnostic(
     buildMockActionRequest(),
     { invocationID: 'invocation', status: 'started' },
-    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir }),
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
     { write: mock() },
   );
 
@@ -165,12 +165,12 @@ test('it stamps a record with the time it was written', async () => {
 test('it creates the record file readable by its owner only', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'private', 'actions.jsonl');
+  const path = join(ctx.directory, 'private', 'actions.jsonl');
 
   await writeActionDiagnostic(
     buildMockActionRequest(),
     { invocationID: 'invocation', status: 'started' },
-    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir }),
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
     { write: mock() },
   );
 
@@ -182,7 +182,7 @@ test('it creates the record file readable by its owner only', async () => {
 test('it records the judge diagnostics of an overturned deny', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'actions.jsonl');
+  const path = join(ctx.directory, 'actions.jsonl');
 
   await writeActionDiagnostic(
     buildMockActionRequest({ sessionID: 's', toolUseID: undefined }),
@@ -204,7 +204,7 @@ test('it records the judge diagnostics of an overturned deny', async () => {
         elapsedMs: 2400,
       },
     },
-    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir }),
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
     { write: mock() },
   );
 
@@ -243,12 +243,12 @@ test('it records the judge diagnostics of an overturned deny', async () => {
 test('it records no action hash for a request without a tool use id', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'actions.jsonl');
+  const path = join(ctx.directory, 'actions.jsonl');
 
   await writeActionDiagnostic(
     buildMockActionRequest({ sessionID: 's', toolUseID: undefined }),
     { invocationID: 'i', status: 'started' },
-    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.dir }),
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
     { write: mock() },
   );
 
@@ -278,21 +278,21 @@ test('it preserves the verdict path when the diagnostic destination is unavailab
 
   const warnings = { write: mock() };
 
-  await writeFile(join(ctx.dir, 'private'), 'not a directory');
+  await writeFile(join(ctx.directory, 'private'), 'not a directory');
 
   const written = writeActionDiagnostic(
     buildMockActionRequest(),
     { invocationID: 'i', status: 'failure', verdict: 'defer' },
     buildMockHostEnvironment({
-      env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.dir, 'private', 'actions.jsonl') },
-      home: ctx.dir,
+      env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.directory, 'private', 'actions.jsonl') },
+      home: ctx.directory,
     }),
     warnings,
   );
 
   await expect(written).toResolve();
 
-  const blocker = await readFile(join(ctx.dir, 'private'), 'utf8');
+  const blocker = await readFile(join(ctx.directory, 'private'), 'utf8');
 
   expect(blocker).toBe('not a directory');
   expect(warnings.write).toHaveBeenCalledExactlyOnceWith('auto-mode: diagnostics unavailable\n');
@@ -307,14 +307,14 @@ test('it writes nothing when the diagnostics path is empty', async () => {
     buildMockActionRequest(),
     { invocationID: 'i', status: 'started' },
     buildMockHostEnvironment({
-      env: { AUTO_MODE_DIAGNOSTICS_PATH: '', XDG_STATE_HOME: join(ctx.dir, 'state') },
-      home: ctx.dir,
+      env: { AUTO_MODE_DIAGNOSTICS_PATH: '', XDG_STATE_HOME: join(ctx.directory, 'state') },
+      home: ctx.directory,
     }),
     warnings,
   );
 
   expect(
-    readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8'),
+    readFile(join(ctx.directory, 'state', 'auto-mode', 'actions.jsonl'), 'utf8'),
   ).rejects.toMatchObject({ code: 'ENOENT' });
 
   expect(warnings.write).not.toHaveBeenCalled();
@@ -326,11 +326,14 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
   await writeActionDiagnostic(
     buildMockActionRequest({ sessionID: 's' }),
     { invocationID: 'i', status: 'started' },
-    buildMockHostEnvironment({ env: { XDG_STATE_HOME: join(ctx.dir, 'state') }, home: ctx.dir }),
+    buildMockHostEnvironment({
+      env: { XDG_STATE_HOME: join(ctx.directory, 'state') },
+      home: ctx.directory,
+    }),
     { write: mock() },
   );
 
-  const text = await readFile(join(ctx.dir, 'state', 'auto-mode', 'actions.jsonl'), 'utf8');
+  const text = await readFile(join(ctx.directory, 'state', 'auto-mode', 'actions.jsonl'), 'utf8');
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({

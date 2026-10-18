@@ -26,7 +26,7 @@ import { resolveSessionScopePath } from './scope/resolve-session-scope-path.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
 
 async function setupTest(): Promise<{
-  readonly dir: string;
+  readonly directory: string;
   readonly repo: string;
   readonly host: HostEnvironment;
   readonly stdout: StubOutput;
@@ -37,16 +37,16 @@ async function setupTest(): Promise<{
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  const repo = join(dir, 'repo');
+  const repo = join(directory, 'repo');
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(dir, ['init', '-q', '-b', 'main', repo]);
+  runGit(directory, ['init', '-q', '-b', 'main', repo]);
 
   return {
-    dir,
+    directory,
     repo,
     host: {
       env: {
@@ -54,20 +54,20 @@ async function setupTest(): Promise<{
         PATH: process.env['PATH'],
 
         // the CLI reads its config.json under this directory
-        XDG_CONFIG_HOME: dir,
+        XDG_CONFIG_HOME: directory,
 
         // the CLI keeps its denial counts under this directory
-        XDG_STATE_HOME: dir,
+        XDG_STATE_HOME: directory,
 
         // the CLI appends a diagnostic record per run to this file
-        AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
+        AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
 
         // the CLI reads Claude Code's settings.json under this directory
-        CLAUDE_CONFIG_DIR: dir,
+        CLAUDE_CONFIG_DIR: directory,
       },
 
       // the CLI expands ~ in commands and config paths to this directory
-      home: dir,
+      home: directory,
     },
     stdout: buildStubOutput(),
     stderr: buildStubOutput(),
@@ -172,7 +172,7 @@ test('it runs the command named after -- with the words after it', async () => {
 test('it hands a judge server the socket path given after --', async () => {
   const ctx = await setupTest();
 
-  const socketPath = join(ctx.dir, 'judge.sock');
+  const socketPath = join(ctx.directory, 'judge.sock');
   const answering = createServer();
 
   await new Promise<void>((resolve) => {
@@ -284,10 +284,10 @@ Options:
 test('it refuses a Messages API classifier before a local allowance', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({ decision: { classifier: 'spark' } }),
   );
 
@@ -315,10 +315,10 @@ test('it refuses a Messages API classifier before a local allowance', async () =
 test('it accepts a local allowance through Jev-only mode', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({ decision: { classifier: 'jev' } }),
   );
 
@@ -418,16 +418,16 @@ test('it prints the shipped Jev framework with the shipped rules in place of the
 test('it reads an overridden policy instead of the shipped one', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'classifier.md'), 'framework\n\n<rules>\n');
-  await writeFile(join(ctx.dir, 'rules.md'), 'the rules');
+  await writeFile(join(ctx.directory, 'classifier.md'), 'framework\n\n<rules>\n');
+  await writeFile(join(ctx.directory, 'rules.md'), 'the rules');
 
   const exitCode = await runCLI(
     [
       'print-prompt',
       '--classifier',
-      join(ctx.dir, 'classifier.md'),
+      join(ctx.directory, 'classifier.md'),
       '--rules',
-      join(ctx.dir, 'rules.md'),
+      join(ctx.directory, 'rules.md'),
     ],
     {
       stdin: () => Promise.resolve(''),
@@ -448,14 +448,14 @@ test('it reads an overridden policy instead of the shipped one', async () => {
 test('it reads policy flags written with = before and after the command', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'classifier.md'), 'framework\n\n<rules>\n');
-  await writeFile(join(ctx.dir, 'rules.md'), 'the rules');
+  await writeFile(join(ctx.directory, 'classifier.md'), 'framework\n\n<rules>\n');
+  await writeFile(join(ctx.directory, 'rules.md'), 'the rules');
 
   const exitCode = await runCLI(
     [
-      `--classifier=${join(ctx.dir, 'classifier.md')}`,
+      `--classifier=${join(ctx.directory, 'classifier.md')}`,
       'print-prompt',
-      `--rules=${join(ctx.dir, 'rules.md')}`,
+      `--rules=${join(ctx.directory, 'rules.md')}`,
     ],
     {
       stdin: () => Promise.resolve(''),
@@ -552,7 +552,7 @@ test('it escalates local allowances when imported deny rules need evaluation', a
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'settings.json'),
+    join(ctx.directory, 'settings.json'),
     JSON.stringify({ autoMode: { hard_deny: ['Never read the private key'] } }),
   );
 
@@ -580,16 +580,16 @@ test('it escalates local allowances when imported deny rules need evaluation', a
 test('it honors fail-closed settings when Claude rules are malformed without printing their contents', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'private-test-value {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'private-test-value {');
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,
@@ -619,8 +619,8 @@ test('it honors fail-closed settings when Claude rules are malformed without pri
 test('it exits successfully on malformed classifier configuration without echoing it', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
-  await writeFile(join(ctx.dir, 'auto-mode', 'config.json'), 'private-test-value {');
+  await mkdir(join(ctx.directory, 'auto-mode'));
+  await writeFile(join(ctx.directory, 'auto-mode', 'config.json'), 'private-test-value {');
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,
@@ -646,7 +646,7 @@ test('it exits successfully on malformed classifier configuration without echoin
     stderr: 'auto-mode: configuration unreadable; no verdict\n',
   });
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   expect(
     log
@@ -696,16 +696,16 @@ test('it exits successfully on malformed classifier configuration without echoin
 test('it counts down to one denial left on the second denial in a row', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   const first = buildMockModRequest({
     sessionID: 'cli-session',
@@ -743,7 +743,7 @@ test('it counts down to one denial left on the second denial in a row', async ()
 
   const runFinishedAt = Date.now();
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const last = log.trim().split('\n').at(-1);
 
@@ -782,16 +782,16 @@ test('it counts down to one denial left on the second denial in a row', async ()
 test('it warns on the third denial in a row that it is the last before the user decides', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   for (const command of ['git push a', 'git push b']) {
     const payload = buildMockModRequest({
@@ -831,7 +831,7 @@ test('it warns on the third denial in a row that it is the last before the user 
 
   const runFinishedAt = Date.now();
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const last = log.trim().split('\n').at(-1);
 
@@ -870,16 +870,16 @@ test('it warns on the third denial in a row that it is the last before the user 
 test('it leaves the fourth action in a row to the user after three denials', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   for (const command of ['git push a', 'git push b', 'git push c']) {
     const payload = buildMockModRequest({
@@ -919,7 +919,7 @@ test('it leaves the fourth action in a row to the user after three denials', asy
 
   const runFinishedAt = Date.now();
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const last = log.trim().split('\n').at(-1);
 
@@ -954,16 +954,16 @@ test('it leaves the fourth action in a row to the user after three denials', asy
 test('it starts the denial count over after the user decides an action', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   for (const command of ['git push a', 'git push b', 'git push c']) {
     const payload = buildMockModRequest({
@@ -1022,7 +1022,7 @@ test('it starts the denial count over after the user decides an action', async (
 
   const runFinishedAt = Date.now();
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const last = log.trim().split('\n').at(-1);
 
@@ -1075,16 +1075,16 @@ test('it denies a retry of the action just denied without asking the classifier'
     context: { agentID: null },
   });
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 3, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   await runCLI(['run'], {
     stdin: () => Promise.resolve(JSON.stringify(payload)),
@@ -1095,7 +1095,7 @@ test('it denies a retry of the action just denied without asking the classifier'
   });
 
   // Readable settings now would let the classifier tier run; the retry must not reach it.
-  await writeFile(join(ctx.dir, 'settings.json'), '{}');
+  await writeFile(join(ctx.directory, 'settings.json'), '{}');
 
   const runStartedAt = Date.now();
 
@@ -1109,7 +1109,7 @@ test('it denies a retry of the action just denied without asking the classifier'
 
   const runFinishedAt = Date.now();
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const last = log.trim().split('\n').at(-1);
 
@@ -1148,16 +1148,16 @@ test('it denies a retry of the action just denied without asking the classifier'
 test('it states that the first denial is the last under a budget of one in a row', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 1, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   const payload = buildMockModRequest({
     sessionID: 'cli-session',
@@ -1189,16 +1189,16 @@ test('it states that the first denial is the last under a budget of one in a row
 test('it keeps the denial count across runs for a resumed session', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 1, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   const first = buildMockModRequest({
     sessionID: 'cli-session',
@@ -1236,7 +1236,7 @@ test('it keeps the denial count across runs for a resumed session', async () => 
 
   const runFinishedAt = Date.now();
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const last = log.trim().split('\n').at(-1);
 
@@ -1271,16 +1271,16 @@ test('it keeps the denial count across runs for a resumed session', async () => 
 test("it keeps a subagent's denial count apart from its session's", async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 1, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   const main = buildMockModRequest({
     sessionID: 'cli-session',
@@ -1328,16 +1328,16 @@ test("it keeps a subagent's denial count apart from its session's", async () => 
 test("it leaves the session's denial streak alone when its subagent is denied in between", async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       decision: { onFailure: 'deny', denialBudget: { consecutive: 2, perSession: 20 } },
     }),
   );
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   const first = buildMockModRequest({
     sessionID: 'cli-session',
@@ -1401,11 +1401,11 @@ test("it leaves the session's denial streak alone when its subagent is denied in
 test('it records a finished Bash call without writing a verdict', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
 
   const startedAt = Date.now();
 
-  runGit(ctx.dir, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
   const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
@@ -1461,12 +1461,12 @@ test('it ignores a record body that is not JSON', async () => {
 test('it keeps a branch the session created in its scope across runs', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
-  runGit(ctx.dir, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
 
   const startedAt = Date.now();
 
-  runGit(ctx.dir, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
   const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
@@ -1510,12 +1510,12 @@ test('it keeps a branch the session created in its scope across runs', async () 
 test("it keeps a branch one session created out of another session's scope", async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
-  runGit(ctx.dir, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
 
   const startedAt = Date.now();
 
-  runGit(ctx.dir, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
   const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
@@ -1561,10 +1561,10 @@ test("it keeps a branch one session created out of another session's scope", asy
 test('it allows an action that Jev clears', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', onFailure: 'defer' },
@@ -1594,7 +1594,7 @@ test('it allows an action that Jev clears', async () => {
   const runFinishedAt = Date.now();
   const elapsedMs = performance.now() - startedAt;
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const last = log.trim().split('\n').at(-1);
 
@@ -1639,10 +1639,10 @@ test('it allows an action that Jev clears', async () => {
 test('it denies an action that Jev cannot clear, naming the rule and its reason', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', judge: null, onFailure: 'defer' },
@@ -1714,17 +1714,17 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
 test('it allows an action whose Jev deny the judge overturns and records the judge in the action log', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
-  await mkdir(join(ctx.dir, 'bin'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'bin'));
 
   await writeFile(
-    join(ctx.dir, 'bin', 'claude'),
+    join(ctx.directory, 'bin', 'claude'),
     `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
     { mode: 0o755 },
   );
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', judge: 'claude-code', onFailure: 'defer' },
@@ -1747,7 +1747,7 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
       ...ctx.host,
       env: {
         ...ctx.host.env,
-        PATH: `${join(ctx.dir, 'bin')}:${ctx.host.env['PATH'] ?? ''}`,
+        PATH: `${join(ctx.directory, 'bin')}:${ctx.host.env['PATH'] ?? ''}`,
         TYPESAFE_API_KEY: 'cli-test-key',
         STUB_CLAUDE_REPLY:
           '{"verdict":"overturn","basis":"consent","reason":"The user asked for the release."}',
@@ -1756,7 +1756,7 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   const last = log.trim().split('\n').at(-1);
 
@@ -1792,10 +1792,10 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
 test('it writes no verdict and notes the failure when Jev fails under a defer setting', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', onFailure: 'defer' },
@@ -1831,10 +1831,10 @@ test('it writes no verdict and notes the failure when Jev fails under a defer se
 test('it denies the action when Jev fails under a deny setting', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', onFailure: 'deny' },
@@ -1874,7 +1874,7 @@ test('it denies the action when Jev fails under a deny setting', async () => {
 test('it writes the malformed atc record diagnostic to its own stderr', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'record.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'record.json'), 'not json {');
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,
@@ -1890,7 +1890,7 @@ test('it writes the malformed atc record diagnostic to its own stderr', async ()
       ...ctx.host,
       env: {
         ...ctx.host.env,
-        ATC_SESSION_RECORD: join(ctx.dir, 'record.json'),
+        ATC_SESSION_RECORD: join(ctx.directory, 'record.json'),
         ATC_SESSION_ID: 'atc-1',
       },
     }),
@@ -1900,17 +1900,17 @@ test('it writes the malformed atc record diagnostic to its own stderr', async ()
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
     stdout: '{"decision":"allow"}',
-    stderr: `auto-mode: atc session record is not JSON: ${join(ctx.dir, 'record.json')}\n`,
+    stderr: `auto-mode: atc session record is not JSON: ${join(ctx.directory, 'record.json')}\n`,
   });
 });
 
 test('it cancels a Jev-only evaluation when a stop signal arrives during it', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', onFailure: 'deny' },
@@ -1956,10 +1956,10 @@ test('it cancels a Jev-only evaluation when a stop signal arrives during it', as
 test('it listens for stop signals during a Jev-only evaluation and stops listening after it', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev' },
@@ -2040,7 +2040,7 @@ test('it captures no request when the config leaves capture off', async () => {
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
-  const stateEntries = await readdir(join(ctx.dir, 'auto-mode'));
+  const stateEntries = await readdir(join(ctx.directory, 'auto-mode'));
 
   expect(stateEntries).toStrictEqual(['denials']);
 });
@@ -2048,10 +2048,10 @@ test('it captures no request when the config leaves capture off', async () => {
 test('it captures the mod request with its verdict and deciding stage when capture is on', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({ capture: { enabled: true } }),
   );
 
@@ -2072,7 +2072,7 @@ test('it captures the mod request with its verdict and deciding stage when captu
   });
 
   const runFinishedAt = Date.now();
-  const captures = join(ctx.dir, 'auto-mode', 'captures');
+  const captures = join(ctx.directory, 'auto-mode', 'captures');
 
   const entries = await readdir(captures);
 
@@ -2109,10 +2109,10 @@ test('it captures the mod request with its verdict and deciding stage when captu
 test('it captures a child request without the direct message the CLI dropped', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({ capture: { enabled: true } }),
   );
 
@@ -2134,7 +2134,7 @@ test('it captures a child request without the direct message the CLI dropped', a
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
-  const captures = join(ctx.dir, 'auto-mode', 'captures');
+  const captures = join(ctx.directory, 'auto-mode', 'captures');
 
   const entries = await readdir(captures);
 
@@ -2156,10 +2156,10 @@ test('it captures a child request without the direct message the CLI dropped', a
 test('it sends Jev no direct user message for a child agent', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', judge: null, onFailure: 'defer' },
@@ -2219,10 +2219,11 @@ test('it sends Jev no direct user message for a child agent', async () => {
 test('it refuses to capture inside a git work tree and keeps the verdict', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
+    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
     JSON.stringify({ capture: { enabled: true, dir: join(ctx.repo, 'captures') } }),
   );
 
@@ -2254,12 +2255,15 @@ test('it refuses to capture inside a git work tree and keeps the verdict', async
 test('it keeps the verdict and exit code when the capture write fails', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'blocker'), '');
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await writeFile(join(ctx.directory, 'blocker'), '');
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
-    JSON.stringify({ capture: { enabled: true, dir: join(ctx.dir, 'blocker', 'captures') } }),
+    join(ctx.directory, 'auto-mode', 'config.json'),
+    JSON.stringify({
+      // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
+      capture: { enabled: true, dir: join(ctx.directory, 'blocker', 'captures') },
+    }),
   );
 
   const payload = buildMockModRequest({
@@ -2286,8 +2290,8 @@ test('it keeps the verdict and exit code when the capture write fails', async ()
 test('it keeps the verdict and exit code when the denial counts cannot be updated', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
-  await writeFile(join(ctx.dir, 'auto-mode', 'denials'), 'a file where the directory goes\n');
+  await mkdir(join(ctx.directory, 'auto-mode'));
+  await writeFile(join(ctx.directory, 'auto-mode', 'denials'), 'a file where the directory goes\n');
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,
@@ -2313,10 +2317,10 @@ test('it keeps the verdict and exit code when the denial counts cannot be update
 test('it leaves the denial counts untouched when it writes no verdict', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'auto-mode'));
 
   await writeFile(
-    join(ctx.dir, 'auto-mode', 'config.json'),
+    join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
       classifiers: { jev: { baseURL: 'https://decision.test' } },
       decision: { classifier: 'jev', judge: null, onFailure: 'defer' },
@@ -2337,7 +2341,7 @@ test('it leaves the denial counts untouched when it writes no verdict', async ()
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
-  const entries = await readdir(join(ctx.dir, 'auto-mode'));
+  const entries = await readdir(join(ctx.directory, 'auto-mode'));
 
   expect(ctx.stdout.read()).toBe('');
   expect(entries).toStrictEqual(['config.json']);

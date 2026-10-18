@@ -26,9 +26,9 @@ const CONFIG_FIELDS = [
 
 // Each measurement shows both runs' counts with their denominators and intervals,
 // then the paired per-case difference b - a over the cases both runs scored.
-export function formatComparison(a: Readonly<ComparedRun>, b: Readonly<ComparedRun>): string {
-  const configA = a.run.summary.config;
-  const configB = b.run.summary.config;
+export function formatComparison(runA: Readonly<ComparedRun>, runB: Readonly<ComparedRun>): string {
+  const configA = runA.run.summary.config;
+  const configB = runB.run.summary.config;
 
   const changed = CONFIG_FIELDS.filter(
     (field) => formatField(configA[field]) !== formatField(configB[field]),
@@ -36,8 +36,8 @@ export function formatComparison(a: Readonly<ComparedRun>, b: Readonly<ComparedR
 
   const lines = [
     `Experiment: ${configA.experiment}`,
-    `a: ${a.run.summary.runID}`,
-    `b: ${b.run.summary.runID}`,
+    `a: ${runA.run.summary.runID}`,
+    `b: ${runB.run.summary.runID}`,
     changed.length === 0
       ? 'Config: the same in every compared field.'
       : `Config differs in: ${changed.map((field) => `${field} (${formatField(configA[field])} → ${formatField(configB[field])})`).join(', ')}`,
@@ -45,15 +45,15 @@ export function formatComparison(a: Readonly<ComparedRun>, b: Readonly<ComparedR
 
   const keys = [
     ...new Set(
-      [...a.run.summary.counts, ...b.run.summary.counts].map((count) => buildCountKey(count)),
+      [...runA.run.summary.counts, ...runB.run.summary.counts].map((count) => buildCountKey(count)),
     ),
   ];
 
   for (const key of keys) {
-    const countA = a.run.summary.counts.find((count) => buildCountKey(count) === key);
-    const countB = b.run.summary.counts.find((count) => buildCountKey(count) === key);
-    const groupA = a.observations.find((group) => buildCountKey(group) === key);
-    const groupB = b.observations.find((group) => buildCountKey(group) === key);
+    const countA = runA.run.summary.counts.find((count) => buildCountKey(count) === key);
+    const countB = runB.run.summary.counts.find((count) => buildCountKey(count) === key);
+    const groupA = runA.observations.find((group) => buildCountKey(group) === key);
+    const groupB = runB.observations.find((group) => buildCountKey(group) === key);
 
     const paired = buildPairedDifference(
       toClustered(groupA?.observations ?? []),

@@ -75,7 +75,7 @@ export async function loadMeasurementSets(
   const sets: CaseSet<MeasurementCase>[] = await Promise.all(
     corpora.map(async (corpus) => ({
       corpus,
-      dir: join(corporaDir, corpus),
+      directory: join(corporaDir, corpus),
       cases: await loadCorpusCases(corporaDir, corpus),
     })),
   );
@@ -83,12 +83,12 @@ export async function loadMeasurementSets(
   const notMeasured: string[] = [];
 
   if (withHeldOut) {
-    const dir = resultsDir === null ? null : join(resultsDir, HELD_OUT);
+    const directory = resultsDir === null ? null : join(resultsDir, HELD_OUT);
 
-    if (dir !== null && existsSync(dir)) {
-      const cases = await loadDecisionRulesFile(join(dir, 'cases.json'));
+    if (directory !== null && existsSync(directory)) {
+      const cases = await loadDecisionRulesFile(join(directory, 'cases.json'));
 
-      sets.push({ corpus: HELD_OUT, dir, cases });
+      sets.push({ corpus: HELD_OUT, directory, cases });
     } else {
       const reason =
         resultsDir === null

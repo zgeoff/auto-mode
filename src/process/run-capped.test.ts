@@ -12,11 +12,11 @@ import { waitFor } from '../../test-utils/wait-for.ts';
 import { runCapped } from './run-capped.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-run-capped-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-run-capped-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const socketPath = join(dir, 'ready.sock');
+  const socketPath = join(directory, 'ready.sock');
   const report = Promise.withResolvers<string>();
 
   const server = createServer((socket) => {
@@ -33,7 +33,7 @@ async function setupTest() {
     return once(server, 'close');
   });
 
-  return { dir, socketPath, report: report.promise };
+  return { directory, socketPath, report: report.promise };
 }
 
 test('it returns the output and the exit code of the child', () => {
@@ -71,13 +71,13 @@ test('it runs the child in the given directory with the given environment alone'
   const result = await runCapped('/bin/sh', ['-c', 'printf "%s|%s|%s" "$PWD" "$ONLY" "$HOME"'], {
     signal: AbortSignal.timeout(10_000),
     maxOutputBytes: 1024,
-    cwd: ctx.dir,
+    cwd: ctx.directory,
     env: { ONLY: 'given' },
   });
 
-  const dir = await realpath(ctx.dir);
+  const directory = await realpath(ctx.directory);
 
-  expect(result.stdout).toBe(`${dir}|given|`);
+  expect(result.stdout).toBe(`${directory}|given|`);
 });
 
 test('it stops a child whose output passes the cap and returns none of it', () => {
@@ -110,7 +110,7 @@ test('it stops a child at once when the signal has already aborted', () => {
 test('it settles at the abort when the child has exited and a process outside its group holds stdout', async () => {
   const ctx = await setupTest();
 
-  const pidPath = join(ctx.dir, 'pids');
+  const pidPath = join(ctx.directory, 'pids');
 
   const controller = new AbortController();
 
@@ -158,7 +158,7 @@ test('it reports a child that cannot start', async () => {
   const ctx = await setupTest();
 
   expect(
-    runCapped(join(ctx.dir, 'missing'), [], {
+    runCapped(join(ctx.directory, 'missing'), [], {
       signal: AbortSignal.timeout(10_000),
       maxOutputBytes: 1024,
     }),

@@ -10,20 +10,20 @@ async function setupTest() {
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  return { dir, commonDir: join(dir, '.git') };
+  return { directory, commonDir: join(directory, '.git') };
 }
 
 test('it reads when git created a branch from its reflog', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '--quiet', '--initial-branch=main']);
-  runGit(ctx.dir, ['commit', '--quiet', '--allow-empty', '--message', 'init']);
+  runGit(ctx.directory, ['init', '--quiet', '--initial-branch=main']);
+  runGit(ctx.directory, ['commit', '--quiet', '--allow-empty', '--message', 'init']);
 
   const before = Math.floor(Date.now() / 1000) * 1000;
 
-  runGit(ctx.dir, ['branch', 'feat/a']);
+  runGit(ctx.directory, ['branch', 'feat/a']);
 
   const createdAt = await readBranchCreatedAt(ctx.commonDir, 'feat/a');
 
@@ -87,7 +87,7 @@ test.each([['../../../../outside'], ['feat/../../../../../outside']])(
     const ctx = await setupTest();
 
     await writeFile(
-      join(ctx.dir, 'outside'),
+      join(ctx.directory, 'outside'),
       '0000000000000000000000000000000000000000 1111111111111111111111111111111111111111 dev <dev@example.com> 1767225600 +0000\tbranch: Created from HEAD\n',
     );
 

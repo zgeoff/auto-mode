@@ -5,9 +5,9 @@ import { join } from 'node:path';
 const root = join(import.meta.dirname, '..');
 
 async function main() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-mod-check-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-mod-check-'));
 
-  const mod = join(dir, 'mod');
+  const mod = join(directory, 'mod');
 
   try {
     await mkdir(join(mod, '.claude-plugin'), { recursive: true });
@@ -37,12 +37,12 @@ async function main() {
     await cp(join(root, 'mods/auto-mode/tsconfig.json'), join(mod, 'tsconfig.json'));
 
     // A clean config directory, so the check cannot see this machine's plugins.
-    const env = { PATH: process.env['PATH'] ?? '', CLAUDE_CONFIG_DIR: join(dir, 'config') };
+    const env = { PATH: process.env['PATH'] ?? '', CLAUDE_CONFIG_DIR: join(directory, 'config') };
 
     await runClaude(['plugin', 'validate', mod], env);
     await runClaude(['plugin', 'test', mod], env);
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true });
   }
 }
 

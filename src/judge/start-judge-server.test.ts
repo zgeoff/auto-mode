@@ -12,11 +12,11 @@ import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-judge-server-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-judge-server-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(dir, 'bin');
+  const binDir = join(directory, 'bin');
 
   await mkdir(binDir);
 
@@ -27,13 +27,13 @@ async function setupTest() {
     { mode: 0o755 },
   );
 
-  return { dir, binDir, socketPath: join(dir, 'run', 'judge.sock') };
+  return { directory, binDir, socketPath: join(directory, 'run', 'judge.sock') };
 }
 
 test('it answers each review on its socket from one warm judge process', async () => {
   const ctx = await setupTest();
 
-  const recordPath = join(ctx.dir, 'calls.jsonl');
+  const recordPath = join(ctx.directory, 'calls.jsonl');
 
   const env = {
     PATH: ctx.binDir,
@@ -102,7 +102,7 @@ test('it keeps its socket and its directory private to the user', async () => {
   });
 
   const socketStat = await stat(ctx.socketPath);
-  const dirStat = await stat(join(ctx.dir, 'run'));
+  const dirStat = await stat(join(ctx.directory, 'run'));
 
   expect(socketStat.mode & 0o777).toBe(0o600);
   expect(dirStat.mode & 0o777).toBe(0o700);
@@ -167,7 +167,7 @@ test('it fails a review that outlasts its timeout as aborted', async () => {
 test('it stops the judge process of a review whose client goes away', async () => {
   const ctx = await setupTest();
 
-  const recordPath = join(ctx.dir, 'calls.jsonl');
+  const recordPath = join(ctx.directory, 'calls.jsonl');
 
   const env = {
     PATH: ctx.binDir,
@@ -298,7 +298,7 @@ test('it replaces a socket file that no server answers on', async () => {
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It reads a secret."}',
   };
 
-  await mkdir(join(ctx.dir, 'run'));
+  await mkdir(join(ctx.directory, 'run'));
   await writeFile(ctx.socketPath, '');
 
   const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });

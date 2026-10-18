@@ -274,15 +274,15 @@ test('it writes a run into the clone AUTO_MODE_EVALS_DIR names and prints its co
         corpora: ['containment'],
         samples: 1,
         loadCases: async (source) => {
-          const dir = join(source.corporaDir, 'containment');
+          const directory = join(source.corporaDir, 'containment');
 
-          const loaded = await loadCaseKeys(dir);
+          const loaded = await loadCaseKeys(directory);
 
           return {
             sets: [
               {
                 corpus: 'containment',
-                dir,
+                directory,
                 cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
               },
             ],
@@ -361,15 +361,15 @@ test('it runs only the named cases and prints the judge replies another model wr
           corpora: ['containment'],
           samples: 1,
           loadCases: async (source) => {
-            const dir = join(source.corporaDir, 'containment');
+            const directory = join(source.corporaDir, 'containment');
 
-            const loaded = await loadCaseKeys(dir);
+            const loaded = await loadCaseKeys(directory);
 
             return {
               sets: [
                 {
                   corpus: 'containment',
-                  dir,
+                  directory,
                   cases: Object.fromEntries(loaded.keys.map((key) => [key, key])),
                 },
               ],

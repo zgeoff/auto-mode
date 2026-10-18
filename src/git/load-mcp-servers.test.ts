@@ -7,16 +7,16 @@ import { readFixture } from '../../test-utils/read-fixture.ts';
 import { loadMCPServers } from './load-mcp-servers.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'mcp-servers-'));
+  const directory = await mkdtemp(join(tmpdir(), 'mcp-servers-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const repo = join(dir, 'repo');
+  const repo = join(directory, 'repo');
 
   // The project lookup walks up to the nearest checkout, so the cwd sits in one.
   await mkdir(join(repo, '.git'), { recursive: true });
 
-  return { dir, repo };
+  return { directory, repo };
 }
 
 // `claude mcp add` in Claude Code 2.1.301 wrote both fixtures' servers, and the
@@ -29,12 +29,12 @@ test('it reads every scope from the files that Claude Code writes', async () => 
     ctx.repo,
   );
 
-  await writeFile(join(ctx.dir, '.claude.json'), recorded);
+  await writeFile(join(ctx.directory, '.claude.json'), recorded);
   await writeFile(join(ctx.repo, '.mcp.json'), JSON.stringify(readFixture('mcp-json')));
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 
@@ -50,7 +50,7 @@ test('it lists user and local servers by name, scope, transport and host, and dr
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({
       mcpServers: {
         linear: {
@@ -74,7 +74,7 @@ test('it lists user and local servers by name, scope, transport and host, and dr
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 
@@ -101,7 +101,7 @@ test('it keeps one definition per server name, local before project before user'
   );
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({
       mcpServers: {
         linear: { type: 'http', url: 'https://user.example.test/mcp' },
@@ -115,7 +115,7 @@ test('it keeps one definition per server name, local before project before user'
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { enableAllProjectMcpServers: true },
   );
 
@@ -138,13 +138,13 @@ test('it reads a nested checkout as its own project, not its parent', async () =
   );
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({ projects: { [ctx.repo]: { mcpServers: { parent: { command: 'parent' } } } } }),
   );
 
   const servers = await loadMCPServers(
     nested,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { enabledMcpjsonServers: ['nested'] },
   );
 
@@ -175,7 +175,7 @@ test('it lists a project server only when the user settings approve it, not the 
 
   const servers = await loadMCPServers(
     join(ctx.repo, 'src'),
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { enabledMcpjsonServers: ['approved'] },
   );
 
@@ -198,13 +198,13 @@ test('it drops a project server that the project entry disables, even when all a
   );
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({ projects: { [ctx.repo]: { disabledMcpjsonServers: ['blocked'] } } }),
   );
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { enableAllProjectMcpServers: true },
   );
 
@@ -216,7 +216,7 @@ test('it drops a project server that the project entry disables, even when all a
 test('it reads the Claude Code state in the directory CLAUDE_CONFIG_DIR names', async () => {
   const ctx = await setupTest();
 
-  const configDir = join(ctx.dir, 'config');
+  const configDir = join(ctx.directory, 'config');
 
   await mkdir(configDir);
 
@@ -226,13 +226,13 @@ test('it reads the Claude Code state in the directory CLAUDE_CONFIG_DIR names', 
   );
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({ mcpServers: { ignored: { command: 'ignored' } } }),
   );
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: { CLAUDE_CONFIG_DIR: configDir }, home: ctx.dir }),
+    buildMockHostEnvironment({ env: { CLAUDE_CONFIG_DIR: configDir }, home: ctx.directory }),
     null,
   );
 
@@ -245,7 +245,7 @@ test('it leaves the host unknown when the server URL holds an unexpanded variabl
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({
       mcpServers: { api: { type: 'http', url: `https://\${API_HOST}/mcp` } },
     }),
@@ -253,7 +253,7 @@ test('it leaves the host unknown when the server URL holds an unexpanded variabl
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 
@@ -263,11 +263,11 @@ test('it leaves the host unknown when the server URL holds an unexpanded variabl
 test('it lists nothing when the Claude Code state is not JSON', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, '.claude.json'), '{ not json');
+  await writeFile(join(ctx.directory, '.claude.json'), '{ not json');
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 
@@ -283,11 +283,14 @@ test.each([
 ])('it drops a server with %s', async (_label, name, entry) => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, '.claude.json'), JSON.stringify({ mcpServers: { [name]: entry } }));
+  await writeFile(
+    join(ctx.directory, '.claude.json'),
+    JSON.stringify({ mcpServers: { [name]: entry } }),
+  );
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 
@@ -298,13 +301,13 @@ test('it keeps a server whose name is exactly 128 characters', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({ mcpServers: { ['n'.repeat(128)]: { command: 'tool' } } }),
   );
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 
@@ -317,7 +320,7 @@ test('it reads a streamable-http server as http', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({
       mcpServers: { api: { type: 'streamable-http', url: 'https://api.example.test/mcp' } },
     }),
@@ -325,7 +328,7 @@ test('it reads a streamable-http server as http', async () => {
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 
@@ -338,7 +341,7 @@ test('it leaves the host unknown when the server URL is not http or ws', async (
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({
       mcpServers: { files: { type: 'http', url: 'ftp://files.example.test/mcp' } },
     }),
@@ -346,7 +349,7 @@ test('it leaves the host unknown when the server URL is not http or ws', async (
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 
@@ -357,13 +360,13 @@ test('it leaves the host unknown when the server URL does not parse', async () =
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, '.claude.json'),
+    join(ctx.directory, '.claude.json'),
     JSON.stringify({ mcpServers: { api: { type: 'http', url: 'not a url' } } }),
   );
 
   const servers = await loadMCPServers(
     ctx.repo,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     null,
   );
 

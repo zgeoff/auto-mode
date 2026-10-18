@@ -5,45 +5,51 @@ import { delimiter, join } from 'node:path';
 import { findExecutable } from './find-executable.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-find-executable-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-find-executable-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it finds the first executable of that name along the PATH', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'first'));
-  await mkdir(join(ctx.dir, 'second'));
-  await writeFile(join(ctx.dir, 'second', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
-  await writeFile(join(ctx.dir, 'first', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
+  await mkdir(join(ctx.directory, 'first'));
+  await mkdir(join(ctx.directory, 'second'));
+  await writeFile(join(ctx.directory, 'second', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
+  await writeFile(join(ctx.directory, 'first', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
 
   expect(
-    findExecutable('claude', [join(ctx.dir, 'first'), join(ctx.dir, 'second')].join(delimiter)),
-  ).toBe(join(ctx.dir, 'first', 'claude'));
+    findExecutable(
+      'claude',
+      [join(ctx.directory, 'first'), join(ctx.directory, 'second')].join(delimiter),
+    ),
+  ).toBe(join(ctx.directory, 'first', 'claude'));
 });
 
 test('it passes over a file of that name that is not executable', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'first'));
-  await mkdir(join(ctx.dir, 'second'));
-  await writeFile(join(ctx.dir, 'first', 'claude'), 'text\n', { mode: 0o644 });
-  await writeFile(join(ctx.dir, 'second', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
+  await mkdir(join(ctx.directory, 'first'));
+  await mkdir(join(ctx.directory, 'second'));
+  await writeFile(join(ctx.directory, 'first', 'claude'), 'text\n', { mode: 0o644 });
+  await writeFile(join(ctx.directory, 'second', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
 
   expect(
-    findExecutable('claude', [join(ctx.dir, 'first'), join(ctx.dir, 'second')].join(delimiter)),
-  ).toBe(join(ctx.dir, 'second', 'claude'));
+    findExecutable(
+      'claude',
+      [join(ctx.directory, 'first'), join(ctx.directory, 'second')].join(delimiter),
+    ),
+  ).toBe(join(ctx.directory, 'second', 'claude'));
 });
 
 test('it passes over a directory of that name', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'claude'));
+  await mkdir(join(ctx.directory, 'claude'));
 
-  expect(findExecutable('claude', ctx.dir)).toBeNull();
+  expect(findExecutable('claude', ctx.directory)).toBeNull();
 });
 
 test('it finds nothing without a PATH', () => {
