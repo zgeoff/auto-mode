@@ -145,7 +145,7 @@ const configFileSchema = z.strictObject({
   capture: z
     .strictObject({
       enabled: z.boolean().optional(),
-      // oxlint-disable-next-line zgeoff/no-abbreviated-names -- user config key; renaming it is GEO-1385
+      // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
       dir: text.optional(),
     })
     .optional(),

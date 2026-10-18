@@ -679,7 +679,7 @@ test('#loadConfig reads the capture block, expanding a leading tilde in its dir'
 
   await writeFile(
     ctx.configFile,
-    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- user config key; renaming it is GEO-1385
+    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
     JSON.stringify({ capture: { enabled: true, dir: '~/captures' } }),
   );
 

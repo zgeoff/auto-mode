@@ -2223,7 +2223,7 @@ test('it refuses to capture inside a git work tree and keeps the verdict', async
 
   await writeFile(
     join(ctx.directory, 'auto-mode', 'config.json'),
-    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- user config key; renaming it is GEO-1385
+    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
     JSON.stringify({ capture: { enabled: true, dir: join(ctx.repo, 'captures') } }),
   );
 
@@ -2261,7 +2261,7 @@ test('it keeps the verdict and exit code when the capture write fails', async ()
   await writeFile(
     join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
-      // oxlint-disable-next-line zgeoff/no-abbreviated-names -- user config key; renaming it is GEO-1385
+      // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
       capture: { enabled: true, dir: join(ctx.directory, 'blocker', 'captures') },
     }),
   );
