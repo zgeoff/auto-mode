@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
 import { isToolInput } from '../mods/auto-mode/hooks/is-tool-input.ts';
-import { buildInventedCorpusMessages } from './invented-corpus-messages.ts';
+import { buildInventedCorpusMessages } from './build-invented-corpus-messages.ts';
 
 // The report prints counts, case IDs and field names only, so it never
 // repeats a recorded message or a name it searched for.

@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { buildInventedCorpusMessages } from './invented-corpus-messages.ts';
+import { buildInventedCorpusMessages } from './build-invented-corpus-messages.ts';
 
 // The script holds no recorded text, because a public file must not carry
 // it: a quoted run is found by the position of the words it copies.
@@ -80,22 +80,25 @@ async function main(): Promise<void> {
         const old = oldMessages.get(caseKey);
 
         if (typeof reason !== 'string') {
-          return line;
+          return { line, sites: [] };
         }
 
         const ownerFree = toOwnerFree(reason);
 
         const rewritten =
           old === undefined
-            ? ownerFree
-            : buildUnquotedText(ownerFree, [old], (key) => {
-                missing.push({ caseKey, key });
-              });
+            ? { value: ownerFree, missing: [] }
+            : buildUnquotedText(ownerFree, [old]);
 
-        return rewritten === reason ? line : JSON.stringify({ ...row, reason: rewritten });
+        const sites = rewritten.missing.map((key) => ({ caseKey, key }));
+
+        return rewritten.value === reason
+          ? { line, sites }
+          : { line: JSON.stringify({ ...row, reason: rewritten.value }), sites };
       });
 
-    samples.set(path, `${rows.join('\n')}\n`);
+    missing.push(...rows.flatMap((row) => row.sites));
+    samples.set(path, `${rows.map((row) => row.line).join('\n')}\n`);
   }
 
   const pool = [...new Map([...oldMessages.values()].map((old) => [old.text, old])).values()];
@@ -114,11 +117,13 @@ async function main(): Promise<void> {
       const own = oldMessages.get(caseKey);
       const candidates = own === undefined ? pool : [own, ...pool];
 
-      entry.input = buildUnquotedInput(entry.input, null, (text) =>
-        buildUnquotedText(toOwnerFree(text), candidates, (key) => {
-          missing.push({ caseKey, key });
-        }),
+      const unquoted = buildUnquotedInput(entry.input, null, (text) =>
+        buildUnquotedText(toOwnerFree(text), candidates),
       );
+
+      entry.input = unquoted.value;
+
+      missing.push(...unquoted.missing.map((key) => ({ caseKey, key })));
     }
   }
 
@@ -265,6 +270,11 @@ async function writeCorpusFile(path: string, file: CorpusFile): Promise<void> {
 
 const QUOTE_WORDS = 5;
 
+interface Unquoted<T> {
+  readonly value: T;
+  readonly missing: readonly string[];
+}
+
 interface Word {
   readonly key: string;
   readonly start: number;
@@ -276,47 +286,52 @@ interface Word {
 function buildUnquotedInput(
   value: unknown,
   key: string | null,
-  toUnquoted: (text: string) => string,
-): unknown {
+  toUnquoted: (text: string) => Unquoted<string>,
+): Unquoted<unknown> {
   if (typeof value === 'string') {
-    return key === 'description' ? value : toUnquoted(value);
+    return key === 'description' ? { value, missing: [] } : toUnquoted(value);
   }
 
   if (Array.isArray(value)) {
-    return value.map((item: unknown) => buildUnquotedInput(item, null, toUnquoted));
+    const items = value.map((item: unknown) => buildUnquotedInput(item, null, toUnquoted));
+
+    return {
+      value: items.map((item) => item.value),
+      missing: items.flatMap((item) => item.missing),
+    };
   }
 
   if (typeof value === 'object' && value !== null) {
-    return Object.fromEntries(
-      Object.entries(value).map(([field, item]) => [
-        field,
-        buildUnquotedInput(item, field, toUnquoted),
-      ]),
+    const fields = Object.entries(value).map(
+      ([field, item]) => [field, buildUnquotedInput(item, field, toUnquoted)] as const,
     );
+
+    return {
+      value: Object.fromEntries(fields.map(([field, item]) => [field, item.value])),
+      missing: fields.flatMap(([, item]) => item.missing),
+    };
   }
 
-  return value;
+  return { value, missing: [] };
 }
 
 // Each candidate is matched on its own, so a run never joins the words of two
 // messages. A run the invented message keeps word for word, such as a command
 // the case names, stays.
-function buildUnquotedText(
-  text: string,
-  candidates: readonly OldMessage[],
-  recordMissing: (key: string) => void,
-): string {
-  return candidates.reduce(
-    (current, old) => buildTextWithoutRuns(current, old, recordMissing),
-    text,
+function buildUnquotedText(text: string, candidates: readonly OldMessage[]): Unquoted<string> {
+  return candidates.reduce<Unquoted<string>>(
+    (current, old) => {
+      const next = buildTextWithoutRuns(current.value, old);
+
+      return { value: next.value, missing: [...current.missing, ...next.missing] };
+    },
+    { value: text, missing: [] },
   );
 }
 
-function buildTextWithoutRuns(
-  text: string,
-  old: OldMessage,
-  recordMissing: (key: string) => void,
-): string {
+// A run with no replacement stays in the text, and its key goes into
+// `missing` for the caller to report.
+function buildTextWithoutRuns(text: string, old: OldMessage): Unquoted<string> {
   const oldWords = splitWords(old.text).map((word) => word.key);
   const keptWords = splitWords(old.replacement).map((word) => word.key);
 
@@ -341,28 +356,32 @@ function buildTextWithoutRuns(
     }
   }
 
-  return runs.reduceRight((current, run) => {
-    const runKeys = words.slice(run.first, run.last + 1).map((word) => word.key);
+  return runs.reduceRight<Unquoted<string>>(
+    (current, run) => {
+      const runKeys = words.slice(run.first, run.last + 1).map((word) => word.key);
 
-    if (findRunStart(keptWords, runKeys) >= 0) {
-      return current;
-    }
+      if (findRunStart(keptWords, runKeys) >= 0) {
+        return current;
+      }
 
-    const key = `${findRunStart(oldWords, runKeys)}+${runKeys.length}`;
-    const replacement = INVENTED_CORPUS_MESSAGES.quoteReplacements.get(old.replacement)?.[key];
-    const first = words[run.first];
-    const last = words[run.last];
+      const key = `${findRunStart(oldWords, runKeys)}+${runKeys.length}`;
+      const replacement = INVENTED_CORPUS_MESSAGES.quoteReplacements.get(old.replacement)?.[key];
+      const first = words[run.first];
+      const last = words[run.last];
 
-    invariant(first !== undefined && last !== undefined, 'A run lies inside the text.');
+      invariant(first !== undefined && last !== undefined, 'A run lies inside the text.');
 
-    if (replacement === undefined) {
-      recordMissing(key);
+      if (replacement === undefined) {
+        return { value: current.value, missing: [...current.missing, key] };
+      }
 
-      return current;
-    }
-
-    return `${current.slice(0, first.start)}${replacement}${current.slice(last.end)}`;
-  }, text);
+      return {
+        value: `${current.value.slice(0, first.start)}${replacement}${current.value.slice(last.end)}`,
+        missing: current.missing,
+      };
+    },
+    { value: text, missing: [] },
+  );
 }
 
 function collectWindowKeys(keys: readonly string[]): string[] {
