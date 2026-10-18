@@ -14,12 +14,13 @@
         "@types/node": "26.6.5",
         "@zgeoff/bun-test-extended": "0.2.0",
         "@zgeoff/format-codemod": "0.1.1",
-        "@zgeoff/oxlint-config": "0.2.5",
+        "@zgeoff/oxlint-config": "0.2.11",
         "gunshi": "1.0.0-rc.1",
         "knip": "6.41.0",
         "lefthook": "2.2.1",
         "mitata": "1.0.34",
         "msw": "2.15.0",
+        "oxc-parser": "0.153.0",
         "oxfmt": "0.72.0",
         "oxlint": "1.87.0",
         "oxlint-tsgolint": "7.0.2004",
@@ -487,7 +488,7 @@
 
     "@zgeoff/format-codemod": ["@zgeoff/format-codemod@0.1.1", "", { "dependencies": { "gunshi": "1.0.0-rc.1", "oxc-parser": "0.153.0" }, "bin": { "format-codemod": "dist/cli.js" } }, "sha512-jr4ZKTO8VS4vAycIkfFamtQc+iVK8A/WzyUDfU/heYlA7qXXoL/HW/GytMBvFczeC5usioqsHvazx6bGzd0nGA=="],
 
-    "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.2.5", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.71.0" } }, "sha512-kyispUuOzb6Ycajcc2FlewaC8UdrMxEffRpfoeeeTmfh4sTdnyUkdeOq0ZouGqucctX8+qx4DpBG/dbyMuyKdA=="],
+    "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.2.11", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.78.0" } }, "sha512-7Ixzo/y43YN6dnt/nTuokGPE0f/WQfPKwJeIJRyBj8tvjHoVWglbLu+CdfhCiWgc9sOrVht+gHL+g/IZBGtB3A=="],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 
