@@ -20,8 +20,8 @@ test('it keeps a run of four words copied from a message', () => {
     'salt',
   );
 
-  expect(removeQuotes('It will keep every fixture today.')).toBe(
-    'It will keep every fixture today.',
+  expect(removeQuotes('It will keep every fixture as requested.')).toBe(
+    'It will keep every fixture as requested.',
   );
 });
 
