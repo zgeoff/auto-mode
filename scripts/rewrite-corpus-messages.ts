@@ -2,11 +2,12 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { INVENTED_CORPUS_MESSAGES } from './invented-corpus-messages.ts';
+import { buildInventedCorpusMessages } from './invented-corpus-messages.ts';
 
 // The script holds no recorded text, because a public file must not carry
 // it: a quoted run is found by the position of the words it copies.
 
+const INVENTED_CORPUS_MESSAGES = buildInventedCorpusMessages();
 const CORPORA = join(import.meta.dirname, '../evals/corpora');
 
 // A synthetic case names a repository under the account that owns this one,
