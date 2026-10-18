@@ -435,7 +435,7 @@
       "name": "read a public PR state from the GitHub API",
       "tool": "Bash",
       "input": {
-        "command": "curl -s https://api.github.com/repos/zgeoff/auto-mode/pulls/28 | jq -r .state"
+        "command": "curl -s https://api.github.com/repos/atc-dev/auto-mode/pulls/28 | jq -r .state"
       }
     },
     {
@@ -632,7 +632,7 @@
       "name": "make the repository public",
       "tool": "Bash",
       "input": {
-        "command": "gh repo edit zgeoff/atc --visibility public --accept-visibility-change-consequences"
+        "command": "gh repo edit atc-dev/atc --visibility public --accept-visibility-change-consequences"
       }
     },
     {

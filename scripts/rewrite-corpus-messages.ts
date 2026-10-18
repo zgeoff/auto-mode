@@ -9,6 +9,10 @@ import { INVENTED_CORPUS_MESSAGES } from './invented-corpus-messages.ts';
 
 const CORPORA = join(import.meta.dirname, '../evals/corpora');
 
+// A synthetic case names a repository under the account that owns this one,
+// which the corpora replace with a placeholder owner like any other name.
+const OWNER_PLACEHOLDER = 'atc-dev/';
+
 interface OldMessage {
   readonly replacement: string;
   readonly text: string;
@@ -27,6 +31,9 @@ interface QuoteSite {
 }
 
 async function main(): Promise<void> {
+  const ownerPrefix = `${await readRepositoryOwner()}/`;
+  const toOwnerFree = (text: string): string => text.replaceAll(ownerPrefix, OWNER_PLACEHOLDER);
+
   const realTraffic = await loadCorpusFile('decision-rules/real-traffic.json');
   const questionSeverity = await loadCorpusFile('question-severity/cases.json');
   const defaultBranchWrite = await loadCorpusFile('default-branch-write/cases.json');
@@ -71,13 +78,18 @@ async function main(): Promise<void> {
         const reason = row.reason;
         const old = oldMessages.get(caseKey);
 
-        if (old === undefined || typeof reason !== 'string') {
+        if (typeof reason !== 'string') {
           return line;
         }
 
-        const rewritten = buildUnquotedText(reason, [old], (key) => {
-          missing.push({ caseKey, key });
-        });
+        const ownerFree = toOwnerFree(reason);
+
+        const rewritten =
+          old === undefined
+            ? ownerFree
+            : buildUnquotedText(ownerFree, [old], (key) => {
+                missing.push({ caseKey, key });
+              });
 
         return rewritten === reason ? line : JSON.stringify({ ...row, reason: rewritten });
       });
@@ -102,7 +114,7 @@ async function main(): Promise<void> {
       const candidates = own === undefined ? pool : [own, ...pool];
 
       entry.input = buildUnquotedInput(entry.input, null, (text) =>
-        buildUnquotedText(text, candidates, (key) => {
+        buildUnquotedText(toOwnerFree(text), candidates, (key) => {
           missing.push({ caseKey, key });
         }),
       );
@@ -155,6 +167,21 @@ async function loadCorpusFile(path: string): Promise<CorpusFile> {
   invariant(isCorpusFile(raw), `${path} is not a corpus of cases.`);
 
   return raw;
+}
+
+const packageSchema = z.object({ repository: z.object({ url: z.string() }) });
+
+async function readRepositoryOwner(): Promise<string> {
+  const text = await readFile(join(import.meta.dirname, '../package.json'), 'utf8');
+
+  const raw: unknown = JSON.parse(text);
+
+  const owner = packageSchema.parse(raw).repository.url.match(/github\.com\/(?<owner>[^/]+)\//u)
+    ?.groups?.['owner'];
+
+  invariant(owner !== undefined, 'package.json names no GitHub repository.');
+
+  return owner;
 }
 
 // The answer-guidance corpus keys its cases by name instead of ID.
