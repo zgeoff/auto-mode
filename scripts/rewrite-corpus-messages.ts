@@ -175,9 +175,8 @@ async function readRepositoryOwner(): Promise<string> {
   const text = await readFile(join(import.meta.dirname, '../package.json'), 'utf8');
 
   const raw: unknown = JSON.parse(text);
-
-  const owner = packageSchema.parse(raw).repository.url.match(/github\.com\/(?<owner>[^/]+)\//u)
-    ?.groups?.['owner'];
+  const url = packageSchema.parse(raw).repository.url;
+  const owner = /github\.com\/(?<owner>[^/]+)\//u.exec(url)?.groups?.['owner'];
 
   invariant(owner !== undefined, 'package.json names no GitHub repository.');
 
