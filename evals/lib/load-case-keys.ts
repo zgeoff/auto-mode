@@ -13,10 +13,10 @@ export interface CorpusCaseKeys {
   readonly keys: readonly string[];
 }
 
-export async function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
+export function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
   const corpus = basename(corpusDir);
 
-  return await match(corpus)
+  return match(corpus)
     .returnType<Promise<CorpusCaseKeys>>()
     .with('answer-guidance', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), answerGuidanceCorpusSchema);
@@ -68,9 +68,9 @@ export async function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
 
       return { key: 'name', keys: loaded.data.sessions.map((session) => session.name) };
     })
-    .otherwise(() => {
-      throw new Error(`No case keys are defined for the corpus ${corpus}.`);
-    });
+    .otherwise(() =>
+      Promise.reject(new Error(`No case keys are defined for the corpus ${corpus}.`)),
+    );
 }
 
 const namedCaseSchema = z.object({ name: z.string() });

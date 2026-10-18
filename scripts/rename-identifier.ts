@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseSync } from 'oxc-parser';
+import invariant from 'tiny-invariant';
 
 // A rename by identifier node leaves strings and comments alone, and renames a
 // property with its readers. A file that already holds the new name is skipped
@@ -37,7 +38,10 @@ async function main(): Promise<void> {
 
     const source = await readFile(path, 'utf8');
 
-    const program = parseSync(file, source).program as unknown as AstNode;
+    const program: unknown = parseSync(file, source).program;
+
+    invariant(isAstNode(program), `${file} parses to a program node`);
+
     const starts = collectRenameStarts(program, from);
 
     if (starts.length === 0) {
@@ -76,12 +80,14 @@ function collectRenameStarts(program: AstNode, name: string): number[] {
   for (const visited of collectNodes(program, null)) {
     const node = visited.node;
     const parent = visited.parent;
+    const object = parent?.['object'];
 
     // Bun's import.meta.dir belongs to the runtime.
     const isImportMetaProperty =
       parent?.type === 'MemberExpression' &&
       parent['property'] === node &&
-      (parent['object'] as AstNode).type === 'MetaProperty';
+      isAstNode(object) &&
+      object.type === 'MetaProperty';
 
     if (node.type === 'Identifier' && node.name === name && !isImportMetaProperty) {
       starts.add(node.start);
@@ -98,14 +104,16 @@ interface VisitedNode {
 
 function collectNodes(node: AstNode, parent: AstNode | null): VisitedNode[] {
   const children = Object.values(node)
-    .flatMap((value: unknown) => (Array.isArray(value) ? value : [value]))
+    .flatMap((value: unknown): unknown[] => (Array.isArray(value) ? (value as unknown[]) : [value]))
     .filter((value): value is AstNode => isAstNode(value));
 
   return [{ node, parent }, ...children.flatMap((child) => collectNodes(child, node))];
 }
 
 function isAstNode(value: unknown): value is AstNode {
-  return typeof value === 'object' && value !== null && typeof (value as AstNode).type === 'string';
+  return (
+    typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string'
+  );
 }
 
 await main();
