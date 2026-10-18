@@ -74,7 +74,6 @@ type CLIValues = ArgValues<typeof CLI_ARGS>;
 
 interface CLIParams {
   readonly args: typeof CLI_ARGS;
-  readonly extensions: Record<never, never>;
 }
 
 // What a command runs, given the flags and the words after its name, and the
