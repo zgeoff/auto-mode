@@ -53,7 +53,6 @@
     "eval:relay-consent": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-relay-consent-evaluation.ts",
     "eval:second-judge": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-second-judge-evaluation.ts",
     "eval:stale-consent": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-stale-consent-evaluation.ts",
-    "first-publish": "scripts/first-publish.sh",
     "format": "oxfmt . && format-codemod --quiet .",
     "format:check": "oxfmt --check . && format-codemod --check --quiet .",
     "lint": "oxlint",

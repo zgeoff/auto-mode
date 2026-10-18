@@ -34,15 +34,18 @@ the App, release pull requests are still created but you merge them by hand.
 ### First publish
 
 npm trusted publishing cannot create a package that does not exist yet, so the first publish is
-manual and OIDC takes over after it:
+manual and OIDC takes over after it. From a machine logged in with `npm login`, publish the current
+version:
 
 ```sh
-npm login
-scripts/first-publish.sh
+bun install --frozen-lockfile
+bun run check
+bun pm pack
+npm publish ./*.tgz --access public
 ```
 
-The script refuses to run if the package already exists, publishes the current version from your
-machine, and then prints the trusted publisher settings to add on npmjs.com.
+Then open the package's access page on npmjs.com and add a trusted publisher: GitHub Actions, user
+`zgeoff`, repository `auto-mode`, workflow `main.yml`, and no environment.
 
 ## Troubleshooting
 
