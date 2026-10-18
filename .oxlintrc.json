@@ -162,5 +162,12 @@
       }
     ]
   },
+  "overrides": [
+    {
+      // synced copy; names follow its source
+      "files": ["scripts/collect-branch-files.ts"],
+      "rules": { "zgeoff/no-abbreviated-names": "off" }
+    }
+  ],
   "ignorePatterns": [".claude/**", ".reviews/**", ".worktrees/**"]
 }
