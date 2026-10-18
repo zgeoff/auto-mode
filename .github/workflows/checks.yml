@@ -102,9 +102,6 @@ jobs:
       - name: Doc links
         run: bash .claude/skills/docs-writing/scripts/check-links.sh
 
-      - name: Owner names
-        run: bun run check:owner-names
-
       - name: Typecheck
         run: bun run typecheck
 

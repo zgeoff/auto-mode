@@ -150,9 +150,7 @@ const BRANCH_PATTERNS = [
   /\bworktree\s+add\b[^;&|\n]*?\s-[bB]\s+(?<branch>[^\s;&|'"]+)/gu,
   /\bbranch\s+(?:-[dDmMf]+\s+)+(?<branch>[^\s;&|'"]+)/gu,
   /\s--(?:head|base)[=\s]+(?<branch>[^\s;&|'"]+)/gu,
-
-  // Sentence punctuation after a worktree in prose ends its name.
-  /\.worktrees\/(?<branch>[^/\s"',;:()]+?)(?=[.!?]*(?:[/\s"',;:()]|$))/gu,
+  /\.worktrees\/(?<branch>[^/\s"']+)/gu,
 ];
 
 // Names that carry the shape of an action rather than who ran it; replacing

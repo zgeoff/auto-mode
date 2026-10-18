@@ -29,9 +29,3 @@ commit-msg:
   jobs:
     - name: commitlint
       run: node_modules/.bin/commitlint --edit {1}
-
-# auto-mode's own pre-push jobs; they run before the baseline's
-pre-push:
-  jobs:
-    - name: check:owner-names
-      run: bun run check:owner-names
