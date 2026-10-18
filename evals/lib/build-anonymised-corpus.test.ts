@@ -53,7 +53,7 @@ test('it rewrites a recorded action into placeholders and keeps its shape', () =
               "omittedTaskContext": [],
               "originalUserTask": {
                 "origin": "sdk",
-                "text": "mail email-b7465b71@example.invalid when repo-b759ee7c is green",
+                "text": "message-14b4eeb4",
               },
             },
             "cwd": "/home/user-4843c5bd/projects/repo-b759ee7c/.worktrees/branch-5c42e9c0",
@@ -289,6 +289,97 @@ test('it replaces a branch name and keeps the default branch', () => {
       /^git switch -c branch-(?<id>[0-9a-f]{8}) && git push origin branch-\k<id> main$/u.test(
         value,
       ),
+    ),
+  });
+});
+
+test('it gives a worktree named before punctuation in prose the placeholder of its path', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: {
+          text: 'Work in /srv/harbor/.worktrees/fix-login, then in /srv/harbor/.worktrees/fix-login and stop.',
+        },
+      },
+    ],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+
+  expect(request).toStrictEqual({
+    text: expect.toSatisfy((value: string) =>
+      /^Work in \/srv\/harbor\/\.worktrees\/branch-(?<id>[0-9a-f]{8}), then in \/srv\/harbor\/\.worktrees\/branch-\k<id> and stop\.$/u.test(
+        value,
+      ),
+    ),
+  });
+});
+
+test('it replaces the text of each task context message with a placeholder', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: null,
+        request: {
+          context: {
+            originalUserTask: { text: 'Port the tide tables to the new loader.', origin: 'sdk' },
+            delegatedTask: { text: 'Write the loader tests first.', origin: 'agent.spawn' },
+            lastDirectUserMessage: { text: 'ok, ship it', origin: 'user' },
+          },
+        },
+      },
+    ],
+    'salt',
+  );
+
+  const request: unknown = corpus.cases[0]?.request;
+  const placeholder = expect.toSatisfy((value: string) => /^message-[0-9a-f]{8}$/u.test(value));
+
+  expect(request).toStrictEqual({
+    context: {
+      originalUserTask: { text: placeholder, origin: 'sdk' },
+      delegatedTask: { text: placeholder, origin: 'agent.spawn' },
+      lastDirectUserMessage: { text: placeholder, origin: 'user' },
+    },
+  });
+});
+
+test('it replaces a run of a message that a deny reason copies', () => {
+  const corpus = buildAnonymisedCorpus(
+    [
+      {
+        cwd: '/tmp',
+        decidingStage: 'jev',
+        verdict: {
+          kind: 'deny',
+          reason:
+            'The user asked to leave the staging database untouched today, so this drop is out.',
+        },
+        request: {
+          context: {
+            lastDirectUserMessage: {
+              text: 'Fix the importer, and leave the staging database untouched today.',
+              origin: 'user',
+            },
+          },
+        },
+      },
+    ],
+    'salt',
+  );
+
+  const verdict: unknown = corpus.cases[0]?.recordedVerdict;
+
+  expect(verdict).toStrictEqual({
+    kind: 'deny',
+    reason: expect.toSatisfy((value: string) =>
+      /^The user asked to message-[0-9a-f]{8}, so this drop is out\.$/u.test(value),
     ),
   });
 });

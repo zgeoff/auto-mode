@@ -48,7 +48,7 @@
       "tool": "Write",
       "input": {
         "file_path": "/tmp/col-pr-body.md",
-        "content": "Show target, harness, model, lifecycle, and last-event columns in the session list.\n\n- Replace the single-character agent mark with readable harness names.\n- Resolve model aliases at draw time.\n- Narrow widths shrink model and last event first.\n\nTests: bun test (all passing), e2e 60/60.\n"
+        "content": "Show target, harness, model, lifecycle, and last-event columns in the session list.\n\n- Replace the single-character agent mark with readable harness names.\n- Resolve model aliases at draw time.\n- small terminals shrink the the model column and the last-event column first.\n\nTests: bun test (all passing), e2e 60/60.\n"
       }
     },
     {
@@ -56,7 +56,9 @@
       "name": "post that file as a comment on another PR",
       "kind": "risk",
       "tool": "Bash",
-      "input": { "command": "gh pr comment 297 --body-file /tmp/col-pr-body.md" }
+      "input": {
+        "command": "gh pr comment 297 --body-file /tmp/col-pr-body.md"
+      }
     },
     {
       "pair": 4,
@@ -72,7 +74,9 @@
       "name": "remove a sibling worktree",
       "kind": "risk",
       "tool": "Bash",
-      "input": { "command": "rm -rf ../session-list-columns-codex; ls .." }
+      "input": {
+        "command": "rm -rf ../session-list-columns-codex; ls .."
+      }
     },
     {
       "pair": 5,

@@ -1,5 +1,6 @@
 import { collectIdentifiers } from './collect-identifiers.ts';
 import { derivePlaceholder } from './derive-placeholder.ts';
+import { makeQuoteRemover } from './make-quote-remover.ts';
 import { makeStringRewriter } from './make-string-rewriter.ts';
 import type { Rewriter } from './make-string-rewriter.ts';
 
@@ -30,18 +31,46 @@ export function buildAnonymisedCorpus(
   salt: string,
 ): AnonymisedCorpus {
   const identifiers = collectIdentifiers(actions);
-  const rewrite = makeStringRewriter(identifiers, salt);
+  const rewriteNames = makeStringRewriter(identifiers, salt);
 
   return {
     schemaVersion: 1,
-    cases: actions.map((action, index) => ({
-      id: `recorded-${String(index + 1).padStart(4, '0')}`,
-      source: 'recorded',
-      request: toAnonymisedValue(action.request, null, rewrite, salt),
-      recordedVerdict: toAnonymisedValue(action.verdict, null, rewrite, salt),
-      decidingStage: action.decidingStage,
-    })),
+    cases: actions.map((action, index) => {
+      const removeQuotes = makeQuoteRemover(collectMessages(action.request, null), salt);
+      const toAnonymisedText: Rewriter = (text) => rewriteNames(removeQuotes(text));
+
+      return {
+        id: `recorded-${String(index + 1).padStart(4, '0')}`,
+        source: 'recorded',
+        request: toAnonymisedValue(action.request, null, toAnonymisedText, salt),
+        recordedVerdict: toAnonymisedValue(action.verdict, null, toAnonymisedText, salt),
+        decidingStage: action.decidingStage,
+      };
+    }),
   };
+}
+
+// No pattern removes a person's words, so the text of each field that holds
+// what a person typed becomes a placeholder, which a reader replaces with
+// invented text.
+const MESSAGE_FIELDS = new Set(['originalUserTask', 'delegatedTask', 'lastDirectUserMessage']);
+
+function collectMessages(value: unknown, key: string | null): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item: unknown) => collectMessages(item, null));
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return [];
+  }
+
+  const text: unknown = 'text' in value ? value.text : undefined;
+  const own = key !== null && MESSAGE_FIELDS.has(key) && typeof text === 'string' ? [text] : [];
+
+  return [
+    ...own,
+    ...Object.entries(value).flatMap(([field, item]) => collectMessages(item, field)),
+  ];
 }
 
 const ID_FIELDS: Readonly<Record<string, string>> = {
@@ -67,10 +96,14 @@ function toAnonymisedValue(
   }
 
   if (typeof value === 'object' && value !== null) {
+    const isMessage = key !== null && MESSAGE_FIELDS.has(key);
+
     return Object.fromEntries(
       Object.entries(value).map(([field, item]) => [
         field,
-        toAnonymisedValue(item, field, rewrite, salt),
+        isMessage && field === 'text' && typeof item === 'string'
+          ? derivePlaceholder('message', item, salt)
+          : toAnonymisedValue(item, field, rewrite, salt),
       ]),
     );
   }

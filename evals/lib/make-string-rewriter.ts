@@ -173,7 +173,7 @@ export function makeStringRewriter(
 }
 
 const PLACEHOLDER =
-  /(?<placeholder>(?:user|host|owner|repo|branch|token|email|session|tool|agent)-[0-9a-f]{8})/u;
+  /(?<placeholder>(?:user|host|owner|repo|branch|token|email|session|tool|agent|message)-[0-9a-f]{8})/u;
 
 // A placeholder is split out before each pass, so no later pass rewrites a
 // value an earlier one already replaced.

@@ -86,9 +86,11 @@ would send every public case to Jev again.
 Real traffic reaches a corpus only through review. The opt-in
 [request capture](./state-and-logs.md#the-request-capture) stays on the machine that recorded it.
 The anonymise command turns a capture into a candidate corpus, written outside every repository, and
-refuses to write one that a gitleaks scan does not pass. A person then reads every case and copies
-the reviewed files into the corpora, because no pattern removes a person's or a company's name from
-free text, and git history is permanent.
+refuses to write one that a gitleaks scan does not pass. The command never copies a message a person
+typed: each one becomes a placeholder, and so does a run of its words that a deny reason or a tool
+input quotes. A person then writes invented text with the same meaning in place of each message,
+reads every case, and copies the reviewed files into the corpora, because no pattern removes a
+person's or a company's name from free text, and git history is permanent.
 
 ## Results
 
