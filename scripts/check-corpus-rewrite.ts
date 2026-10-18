@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import invariant from 'tiny-invariant';
+import { isToolInput } from '../mods/auto-mode/hooks/is-tool-input.ts';
 import { INVENTED_CORPUS_MESSAGES } from './invented-corpus-messages.ts';
 
 // The report prints counts, case IDs and field names only, so it never
@@ -180,11 +181,11 @@ function readHeadFile(path: string): Promise<string> {
 
 function toCaseMessages(text: string): Map<string, string> {
   const raw: unknown = JSON.parse(text);
-  const cases = isRecord(raw) && Array.isArray(raw['cases']) ? raw['cases'] : [];
+  const cases = isToolInput(raw) && Array.isArray(raw['cases']) ? raw['cases'] : [];
 
   return new Map(
     cases.flatMap((entry: unknown) =>
-      isRecord(entry) &&
+      isToolInput(entry) &&
       typeof entry['id'] === 'string' &&
       typeof entry['lastUserMessage'] === 'string'
         ? [[entry['id'], entry['lastUserMessage']] as const]
@@ -195,17 +196,13 @@ function toCaseMessages(text: string): Map<string, string> {
 
 function toMessageBank(text: string): Map<string, string> {
   const raw: unknown = JSON.parse(text);
-  const messages = isRecord(raw) && isRecord(raw['messages']) ? raw['messages'] : {};
+  const messages = isToolInput(raw) && isToolInput(raw['messages']) ? raw['messages'] : {};
 
   return new Map(
     Object.entries(messages).flatMap(([key, value]) =>
       typeof value === 'string' ? [[key, value] as const] : [],
     ),
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 async function collectFiles(dir: string): Promise<string[]> {
@@ -239,7 +236,7 @@ function collectStrings(value: unknown, key: string): [string, string][] {
     return value.flatMap((item: unknown) => collectStrings(item, key));
   }
 
-  if (isRecord(value)) {
+  if (isToolInput(value)) {
     const isBank = key === 'messages';
 
     return Object.entries(value).flatMap(([field, item]) => {
