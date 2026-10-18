@@ -21,13 +21,13 @@ async function setupTest() {
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  const repo = join(dir, 'repo');
+  const repo = join(directory, 'repo');
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(dir, ['init', '-q', '-b', 'main', repo]);
+  runGit(directory, ['init', '-q', '-b', 'main', repo]);
 
   // A version manager's node shim reads its config under the user's HOME, which
   // the child does not get, so the child runs the binary the shim resolves to.
@@ -46,7 +46,7 @@ async function setupTest() {
 
   // The key helper reports on this socket once it runs and holds its key back,
   // so the CLI waits mid-evaluation and no request leaves the host.
-  const socketPath = join(dir, 'ready.sock');
+  const socketPath = join(directory, 'ready.sock');
   const report = Promise.withResolvers<string>();
 
   const helperServer = createServer((socket) => {
@@ -66,7 +66,7 @@ async function setupTest() {
   return {
     node: runtime.node,
     cli,
-    dir,
+    directory,
     repo,
     keyCommand: `"${process.execPath}" "${join(import.meta.dirname, '..', 'test-utils', 'run-stub-key-helper.ts')}" "${socketPath}"`,
     helperReport: report.promise,
@@ -75,19 +75,19 @@ async function setupTest() {
       PATH: process.env['PATH'],
 
       // the home the CLI falls back to for its config and state
-      HOME: dir,
+      HOME: directory,
 
       // the CLI reads its config.json under this directory
-      XDG_CONFIG_HOME: dir,
+      XDG_CONFIG_HOME: directory,
 
       // the CLI keeps its denial counts under this directory
-      XDG_STATE_HOME: dir,
+      XDG_STATE_HOME: directory,
 
       // the CLI appends a diagnostic record per run to this file
-      AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
+      AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
 
       // the CLI reads Claude Code's settings.json under this directory
-      CLAUDE_CONFIG_DIR: dir,
+      CLAUDE_CONFIG_DIR: directory,
     },
   };
 }
@@ -97,10 +97,10 @@ test.each([['SIGTERM'], ['SIGINT']] as const)(
   async (signal) => {
     const ctx = await setupTest();
 
-    await mkdir(join(ctx.dir, 'auto-mode'));
+    await mkdir(join(ctx.directory, 'auto-mode'));
 
     await writeFile(
-      join(ctx.dir, 'auto-mode', 'config.json'),
+      join(ctx.directory, 'auto-mode', 'config.json'),
       JSON.stringify({
         classifiers: { jev: { apiKeyCommand: ctx.keyCommand } },
         decision: { classifier: 'jev', onFailure: 'deny' },

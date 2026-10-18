@@ -5,17 +5,17 @@ import { join } from 'node:path';
 import { runGit } from '../../test-utils/run-git.ts';
 import { findEnclosingWorkTree } from './find-enclosing-work-tree.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
+async function setupTest(): Promise<{ readonly directory: string }> {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-work-tree-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  return { dir: await realpath(created) };
+  return { directory: await realpath(created) };
 }
 
 test('it finds no work tree for a path outside every checkout', async () => {
   const ctx = await setupTest();
-  const workTree = await findEnclosingWorkTree(join(ctx.dir, 'captures'));
+  const workTree = await findEnclosingWorkTree(join(ctx.directory, 'captures'));
 
   expect(workTree).toBeNull();
 });
@@ -23,42 +23,42 @@ test('it finds no work tree for a path outside every checkout', async () => {
 test('it finds the checkout that holds a path that does not exist yet', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'repo')]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'repo')]);
 
-  const workTree = await findEnclosingWorkTree(join(ctx.dir, 'repo', 'a', 'b'));
+  const workTree = await findEnclosingWorkTree(join(ctx.directory, 'repo', 'a', 'b'));
 
-  expect(workTree).toBe(join(ctx.dir, 'repo'));
+  expect(workTree).toBe(join(ctx.directory, 'repo'));
 });
 
 test('it finds a linked worktree by its .git file', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'linked'));
-  await writeFile(join(ctx.dir, 'linked', '.git'), 'gitdir: /elsewhere\n');
+  await mkdir(join(ctx.directory, 'linked'));
+  await writeFile(join(ctx.directory, 'linked', '.git'), 'gitdir: /elsewhere\n');
 
-  const workTree = await findEnclosingWorkTree(join(ctx.dir, 'linked', 'captures'));
+  const workTree = await findEnclosingWorkTree(join(ctx.directory, 'linked', 'captures'));
 
-  expect(workTree).toBe(join(ctx.dir, 'linked'));
+  expect(workTree).toBe(join(ctx.directory, 'linked'));
 });
 
 test('it follows a link that points into a checkout', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'repo')]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'repo')]);
 
-  await symlink(join(ctx.dir, 'repo'), join(ctx.dir, 'link'));
+  await symlink(join(ctx.directory, 'repo'), join(ctx.directory, 'link'));
 
-  const workTree = await findEnclosingWorkTree(join(ctx.dir, 'link', 'captures'));
+  const workTree = await findEnclosingWorkTree(join(ctx.directory, 'link', 'captures'));
 
-  expect(workTree).toBe(join(ctx.dir, 'repo'));
+  expect(workTree).toBe(join(ctx.directory, 'repo'));
 });
 
 test('it finds no work tree below a path held by a file', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'blocker'), '');
+  await writeFile(join(ctx.directory, 'blocker'), '');
 
-  const workTree = await findEnclosingWorkTree(join(ctx.dir, 'blocker', 'captures'));
+  const workTree = await findEnclosingWorkTree(join(ctx.directory, 'blocker', 'captures'));
 
   expect(workTree).toBeNull();
 });

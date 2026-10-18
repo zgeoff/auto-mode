@@ -4,12 +4,12 @@ import { delimiter, isAbsolute, join } from 'node:path';
 // The Agent SDK runs the executable it is given and searches no PATH, so the
 // judge resolves `claude` the way a shell would, through the host's PATH.
 export function findExecutable(name: string, path: string | undefined): string | null {
-  for (const dir of (path ?? '').split(delimiter)) {
-    if (dir === '' || !isAbsolute(dir)) {
+  for (const directory of (path ?? '').split(delimiter)) {
+    if (directory === '' || !isAbsolute(directory)) {
       continue;
     }
 
-    const candidate = join(dir, name);
+    const candidate = join(directory, name);
 
     try {
       accessSync(candidate, constants.X_OK);

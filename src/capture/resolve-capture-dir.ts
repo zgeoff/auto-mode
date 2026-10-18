@@ -7,5 +7,5 @@ export function resolveCaptureDir(
   capture: Readonly<CaptureConfig>,
   host: Readonly<HostEnvironment>,
 ): string {
-  return capture.dir ?? join(resolveXDGDir(host, 'state'), 'captures');
+  return capture.directory ?? join(resolveXDGDir(host, 'state'), 'captures');
 }

@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { match } from 'ts-pattern';
 import * as z from 'zod';
 import type { Experiment } from './define-experiment.ts';
 import { formatComparison } from './format-comparison.ts';
@@ -49,29 +50,17 @@ export async function runEvalCommand(
   const [command, ...rest] = argv;
 
   try {
-    switch (command) {
-      case 'list': {
-        return rest.length === 0 ? printList(io) : printUsage(io, 'list takes no arguments.');
-      }
-      case 'run': {
-        return await runCommand(rest, io);
-      }
-      case 'compare': {
-        return await runCompareCommand(rest, io);
-      }
-      case 'live': {
-        return await runLiveCommand(rest, io);
-      }
-      case 'anonymise': {
-        return await runAnonymiseCommand(rest, io);
-      }
-      case undefined: {
-        return printUsage(io, null);
-      }
-      default: {
-        return printUsage(io, `Unknown command: ${command}`);
-      }
-    }
+    return await match(command)
+      .returnType<number | Promise<number>>()
+      .with('list', () =>
+        rest.length === 0 ? printList(io) : printUsage(io, 'list takes no arguments.'),
+      )
+      .with('run', () => runCommand(rest, io))
+      .with('compare', () => runCompareCommand(rest, io))
+      .with('live', () => runLiveCommand(rest, io))
+      .with('anonymise', () => runAnonymiseCommand(rest, io))
+      .with(undefined, () => printUsage(io, null))
+      .otherwise(() => printUsage(io, `Unknown command: ${command}`));
   } catch (error) {
     if (error instanceof UsageError) {
       return printUsage(io, error.message);
@@ -172,7 +161,7 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
       ? null
       : await requireResultsClone(resolve(parsed.values.resume), io.repoRoot);
 
-  const resumeDir = resumeClone?.dir ?? null;
+  const resumeDir = resumeClone?.directory ?? null;
 
   const result = await runExperiment(experiment, {
     corporaDir: join(io.repoRoot, 'evals/corpora'),
@@ -450,9 +439,9 @@ async function resolveResultsDir(option: string | null, repoRoot: string): Promi
 
   const clone = await requireResultsClone(resolve(option), repoRoot);
 
-  if (clone.dir !== clone.root) {
-    throw new Error(`Name the root of the results clone, ${clone.root}, not ${clone.dir}.`);
+  if (clone.directory !== clone.root) {
+    throw new Error(`Name the root of the results clone, ${clone.root}, not ${clone.directory}.`);
   }
 
-  return clone.dir;
+  return clone.directory;
 }

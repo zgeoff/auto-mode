@@ -12,12 +12,17 @@ interface DecisionRefusalBody {
   readonly detail: { readonly error_type: 'api_usage_error'; readonly message: string };
 }
 
-interface DecisionValidationIssue {
+interface ValidationIssue {
   readonly type: string;
   readonly loc: readonly (string | number)[];
-  readonly msg: string;
+  readonly message: string;
   readonly input: unknown;
   readonly ctx?: Readonly<Record<string, unknown>>;
+}
+
+interface DecisionValidationIssue extends Omit<ValidationIssue, 'message'> {
+  // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
+  readonly msg: string;
 }
 
 interface DecisionValidationBody {
@@ -38,26 +43,20 @@ export async function sendDecisionReply(
   } catch {
     // Jev also reports the character position and its parser's message, which
     // a JavaScript parser cannot reproduce.
-    return HttpResponse.json<DecisionValidationBody>(
-      { detail: [{ type: 'json_invalid', loc: ['body'], msg: 'JSON decode error', input: {} }] },
-      { status: 422 },
-    );
+    return buildValidationReply([
+      { type: 'json_invalid', loc: ['body'], message: 'JSON decode error', input: {} },
+    ]);
   }
 
   if (!isPlainObject(json)) {
-    return HttpResponse.json<DecisionValidationBody>(
+    return buildValidationReply([
       {
-        detail: [
-          {
-            type: 'model_attributes_type',
-            loc: ['body'],
-            msg: 'Input should be a valid dictionary or object to extract fields from',
-            input: json,
-          },
-        ],
+        type: 'model_attributes_type',
+        loc: ['body'],
+        message: 'Input should be a valid dictionary or object to extract fields from',
+        input: json,
       },
-      { status: 422 },
-    );
+    ]);
   }
 
   if (isRefusedRequest(json)) {
@@ -70,7 +69,7 @@ export async function sendDecisionReply(
   const issues = collectValidationIssues(json);
 
   if (issues.length > 0) {
-    return HttpResponse.json<DecisionValidationBody>({ detail: issues }, { status: 422 });
+    return buildValidationReply(issues);
   }
 
   const questions = json['questions'];
@@ -88,6 +87,19 @@ export async function sendDecisionReply(
     answers,
     usage: { input_tokens: 400 },
   });
+}
+
+function buildValidationReply(
+  issues: readonly ValidationIssue[],
+): HttpResponse<DecisionValidationBody> {
+  const detail = issues.map((issue) => {
+    const { message, ...fields } = issue;
+
+    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- the real server's 422 wire field
+    return { ...fields, msg: message };
+  });
+
+  return HttpResponse.json<DecisionValidationBody>({ detail }, { status: 422 });
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -110,24 +122,32 @@ function isRefusedRequest(json: Readonly<Record<string, unknown>>): boolean {
   );
 }
 
-function collectValidationIssues(
-  json: Readonly<Record<string, unknown>>,
-): DecisionValidationIssue[] {
-  const issues: DecisionValidationIssue[] = [];
+function collectValidationIssues(json: Readonly<Record<string, unknown>>): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
 
   if (json['model'] === undefined) {
-    issues.push({ type: 'missing', loc: ['body', 'model'], msg: 'Field required', input: json });
+    issues.push({
+      type: 'missing',
+      loc: ['body', 'model'],
+      message: 'Field required',
+      input: json,
+    });
   } else if (typeof json['model'] !== 'string') {
     issues.push({
       type: 'string_type',
       loc: ['body', 'model'],
-      msg: 'Input should be a valid string',
+      message: 'Input should be a valid string',
       input: json['model'],
     });
   }
 
   if (json['state'] === undefined || json['state'] === null) {
-    issues.push({ type: 'missing', loc: ['body', 'state'], msg: 'Field required', input: json });
+    issues.push({
+      type: 'missing',
+      loc: ['body', 'state'],
+      message: 'Field required',
+      input: json,
+    });
   }
 
   issues.push(...collectQuestionIssues(json));
@@ -135,11 +155,13 @@ function collectValidationIssues(
   return issues;
 }
 
-function collectQuestionIssues(json: Readonly<Record<string, unknown>>): DecisionValidationIssue[] {
+function collectQuestionIssues(json: Readonly<Record<string, unknown>>): ValidationIssue[] {
   const questions = json['questions'];
 
   if (questions === undefined) {
-    return [{ type: 'missing', loc: ['body', 'questions'], msg: 'Field required', input: json }];
+    return [
+      { type: 'missing', loc: ['body', 'questions'], message: 'Field required', input: json },
+    ];
   }
 
   if (!isPlainObject(questions)) {
@@ -147,7 +169,7 @@ function collectQuestionIssues(json: Readonly<Record<string, unknown>>): Decisio
       {
         type: 'dict_type',
         loc: ['body', 'questions'],
-        msg: 'Input should be a valid dictionary',
+        message: 'Input should be a valid dictionary',
         input: questions,
       },
     ];
@@ -158,20 +180,20 @@ function collectQuestionIssues(json: Readonly<Record<string, unknown>>): Decisio
       {
         type: 'too_short',
         loc: ['body', 'questions'],
-        msg: 'Dictionary should have at least 1 item after validation, not 0',
+        message: 'Dictionary should have at least 1 item after validation, not 0',
         input: questions,
         ctx: { actual_length: 0, field_type: 'Dictionary', min_length: 1 },
       },
     ];
   }
 
-  return Object.entries(questions).flatMap(([id, question]): DecisionValidationIssue[] => {
+  return Object.entries(questions).flatMap(([id, question]): ValidationIssue[] => {
     if (!isPlainObject(question)) {
       return [
         {
           type: 'model_attributes_type',
           loc: ['body', 'questions', id],
-          msg: 'Input should be a valid dictionary or object to extract fields from',
+          message: 'Input should be a valid dictionary or object to extract fields from',
           input: question,
         },
       ];
@@ -182,7 +204,7 @@ function collectQuestionIssues(json: Readonly<Record<string, unknown>>): Decisio
         {
           type: 'union_tag_not_found',
           loc: ['body', 'questions', id],
-          msg: "Unable to extract tag using discriminator 'type'",
+          message: "Unable to extract tag using discriminator 'type'",
           input: question,
           ctx: { discriminator: "'type'" },
         },

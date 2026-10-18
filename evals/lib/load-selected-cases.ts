@@ -26,8 +26,8 @@ export async function loadSelectedCases<Case>(
 
   for (const set of sets) {
     const [setLabels, hashes] = await Promise.all([
-      loadCaseLabels(set.dir),
-      loadCorpusHashes(set.dir, []),
+      loadCaseLabels(set.directory),
+      loadCorpusHashes(set.directory, []),
     ]);
 
     corpusHashes.push([set.corpus, hashes.corpusHash]);

@@ -6,11 +6,11 @@ import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-stub-claude-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-stub-claude-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, recordPath: join(dir, 'calls.jsonl') };
+  return { directory, recordPath: join(directory, 'calls.jsonl') };
 }
 
 test('it answers initialize with a control response and a review with an init and a result that holds the reply', () => {
@@ -137,7 +137,7 @@ test('it appends each review with its process, its count, the clears before it, 
         JSON.stringify({ type: 'user', message: { role: 'user', content: '/clear' } }),
         JSON.stringify({ type: 'user', message: { role: 'user', content: 'second' } }),
       ].join('\n'),
-      cwd: ctx.dir,
+      cwd: ctx.directory,
       encoding: 'utf8',
       env: { STUB_CLAUDE_RECORD: ctx.recordPath, ANTHROPIC_BASE_URL: 'https://proxy.test' },
     },
@@ -155,7 +155,7 @@ test('it appends each review with its process, its count, the clears before it, 
       pid: result.pid,
       review: 1,
       clears: 0,
-      cwd: ctx.dir,
+      cwd: ctx.directory,
       argv: ['--tools='],
       system: ['the policy'],
       user: 'first',
@@ -165,7 +165,7 @@ test('it appends each review with its process, its count, the clears before it, 
       pid: result.pid,
       review: 2,
       clears: 1,
-      cwd: ctx.dir,
+      cwd: ctx.directory,
       argv: ['--tools='],
       system: ['the policy'],
       user: 'second',

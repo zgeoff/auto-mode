@@ -10,21 +10,21 @@ import { recordScope } from './record-scope.ts';
 import { loadSessionScope } from './scope/load-session-scope.ts';
 import { resolveSessionScopePath } from './scope/resolve-session-scope-path.ts';
 
-async function setupTest(): Promise<{ readonly dir: string; readonly repo: string }> {
+async function setupTest(): Promise<{ readonly directory: string; readonly repo: string }> {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-record-scope-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  const repo = join(dir, 'repo');
+  const repo = join(directory, 'repo');
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(dir, ['init', '-q', '-b', 'main', repo]);
-  runGit(dir, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  runGit(directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
 
-  return { dir, repo };
+  return { directory, repo };
 }
 
 test('it adds a worktree the session created to its scope', async () => {
@@ -32,7 +32,7 @@ test('it adds a worktree the session created to its scope', async () => {
 
   const startedAt = Date.now();
 
-  runGit(ctx.dir, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
   const recorded = await recordScope(
     buildMockScopeRecordRequest({
@@ -44,13 +44,13 @@ test('it adds a worktree the session created to its scope', async () => {
     }),
     buildMockConfig(),
     buildMockRuntime({
-      env: { PATH: process.env['PATH'], XDG_STATE_HOME: ctx.dir },
-      home: ctx.dir,
+      env: { PATH: process.env['PATH'], XDG_STATE_HOME: ctx.directory },
+      home: ctx.directory,
     }),
   );
 
   const kept = await loadSessionScope(
-    resolveSessionScopePath(join(ctx.dir, 'auto-mode'), 'record-session'),
+    resolveSessionScopePath(join(ctx.directory, 'auto-mode'), 'record-session'),
   );
 
   expect(recorded).toStrictEqual({
@@ -67,7 +67,7 @@ test('it records nothing when no session scope source is configured', async () =
 
   const startedAt = Date.now();
 
-  runGit(ctx.dir, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
+  runGit(ctx.directory, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
 
   const recorded = await recordScope(
     buildMockScopeRecordRequest({
@@ -79,13 +79,13 @@ test('it records nothing when no session scope source is configured', async () =
     }),
     { ...buildMockConfig(), scopeSources: { cwd: { kind: 'cwd' } } },
     buildMockRuntime({
-      env: { PATH: process.env['PATH'], XDG_STATE_HOME: ctx.dir },
-      home: ctx.dir,
+      env: { PATH: process.env['PATH'], XDG_STATE_HOME: ctx.directory },
+      home: ctx.directory,
     }),
   );
 
   const kept = await loadSessionScope(
-    resolveSessionScopePath(join(ctx.dir, 'auto-mode'), 'record-session'),
+    resolveSessionScopePath(join(ctx.directory, 'auto-mode'), 'record-session'),
   );
 
   expect(recorded).toStrictEqual({ worktrees: [], branches: [], pullRequests: [] });

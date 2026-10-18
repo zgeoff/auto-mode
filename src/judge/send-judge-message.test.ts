@@ -9,11 +9,11 @@ import { sendJudgeMessage } from './send-judge-message.ts';
 import { startJudgeSession } from './start-judge-session.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-send-judge-message-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-send-judge-message-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(dir, 'bin');
+  const binDir = join(directory, 'bin');
 
   await mkdir(binDir);
 

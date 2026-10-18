@@ -252,7 +252,7 @@ function classifyRemove(args: readonly ShellWord[], cwd: string): string | null 
       return null;
     }
 
-    const segments = within.split(/[\\/]/u).filter((s) => s !== '');
+    const segments = within.split(/[\\/]/u).filter((segment) => segment !== '');
     const last = segments.at(-1);
 
     if (last === undefined || !REGENERABLE_DIRS.has(last)) {

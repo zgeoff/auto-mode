@@ -5,21 +5,21 @@ import { join } from 'node:path';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { loadClaudeSettings } from './load-claude-settings.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'claude-settings-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'claude-settings-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it takes the rules and the user settings from the one user settings file', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.claude'));
+  await mkdir(join(ctx.directory, '.claude'));
 
   await writeFile(
-    join(ctx.dir, '.claude', 'settings.json'),
+    join(ctx.directory, '.claude', 'settings.json'),
     JSON.stringify({
       enabledMcpjsonServers: ['docs'],
       autoMode: { hard_deny: ['Never send keys'] },
@@ -28,7 +28,7 @@ test('it takes the rules and the user settings from the one user settings file',
 
   const settings = await loadClaudeSettings(
     undefined,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(settings).toStrictEqual({
@@ -43,21 +43,21 @@ test('it takes the rules and the user settings from the one user settings file',
 test('it takes the rules from a configured path and the user settings from the user file', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.claude'));
+  await mkdir(join(ctx.directory, '.claude'));
 
   await writeFile(
-    join(ctx.dir, '.claude', 'settings.json'),
+    join(ctx.directory, '.claude', 'settings.json'),
     JSON.stringify({ enabledMcpjsonServers: ['docs'], autoMode: { hard_deny: ['Ignored'] } }),
   );
 
   await writeFile(
-    join(ctx.dir, 'rules.json'),
+    join(ctx.directory, 'rules.json'),
     JSON.stringify({ autoMode: { soft_deny: ['Require a named database'] } }),
   );
 
   const settings = await loadClaudeSettings(
-    join(ctx.dir, 'rules.json'),
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    join(ctx.directory, 'rules.json'),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(settings).toStrictEqual({
@@ -69,17 +69,17 @@ test('it takes the rules from a configured path and the user settings from the u
 test('it keeps the configured rules when the user settings are not JSON', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.claude'));
-  await writeFile(join(ctx.dir, '.claude', 'settings.json'), '{');
+  await mkdir(join(ctx.directory, '.claude'));
+  await writeFile(join(ctx.directory, '.claude', 'settings.json'), '{');
 
   await writeFile(
-    join(ctx.dir, 'rules.json'),
+    join(ctx.directory, 'rules.json'),
     JSON.stringify({ autoMode: { hard_deny: ['Never send keys'] } }),
   );
 
   const settings = await loadClaudeSettings(
-    join(ctx.dir, 'rules.json'),
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    join(ctx.directory, 'rules.json'),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(settings).toStrictEqual({
@@ -91,16 +91,16 @@ test('it keeps the configured rules when the user settings are not JSON', async 
 test('it reads the user settings but no rules when importing rules is disabled', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.claude'));
+  await mkdir(join(ctx.directory, '.claude'));
 
   await writeFile(
-    join(ctx.dir, '.claude', 'settings.json'),
+    join(ctx.directory, '.claude', 'settings.json'),
     JSON.stringify({ enableAllProjectMcpServers: true, autoMode: { hard_deny: ['Ignored'] } }),
   );
 
   const settings = await loadClaudeSettings(
     null,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(settings).toStrictEqual({
@@ -114,7 +114,7 @@ test('it reads absent user settings as none', async () => {
 
   const settings = await loadClaudeSettings(
     undefined,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(settings).toStrictEqual({

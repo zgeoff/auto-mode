@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import type { CaptureRecord } from './capture-record-schema.ts';
 import { loadCaptureRecords } from './load-capture-records.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'capture-records-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'capture-records-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it reads every record of every file in order, skipping blank lines', async () => {
@@ -37,14 +37,17 @@ test('it reads every record of every file in order, skipping blank lines', async
     escalation: false,
   };
 
-  await writeFile(join(ctx.dir, 'a.jsonl'), `${JSON.stringify(record)}\n\n`);
+  await writeFile(join(ctx.directory, 'a.jsonl'), `${JSON.stringify(record)}\n\n`);
 
   await writeFile(
-    join(ctx.dir, 'b.jsonl'),
+    join(ctx.directory, 'b.jsonl'),
     `${JSON.stringify({ ...record, verdict: null, decidingStage: 'budget', escalation: true })}\n`,
   );
 
-  const records = await loadCaptureRecords([join(ctx.dir, 'a.jsonl'), join(ctx.dir, 'b.jsonl')]);
+  const records = await loadCaptureRecords([
+    join(ctx.directory, 'a.jsonl'),
+    join(ctx.directory, 'b.jsonl'),
+  ]);
 
   expect(records).toStrictEqual([
     record,
@@ -55,21 +58,21 @@ test('it reads every record of every file in order, skipping blank lines', async
 test('it names the file and line of a record that is not a capture record', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'a.jsonl'), '{"schemaVersion":2}\n');
+  await writeFile(join(ctx.directory, 'a.jsonl'), '{"schemaVersion":2}\n');
 
-  expect(loadCaptureRecords([join(ctx.dir, 'a.jsonl')])).rejects.toThrowWithMessage(
+  expect(loadCaptureRecords([join(ctx.directory, 'a.jsonl')])).rejects.toThrowWithMessage(
     Error,
-    `${join(ctx.dir, 'a.jsonl')}:1 is not a capture record.`,
+    `${join(ctx.directory, 'a.jsonl')}:1 is not a capture record.`,
   );
 });
 
 test('it names the file and line of a line that is not JSON', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'a.jsonl'), '\n{oops\n');
+  await writeFile(join(ctx.directory, 'a.jsonl'), '\n{oops\n');
 
-  expect(loadCaptureRecords([join(ctx.dir, 'a.jsonl')])).rejects.toThrowWithMessage(
+  expect(loadCaptureRecords([join(ctx.directory, 'a.jsonl')])).rejects.toThrowWithMessage(
     Error,
-    `${join(ctx.dir, 'a.jsonl')}:2 is not JSON.`,
+    `${join(ctx.directory, 'a.jsonl')}:2 is not JSON.`,
   );
 });

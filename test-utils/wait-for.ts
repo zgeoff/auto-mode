@@ -1,6 +1,6 @@
 interface WaitForClock {
   readonly now: () => number;
-  readonly wait: (ms: number) => Promise<void>;
+  readonly wait: (delayMs: number) => Promise<void>;
 }
 
 interface WaitForOptions {
@@ -11,9 +11,9 @@ interface WaitForOptions {
 
 const SYSTEM_CLOCK: WaitForClock = {
   now: () => performance.now(),
-  wait: (ms) =>
+  wait: (delayMs) =>
     new Promise((resolve) => {
-      setTimeout(resolve, ms);
+      setTimeout(resolve, delayMs);
     }),
 };
 

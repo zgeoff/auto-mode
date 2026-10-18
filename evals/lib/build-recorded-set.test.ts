@@ -9,17 +9,17 @@ test('it gives each case the answers recorded under its ID and leaves a case wit
   const answer = { kind: 'release', released: true, model: 'jev' } as const;
 
   const set = buildRecordedSet(
-    { corpus: 'containment', dir: '/corpora/containment', cases: { a: twin, b: other } },
+    { corpus: 'containment', directory: '/corpora/containment', cases: { twin, other } },
     'jev',
     { input: { path: 'corpora:release.json', hash: 'h' }, answers: { 'twin-01': { 0: answer } } },
   );
 
   expect(set).toStrictEqual({
     corpus: 'containment',
-    dir: '/corpora/containment',
+    directory: '/corpora/containment',
     cases: {
-      a: { ...twin, recorded: { judge: judged, jev: { 0: answer } } },
-      b: other,
+      twin: { ...twin, recorded: { judge: judged, jev: { 0: answer } } },
+      other,
     },
   });
 });
@@ -32,8 +32,8 @@ test('it gives each case the answers recorded under its key when the answers are
   const set = buildRecordedSet(
     {
       corpus: 'second-judge',
-      dir: '/corpora/second-judge',
-      cases: { 'held-out/control-39': keyed, b: other },
+      directory: '/corpora/second-judge',
+      cases: { 'held-out/control-39': keyed, other },
     },
     'jev',
     {
@@ -45,10 +45,10 @@ test('it gives each case the answers recorded under its key when the answers are
 
   expect(set).toStrictEqual({
     corpus: 'second-judge',
-    dir: '/corpora/second-judge',
+    directory: '/corpora/second-judge',
     cases: {
       'held-out/control-39': { ...keyed, recorded: { jev: { 0: answer } } },
-      b: other,
+      other,
     },
   });
 });

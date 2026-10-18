@@ -7,17 +7,17 @@ import { buildMockActionLogRecord } from './factories/build-mock-action-log-reco
 import { runLiveUse } from './run-live-use.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'live-use-'));
+  const directory = await mkdtemp(join(tmpdir(), 'live-use-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it writes the summary under runs/live-use with the run config and the log counts', async () => {
   const ctx = await setupTest();
 
-  const logPath = join(ctx.dir, 'actions.jsonl');
+  const logPath = join(ctx.directory, 'actions.jsonl');
 
   const text = `${JSON.stringify({ schemaVersion: 2, status: 'allow' })}\n${JSON.stringify(
     buildMockActionLogRecord({
@@ -31,14 +31,14 @@ test('it writes the summary under runs/live-use with the run config and the log 
   const result = await runLiveUse({
     logPath,
     since: '2026-09-01T00:00:00.000Z',
-    resultsDir: ctx.dir,
+    resultsDir: ctx.directory,
     publicCommit: 'abc123',
     dirtyTree: true,
     now: () => new Date('2026-10-10T12:00:00.000Z'),
   });
 
   const written = await readFile(
-    join(ctx.dir, 'runs', 'live-use', result.summary.runID, 'summary.json'),
+    join(ctx.directory, 'runs', 'live-use', result.summary.runID, 'summary.json'),
     'utf8',
   );
 
@@ -68,7 +68,7 @@ test('it writes the summary under runs/live-use with the run config and the log 
 test('it keeps no log content beyond the hashed session identifiers', async () => {
   const ctx = await setupTest();
 
-  const logPath = join(ctx.dir, 'private-path-canary.jsonl');
+  const logPath = join(ctx.directory, 'private-path-canary.jsonl');
 
   await writeFile(
     logPath,
@@ -84,7 +84,7 @@ test('it keeps no log content beyond the hashed session identifiers', async () =
   const result = await runLiveUse({
     logPath,
     since: null,
-    resultsDir: ctx.dir,
+    resultsDir: ctx.directory,
     publicCommit: 'abc123',
     dirtyTree: false,
     now: () => new Date('2026-10-10T12:00:00.000Z'),

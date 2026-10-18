@@ -1,24 +1,24 @@
-const ANSI_ESCAPES: Readonly<Record<string, string>> = {
-  a: '\u0007',
-  b: '\b',
-  e: '\u001B',
-  E: '\u001B',
-  f: '\f',
-  n: '\n',
-  r: '\r',
-  t: '\t',
-  v: '\v',
-  '\\': '\\',
-  "'": "'",
-  '"': '"',
-  '?': '?',
-};
+const ANSI_ESCAPES: ReadonlyMap<string, string> = new Map([
+  ['a', '\u0007'],
+  ['b', '\b'],
+  ['e', '\u001B'],
+  ['E', '\u001B'],
+  ['f', '\f'],
+  ['n', '\n'],
+  ['r', '\r'],
+  ['t', '\t'],
+  ['v', '\v'],
+  ['\\', '\\'],
+  ["'", "'"],
+  ['"', '"'],
+  ['?', '?'],
+]);
 
 // Inside `$'…'` bash decodes a backslash escape: a named character, `\xHH`, or
 // up to three octal digits. Any other backslash stays as written.
 export function parseANSIEscape(raw: string, index: number): { text: string; end: number } {
   const next = raw.charAt(index + 1);
-  const named = ANSI_ESCAPES[next];
+  const named = ANSI_ESCAPES.get(next);
   const hex = /^x(?<digits>[0-9A-Fa-f]{1,2})/u.exec(raw.slice(index + 1));
   const octal = /^[0-7]{1,3}/u.exec(raw.slice(index + 1));
 

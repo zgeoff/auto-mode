@@ -153,7 +153,10 @@ function buildRate(
   );
 
   const count = selected.filter((record) => outcomes.includes(pickOutcome(record, measure))).length;
-  const repeats = [...new Set(records.map((record) => record.repeat))].toSorted((a, b) => a - b);
+
+  const repeats = [...new Set(records.map((record) => record.repeat))].toSorted(
+    (left, right) => left - right,
+  );
 
   const perRepeat = repeats.map((repeat) => {
     const inRepeat = selected.filter((record) => record.repeat === repeat);

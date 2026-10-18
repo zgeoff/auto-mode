@@ -7,12 +7,12 @@ import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-p
 import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
 import { DEFAULT_CONFIG, loadConfig, resolveApiKey, resolveConfigPath } from './config.ts';
 
-async function setupTest(): Promise<{ readonly dir: string; readonly configFile: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-config-'));
+async function setupTest(): Promise<{ readonly directory: string; readonly configFile: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-config-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, configFile: join(dir, 'config.json') };
+  return { directory, configFile: join(directory, 'config.json') };
 }
 
 test('#loadConfig falls back to the shipped defaults when there is no config file', async () => {
@@ -20,7 +20,7 @@ test('#loadConfig falls back to the shipped defaults when there is no config fil
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -52,14 +52,17 @@ test('#loadConfig falls back to the shipped defaults when there is no config fil
 test('#loadConfig reads the config file under the home config directory when no path is given', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.config', 'auto-mode'), { recursive: true });
+  await mkdir(join(ctx.directory, '.config', 'auto-mode'), { recursive: true });
 
   await writeFile(
-    join(ctx.dir, '.config', 'auto-mode', 'config.json'),
+    join(ctx.directory, '.config', 'auto-mode', 'config.json'),
     JSON.stringify({ decision: { onFailure: 'deny' } }),
   );
 
-  const config = await loadConfig(undefined, buildMockHostEnvironment({ env: {}, home: ctx.dir }));
+  const config = await loadConfig(
+    undefined,
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
+  );
 
   expect(config).toStrictEqual({
     provider: {
@@ -100,7 +103,7 @@ test('#loadConfig refuses a config file it cannot read', async () => {
   await mkdir(ctx.configFile);
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(Error, 'auto-mode configuration unreadable');
 });
 
@@ -111,7 +114,7 @@ test('#loadConfig refuses a config that is not JSON', async () => {
   await writeFile(ctx.configFile, 'oops {');
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(Error, `${ctx.configFile} is not valid JSON`);
 });
 
@@ -121,7 +124,7 @@ test('#loadConfig refuses a config that is not an object', async () => {
   await writeFile(ctx.configFile, '[]');
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile} is not a valid config: ✖ Invalid input: expected object, received array`,
@@ -134,7 +137,7 @@ test('#loadConfig names the built-in kinds when a role names one that is not', a
   await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'gpt' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.classifier names 'gpt', which is neither a classifiers entry nor a built-in kind (jev, claude-code, spark, claude, glm)`,
@@ -154,7 +157,7 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -203,7 +206,7 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -259,7 +262,7 @@ test('#loadConfig resolves the decision classifier and judge from the registry b
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -302,7 +305,7 @@ test('#loadConfig judges with the claude-code kind when the file names no judge'
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config.judge).toStrictEqual({
@@ -324,7 +327,7 @@ test('#loadConfig turns the judge off when the file sets it to null', async () =
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config.judge).toBeNull();
@@ -337,7 +340,7 @@ test('#loadConfig lets any judge overturn clear a soft rule when the file sets n
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config.judgeOverturns).toBe('any');
@@ -350,7 +353,7 @@ test('#loadConfig lets only a consent overturn clear a soft rule when the file s
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config.judgeOverturns).toBe('consent');
@@ -362,7 +365,7 @@ test('#loadConfig refuses a judgeOverturns value other than consent or any', asy
   await writeFile(ctx.configFile, JSON.stringify({ decision: { judgeOverturns: 'misread' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(Error, /→ at decision\.judgeOverturns$/u);
 });
 
@@ -372,7 +375,7 @@ test('#loadConfig refuses a classifier of the claude-code kind, which only judge
   await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'claude-code' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.classifier names a claude-code kind, which only judges`,
@@ -385,7 +388,7 @@ test('#loadConfig refuses a classifier of a Messages API kind, which only judges
   await writeFile(ctx.configFile, JSON.stringify({ decision: { classifier: 'glm' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.classifier names a messages kind, which only judges`,
@@ -398,7 +401,7 @@ test('#loadConfig refuses a judge of the jev kind, which cannot write a reason',
   await writeFile(ctx.configFile, JSON.stringify({ decision: { judge: 'jev' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.judge names a Jev kind, which cannot write a reason`,
@@ -412,7 +415,7 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -472,7 +475,7 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -498,7 +501,7 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
     },
     scopeSources: {
       cwd: { kind: 'cwd' },
-      scratch: { kind: 'globs', paths: [join(ctx.dir, 'scratch', '**')] },
+      scratch: { kind: 'globs', paths: [join(ctx.directory, 'scratch', '**')] },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -527,7 +530,7 @@ test('#loadConfig refuses a decision role that names a dropped entry', async () 
   );
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.classifier names 'mine', whose entry was dropped`,
@@ -540,7 +543,7 @@ test('#loadConfig refuses a decision role that names no entry and no built-in ki
   await writeFile(ctx.configFile, JSON.stringify({ decision: { judge: 'nobody' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile}: decision.judge names 'nobody', which is neither a classifiers entry nor a built-in kind (jev, claude-code, spark, claude, glm)`,
@@ -562,7 +565,7 @@ test.each([
   await writeFile(ctx.configFile, JSON.stringify({ [key]: value }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile} is not a valid config: ✖ Unrecognized key: "${key}"`,
@@ -575,7 +578,7 @@ test('#loadConfig refuses the retired decision.minConfidence key and names it', 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { minConfidence: 0.8 } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(
     Error,
     `${ctx.configFile} is not a valid config: ✖ Unrecognized key: "minConfidence"\n  → at decision`,
@@ -591,7 +594,7 @@ test.each([
   await writeFile(ctx.configFile, JSON.stringify({ decision: { blockThreshold } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(Error, /→ at decision\.blockThreshold$/u);
 });
 
@@ -612,7 +615,7 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -638,7 +641,7 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
     },
     scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
     classifierPath: undefined,
-    rulesPath: join(ctx.dir, 'rules.md'),
+    rulesPath: join(ctx.directory, 'rules.md'),
     onFailure: 'deny',
     claudeSettingsPath: '/claude/settings.json',
     blockThreshold: 0.3,
@@ -655,7 +658,7 @@ test('#loadConfig reads the protected branch patterns', async () => {
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config.protectedBranches).toStrictEqual(['release/*', 'staging']);
@@ -667,7 +670,7 @@ test('#loadConfig rejects an empty protected branch pattern', async () => {
   await writeFile(ctx.configFile, JSON.stringify({ protectedBranches: [''] }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrow('is not a valid config');
 });
 
@@ -676,15 +679,19 @@ test('#loadConfig reads the capture block, expanding a leading tilde in its dir'
 
   await writeFile(
     ctx.configFile,
+    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- user config key; renaming it is GEO-1385
     JSON.stringify({ capture: { enabled: true, dir: '~/captures' } }),
   );
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
-  expect(config.capture).toStrictEqual({ enabled: true, dir: join(ctx.dir, 'captures') });
+  expect(config.capture).toStrictEqual({
+    enabled: true,
+    directory: join(ctx.directory, 'captures'),
+  });
 });
 
 test('#loadConfig leaves capture off when the capture block omits enabled', async () => {
@@ -694,10 +701,10 @@ test('#loadConfig leaves capture off when the capture block omits enabled', asyn
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
-  expect(config.capture).toStrictEqual({ enabled: false, dir: undefined });
+  expect(config.capture).toStrictEqual({ enabled: false, directory: undefined });
 });
 
 test('#loadConfig refuses a capture block with a key it does not know', async () => {
@@ -706,7 +713,7 @@ test('#loadConfig refuses a capture block with a key it does not know', async ()
   await writeFile(ctx.configFile, JSON.stringify({ capture: { enabled: true, path: '/x' } }));
 
   expect(
-    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
   ).rejects.toThrowWithMessage(Error, /capture/u);
 });
 
@@ -717,7 +724,7 @@ test('#loadConfig disables the Claude rule import when the policy sets the setti
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -771,7 +778,7 @@ test.each([
     );
 
     expect(
-      loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.dir })),
+      loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
     ).rejects.toThrowWithMessage(Error, `${ctx.configFile}: decision.classifier ${refusal}`);
   },
 );
@@ -809,7 +816,7 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -827,7 +834,7 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
     scopeSources: {
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
-      scratch: { kind: 'globs', paths: [join(ctx.dir, 'scratch', '**')] },
+      scratch: { kind: 'globs', paths: [join(ctx.directory, 'scratch', '**')] },
       atc: { kind: 'atc' },
     },
     classifierPath: undefined,
@@ -848,7 +855,7 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -891,7 +898,7 @@ test('#loadConfig runs the cwd, session, and atc sources when the file has no sc
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -939,7 +946,7 @@ test('#loadConfig warns about a registry without the cwd source and a glob over 
 
   const config = await loadConfig(
     ctx.configFile,
-    buildMockHostEnvironment({ env: {}, home: ctx.dir }),
+    buildMockHostEnvironment({ env: {}, home: ctx.directory }),
   );
 
   expect(config).toStrictEqual({
@@ -1008,20 +1015,20 @@ test('#DEFAULT_CONFIG ships Jev judged by claude-code, deferring on failure, wit
 test('#resolveConfigPath finds the config file under the home config directory when XDG_CONFIG_HOME is unset', async () => {
   const ctx = await setupTest();
 
-  const host = buildMockHostEnvironment({ env: {}, home: ctx.dir });
+  const host = buildMockHostEnvironment({ env: {}, home: ctx.directory });
 
-  expect(resolveConfigPath(host)).toBe(join(ctx.dir, '.config', 'auto-mode', 'config.json'));
+  expect(resolveConfigPath(host)).toBe(join(ctx.directory, '.config', 'auto-mode', 'config.json'));
 });
 
 test('#resolveConfigPath finds the config file under XDG_CONFIG_HOME when it is set', async () => {
   const ctx = await setupTest();
 
   const host = buildMockHostEnvironment({
-    env: { XDG_CONFIG_HOME: join(ctx.dir, 'xdg') },
-    home: ctx.dir,
+    env: { XDG_CONFIG_HOME: join(ctx.directory, 'xdg') },
+    home: ctx.directory,
   });
 
-  expect(resolveConfigPath(host)).toBe(join(ctx.dir, 'xdg', 'auto-mode', 'config.json'));
+  expect(resolveConfigPath(host)).toBe(join(ctx.directory, 'xdg', 'auto-mode', 'config.json'));
 });
 
 test('#resolveApiKey reads the API key from the environment variable first', async () => {
@@ -1032,7 +1039,7 @@ test('#resolveApiKey reads the API key from the environment variable first', asy
       apiKeyEnv: 'AUTO_MODE_TEST_KEY',
       apiKeyCommand: 'printf from-command',
     }),
-    { runtime: buildMockRuntime({ env: { AUTO_MODE_TEST_KEY: 'from-env' }, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: { AUTO_MODE_TEST_KEY: 'from-env' }, home: ctx.directory }) },
   );
 
   expect(key).toBe('from-env');
@@ -1046,7 +1053,7 @@ test('#resolveApiKey falls back to the key command when the variable is unset', 
       apiKeyEnv: 'AUTO_MODE_TEST_KEY',
       apiKeyCommand: 'printf from-command',
     }),
-    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.directory }) },
   );
 
   expect(key).toBe('from-command');
@@ -1060,7 +1067,12 @@ test('#resolveApiKey runs the key command in the injected environment', async ()
       apiKeyEnv: 'AUTO_MODE_TEST_KEY',
       apiKeyCommand: 'printf %s "$INJECTED_KEY"',
     }),
-    { runtime: buildMockRuntime({ env: { INJECTED_KEY: 'from-injected-env' }, home: ctx.dir }) },
+    {
+      runtime: buildMockRuntime({
+        env: { INJECTED_KEY: 'from-injected-env' },
+        home: ctx.directory,
+      }),
+    },
   );
 
   expect(key).toBe('from-injected-env');
@@ -1069,11 +1081,11 @@ test('#resolveApiKey runs the key command in the injected environment', async ()
 test('#resolveApiKey gives the key command the injected home when the injected environment has none', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'key'), 'from-home-file');
+  await writeFile(join(ctx.directory, 'key'), 'from-home-file');
 
   const key = await resolveApiKey(
     buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: 'cat "$HOME/key"' }),
-    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.directory }) },
   );
 
   expect(key).toBe('from-home-file');
@@ -1084,7 +1096,7 @@ test('#resolveApiKey reports no key when neither the variable nor a command is s
 
   const key = await resolveApiKey(
     buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: undefined }),
-    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.directory }) },
   );
 
   expect(key).toBeNull();
@@ -1095,7 +1107,7 @@ test('#resolveApiKey reports no key when the key command fails', async () => {
 
   const key = await resolveApiKey(
     buildMockProviderConfig({ apiKeyEnv: 'AUTO_MODE_TEST_KEY', apiKeyCommand: 'exit 1' }),
-    { runtime: buildMockRuntime({ env: {}, home: ctx.dir }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.directory }) },
   );
 
   expect(key).toBeNull();

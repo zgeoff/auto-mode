@@ -10,17 +10,17 @@ import { planDenialBudget } from './plan-denial-budget.ts';
 import { tryUpdateDenialBudget } from './try-update-denial-budget.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-try-denials-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-try-denials-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir, stderr: buildStubOutput() };
+  return { directory, stderr: buildStubOutput() };
 }
 
 test('it writes nothing for a plan that changes no count', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'denials', 'session.json');
+  const path = join(ctx.directory, 'denials', 'session.json');
 
   const plan = await tryUpdateDenialBudget(ctx.stderr, path, (state) =>
     planDenialBudget(
@@ -43,7 +43,7 @@ test('it writes nothing for a plan that changes no count', async () => {
 test('it writes the counts a deny adds', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'denials', 'session.json');
+  const path = join(ctx.directory, 'denials', 'session.json');
 
   await tryUpdateDenialBudget(ctx.stderr, path, (state) =>
     planDenialBudget(
@@ -66,7 +66,7 @@ test('it writes the counts a deny adds', async () => {
 test('it keeps the deny and reports the counts unavailable when they cannot be written', async () => {
   const ctx = await setupTest();
 
-  const blocker = join(ctx.dir, 'not-a-directory');
+  const blocker = join(ctx.directory, 'not-a-directory');
 
   await writeFile(blocker, '');
 

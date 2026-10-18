@@ -11,9 +11,9 @@ export function resolveXDGDir(
   host: Readonly<HostEnvironment>,
   kind: keyof typeof BASE_DIRS,
 ): string {
-  const dir = BASE_DIRS[kind];
-  const base = host.env[dir.variable];
-  const root = base === undefined || base === '' ? join(host.home, ...dir.fallback) : base;
+  const directory = BASE_DIRS[kind];
+  const base = host.env[directory.variable];
+  const root = base === undefined || base === '' ? join(host.home, ...directory.fallback) : base;
 
   return join(root, 'auto-mode');
 }

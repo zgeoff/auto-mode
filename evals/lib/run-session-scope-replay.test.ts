@@ -8,14 +8,14 @@ import { buildMockTaskScopeSessions } from './factories/build-mock-task-scope-se
 import { runSessionScopeReplay } from './run-session-scope-replay.ts';
 
 async function setupTest(): Promise<{ readonly stateDir: string; readonly atcRecordDir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-run-session-replay-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-run-session-replay-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   // The replay reads each session's atc record from here; an absent file is a session without one.
-  await mkdir(join(dir, 'atc'));
+  await mkdir(join(directory, 'atc'));
 
-  return { stateDir: join(dir, 'state'), atcRecordDir: join(dir, 'atc') };
+  return { stateDir: join(directory, 'state'), atcRecordDir: join(directory, 'atc') };
 }
 
 test('it checks an action against a worktree that a call made earlier in its session', async () => {

@@ -20,23 +20,23 @@ export type CaptureOutcome =
   | { readonly kind: 'failed' };
 
 export async function tryWriteRequestCapture(
-  dir: string,
+  directory: string,
   record: Readonly<CaptureRecord>,
 ): Promise<CaptureOutcome> {
-  if (!isAbsolute(dir)) {
-    return { kind: 'refused', reason: `the capture dir ${dir} is not an absolute path` };
+  if (!isAbsolute(directory)) {
+    return { kind: 'refused', reason: `the capture dir ${directory} is not an absolute path` };
   }
 
   try {
-    const before = await findEnclosingWorkTree(dir);
+    const before = await findEnclosingWorkTree(directory);
 
     if (before !== null) {
       return { kind: 'refused', reason: `the capture dir is inside the git work tree ${before}` };
     }
 
-    await mkdir(dir, { recursive: true, mode: 0o700 });
+    await mkdir(directory, { recursive: true, mode: 0o700 });
 
-    const real = await realpath(dir);
+    const real = await realpath(directory);
 
     // A link created after the first check could point the dir into a work
     // tree, so the resolved dir is checked again before the write.

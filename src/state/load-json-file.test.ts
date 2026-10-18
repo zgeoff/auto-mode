@@ -6,11 +6,11 @@ import * as z from 'zod';
 import { loadJSONFile } from './load-json-file.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-load-json-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-load-json-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { path: join(dir, 'state.json') };
+  return { path: join(directory, 'state.json') };
 }
 
 test('it loads a file that matches the schema', async () => {

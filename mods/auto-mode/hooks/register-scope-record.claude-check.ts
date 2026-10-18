@@ -100,8 +100,8 @@ test('it logs a record subprocess failure and returns the call result', async ($
 
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });

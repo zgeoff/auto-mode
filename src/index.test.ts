@@ -9,11 +9,11 @@ import { DEFAULT_CONFIG } from './config/config.ts';
 import * as api from './index.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-index-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-index-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 // The package exports this set, so removing, renaming, or retyping one is a
@@ -31,12 +31,12 @@ test('#classifyAction classifies with the runtime a library caller passes and no
 
   const outcome = await api.classifyAction(
     buildMockActionRequest({
-      cwd: ctx.dir,
+      cwd: ctx.directory,
       toolName: 'Read',
-      toolInput: { file_path: join(ctx.dir, 'a.ts') },
+      toolInput: { file_path: join(ctx.directory, 'a.ts') },
     }),
     buildMockConfig({ judge: null, claudeSettingsPath: null }),
-    { runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }) },
+    { runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }) },
   );
 
   expect(outcome).toStrictEqual({
@@ -49,7 +49,7 @@ test('#classifyAction classifies with the runtime a library caller passes and no
 
 test('#loadConfig reads the shipped defaults for a config file that does not exist', async () => {
   const ctx = await setupTest();
-  const config = await api.loadConfig(join(ctx.dir, 'missing.json'));
+  const config = await api.loadConfig(join(ctx.directory, 'missing.json'));
 
   expect(config).toBe(DEFAULT_CONFIG);
 });

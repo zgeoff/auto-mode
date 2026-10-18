@@ -9,56 +9,58 @@ async function setupTest() {
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  return { dir: await realpath(created) };
+  return { directory: await realpath(created) };
 }
 
 test('it finds the nearest .git directory above the start', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'app', '.git'), { recursive: true });
-  await mkdir(join(ctx.dir, 'app', 'src'));
+  await mkdir(join(ctx.directory, 'app', '.git'), { recursive: true });
+  await mkdir(join(ctx.directory, 'app', 'src'));
 
-  const entry = await findGitEntry(join(ctx.dir, 'app', 'src'), ctx.dir);
+  const entry = await findGitEntry(join(ctx.directory, 'app', 'src'), ctx.directory);
 
   expect(entry).toStrictEqual({
-    directory: join(ctx.dir, 'app'),
-    gitPath: join(ctx.dir, 'app', '.git'),
+    directory: join(ctx.directory, 'app'),
+    gitPath: join(ctx.directory, 'app', '.git'),
   });
 });
 
 test('it finds a .git file the same as a directory', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, '.git'), 'gitdir: elsewhere\n');
+  await writeFile(join(ctx.directory, '.git'), 'gitdir: elsewhere\n');
 
-  const entry = await findGitEntry(ctx.dir, ctx.dir);
+  const entry = await findGitEntry(ctx.directory, ctx.directory);
 
-  expect(entry).toStrictEqual({ directory: ctx.dir, gitPath: join(ctx.dir, '.git') });
+  expect(entry).toStrictEqual({ directory: ctx.directory, gitPath: join(ctx.directory, '.git') });
 });
 
 test('it finds a .git link whose target is missing', async () => {
   const ctx = await setupTest();
 
-  await symlink(join(ctx.dir, 'missing'), join(ctx.dir, '.git'));
+  await symlink(join(ctx.directory, 'missing'), join(ctx.directory, '.git'));
 
-  const entry = await findGitEntry(ctx.dir, ctx.dir);
+  const entry = await findGitEntry(ctx.directory, ctx.directory);
 
-  expect(entry).toStrictEqual({ directory: ctx.dir, gitPath: join(ctx.dir, '.git') });
+  expect(entry).toStrictEqual({ directory: ctx.directory, gitPath: join(ctx.directory, '.git') });
 });
 
 test('it finds no entry above the stop directory', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.git'));
-  await mkdir(join(ctx.dir, 'notes'));
+  await mkdir(join(ctx.directory, '.git'));
+  await mkdir(join(ctx.directory, 'notes'));
 
-  expect(findGitEntry(join(ctx.dir, 'notes'), join(ctx.dir, 'notes'))).resolves.toBeNull();
+  expect(
+    findGitEntry(join(ctx.directory, 'notes'), join(ctx.directory, 'notes')),
+  ).resolves.toBeNull();
 });
 
 test('it finds no entry when the start sits below a file', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'blocker'), '');
+  await writeFile(join(ctx.directory, 'blocker'), '');
 
-  expect(findGitEntry(join(ctx.dir, 'blocker', 'inner'), ctx.dir)).resolves.toBeNull();
+  expect(findGitEntry(join(ctx.directory, 'blocker', 'inner'), ctx.directory)).resolves.toBeNull();
 });

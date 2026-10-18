@@ -14,11 +14,11 @@ import { waitFor } from '../../test-utils/wait-for.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-key-command-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-key-command-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const socketPath = join(dir, 'ready.sock');
+  const socketPath = join(directory, 'ready.sock');
   const report = Promise.withResolvers<string>();
 
   const server = createServer((socket) => {

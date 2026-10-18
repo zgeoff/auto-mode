@@ -7,7 +7,7 @@ export interface StubLockClockOptions {
 }
 
 export interface StubLockClock extends LockClock {
-  readonly wait: ReturnType<typeof mock<(ms: number) => Promise<void>>>;
+  readonly wait: ReturnType<typeof mock<(delayMs: number) => Promise<void>>>;
   readonly waited: Promise<void>;
 }
 
@@ -19,9 +19,9 @@ export function buildStubLockClock(options: Readonly<StubLockClockOptions>): Stu
 
   return {
     now: () => now,
-    wait: mock((ms: number) => {
+    wait: mock((delayMs: number) => {
       if (options.advancesOnWait) {
-        now += ms;
+        now += delayMs;
       }
 
       waited.resolve();

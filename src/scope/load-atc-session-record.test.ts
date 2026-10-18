@@ -4,18 +4,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadAtcSessionRecord } from './load-atc-session-record.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'atc-record-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'atc-record-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it reads a version 1 record and ignores the keys it does not know', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'record.json');
+  const path = join(ctx.directory, 'record.json');
 
   await writeFile(
     path,
@@ -71,7 +71,7 @@ test.each([
 
 test('it reports no record when the file is missing', async () => {
   const ctx = await setupTest();
-  const loaded = await loadAtcSessionRecord(join(ctx.dir, 'record.json'), 'atc-1');
+  const loaded = await loadAtcSessionRecord(join(ctx.directory, 'record.json'), 'atc-1');
 
   expect(loaded).toStrictEqual({ kind: 'absent' });
 });
@@ -88,7 +88,7 @@ test('it gives a diagnostic for a record path that is not absolute', async () =>
 test('it gives a diagnostic for a record path it cannot read', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'record.json');
+  const path = join(ctx.directory, 'record.json');
 
   await mkdir(path);
 
@@ -103,7 +103,7 @@ test('it gives a diagnostic for a record path it cannot read', async () => {
 test('it gives a diagnostic for a record that is not JSON', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'record.json');
+  const path = join(ctx.directory, 'record.json');
 
   await writeFile(path, '{"format":');
 
@@ -118,7 +118,7 @@ test('it gives a diagnostic for a record that is not JSON', async () => {
 test('it names the version in the diagnostic for a record of another version', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'record.json');
+  const path = join(ctx.directory, 'record.json');
 
   await writeFile(
     path,
@@ -146,7 +146,7 @@ test('it names the version in the diagnostic for a record of another version', a
 test('it names the nested field in the diagnostic for a record with a relative workspace path', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'record.json');
+  const path = join(ctx.directory, 'record.json');
 
   await writeFile(
     path,
@@ -174,7 +174,7 @@ test('it names the nested field in the diagnostic for a record with a relative w
 test('it names the whole record in the diagnostic for JSON that is not an object', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'record.json');
+  const path = join(ctx.directory, 'record.json');
 
   await writeFile(path, 'null');
 
@@ -194,7 +194,7 @@ test.each([
   async (_label, sessionID) => {
     const ctx = await setupTest();
 
-    const path = join(ctx.dir, 'record.json');
+    const path = join(ctx.directory, 'record.json');
 
     await writeFile(
       path,
@@ -223,7 +223,7 @@ test.each([
 test('it gives a diagnostic for a record that belongs to another session', async () => {
   const ctx = await setupTest();
 
-  const path = join(ctx.dir, 'record.json');
+  const path = join(ctx.directory, 'record.json');
 
   await writeFile(
     path,

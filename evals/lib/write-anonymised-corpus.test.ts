@@ -5,14 +5,14 @@ import { join } from 'node:path';
 import { runGit } from '../../test-utils/run-git.ts';
 import { writeAnonymisedCorpus } from './write-anonymised-corpus.ts';
 
-async function setupTest(): Promise<{ readonly dir: string; readonly capture: string }> {
+async function setupTest(): Promise<{ readonly directory: string; readonly capture: string }> {
   const created = await mkdtemp(join(tmpdir(), 'anonymise-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
-  return { dir, capture: join(dir, 'requests-2026-10-10.jsonl') };
+  return { directory, capture: join(directory, 'requests-2026-10-10.jsonl') };
 }
 
 test('it writes the anonymised cases and a labels to-do list outside every checkout', async () => {
@@ -44,19 +44,23 @@ test('it writes the anonymised cases and a labels to-do list outside every check
 
   const result = await writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
-    outDir: join(ctx.dir, 'recorded-traffic'),
+    outDir: join(ctx.directory, 'recorded-traffic'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
-    stagingRoot: ctx.dir,
+    stagingRoot: ctx.directory,
   });
 
-  const casesText = await readFile(join(ctx.dir, 'recorded-traffic', 'cases.json'), 'utf8');
-  const labelsText = await readFile(join(ctx.dir, 'recorded-traffic', 'labels.todo.json'), 'utf8');
+  const casesText = await readFile(join(ctx.directory, 'recorded-traffic', 'cases.json'), 'utf8');
+
+  const labelsText = await readFile(
+    join(ctx.directory, 'recorded-traffic', 'labels.todo.json'),
+    'utf8',
+  );
 
   const cases: unknown = JSON.parse(casesText);
   const labels: unknown = JSON.parse(labelsText);
 
-  expect(result).toStrictEqual({ outDir: join(ctx.dir, 'recorded-traffic'), cases: 1 });
+  expect(result).toStrictEqual({ outDir: join(ctx.directory, 'recorded-traffic'), cases: 1 });
 
   expect(cases).toStrictEqual({
     schemaVersion: 1,
@@ -100,64 +104,64 @@ test('it writes the anonymised cases and a labels to-do list outside every check
 test('it refuses an out dir under evals/corpora of a repository, so unread cases stay out of git', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'public')]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'public')]);
 
-  await mkdir(join(ctx.dir, 'public', 'evals', 'corpora'), { recursive: true });
+  await mkdir(join(ctx.directory, 'public', 'evals', 'corpora'), { recursive: true });
   await writeFile(ctx.capture, '');
 
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
-    outDir: join(ctx.dir, 'public', 'evals', 'corpora', 'recorded-traffic'),
+    outDir: join(ctx.directory, 'public', 'evals', 'corpora', 'recorded-traffic'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
-    stagingRoot: ctx.dir,
+    stagingRoot: ctx.directory,
   });
 
   expect(written).rejects.toThrowWithMessage(
     Error,
-    `Refusing to write into ${join(ctx.dir, 'public', 'evals', 'corpora', 'recorded-traffic')}: it is inside the git work tree ${join(ctx.dir, 'public')}. Write the corpus outside every repository, read every case, then copy the reviewed files into evals/corpora/.`,
+    `Refusing to write into ${join(ctx.directory, 'public', 'evals', 'corpora', 'recorded-traffic')}: it is inside the git work tree ${join(ctx.directory, 'public')}. Write the corpus outside every repository, read every case, then copy the reviewed files into evals/corpora/.`,
   );
 });
 
 test('it refuses an out dir in any other git work tree', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'other')]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'other')]);
 
   await writeFile(ctx.capture, '');
 
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
-    outDir: join(ctx.dir, 'other', 'corpus'),
+    outDir: join(ctx.directory, 'other', 'corpus'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
-    stagingRoot: ctx.dir,
+    stagingRoot: ctx.directory,
   });
 
   expect(written).rejects.toThrowWithMessage(
     Error,
-    `Refusing to write into ${join(ctx.dir, 'other', 'corpus')}: it is inside the git work tree ${join(ctx.dir, 'other')}. Write the corpus outside every repository, read every case, then copy the reviewed files into evals/corpora/.`,
+    `Refusing to write into ${join(ctx.directory, 'other', 'corpus')}: it is inside the git work tree ${join(ctx.directory, 'other')}. Write the corpus outside every repository, read every case, then copy the reviewed files into evals/corpora/.`,
   );
 });
 
 test('it refuses an out dir that already exists and leaves it untouched', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'existing'));
-  await writeFile(join(ctx.dir, 'existing', 'keep.txt'), 'keep');
+  await mkdir(join(ctx.directory, 'existing'));
+  await writeFile(join(ctx.directory, 'existing', 'keep.txt'), 'keep');
   await writeFile(ctx.capture, '');
 
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
-    outDir: join(ctx.dir, 'existing'),
+    outDir: join(ctx.directory, 'existing'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
-    stagingRoot: ctx.dir,
+    stagingRoot: ctx.directory,
   });
 
   expect(written).rejects.toThrowWithMessage(
     Error,
-    `Refusing to write into ${join(ctx.dir, 'existing')}: it already exists.`,
+    `Refusing to write into ${join(ctx.directory, 'existing')}: it already exists.`,
   );
 });
 
@@ -168,16 +172,16 @@ test('it writes nothing when the secret scan cannot run', async () => {
 
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
-    outDir: join(ctx.dir, 'recorded-traffic'),
-    env: { PATH: ctx.dir },
+    outDir: join(ctx.directory, 'recorded-traffic'),
+    env: { PATH: ctx.directory },
     salt: 'salt',
-    stagingRoot: ctx.dir,
+    stagingRoot: ctx.directory,
   });
 
   expect(written).rejects.toThrow(/secret scan did not pass/u);
 
-  const out = await stat(join(ctx.dir, 'recorded-traffic')).catch(() => null);
-  const entries = await readdir(ctx.dir);
+  const out = await stat(join(ctx.directory, 'recorded-traffic')).catch(() => null);
+  const entries = await readdir(ctx.directory);
 
   expect(out).toBeNull();
   expect(entries).toStrictEqual(['requests-2026-10-10.jsonl']);
@@ -186,20 +190,20 @@ test('it writes nothing when the secret scan cannot run', async () => {
 test('it refuses to stage the corpus inside a git work tree', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'staging')]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'staging')]);
 
   await writeFile(ctx.capture, '');
 
   const written = writeAnonymisedCorpus({
     captureFiles: [ctx.capture],
-    outDir: join(ctx.dir, 'recorded-traffic'),
+    outDir: join(ctx.directory, 'recorded-traffic'),
     env: { PATH: process.env['PATH'] },
     salt: 'salt',
-    stagingRoot: join(ctx.dir, 'staging'),
+    stagingRoot: join(ctx.directory, 'staging'),
   });
 
   expect(written).rejects.toThrowWithMessage(
     Error,
-    `Refusing to stage the corpus in ${join(ctx.dir, 'staging')}: it is inside the git work tree ${join(ctx.dir, 'staging')}.`,
+    `Refusing to stage the corpus in ${join(ctx.directory, 'staging')}: it is inside the git work tree ${join(ctx.directory, 'staging')}.`,
   );
 });

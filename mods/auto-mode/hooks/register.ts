@@ -19,58 +19,58 @@ export function register(on: ModOn, options: ModOptions): void {
 
   let prompts: PromptContext = buildPromptContext(null, { source: 'reload' });
 
-  on('classic.SessionStart', (_api, e, next) => {
-    if (e.agent_id === undefined) {
-      const isCompact = e.source === 'compact' && sessionID === e.session_id;
+  on('classic.SessionStart', (_api, event, next) => {
+    if (event.agent_id === undefined) {
+      const isCompact = event.source === 'compact' && sessionID === event.session_id;
 
-      sessionID = e.session_id;
+      sessionID = event.session_id;
 
       const previousPrompts = isCompact ? prompts : null;
 
-      prompts = buildPromptContext(previousPrompts, { source: e.source ?? 'unknown' });
+      prompts = buildPromptContext(previousPrompts, { source: event.source ?? 'unknown' });
 
       if (!isCompact) {
         delegatedTasks.clear();
       }
     }
 
-    return next(e);
+    return next(event);
   });
 
-  on('classic.UserPromptSubmit', (_api, e, next) => {
-    if (e.agent_id === undefined) {
-      sessionID = e.session_id;
+  on('classic.UserPromptSubmit', (_api, event, next) => {
+    if (event.agent_id === undefined) {
+      sessionID = event.session_id;
     }
 
-    return next(e);
+    return next(event);
   });
 
-  on('prompt.submit', (_api, e, next) => {
-    prompts = buildPromptContext(prompts, e);
+  on('prompt.submit', (_api, event, next) => {
+    prompts = buildPromptContext(prompts, event);
 
-    return next(e);
+    return next(event);
   });
 
-  on('agent.spawn', async (_api, e, next) => {
-    const result = await next(e);
+  on('agent.spawn', async (_api, event, next) => {
+    const result = await next(event);
 
     if (result.agentId !== undefined && !delegatedTasks.has(result.agentId)) {
-      delegatedTasks.set(result.agentId, e.prompt);
+      delegatedTasks.set(result.agentId, event.prompt);
     }
 
     return result;
   });
 
-  on('tool.call', async ($, e, next) => {
-    if (e.tool_use_id === undefined) {
-      return next(e);
+  on('tool.call', async ($, event, next) => {
+    if (event.tool_use_id === undefined) {
+      return next(event);
     }
 
-    activeCalls.set(e.tool_use_id, e.agentId ?? null);
+    activeCalls.set(event.tool_use_id, event.agentId ?? null);
 
     const command =
-      e.tool === 'Bash' && typeof e.command === 'string' && isScopeCommand(e.command)
-        ? e.command
+      event.tool === 'Bash' && typeof event.command === 'string' && isScopeCommand(event.command)
+        ? event.command
         : null;
 
     const startedAt = Date.now();
@@ -78,9 +78,9 @@ export function register(on: ModOn, options: ModOptions): void {
     let result;
 
     try {
-      result = await next(e);
+      result = await next(event);
     } finally {
-      activeCalls.delete(e.tool_use_id);
+      activeCalls.delete(event.tool_use_id);
     }
 
     if (command !== null && cwd !== null && sessionID !== null && result.deny === undefined) {
@@ -107,12 +107,12 @@ export function register(on: ModOn, options: ModOptions): void {
     return result;
   });
 
-  on('tool.check', async ($, e, next) => {
-    const decided = await next(e);
+  on('tool.check', async ($, event, next) => {
+    const decided = await next(event);
 
     const actionID =
-      e.tool_use_id !== undefined && /^call_[\da-f]{24,32}$/u.test(e.tool_use_id)
-        ? e.tool_use_id
+      event.tool_use_id !== undefined && /^call_[\da-f]{24,32}$/u.test(event.tool_use_id)
+        ? event.tool_use_id
         : 'unavailable';
 
     const logPrefix = `auto-mode action ${actionID}:`;
@@ -138,7 +138,7 @@ export function register(on: ModOn, options: ModOptions): void {
     try {
       const cwd = await $.session.cwd();
 
-      const agentID = e.tool_use_id === undefined ? null : activeCalls.get(e.tool_use_id);
+      const agentID = event.tool_use_id === undefined ? null : activeCalls.get(event.tool_use_id);
 
       if (agentID === undefined) {
         $.ui.log(`${logPrefix} evaluation skipped; untracked tool call`, { to: 'debug' });
@@ -146,7 +146,7 @@ export function register(on: ModOn, options: ModOptions): void {
         return decided;
       }
 
-      if (!isToolInput(e.input)) {
+      if (!isToolInput(event.input)) {
         $.ui.log(`${logPrefix} evaluation skipped; tool input is not an object`, { to: 'debug' });
 
         return decided;
@@ -160,10 +160,10 @@ export function register(on: ModOn, options: ModOptions): void {
 
       const request = buildActionRequest({
         sessionID,
-        toolUseID: e.tool_use_id,
+        toolUseID: event.tool_use_id,
         cwd,
-        toolName: e.tool,
-        toolInput: e.input,
+        toolName: event.tool,
+        toolInput: event.input,
         agentID,
         delegatedText: agentID === null ? undefined : delegatedTasks.get(agentID),
         prompts,

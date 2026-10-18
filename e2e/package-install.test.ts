@@ -23,15 +23,20 @@ async function setupTest(): Promise<{
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
   // The package's prepare script links the evals package and installs git
   // hooks, which a pack of the built artifact does not need.
-  const packed: unknown = await Bun.$`npm pack --json --ignore-scripts --pack-destination ${dir}`
-    .cwd(root)
-    .env({ PATH: process.env['PATH'], HOME: dir, npm_config_cache: join(dir, 'npm-cache') })
-    .quiet()
-    .json();
+  const packed: unknown =
+    await Bun.$`npm pack --json --ignore-scripts --pack-destination ${directory}`
+      .cwd(root)
+      .env({
+        PATH: process.env['PATH'],
+        HOME: directory,
+        npm_config_cache: join(directory, 'npm-cache'),
+      })
+      .quiet()
+      .json();
 
   const packedFile = z.object({ path: z.string() });
   const packedTarball = z.object({ filename: z.string(), files: z.array(packedFile) });
@@ -39,7 +44,7 @@ async function setupTest(): Promise<{
 
   invariant(tarball);
 
-  await Bun.$`tar -xzf ${join(dir, tarball.filename)} -C ${dir}`.quiet();
+  await Bun.$`tar -xzf ${join(directory, tarball.filename)} -C ${directory}`.quiet();
 
   // A version manager's node shim reads its config under the user's HOME, which
   // the child does not get, so the child runs the binary the shim resolves to.
@@ -47,9 +52,9 @@ async function setupTest(): Promise<{
 
   return {
     node: node.trim(),
-    packageDir: join(dir, 'package'),
+    packageDir: join(directory, 'package'),
     files: tarball.files.map((file) => file.path),
-    env: { PATH: process.env['PATH'], HOME: dir },
+    env: { PATH: process.env['PATH'], HOME: directory },
   };
 }
 

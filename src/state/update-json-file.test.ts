@@ -19,14 +19,14 @@ import { loadJSONFile } from './load-json-file.ts';
 import { updateJSONFile } from './update-json-file.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-update-json-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-update-json-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const path = join(dir, 'state', 'session.json');
+  const path = join(directory, 'state', 'session.json');
 
   return {
-    dir,
+    directory,
     path,
     lock: `${path}.lock`,
     load: (file: string) => loadJSONFile(file, z.strictObject({ count: z.number() }), { count: 0 }),
@@ -120,7 +120,7 @@ test('it gives up after 3 s on a lock path it cannot inspect', async () => {
   const startedAt = Date.parse('2026-01-01T00:00:00Z');
 
   await mkdir(dirname(ctx.path));
-  await symlink(join(ctx.dir, 'missing-lock-target'), ctx.lock);
+  await symlink(join(ctx.directory, 'missing-lock-target'), ctx.lock);
 
   const clock = buildStubLockClock({ startAt: startedAt, advancesOnWait: true });
 
@@ -202,8 +202,8 @@ test('it lets one process at a time take over a stale lock that two judge stale 
   const ctx = await setupTest();
 
   const lockedAt = Date.parse('2026-01-01T00:00:00Z');
-  const barrierDir = join(ctx.dir, 'barrier');
-  const logPath = join(ctx.dir, 'turns.log');
+  const barrierDir = join(ctx.directory, 'barrier');
+  const logPath = join(ctx.directory, 'turns.log');
 
   await mkdir(dirname(ctx.path));
   await mkdir(barrierDir);

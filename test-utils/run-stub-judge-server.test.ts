@@ -6,21 +6,25 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-stub-judge-server-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-stub-judge-server-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it serves on the socket it is given, records its pid, and ends after its idle period', async () => {
   const ctx = await setupTest();
 
-  const recordPath = join(ctx.dir, 'servers.jsonl');
+  const recordPath = join(ctx.directory, 'servers.jsonl');
 
   const result = spawnSync(
     process.execPath,
-    [join(import.meta.dir, 'run-stub-judge-server.ts'), 'judge-server', join(ctx.dir, 'j.sock')],
+    [
+      join(import.meta.dir, 'run-stub-judge-server.ts'),
+      'judge-server',
+      join(ctx.directory, 'j.sock'),
+    ],
     {
       encoding: 'utf8',
       env: { STUB_JUDGE_SERVER_RECORD: recordPath, STUB_JUDGE_SERVER_IDLE_MS: '50' },
@@ -32,7 +36,7 @@ test('it serves on the socket it is given, records its pid, and ends after its i
 
   expect(result.status).toBe(0);
   expect(JSON.parse(recorded)).toStrictEqual({ pid: result.pid });
-  expect(existsSync(join(ctx.dir, 'j.sock'))).toBeFalse();
+  expect(existsSync(join(ctx.directory, 'j.sock'))).toBeFalse();
 });
 
 test('it exits 2 without the judge-server command', () => {

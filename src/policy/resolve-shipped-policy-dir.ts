@@ -7,19 +7,19 @@ export function resolveShippedPolicyDir(
 ): string {
   // tsdown flattens dist/ while the source stays nested, so a fixed `..` count
   // is right for only one of the two layouts. Walk up instead.
-  let dir = startDir;
+  let directory = startDir;
 
   for (;;) {
-    if (existsSync(join(dir, 'policy', 'decision.md'))) {
-      return join(dir, 'policy');
+    if (existsSync(join(directory, 'policy', 'decision.md'))) {
+      return join(directory, 'policy');
     }
 
-    const parent = dirname(dir);
+    const parent = dirname(directory);
 
-    if (parent === dir || dir === stopDir) {
+    if (parent === directory || directory === stopDir) {
       throw new Error('auto-mode cannot find its shipped policy/ directory');
     }
 
-    dir = parent;
+    directory = parent;
   }
 }

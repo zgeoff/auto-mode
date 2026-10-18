@@ -157,7 +157,7 @@ async function main(): Promise<void> {
     }
   }
 
-  const sorted = [...fieldCounts].toSorted((a, b) => b[1] - a[1]);
+  const sorted = [...fieldCounts].toSorted((left, right) => right[1] - left[1]);
 
   print(`   ${sorted.map(([field, count]) => `${field}:${count}`).join(' ')}`);
 }
@@ -167,11 +167,11 @@ function print(line: string): void {
 }
 
 async function readBaseFile(ref: string, path: string): Promise<string> {
-  const proc = Bun.spawn(['git', 'show', `${ref}:${path}`], { cwd: ROOT, stdout: 'pipe' });
+  const child = Bun.spawn(['git', 'show', `${ref}:${path}`], { cwd: ROOT, stdout: 'pipe' });
 
-  const text = await new Response(proc.stdout).text();
+  const text = await new Response(child.stdout).text();
 
-  invariant((await proc.exited) === 0, `git show ${ref}:${path} failed.`);
+  invariant((await child.exited) === 0, `git show ${ref}:${path} failed.`);
 
   return text;
 }
@@ -206,8 +206,8 @@ function toMessageBank(text: string): Map<string, string> {
   );
 }
 
-async function collectFiles(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, { withFileTypes: true, recursive: true });
+async function collectFiles(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true, recursive: true });
 
   return entries
     .filter((entry) => entry.isFile())

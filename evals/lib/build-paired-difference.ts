@@ -10,11 +10,11 @@ export interface PairedDifference {
 // is taken per shared case, so the case is the unit and repeated samples of one
 // case count once. Fewer than two shared cases leave the error undefined.
 export function buildPairedDifference(
-  a: readonly ClusteredObservation[],
-  b: readonly ClusteredObservation[],
+  runA: readonly ClusteredObservation[],
+  runB: readonly ClusteredObservation[],
 ): PairedDifference {
-  const meansA = buildClusterMeans(a);
-  const meansB = buildClusterMeans(b);
+  const meansA = buildClusterMeans(runA);
+  const meansB = buildClusterMeans(runB);
 
   const differences = [...meansA].flatMap(([cluster, meanA]) => {
     const meanB = meansB.get(cluster);

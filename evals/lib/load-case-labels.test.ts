@@ -5,31 +5,31 @@ import { join } from 'node:path';
 import * as z from 'zod';
 import { loadCaseLabels } from './load-case-labels.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
+async function setupTest(): Promise<{ readonly directory: string }> {
   const root = await mkdtemp(join(tmpdir(), 'auto-mode-case-labels-'));
 
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
   // The corpus name comes from the folder name, so the corpus sits in a folder named for it.
-  const dir = join(root, 'applicability');
+  const directory = join(root, 'applicability');
 
-  await mkdir(dir);
+  await mkdir(directory);
 
-  return { dir };
+  return { directory };
 }
 
 test('it returns the labels of a sidecar that covers exactly its corpus', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'cases.json'),
+    join(ctx.directory, 'cases.json'),
     JSON.stringify({
       cases: [{ name: 'ordinary source write' }, { name: 'default-branch PR merge' }],
     }),
   );
 
   await writeFile(
-    join(ctx.dir, 'labels.json'),
+    join(ctx.directory, 'labels.json'),
     JSON.stringify({
       schemaVersion: 1,
       corpus: 'applicability',
@@ -46,7 +46,7 @@ test('it returns the labels of a sidecar that covers exactly its corpus', async 
     }),
   );
 
-  const labels = await loadCaseLabels(ctx.dir);
+  const labels = await loadCaseLabels(ctx.directory);
 
   expect(labels).toStrictEqual({
     schemaVersion: 1,
@@ -68,14 +68,14 @@ test('it rejects a sidecar that misses a case and labels one the corpus lacks', 
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'cases.json'),
+    join(ctx.directory, 'cases.json'),
     JSON.stringify({
       cases: [{ name: 'ordinary source write' }, { name: 'default-branch PR merge' }],
     }),
   );
 
   await writeFile(
-    join(ctx.dir, 'labels.json'),
+    join(ctx.directory, 'labels.json'),
     JSON.stringify({
       schemaVersion: 1,
       corpus: 'applicability',
@@ -87,7 +87,7 @@ test('it rejects a sidecar that misses a case and labels one the corpus lacks', 
     }),
   );
 
-  expect(loadCaseLabels(ctx.dir)).rejects.toThrowWithMessage(
+  expect(loadCaseLabels(ctx.directory)).rejects.toThrowWithMessage(
     Error,
     'The applicability labels miss [default-branch PR merge] and hold unknown cases [ordinary source edit].',
   );
@@ -97,12 +97,12 @@ test('it rejects a sidecar that names another corpus', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'cases.json'),
+    join(ctx.directory, 'cases.json'),
     JSON.stringify({ cases: [{ name: 'ordinary source write' }] }),
   );
 
   await writeFile(
-    join(ctx.dir, 'labels.json'),
+    join(ctx.directory, 'labels.json'),
     JSON.stringify({
       schemaVersion: 1,
       corpus: 'answer-guidance',
@@ -113,7 +113,7 @@ test('it rejects a sidecar that names another corpus', async () => {
     }),
   );
 
-  expect(loadCaseLabels(ctx.dir)).rejects.toThrowWithMessage(
+  expect(loadCaseLabels(ctx.directory)).rejects.toThrowWithMessage(
     Error,
     'The applicability labels name the corpus answer-guidance.',
   );
@@ -123,12 +123,12 @@ test('it rejects a sidecar that keys cases by a field the corpus does not use', 
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'cases.json'),
+    join(ctx.directory, 'cases.json'),
     JSON.stringify({ cases: [{ name: 'ordinary source write' }] }),
   );
 
   await writeFile(
-    join(ctx.dir, 'labels.json'),
+    join(ctx.directory, 'labels.json'),
     JSON.stringify({
       schemaVersion: 1,
       corpus: 'applicability',
@@ -139,7 +139,7 @@ test('it rejects a sidecar that keys cases by a field the corpus does not use', 
     }),
   );
 
-  expect(loadCaseLabels(ctx.dir)).rejects.toThrowWithMessage(
+  expect(loadCaseLabels(ctx.directory)).rejects.toThrowWithMessage(
     Error,
     'The applicability labels key cases by id; the corpus keys them by name.',
   );
@@ -149,14 +149,14 @@ test('it rejects a corpus that repeats a case key', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'cases.json'),
+    join(ctx.directory, 'cases.json'),
     JSON.stringify({
       cases: [{ name: 'ordinary source write' }, { name: 'ordinary source write' }],
     }),
   );
 
   await writeFile(
-    join(ctx.dir, 'labels.json'),
+    join(ctx.directory, 'labels.json'),
     JSON.stringify({
       schemaVersion: 1,
       corpus: 'applicability',
@@ -167,7 +167,7 @@ test('it rejects a corpus that repeats a case key', async () => {
     }),
   );
 
-  expect(loadCaseLabels(ctx.dir)).rejects.toThrowWithMessage(
+  expect(loadCaseLabels(ctx.directory)).rejects.toThrowWithMessage(
     Error,
     'The applicability corpus repeats a case key, so a label cannot name one case.',
   );
@@ -177,12 +177,12 @@ test('it rejects a sidecar whose labels fail the schema', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'cases.json'),
+    join(ctx.directory, 'cases.json'),
     JSON.stringify({ cases: [{ name: 'default-branch PR merge' }] }),
   );
 
   await writeFile(
-    join(ctx.dir, 'labels.json'),
+    join(ctx.directory, 'labels.json'),
     JSON.stringify({
       schemaVersion: 1,
       corpus: 'applicability',
@@ -197,5 +197,5 @@ test('it rejects a sidecar whose labels fail the schema', async () => {
     }),
   );
 
-  expect(loadCaseLabels(ctx.dir)).rejects.toBeInstanceOf(z.ZodError);
+  expect(loadCaseLabels(ctx.directory)).rejects.toBeInstanceOf(z.ZodError);
 });

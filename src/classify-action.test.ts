@@ -20,7 +20,7 @@ import { classifyAction } from './classify-action.ts';
 import { findCheckout } from './git/find-checkout.ts';
 
 async function setupTest(): Promise<{
-  readonly dir: string;
+  readonly directory: string;
   readonly binDir: string;
   readonly recordPath: string;
 }> {
@@ -28,13 +28,13 @@ async function setupTest(): Promise<{
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  const dir = await realpath(created);
+  const directory = await realpath(created);
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(dir, ['init', '-q', '-b', 'main', join(dir, 'repo')]);
+  runGit(directory, ['init', '-q', '-b', 'main', join(directory, 'repo')]);
 
-  const binDir = join(dir, 'bin');
+  const binDir = join(directory, 'bin');
 
   await mkdir(binDir);
 
@@ -45,7 +45,7 @@ async function setupTest(): Promise<{
     { mode: 0o755 },
   );
 
-  return { dir, binDir, recordPath: join(dir, 'claude-calls.jsonl') };
+  return { directory, binDir, recordPath: join(directory, 'claude-calls.jsonl') };
 }
 
 test('it allows a read-only tool in the local tier', async () => {
@@ -53,9 +53,9 @@ test('it allows a read-only tool in the local tier', async () => {
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Read',
-      toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts') },
+      toolInput: { file_path: join(ctx.directory, 'repo', 'a.ts') },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one' },
@@ -64,7 +64,7 @@ test('it allows a read-only tool in the local tier', async () => {
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
     },
   );
 
@@ -81,9 +81,9 @@ test('it gives no verdict for an escalated action when the model tier is skipped
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
-      toolInput: { command: `touch ${join(ctx.dir, 'repo', 'a.ts')}` },
+      toolInput: { command: `touch ${join(ctx.directory, 'repo', 'a.ts')}` },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one' },
@@ -92,7 +92,7 @@ test('it gives no verdict for an escalated action when the model tier is skipped
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -109,24 +109,24 @@ test('it sends a local allowance to the model tier when configured deny rules ex
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'settings.json'),
+    join(ctx.directory, 'settings.json'),
     JSON.stringify({ autoMode: { hard_deny: ['Never read the private key'] } }),
   );
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Read',
-      toolInput: { file_path: join(ctx.dir, 'repo', 'key.pem') },
+      toolInput: { file_path: join(ctx.directory, 'repo', 'key.pem') },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one' },
       judge: null,
-      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -142,23 +142,23 @@ test('it sends a local allowance to the model tier when configured deny rules ex
 test('it fails closed on unreadable Claude settings when configured to deny', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Read',
-      toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts') },
+      toolInput: { file_path: join(ctx.directory, 'repo', 'a.ts') },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one' },
       judge: null,
-      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
       onFailure: 'deny',
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
     },
   );
 
@@ -202,7 +202,7 @@ test('it denies an unsure Jev allow that reaches the block threshold with the ru
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make deploy' },
     }),
@@ -216,7 +216,7 @@ test('it denies an unsure Jev allow that reaches the block threshold with the ru
       stderr: buildStubOutput(),
       runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -279,9 +279,9 @@ test('it denies an unsure Jev allow that reaches the block threshold with the ru
 test('it reads the Claude settings file once per action', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '.claude'));
+  await mkdir(join(ctx.directory, '.claude'));
 
-  const settingsPath = join(ctx.dir, '.claude', 'settings.json');
+  const settingsPath = join(ctx.directory, '.claude', 'settings.json');
 
   Bun.spawnSync(['mkfifo', settingsPath]);
 
@@ -302,7 +302,7 @@ test('it reads the Claude settings file once per action', async () => {
   );
 
   await writeFile(
-    join(ctx.dir, 'repo', '.mcp.json'),
+    join(ctx.directory, 'repo', '.mcp.json'),
     JSON.stringify({
       mcpServers: { docs: { type: 'http', url: 'https://docs.example.test/mcp' } },
     }),
@@ -320,7 +320,7 @@ test('it reads the Claude settings file once per action', async () => {
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make deploy' },
     }),
@@ -333,7 +333,7 @@ test('it reads the Claude settings file once per action', async () => {
       stderr: buildStubOutput(),
       runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -371,9 +371,9 @@ test('it ends a failure reason with a full stop before the safer-path instructio
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
-      toolInput: { command: `touch ${join(ctx.dir, 'repo', 'a.ts')}` },
+      toolInput: { command: `touch ${join(ctx.directory, 'repo', 'a.ts')}` },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
@@ -384,7 +384,7 @@ test('it ends a failure reason with a full stop before the safer-path instructio
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
     },
   );
 
@@ -420,11 +420,19 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
 
   const received = mock();
 
-  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
-
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
-    join(ctx.dir, 'repo'),
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
     'worktree',
     'add',
     '-q',
@@ -434,7 +442,7 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
   ]);
 
   await writeFile(
-    join(ctx.dir, 'settings.json'),
+    join(ctx.directory, 'settings.json'),
     JSON.stringify({
       autoMode: { allow: ['Removing any worktree under .worktrees/ is routine cleanup.'] },
     }),
@@ -450,14 +458,14 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo', '.worktrees', 'feature'),
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'feature'),
       toolName: 'Bash',
       toolInput: { command: 'git worktree remove --force ../other' },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
       judge: { protocol: 'claude-code' },
-      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
     }),
     {
       stderr: buildStubOutput(),
@@ -468,7 +476,7 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Routine cleanup."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -478,10 +486,10 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
     verdict: {
       kind: 'deny',
       rule: 'Outside Task Scope',
-      reason: `This action writes outside the task scope: path ${join(ctx.dir, 'repo', '.worktrees', 'other')}. The task owns the worktree ${join(ctx.dir, 'repo', '.worktrees', 'feature')} and the branch feature. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
+      reason: `This action writes outside the task scope: path ${join(ctx.directory, 'repo', '.worktrees', 'other')}. The task owns the worktree ${join(ctx.directory, 'repo', '.worktrees', 'feature')} and the branch feature. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
     },
     decidingStage: 'containment',
-    note: `denied by the containment check: ${join(ctx.dir, 'repo', '.worktrees', 'other')}`,
+    note: `denied by the containment check: ${join(ctx.directory, 'repo', '.worktrees', 'other')}`,
     status: 'deny',
   });
 
@@ -494,20 +502,28 @@ test('it denies a push to a configured protected branch that the task works on, 
 
   const received = mock();
 
-  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
-
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
-    join(ctx.dir, 'repo'),
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
     'remote',
     'add',
     'origin',
     'git@github.com:dev/app.git',
   ]);
 
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
-    join(ctx.dir, 'repo'),
+    join(ctx.directory, 'repo'),
     'worktree',
     'add',
     '-q',
@@ -526,7 +542,7 @@ test('it denies a push to a configured protected branch that the task works on, 
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo', '.worktrees', 'release'),
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'release'),
       toolName: 'Bash',
       toolInput: { command: 'git push origin release/2.0' },
       decisionContext: {
@@ -550,7 +566,7 @@ test('it denies a push to a configured protected branch that the task works on, 
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"consent","reason":"The user asked for it."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -560,7 +576,7 @@ test('it denies a push to a configured protected branch that the task works on, 
     verdict: {
       kind: 'deny',
       rule: 'Outside Task Scope',
-      reason: `This action writes outside the task scope: branch release/2.0. The task owns the worktree ${join(ctx.dir, 'repo', '.worktrees', 'release')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
+      reason: `This action writes outside the task scope: branch release/2.0. The task owns the worktree ${join(ctx.directory, 'repo', '.worktrees', 'release')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
     },
     decidingStage: 'containment',
     note: 'denied by the containment check: release/2.0',
@@ -580,7 +596,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make release' },
     }),
@@ -599,7 +615,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"consent","reason":"The user asked for the release on main."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -641,7 +657,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns as a misr
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make release' },
     }),
@@ -659,7 +675,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns as a misr
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"misread","reason":"main is the task branch."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -680,7 +696,7 @@ test('it keeps a soft-rule Jev deny the judge overturns as a misread when only a
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make release' },
     }),
@@ -699,7 +715,7 @@ test('it keeps a soft-rule Jev deny the judge overturns as a misread when only a
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"misread","reason":"main is the task branch."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -724,7 +740,7 @@ test('it denies with the judge’s reason and the safer-path instruction when th
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make release' },
     }),
@@ -742,7 +758,7 @@ test('it denies with the judge’s reason and the safer-path instruction when th
           STUB_CLAUDE_REPLY:
             '{"verdict":"confirm","basis":null,"reason":"The user asked for a branch, not main."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -768,7 +784,7 @@ test('it keeps a hard-rule Jev deny with its template reason when the judge over
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make release' },
     }),
@@ -786,7 +802,7 @@ test('it keeps a hard-rule Jev deny with its template reason when the judge over
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"consent","reason":"The value is a test literal."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -808,7 +824,7 @@ test('it keeps a Jev deny the judge overturns on consent when a configured hard 
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'settings.json'),
+    join(ctx.directory, 'settings.json'),
     JSON.stringify({ autoMode: { hard_deny: ['Never run the release target'] } }),
   );
 
@@ -825,14 +841,14 @@ test('it keeps a Jev deny the judge overturns on consent when a configured hard 
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make release' },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
       judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
-      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
     }),
     {
       stderr: buildStubOutput(),
@@ -843,7 +859,7 @@ test('it keeps a Jev deny the judge overturns on consent when a configured hard 
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"consent","reason":"The user asked for the release."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -872,7 +888,7 @@ test('it denies a stored-password change the user only asked to check at the con
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: {
         command: 'op item edit "harbor deploy" password=harbor-2026-reset --vault agents',
@@ -900,7 +916,7 @@ test('it denies a stored-password change the user only asked to check at the con
           STUB_CLAUDE_REPLY:
             '{"verdict":"confirm","basis":null,"reason":"The user asked to check that the item exists; this replaces its password."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -910,7 +926,7 @@ test('it denies a stored-password change the user only asked to check at the con
     verdict: {
       kind: 'deny',
       rule: 'Outside Task Scope',
-      reason: `This action writes outside the task scope: credential or global setting op item edit. The task owns the worktree ${join(ctx.dir, 'repo')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
+      reason: `This action writes outside the task scope: credential or global setting op item edit. The task owns the worktree ${join(ctx.directory, 'repo')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
     },
     decidingStage: 'containment',
     note: 'denied by the containment check: op item edit',
@@ -924,11 +940,19 @@ test('it denies a stored-password change the user only asked to check at the con
 test('it passes a target it cannot resolve to the classifier', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
-
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
-    join(ctx.dir, 'repo'),
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
     'worktree',
     'add',
     '-q',
@@ -939,7 +963,7 @@ test('it passes a target it cannot resolve to the classifier', async () => {
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo', '.worktrees', 'feature'),
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'feature'),
       toolName: 'Bash',
       toolInput: { command: 'rm -rf "$OTHER_WORKTREE"' },
     }),
@@ -950,7 +974,7 @@ test('it passes a target it cannot resolve to the classifier', async () => {
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -968,7 +992,7 @@ test('it denies a local regenerable-output removal in another worktree', async (
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'rm -rf .worktrees/other/dist' },
     }),
@@ -979,7 +1003,7 @@ test('it denies a local regenerable-output removal in another worktree', async (
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -988,10 +1012,10 @@ test('it denies a local regenerable-output removal in another worktree', async (
     verdict: {
       kind: 'deny',
       rule: 'Outside Task Scope',
-      reason: `This action writes outside the task scope: path ${join(ctx.dir, 'repo', '.worktrees', 'other', 'dist')}. The task owns the worktree ${join(ctx.dir, 'repo')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
+      reason: `This action writes outside the task scope: path ${join(ctx.directory, 'repo', '.worktrees', 'other', 'dist')}. The task owns the worktree ${join(ctx.directory, 'repo')}. Do the work inside the task's own worktree and branch, or ask the user to extend the task scope to this target. Do not retry this action, and do not reach the same result another way: not with a different command, tool, script, file, or agent. Continue the task on a safer path that does not need this action. If no safer path exists for this step, finish the rest of the task first, then tell the user what you need from them for this step.`,
     },
     decidingStage: 'containment',
-    note: `denied by the containment check: ${join(ctx.dir, 'repo', '.worktrees', 'other', 'dist')}`,
+    note: `denied by the containment check: ${join(ctx.directory, 'repo', '.worktrees', 'other', 'dist')}`,
     status: 'deny',
   });
 });
@@ -1001,7 +1025,7 @@ test('it still allows a local regenerable-output removal inside the task worktre
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'rm -rf dist' },
     }),
@@ -1012,7 +1036,7 @@ test('it still allows a local regenerable-output removal inside the task worktre
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1030,7 +1054,7 @@ test('it escalates a local regenerable-output removal when the task scope does n
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'rm -rf dist' },
     }),
@@ -1043,7 +1067,7 @@ test('it escalates a local regenerable-output removal when the task scope does n
       stderr: buildStubOutput(),
       runtime: buildMockRuntime({
         env: {},
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
         findCheckout: () => Promise.reject(new Error('the git directory is unreadable')),
       }),
@@ -1064,7 +1088,7 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Write',
       toolInput: { file_path: 'src/a.ts', content: 'export const a = 1;\n' },
     }),
@@ -1075,7 +1099,7 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1083,7 +1107,7 @@ test('it allows a file-tool write inside the cwd worktree without the model tier
   expect(outcome).toStrictEqual({
     verdict: { kind: 'allow' },
     decidingStage: 'bypass',
-    note: `allowed by the edit bypass: ${join(ctx.dir, 'repo', 'src', 'a.ts')}`,
+    note: `allowed by the edit bypass: ${join(ctx.directory, 'repo', 'src', 'a.ts')}`,
     status: 'allow',
   });
 });
@@ -1093,9 +1117,9 @@ test('it sends an in-scope edit to the model tier when it writes an env file', a
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Write',
-      toolInput: { file_path: join(ctx.dir, 'repo', '.env'), content: 'PORT=3000' },
+      toolInput: { file_path: join(ctx.directory, 'repo', '.env'), content: 'PORT=3000' },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one' },
@@ -1104,7 +1128,7 @@ test('it sends an in-scope edit to the model tier when it writes an env file', a
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1124,10 +1148,10 @@ test('it sends an in-scope edit to the model tier when it writes a secret', asyn
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Write',
       toolInput: {
-        file_path: join(ctx.dir, 'repo', 'src', 'token.ts'),
+        file_path: join(ctx.directory, 'repo', 'src', 'token.ts'),
         content: `export const token = '${token}';`,
       },
     }),
@@ -1138,7 +1162,7 @@ test('it sends an in-scope edit to the model tier when it writes a secret', asyn
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1155,24 +1179,24 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.dir, 'settings.json'),
+    join(ctx.directory, 'settings.json'),
     JSON.stringify({ autoMode: { soft_deny: ['Never edit a.ts'] } }),
   );
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Write',
-      toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts'), content: 'x' },
+      toolInput: { file_path: join(ctx.directory, 'repo', 'a.ts'), content: 'x' },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one' },
       judge: null,
-      claudeSettingsPath: join(ctx.dir, 'settings.json'),
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
     }),
     {
       stderr: buildStubOutput(),
-      runtime: buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] }),
+      runtime: buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] }),
       localOnly: true,
     },
   );
@@ -1194,7 +1218,7 @@ test('it walks up to the checkout once for an action that reaches Jev', async ()
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make deploy' },
     }),
@@ -1207,7 +1231,7 @@ test('it walks up to the checkout once for an action that reaches Jev', async ()
       stderr: buildStubOutput(),
       runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
         findCheckout: walk,
       }),
@@ -1215,28 +1239,28 @@ test('it walks up to the checkout once for an action that reaches Jev', async ()
   );
 
   expect(outcome.decidingStage).toBe('jev');
-  expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.dir, 'repo'), expect.any(Object));
+  expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.directory, 'repo'), expect.any(Object));
 });
 
 test('it leaves the action to the user once the denial budget is spent', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'settings.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'settings.json'), 'not json {');
 
   const config = buildMockConfig({
     provider: { protocol: 'system-one' },
     judge: null,
     onFailure: 'deny',
-    claudeSettingsPath: join(ctx.dir, 'settings.json'),
+    claudeSettingsPath: join(ctx.directory, 'settings.json'),
     denialBudget: { consecutive: 1, perSession: 20 },
   });
 
-  const runtime = buildMockRuntime({ env: {}, home: ctx.dir, scratchPaths: [] });
+  const runtime = buildMockRuntime({ env: {}, home: ctx.directory, scratchPaths: [] });
 
   await classifyAction(
     buildMockActionRequest({
       sessionID: 'budget-session',
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'git push a' },
     }),
@@ -1247,7 +1271,7 @@ test('it leaves the action to the user once the denial budget is spent', async (
   const outcome = await classifyAction(
     buildMockActionRequest({
       sessionID: 'budget-session',
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'git push b' },
     }),
@@ -1271,9 +1295,9 @@ test('it writes a started and a final action-log record when asked', async () =>
 
   await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Read',
-      toolInput: { file_path: join(ctx.dir, 'repo', 'a.ts') },
+      toolInput: { file_path: join(ctx.directory, 'repo', 'a.ts') },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one' },
@@ -1283,15 +1307,15 @@ test('it writes a started and a final action-log record when asked', async () =>
     {
       stderr: buildStubOutput(),
       runtime: buildMockRuntime({
-        env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.dir, 'actions.jsonl') },
-        home: ctx.dir,
+        env: { AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.directory, 'actions.jsonl') },
+        home: ctx.directory,
         scratchPaths: [],
       }),
       actionLog: true,
     },
   );
 
-  const log = await readFile(join(ctx.dir, 'actions.jsonl'), 'utf8');
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
 
   expect(
     log
@@ -1341,9 +1365,9 @@ test('it walks up to the checkout once for an edit the bypass sends on to Jev', 
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Write',
-      toolInput: { file_path: join(ctx.dir, 'repo', '.env'), content: 'PORT=3000' },
+      toolInput: { file_path: join(ctx.directory, 'repo', '.env'), content: 'PORT=3000' },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
@@ -1354,7 +1378,7 @@ test('it walks up to the checkout once for an edit the bypass sends on to Jev', 
       stderr: buildStubOutput(),
       runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
         findCheckout: walk,
       }),
@@ -1362,7 +1386,7 @@ test('it walks up to the checkout once for an edit the bypass sends on to Jev', 
   );
 
   expect(outcome.decidingStage).toBe('jev');
-  expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.dir, 'repo'), expect.any(Object));
+  expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.directory, 'repo'), expect.any(Object));
 });
 
 test('it keeps the containment deny with the judge’s reason when the judge confirms that the message names the target only as a source (GEO-78 control-11)', async () => {
@@ -1370,11 +1394,19 @@ test('it keeps the containment deny with the judge’s reason when the judge con
 
   const received = mock();
 
-  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
-
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
-    join(ctx.dir, 'repo'),
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
     'worktree',
     'add',
     '-q',
@@ -1392,7 +1424,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
   );
 
   const target = join(
-    ctx.dir,
+    ctx.directory,
     'repo',
     '.worktrees',
     'export-csv',
@@ -1403,7 +1435,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo', '.worktrees', 'queue-columns'),
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'queue-columns'),
       toolName: 'Write',
       toolInput: { file_path: target, content: 'export const formatRow = () => "";\n' },
       decisionContext: {
@@ -1428,7 +1460,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
           STUB_CLAUDE_REPLY:
             '{"verdict":"confirm","basis":null,"reason":"You would write into the export-csv worktree, which the user named only as the source to port from."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -1472,11 +1504,19 @@ test('it keeps the containment deny with the judge’s reason when the judge con
 test('it denies the own-worktree cleanup that also removes another worktree the message never names, without asking the judge', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
-
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
-    join(ctx.dir, 'repo'),
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
     'worktree',
     'add',
     '-q',
@@ -1487,10 +1527,10 @@ test('it denies the own-worktree cleanup that also removes another worktree the 
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo', '.worktrees', 'columns-glm'),
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'columns-glm'),
       toolName: 'Bash',
       toolInput: {
-        command: `cd ${join(ctx.dir, 'repo')} && git worktree remove --force .worktrees/columns-glm && git worktree remove --force .worktrees/columns-codex`,
+        command: `cd ${join(ctx.directory, 'repo')} && git worktree remove --force .worktrees/columns-glm && git worktree remove --force .worktrees/columns-codex`,
       },
       decisionContext: {
         agentID: null,
@@ -1513,7 +1553,7 @@ test('it denies the own-worktree cleanup that also removes another worktree the 
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -1524,11 +1564,11 @@ test('it denies the own-worktree cleanup that also removes another worktree the 
       kind: 'deny',
       rule: 'Outside Task Scope',
       reason: expect.toStartWith(
-        `This action writes outside the task scope: path ${join(ctx.dir, 'repo', '.worktrees', 'columns-codex')}.`,
+        `This action writes outside the task scope: path ${join(ctx.directory, 'repo', '.worktrees', 'columns-codex')}.`,
       ),
     },
     decidingStage: 'containment',
-    note: `denied by the containment check: ${join(ctx.dir, 'repo', '.worktrees', 'columns-codex')}`,
+    note: `denied by the containment check: ${join(ctx.directory, 'repo', '.worktrees', 'columns-codex')}`,
     status: 'deny',
   });
 
@@ -1548,11 +1588,11 @@ test('it clears a containment finding the judge confirms the user asked for, and
     }),
   );
 
-  const target = join(ctx.dir, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+  const target = join(ctx.directory, 'repo', '.worktrees', 'label-check', 'label.test.ts');
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Write',
       toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
       decisionContext: {
@@ -1577,7 +1617,7 @@ test('it clears a containment finding the judge confirms the user asked for, and
           STUB_CLAUDE_REPLY:
             '{"verdict":"overturn","basis":"consent","reason":"The user asked to create this exact file."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -1615,11 +1655,11 @@ test('it reviews the containment finding the user named and a hard-rule Jev deny
 
   decisionAnswers.set('rule_1', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
 
-  const target = join(ctx.dir, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+  const target = join(ctx.directory, 'repo', '.worktrees', 'label-check', 'label.test.ts');
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Write',
       toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
       decisionContext: {
@@ -1656,7 +1696,7 @@ test('it reviews the containment finding the user named and a hard-rule Jev deny
             ],
           }),
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -1678,11 +1718,11 @@ test('it reviews the containment finding the user named and a hard-rule Jev deny
 test('it denies a write the message names without asking the judge when the message is stale after a relayed turn', async () => {
   const ctx = await setupTest();
 
-  const target = join(ctx.dir, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+  const target = join(ctx.directory, 'repo', '.worktrees', 'label-check', 'label.test.ts');
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo'),
+      cwd: join(ctx.directory, 'repo'),
       toolName: 'Write',
       toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
       decisionContext: {
@@ -1707,7 +1747,7 @@ test('it denies a write the message names without asking the judge when the mess
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -1741,11 +1781,19 @@ test.each([
 ])('it denies %s without asking the judge', async (_label, command, message) => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
-
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
-    join(ctx.dir, 'repo'),
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
     'worktree',
     'add',
     '-q',
@@ -1756,7 +1804,7 @@ test.each([
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo', '.worktrees', 'queue-columns'),
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'queue-columns'),
       toolName: 'Bash',
       toolInput: { command },
       decisionContext: { agentID: null, lastDirectUserMessage: { text: message } },
@@ -1775,7 +1823,7 @@ test.each([
           STUB_CLAUDE_RECORD: ctx.recordPath,
           STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
         },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },
@@ -1798,11 +1846,19 @@ test.each([
 ])('it sends the hook bypass %s to Jev under Policy Tampering', async (command, bypass) => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['-C', join(ctx.dir, 'repo'), 'commit', '-q', '--allow-empty', '-m', 'init']);
-
-  runGit(ctx.dir, [
+  runGit(ctx.directory, [
     '-C',
-    join(ctx.dir, 'repo'),
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
     'worktree',
     'add',
     '-q',
@@ -1823,7 +1879,7 @@ test.each([
 
   const outcome = await classifyAction(
     buildMockActionRequest({
-      cwd: join(ctx.dir, 'repo', '.worktrees', 'feature'),
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'feature'),
       toolName: 'Bash',
       toolInput: { command },
     }),
@@ -1836,7 +1892,7 @@ test.each([
       stderr: buildStubOutput(),
       runtime: buildMockRuntime({
         env: { TYPESAFE_API_KEY: 'test-key' },
-        home: ctx.dir,
+        home: ctx.directory,
         scratchPaths: [],
       }),
     },

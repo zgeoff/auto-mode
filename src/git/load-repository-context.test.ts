@@ -5,14 +5,14 @@ import { join } from 'node:path';
 import { loadRepositoryContext } from './load-repository-context.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'repository-context-'));
+  const directory = await mkdtemp(join(tmpdir(), 'repository-context-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const repo = join(dir, 'repo');
+  const repo = join(directory, 'repo');
   const gitDir = join(repo, '.git');
 
-  return { dir, repo, gitDir };
+  return { directory, repo, gitDir };
 }
 
 test("it reads a feature branch from a linked worktree's metadata", async () => {
@@ -101,7 +101,7 @@ test('it reads a custom default branch without assuming main', async () => {
 
 test('it returns no evidence when no directory up to the stop holds Git metadata', async () => {
   const ctx = await setupTest();
-  const context = await loadRepositoryContext(ctx.dir, {}, ctx.dir);
+  const context = await loadRepositoryContext(ctx.directory, {}, ctx.directory);
 
   expect(context).toBeNull();
 });
@@ -141,7 +141,11 @@ test('it never borrows parent branch evidence when a linked worktree has broken 
   const worktree = join(ctx.repo, '.worktrees', 'broken');
 
   await mkdir(worktree, { recursive: true });
-  await writeFile(join(worktree, '.git'), `gitdir: ${join(ctx.dir, 'missing-worktree-gitdir')}\n`);
+
+  await writeFile(
+    join(worktree, '.git'),
+    `gitdir: ${join(ctx.directory, 'missing-worktree-gitdir')}\n`,
+  );
 
   const context = await loadRepositoryContext(worktree, {});
 
@@ -156,7 +160,9 @@ test.each(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'] as const)(
     await mkdir(ctx.gitDir, { recursive: true });
     await writeFile(join(ctx.gitDir, 'HEAD'), 'ref: refs/heads/feature\n');
 
-    const context = await loadRepositoryContext(ctx.repo, { [name]: join(ctx.dir, 'another') });
+    const context = await loadRepositoryContext(ctx.repo, {
+      [name]: join(ctx.directory, 'another'),
+    });
 
     expect(context).toBeNull();
   },

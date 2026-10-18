@@ -102,7 +102,7 @@ export interface CaseSource {
 // A set is one labelled corpus: a public corpus, or the held-out set in the results clone.
 export interface CaseSet<Case> {
   readonly corpus: string;
-  readonly dir: string;
+  readonly directory: string;
   readonly cases: Readonly<Record<string, Case>>;
 }
 

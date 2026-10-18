@@ -13,7 +13,7 @@ export function resolveJudgeSocketPath(
 ): string {
   const runtime = host.env['XDG_RUNTIME_DIR'];
 
-  const dir =
+  const directory =
     runtime === undefined || runtime === ''
       ? join(resolveXDGDir(host, 'state'), 'judge')
       : join(runtime, 'auto-mode');
@@ -25,5 +25,5 @@ export function resolveJudgeSocketPath(
     .digest('hex')
     .slice(0, 24);
 
-  return join(dir, `judge-${name}.sock`);
+  return join(directory, `judge-${name}.sock`);
 }

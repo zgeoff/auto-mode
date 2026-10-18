@@ -3,22 +3,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 async function main() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-artifact-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-artifact-'));
 
   try {
-    await mkdir(join(dir, 'auto-mode'));
+    await mkdir(join(directory, 'auto-mode'));
 
     await writeFile(
-      join(dir, 'auto-mode', 'config.json'),
+      join(directory, 'auto-mode', 'config.json'),
       JSON.stringify({ decision: { classifier: 'jev' }, policy: { claudeSettingsPath: null } }),
     );
 
     const env = {
       ...process.env,
-      XDG_CONFIG_HOME: dir,
-      XDG_STATE_HOME: dir,
-      AUTO_MODE_DIAGNOSTICS_PATH: join(dir, 'actions.jsonl'),
-      CLAUDE_CONFIG_DIR: dir,
+      XDG_CONFIG_HOME: directory,
+      XDG_STATE_HOME: directory,
+      AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
+      CLAUDE_CONFIG_DIR: directory,
       TYPESAFE_API_KEY: '',
     };
 
@@ -69,7 +69,7 @@ async function main() {
 
     console.log('Node artifact: local verdict, edit bypass, and missing-key fallback passed');
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true });
   }
 }
 

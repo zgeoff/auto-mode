@@ -10,8 +10,8 @@ test('it approves an ask after Jev allows the action', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });
@@ -84,8 +84,8 @@ test('it refuses an ask after Jev denies the action', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });
@@ -171,8 +171,8 @@ test('it retains manual approval for malformed JSON without copying diagnostics'
 
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });
@@ -244,8 +244,8 @@ test('it retains manual approval for a truncated response', async ($, on) => {
   const decided = buildMockPermissionDecision({ decision: 'ask' });
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });
@@ -321,8 +321,8 @@ test('it retains manual approval when the child exits nonzero', async ($, on) =>
   const decided = buildMockPermissionDecision({ decision: 'ask' });
   const logs: { readonly text: string; readonly to: string | undefined }[] = [];
 
-  on('ui.log', (_api, e) => {
-    logs.push({ text: e.text, to: e.to });
+  on('ui.log', (_api, event) => {
+    logs.push({ text: event.text, to: event.to });
 
     return { value: undefined };
   });

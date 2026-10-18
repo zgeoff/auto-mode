@@ -6,11 +6,11 @@ import { loadDenialState } from './load-denial-state.ts';
 import { updateDenialState } from './update-denial-state.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-denials-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-denials-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { path: join(dir, 'denials', 'session.json') };
+  return { path: join(directory, 'denials', 'session.json') };
 }
 
 test('it keeps both counts when two updates of one session run at once', async () => {

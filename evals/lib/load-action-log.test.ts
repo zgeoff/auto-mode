@@ -7,11 +7,11 @@ import { buildMockActionLogRecord } from './factories/build-mock-action-log-reco
 import { loadActionLog } from './load-action-log.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'action-log-'));
+  const directory = await mkdtemp(join(tmpdir(), 'action-log-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { path: join(dir, 'actions.jsonl') };
+  return { path: join(directory, 'actions.jsonl') };
 }
 
 test('it reads every version 3 record and hashes the bytes it read', async () => {

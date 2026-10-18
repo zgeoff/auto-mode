@@ -11,5 +11,5 @@ test('it keeps captures under the auto-mode state directory when no dir is confi
 test('it uses the configured dir when one is set', () => {
   const host = buildMockHostEnvironment({ env: { XDG_STATE_HOME: '/state' }, home: '/home/u' });
 
-  expect(resolveCaptureDir({ enabled: true, dir: '/captures' }, host)).toBe('/captures');
+  expect(resolveCaptureDir({ enabled: true, directory: '/captures' }, host)).toBe('/captures');
 });

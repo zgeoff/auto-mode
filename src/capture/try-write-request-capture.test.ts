@@ -16,12 +16,12 @@ import { join } from 'node:path';
 import { runGit } from '../../test-utils/run-git.ts';
 import { tryWriteRequestCapture } from './try-write-request-capture.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
+async function setupTest(): Promise<{ readonly directory: string }> {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-capture-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  return { dir: await realpath(created) };
+  return { directory: await realpath(created) };
 }
 
 test('it appends the record to the file for its day, readable by the owner alone', async () => {
@@ -36,13 +36,13 @@ test('it appends the record to the file for its day, readable by the owner alone
     escalation: false,
   } as const;
 
-  const outcome = await tryWriteRequestCapture(join(ctx.dir, 'captures'), record);
+  const outcome = await tryWriteRequestCapture(join(ctx.directory, 'captures'), record);
 
-  const path = join(ctx.dir, 'captures', 'requests-2026-10-10.jsonl');
+  const path = join(ctx.directory, 'captures', 'requests-2026-10-10.jsonl');
 
   const content = await readFile(path, 'utf8');
   const fileInfo = await stat(path);
-  const dirInfo = await stat(join(ctx.dir, 'captures'));
+  const dirInfo = await stat(join(ctx.directory, 'captures'));
 
   expect(outcome).toStrictEqual({ kind: 'written', path });
   expect(JSON.parse(content)).toStrictEqual(record);
@@ -53,9 +53,9 @@ test('it appends the record to the file for its day, readable by the owner alone
 test('it refuses a dir inside a git work tree and writes nothing', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '-q', '-b', 'main', join(ctx.dir, 'repo')]);
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'repo')]);
 
-  const outcome = await tryWriteRequestCapture(join(ctx.dir, 'repo', 'captures'), {
+  const outcome = await tryWriteRequestCapture(join(ctx.directory, 'repo', 'captures'), {
     schemaVersion: 1,
     time: '2026-10-10T12:00:00.000Z',
     request: {},
@@ -64,11 +64,11 @@ test('it refuses a dir inside a git work tree and writes nothing', async () => {
     escalation: true,
   });
 
-  const entries = await readdir(join(ctx.dir, 'repo'));
+  const entries = await readdir(join(ctx.directory, 'repo'));
 
   expect(outcome).toStrictEqual({
     kind: 'refused',
-    reason: `the capture dir is inside the git work tree ${join(ctx.dir, 'repo')}`,
+    reason: `the capture dir is inside the git work tree ${join(ctx.directory, 'repo')}`,
   });
 
   expect(entries).toStrictEqual(['.git']);
@@ -93,9 +93,9 @@ test('it refuses a relative dir', async () => {
 test('it reports a failure instead of throwing when the dir cannot be created', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.dir, 'blocker'), '');
+  await writeFile(join(ctx.directory, 'blocker'), '');
 
-  const outcome = await tryWriteRequestCapture(join(ctx.dir, 'blocker', 'captures'), {
+  const outcome = await tryWriteRequestCapture(join(ctx.directory, 'blocker', 'captures'), {
     schemaVersion: 1,
     time: '2026-10-10T12:00:00.000Z',
     request: {},
@@ -110,15 +110,15 @@ test('it reports a failure instead of throwing when the dir cannot be created', 
 test('it reports a failure and leaves the target untouched when the capture file is a link', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'captures'), { mode: 0o700 });
-  await writeFile(join(ctx.dir, 'target.txt'), 'untouched\n');
+  await mkdir(join(ctx.directory, 'captures'), { mode: 0o700 });
+  await writeFile(join(ctx.directory, 'target.txt'), 'untouched\n');
 
   await symlink(
-    join(ctx.dir, 'target.txt'),
-    join(ctx.dir, 'captures', 'requests-2026-10-10.jsonl'),
+    join(ctx.directory, 'target.txt'),
+    join(ctx.directory, 'captures', 'requests-2026-10-10.jsonl'),
   );
 
-  const outcome = await tryWriteRequestCapture(join(ctx.dir, 'captures'), {
+  const outcome = await tryWriteRequestCapture(join(ctx.directory, 'captures'), {
     schemaVersion: 1,
     time: '2026-10-10T12:00:00.000Z',
     request: {},
@@ -127,7 +127,7 @@ test('it reports a failure and leaves the target untouched when the capture file
     escalation: false,
   });
 
-  const target = await readFile(join(ctx.dir, 'target.txt'), 'utf8');
+  const target = await readFile(join(ctx.directory, 'target.txt'), 'utf8');
 
   expect(outcome).toStrictEqual({ kind: 'failed' });
   expect(target).toBe('untouched\n');
@@ -136,12 +136,12 @@ test('it reports a failure and leaves the target untouched when the capture file
 test('it narrows an existing capture dir and file that others can read to the owner alone', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, 'captures'));
-  await chmod(join(ctx.dir, 'captures'), 0o755);
-  await writeFile(join(ctx.dir, 'captures', 'requests-2026-10-10.jsonl'), '');
-  await chmod(join(ctx.dir, 'captures', 'requests-2026-10-10.jsonl'), 0o644);
+  await mkdir(join(ctx.directory, 'captures'));
+  await chmod(join(ctx.directory, 'captures'), 0o755);
+  await writeFile(join(ctx.directory, 'captures', 'requests-2026-10-10.jsonl'), '');
+  await chmod(join(ctx.directory, 'captures', 'requests-2026-10-10.jsonl'), 0o644);
 
-  await tryWriteRequestCapture(join(ctx.dir, 'captures'), {
+  await tryWriteRequestCapture(join(ctx.directory, 'captures'), {
     schemaVersion: 1,
     time: '2026-10-10T12:00:00.000Z',
     request: {},
@@ -150,8 +150,8 @@ test('it narrows an existing capture dir and file that others can read to the ow
     escalation: false,
   });
 
-  const dirInfo = await stat(join(ctx.dir, 'captures'));
-  const fileInfo = await stat(join(ctx.dir, 'captures', 'requests-2026-10-10.jsonl'));
+  const dirInfo = await stat(join(ctx.directory, 'captures'));
+  const fileInfo = await stat(join(ctx.directory, 'captures', 'requests-2026-10-10.jsonl'));
 
   expect(dirInfo.mode & 0o777).toBe(0o700);
   expect(fileInfo.mode & 0o777).toBe(0o600);
@@ -160,9 +160,9 @@ test('it narrows an existing capture dir and file that others can read to the ow
 test('it keeps the capture out of a bare repository whose work tree holds the dir', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.dir, ['init', '-q', '--bare', join(ctx.dir, 'dotfiles.git')]);
+  runGit(ctx.directory, ['init', '-q', '--bare', join(ctx.directory, 'dotfiles.git')]);
 
-  await tryWriteRequestCapture(join(ctx.dir, '.local', 'state', 'captures'), {
+  await tryWriteRequestCapture(join(ctx.directory, '.local', 'state', 'captures'), {
     schemaVersion: 1,
     time: '2026-10-10T12:00:00.000Z',
     request: {},
@@ -171,11 +171,11 @@ test('it keeps the capture out of a bare repository whose work tree holds the di
     escalation: false,
   });
 
-  const status = runGit(ctx.dir, [
+  const status = runGit(ctx.directory, [
     '--git-dir',
-    join(ctx.dir, 'dotfiles.git'),
+    join(ctx.directory, 'dotfiles.git'),
     '--work-tree',
-    ctx.dir,
+    ctx.directory,
     'status',
     '--porcelain',
     '--untracked-files=all',
@@ -183,7 +183,10 @@ test('it keeps the capture out of a bare repository whose work tree holds the di
     '.local',
   ]);
 
-  const ignore = await readFile(join(ctx.dir, '.local', 'state', 'captures', '.gitignore'), 'utf8');
+  const ignore = await readFile(
+    join(ctx.directory, '.local', 'state', 'captures', '.gitignore'),
+    'utf8',
+  );
 
   expect(status).toBe('');
   expect(ignore).toBe('*\n');

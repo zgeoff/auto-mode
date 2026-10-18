@@ -5,13 +5,13 @@ import { join } from 'node:path';
 import { readPullRequest } from './read-pull-request.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-read-pull-request-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-read-pull-request-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
   return {
-    dir,
-    statePath: join(dir, 'pull-requests.json'),
+    directory,
+    statePath: join(directory, 'pull-requests.json'),
     stubPath: join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-gh.ts'),
   };
 }
@@ -131,7 +131,7 @@ test('it reads nothing when gh cannot start', async () => {
   const ctx = await setupTest();
 
   const facts = await readPullRequest('github.com/dev/app', 12, {
-    command: [join(ctx.dir, 'missing-gh')],
+    command: [join(ctx.directory, 'missing-gh')],
   });
 
   expect(facts).toBeNull();

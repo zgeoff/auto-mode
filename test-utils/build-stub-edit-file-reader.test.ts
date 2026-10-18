@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import * as z from 'zod';
 import { buildStubEditFileReader } from './build-stub-edit-file-reader.ts';
 
-async function setupTest(): Promise<{ readonly dir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), 'stub-edit-file-reader-'));
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'stub-edit-file-reader-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it resolves a listed link to its target', async () => {
@@ -75,11 +75,11 @@ test('it reads a listed file', async () => {
 test('it fails to read a file that is not listed as a read of a missing file fails', async () => {
   const ctx = await setupTest();
 
-  const missing = join(ctx.dir, 'b.ts');
+  const missing = join(ctx.directory, 'b.ts');
 
   const reader = buildStubEditFileReader({
-    checkout: ctx.dir,
-    files: { [join(ctx.dir, 'a.ts')]: 'export const a = 1;\n' },
+    checkout: ctx.directory,
+    files: { [join(ctx.directory, 'a.ts')]: 'export const a = 1;\n' },
   });
 
   const failure = await readFile(missing, 'utf8').then(

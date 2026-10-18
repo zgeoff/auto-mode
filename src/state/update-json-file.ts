@@ -5,7 +5,7 @@ import { dirname } from 'node:path';
 import { setTimeout as waitFor } from 'node:timers/promises';
 import type { LockClock } from './types.ts';
 
-const SYSTEM_CLOCK: LockClock = { now: Date.now, wait: (ms) => waitFor(ms) };
+const SYSTEM_CLOCK: LockClock = { now: Date.now, wait: (delayMs) => waitFor(delayMs) };
 
 // Parallel CLI processes of one session update the same file, so the
 // read-change-write runs under a lock file beside it.

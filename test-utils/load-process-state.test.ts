@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { loadProcessState } from './load-process-state.ts';
 
 async function setupTest() {
-  const dir = await mkdtemp(join(tmpdir(), 'auto-mode-proc-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-proc-'));
 
-  onTestFinished(() => rm(dir, { recursive: true, force: true }));
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  return { dir };
+  return { directory };
 }
 
 test('it reads the state and start time of a running process', async () => {
@@ -24,14 +24,14 @@ test('it reads the state and start time of a running process', async () => {
 test('it reads the state and start time of a process in uninterruptible sleep', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '42'));
+  await mkdir(join(ctx.directory, '42'));
 
   await writeFile(
-    join(ctx.dir, '42', 'stat'),
+    join(ctx.directory, '42', 'stat'),
     '42 (sleep) D 41 41 41 0 -1 4194304 127 0 0 0 0 0 0 0 20 0 1 0 165670795 3227648 416\n',
   );
 
-  const state = await loadProcessState(42, ctx.dir);
+  const state = await loadProcessState(42, ctx.directory);
 
   expect(state).toStrictEqual({ state: 'D', startTime: '165670795' });
 });
@@ -48,10 +48,10 @@ test('it reads nothing for a process ID no process holds', async () => {
 test('it throws on a stat line without a start time', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '42'));
-  await writeFile(join(ctx.dir, '42', 'stat'), '42 (sleep) S 1\n');
+  await mkdir(join(ctx.directory, '42'));
+  await writeFile(join(ctx.directory, '42', 'stat'), '42 (sleep) S 1\n');
 
-  expect(loadProcessState(42, ctx.dir)).rejects.toThrowWithMessage(
+  expect(loadProcessState(42, ctx.directory)).rejects.toThrowWithMessage(
     Error,
     'unreadable process stat for 42',
   );
@@ -60,9 +60,9 @@ test('it throws on a stat line without a start time', async () => {
 test('it rethrows a read failure other than a missing process', async () => {
   const ctx = await setupTest();
 
-  await mkdir(join(ctx.dir, '42', 'stat'), { recursive: true });
+  await mkdir(join(ctx.directory, '42', 'stat'), { recursive: true });
 
-  expect(loadProcessState(42, ctx.dir)).rejects.toMatchObject({ code: 'EISDIR' });
+  expect(loadProcessState(42, ctx.directory)).rejects.toMatchObject({ code: 'EISDIR' });
 });
 
 test('it reads nothing for a process that exits while its stat file is read', async () => {
