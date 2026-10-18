@@ -32,7 +32,7 @@ const HANDOFF_REQUEST = buildBridgeMessage(
 const MERGED_298 = buildBridgeMessage(
   'harbor',
   'm-a7f2d1c8-0e4b-4c93-b6d5-82e1f04a9c6e',
-  'The coordinator confirmed that PR 298 merged at 08:24:48Z as commit 4be19c07. The optional branch cleanup is off: keep the branch and the worktree, and remove nothing. gh has no supported pr delete-branch subcommand. Finish the read-only check of main CI for that merge commit and report the result; no release and no deploy. No policy deny happened.',
+  'The coordinator confirmed that PR 298 merged at 10:12:31Z as commit 4be19c07. The optional branch cleanup is off: keep the branch and the worktree, and remove nothing. gh has no supported pr delete-branch subcommand. Finish the read-only check of main CI for that merge commit and report the result; no release and no deploy. No policy deny happened.',
 );
 
 const FINAL_HANDOFF = buildBridgeMessage(
@@ -50,7 +50,7 @@ const PROTO_GUARD = buildBridgeMessage(
 const REVIEW_RETRY = buildBridgeMessage(
   'harbor',
   'm-1d6a9e47-f3b0-4c25-8a7e-d2c5b1f06e39',
-  'The parent compared the comment times. Your one review request went in at 07:16:30, and at 07:16:43 the bot posted that the next review would come in 6 minutes, so your request landed before the limit reset at about 07:22:43. Waiting by itself after that may never start a review, and it is 07:32 UTC now, past that point. Send one ordinary review request now with the supported command, then watch for the real result. That works within the limit rather than around it: use no paid usage and change no settings. If the bot limits you again, go by the latest retry time it gives and report the exact reason it blocks. Do not give up after some fixed number of waits. Do not merge.',
+  'The parent compared the comment times. Your one review request went in at 09:41:05, and at 09:41:19 the bot posted that the next review would come in 6 minutes, so your request landed before the limit reset at about 09:47:19. Waiting by itself after that may never start a review, and it is 09:56 UTC now, past that point. Send one ordinary review request now with the supported command, then watch for the real result. That works within the limit rather than around it: use no paid usage and change no settings. If the bot limits you again, go by the latest retry time it gives and report the exact reason it blocks. Do not give up after some fixed number of waits. Do not merge.',
 );
 
 const WRAPPED_TEST_RUN =
