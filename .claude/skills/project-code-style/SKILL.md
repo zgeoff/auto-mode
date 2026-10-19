@@ -1,15 +1,14 @@
 ---
 name: project-code-style
 description:
-  auto-mode's additions to the shared code-style skill — what its own function verbs mean and the
-  comment rules. Load it beside code-style before writing, reviewing, or renaming any TypeScript in
-  auto-mode.
+  auto-mode's additions to the shared code-style skill — what its own function verbs mean. Load it
+  beside code-style before writing, reviewing, or renaming any TypeScript in auto-mode.
 ---
 
 # auto-mode code style
 
 The shared `code-style` skill holds the rules and the function-verb taxonomy. This skill holds only
-what auto-mode adds: the meaning of its own verbs, and the rules for comments.
+what auto-mode adds: the meaning of its own verbs.
 
 ## Project verbs
 
@@ -28,13 +27,3 @@ of `zgeoff/function-verb` in [`.oxlintrc.json`](../../../.oxlintrc.json) in the 
 The verb rule skips these names, which also sit in the `exemptNames` option beside `verbs`.
 
 - `main`, a script entrypoint
-
-## Comments
-
-- No JSDoc; `zgeoff/no-jsdoc` enforces it. A fact a reader needs belongs in the code, a named
-  constant, a test whose name states it, the commit body, or `docs/`.
-- A `//` comment holds one thing: the reason the obvious alternative is wrong, when the cause lives
-  outside the file, such as a harness quirk, a library defect, or a measured number. Three lines at
-  most.
-- Comments describe the code as it is: no history, no project state, and no naming of other
-  declarations, which a rename strands.

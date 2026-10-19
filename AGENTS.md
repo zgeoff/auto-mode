@@ -14,13 +14,13 @@ mod. Grep locates code, and it does not teach the invariants.
 
 The rules a task needs are not repeated here. Load the skill for the work before starting it.
 
-| Skill                | Load before                                                                        |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| `code-style`         | writing, reviewing, or renaming any TypeScript — the shared function-verb taxonomy |
-| `project-code-style` | the same, beside `code-style` — auto-mode's own verbs and the comment rules        |
-| `testing`            | designing, writing, or reviewing tests                                             |
-| `project-testing`    | the same, beside `testing` — the preload, host environment, and mod checks         |
-| `docs-writing`       | writing or editing any committed prose: `docs/`, READMEs, this file, skills        |
+| Skill                | Load before                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------- |
+| `code-style`         | writing, reviewing, or renaming any TypeScript — the shared function-verb taxonomy and the comment rule |
+| `project-code-style` | the same, beside `code-style` — auto-mode's own verbs                                                   |
+| `testing`            | designing, writing, or reviewing tests                                                                  |
+| `project-testing`    | the same, beside `testing` — the preload, host environment, and mod checks                              |
+| `docs-writing`       | writing or editing any committed prose: `docs/`, READMEs, this file, skills                             |
 
 ## Repo structure
 
