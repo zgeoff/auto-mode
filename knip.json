@@ -27,7 +27,12 @@
         "mods/auto-mode/hooks/**",
         "mods/auto-mode/contract/**"
       ],
-      "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/oxlint-config", "claude-code"]
+      "ignoreDependencies": [
+        "@stylistic/eslint-plugin",
+        "@zgeoff/oxlint-config",
+        "@zgeoff/skill-gate",
+        "claude-code"
+      ]
     },
     "evals": {
       "entry": ["**/*.test.ts", "runners/*.ts", "eval.ts"],
