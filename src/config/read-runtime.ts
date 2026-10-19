@@ -7,7 +7,11 @@ export function readRuntime(): Runtime {
     host: readHostEnvironment(),
     now: Date.now,
     timeout: (timeoutMs) => AbortSignal.timeout(timeoutMs),
-    fetch: (url, init) => fetch(url, init),
+    fetch: sendThroughGlobalFetch,
     readCheckout: (start, env) => readCheckout(start, env),
   };
+}
+
+function sendThroughGlobalFetch(url: string, init: Readonly<RequestInit>): Promise<Response> {
+  return fetch(url, init);
 }

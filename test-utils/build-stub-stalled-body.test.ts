@@ -74,22 +74,21 @@ test('it lets fetch resolve through MSW and fails the body parse when the reques
 test('it relies on a real transport failing a stalled body parse with an AbortError', async () => {
   const stalled = Promise.withResolvers<void>();
 
-  const listener = Bun.serve({
-    port: 0,
-    fetch: () =>
-      new Response(
-        new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode('{"model":'));
-          },
-          pull() {
-            stalled.resolve();
+  const handleRequest = () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"model":'));
+        },
+        pull() {
+          stalled.resolve();
 
-            return new Promise<void>(() => {});
-          },
-        }),
-      ),
-  });
+          return new Promise<void>(() => {});
+        },
+      }),
+    );
+
+  const listener = Bun.serve({ port: 0, fetch: handleRequest });
 
   onTestFinished(() => listener.stop(true));
 

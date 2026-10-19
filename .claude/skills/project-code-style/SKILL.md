@@ -28,8 +28,6 @@ The verb rule skips these names, which also sit in its `exemptNames` option in
 [`.oxlintrc.json`](../../../.oxlintrc.json).
 
 - `main`, a script entrypoint
-- `fetch`, the request handler that `Bun.serve` names, and the runtime's stand-in for the global
-  `fetch`, which keeps the Fetch API's name and signature
 
 ## Comments
 
