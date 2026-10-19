@@ -1,10 +1,10 @@
 import { realpath } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
-import { findGitEntry } from '../git/find-git-entry.ts';
+import { readGitEntry } from '../git/read-git-entry.ts';
 
-export async function findEnclosingWorkTree(path: string): Promise<string | null> {
+export async function readEnclosingWorkTree(path: string): Promise<string | null> {
   const real = await resolveExistingPrefix(resolve(path));
-  const entry = await findGitEntry(real);
+  const entry = await readGitEntry(real);
 
   return entry === null ? null : entry.directory;
 }

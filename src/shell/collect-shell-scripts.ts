@@ -48,6 +48,67 @@ export function collectShellScripts(command: string): ShellScript[] {
   ];
 }
 
+const SHELLS: ReadonlySet<string> = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
+
+// These options take the next word as their value, not as a script file.
+const VALUE_OPTIONS: ReadonlySet<string> = new Set(['--rcfile', '--init-file', '--emulate']);
+
+const VALUE_OPTION_GROUP = /^[-+][^-]*[oO]$/u;
+
+// The descriptor a shell reads its script from, or null when it runs a `-c`
+// string or a script file that is no open descriptor. With `-s` the arguments
+// after the options are positional parameters, and the script comes from input.
+function findScriptDescriptor(segment: string): string | null {
+  const [program = '', ...args] = splitCommandWords(segment);
+
+  if (!SHELLS.has(basename(program))) {
+    return null;
+  }
+
+  let readsInput = false;
+  let index = 0;
+
+  while (index < args.length) {
+    const arg = args[index] ?? '';
+
+    if (/^-[^-]*c/u.test(arg)) {
+      return null;
+    }
+
+    if (arg === '--' || arg === '-') {
+      const script = args[index + 1];
+
+      return readsInput || script === undefined ? '0' : findPathDescriptor(script);
+    }
+
+    if (!/^[-+]/u.test(arg)) {
+      return readsInput ? '0' : findPathDescriptor(arg);
+    }
+
+    readsInput ||= /^-[^-]*s/u.test(arg);
+    index += VALUE_OPTIONS.has(arg) || VALUE_OPTION_GROUP.test(arg) ? 2 : 1;
+  }
+
+  return '0';
+}
+
+const STANDARD_PATHS: ReadonlyMap<string, string> = new Map([
+  ['/dev/stdin', '0'],
+  ['/dev/stdout', '1'],
+  ['/dev/stderr', '2'],
+]);
+
+// A path that opens a descriptor the shell already holds, as that descriptor.
+function findPathDescriptor(path: string): string | null {
+  const descriptor = /^\/(?:dev|proc\/self)\/fd\/(?<number>\d+)$/u.exec(path)?.groups?.['number'];
+
+  if (descriptor !== undefined) {
+    return String(Number(descriptor));
+  }
+
+  return STANDARD_PATHS.get(path) ?? null;
+}
+
 // The redirection that feeds a descriptor, as the offset where it starts, or
 // null when none does. Redirections apply in order, `<&3` copies whatever
 // descriptor 3 holds at that point, and a process substitution is a word.
@@ -94,65 +155,4 @@ function findDescriptorSource(
   }
 
   return descriptors.get(descriptor) ?? null;
-}
-
-const STANDARD_PATHS: ReadonlyMap<string, string> = new Map([
-  ['/dev/stdin', '0'],
-  ['/dev/stdout', '1'],
-  ['/dev/stderr', '2'],
-]);
-
-// A path that opens a descriptor the shell already holds, as that descriptor.
-function findPathDescriptor(path: string): string | null {
-  const descriptor = /^\/(?:dev|proc\/self)\/fd\/(?<number>\d+)$/u.exec(path)?.groups?.['number'];
-
-  if (descriptor !== undefined) {
-    return String(Number(descriptor));
-  }
-
-  return STANDARD_PATHS.get(path) ?? null;
-}
-
-const SHELLS: ReadonlySet<string> = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
-
-// These options take the next word as their value, not as a script file.
-const VALUE_OPTIONS: ReadonlySet<string> = new Set(['--rcfile', '--init-file', '--emulate']);
-
-const VALUE_OPTION_GROUP = /^[-+][^-]*[oO]$/u;
-
-// The descriptor a shell reads its script from, or null when it runs a `-c`
-// string or a script file that is no open descriptor. With `-s` the arguments
-// after the options are positional parameters, and the script comes from input.
-function findScriptDescriptor(segment: string): string | null {
-  const [program = '', ...args] = splitCommandWords(segment);
-
-  if (!SHELLS.has(basename(program))) {
-    return null;
-  }
-
-  let readsInput = false;
-  let index = 0;
-
-  while (index < args.length) {
-    const arg = args[index] ?? '';
-
-    if (/^-[^-]*c/u.test(arg)) {
-      return null;
-    }
-
-    if (arg === '--' || arg === '-') {
-      const script = args[index + 1];
-
-      return readsInput || script === undefined ? '0' : findPathDescriptor(script);
-    }
-
-    if (!/^[-+]/u.test(arg)) {
-      return readsInput ? '0' : findPathDescriptor(arg);
-    }
-
-    readsInput ||= /^-[^-]*s/u.test(arg);
-    index += VALUE_OPTIONS.has(arg) || VALUE_OPTION_GROUP.test(arg) ? 2 : 1;
-  }
-
-  return '0';
 }

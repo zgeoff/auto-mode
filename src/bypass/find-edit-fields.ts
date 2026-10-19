@@ -9,6 +9,6 @@ const EDIT_FIELDS: Readonly<Record<string, EditFields>> = {
   NotebookEdit: { path: 'notebook_path', content: 'new_source' },
 };
 
-export function getEditFields(toolName: string): EditFields | null {
+export function findEditFields(toolName: string): EditFields | null {
   return EDIT_FIELDS[toolName] ?? null;
 }

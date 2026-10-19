@@ -45,6 +45,44 @@ export function findSecret(
   return null;
 }
 
+function hasPatternMatch(pattern: Readonly<SecretPattern>, text: string): boolean {
+  return pattern.engine === 're2'
+    ? getRE2(pattern).matcher(text).find()
+    : getRegExp(pattern).test(text);
+}
+
+const compiledRE2 = new WeakMap<SecretPattern, RE2JS>();
+
+function getRE2(pattern: Readonly<SecretPattern>): RE2JS {
+  const cached = compiledRE2.get(pattern);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const compiled = RE2JS.compile(pattern.source);
+
+  compiledRE2.set(pattern, compiled);
+
+  return compiled;
+}
+
+const compiledRegExps = new WeakMap<SecretPattern, RegExp>();
+
+function getRegExp(pattern: Readonly<SecretPattern>): RegExp {
+  const cached = compiledRegExps.get(pattern);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const compiled = new RegExp(pattern.source, pattern.flags);
+
+  compiledRegExps.set(pattern, compiled);
+
+  return compiled;
+}
+
 function findRuleSecret(
   rule: Readonly<SecretRule>,
   content: Readonly<SecretContent>,
@@ -237,41 +275,4 @@ function countEntropy(text: string): number {
   }
 
   return entropy;
-}
-
-function hasPatternMatch(pattern: Readonly<SecretPattern>, text: string): boolean {
-  return pattern.engine === 're2'
-    ? getRE2(pattern).matcher(text).find()
-    : getRegExp(pattern).test(text);
-}
-
-const compiledRegExps = new WeakMap<SecretPattern, RegExp>();
-const compiledRE2 = new WeakMap<SecretPattern, RE2JS>();
-
-function getRegExp(pattern: Readonly<SecretPattern>): RegExp {
-  const cached = compiledRegExps.get(pattern);
-
-  if (cached !== undefined) {
-    return cached;
-  }
-
-  const compiled = new RegExp(pattern.source, pattern.flags);
-
-  compiledRegExps.set(pattern, compiled);
-
-  return compiled;
-}
-
-function getRE2(pattern: Readonly<SecretPattern>): RE2JS {
-  const cached = compiledRE2.get(pattern);
-
-  if (cached !== undefined) {
-    return cached;
-  }
-
-  const compiled = RE2JS.compile(pattern.source);
-
-  compiledRE2.set(pattern, compiled);
-
-  return compiled;
 }

@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { buildStubCheckoutFinder } from './build-stub-checkout-finder.ts';
+import { buildStubCheckoutReader } from './build-stub-checkout-reader.ts';
 
 test('it places a listed path in the checkout of its own git directory', async () => {
-  const finder = buildStubCheckoutFinder({ '/w/app': '/w/app.git' });
+  const finder = buildStubCheckoutReader({ '/w/app': '/w/app.git' });
 
-  const checkout = await finder.findCheckout('/w/app');
+  const checkout = await finder.readCheckout('/w/app');
 
   expect(checkout).toStrictEqual({
     worktree: '/w/app',
@@ -14,17 +14,17 @@ test('it places a listed path in the checkout of its own git directory', async (
 });
 
 test('it places an unlisted path in no checkout without a fallback', async () => {
-  const finder = buildStubCheckoutFinder({ '/w/app': '/w/app.git' });
+  const finder = buildStubCheckoutReader({ '/w/app': '/w/app.git' });
 
-  const checkout = await finder.findCheckout('/w/other');
+  const checkout = await finder.readCheckout('/w/other');
 
   expect(checkout).toBeNull();
 });
 
 test('it places an unlisted path in the fallback git directory', async () => {
-  const finder = buildStubCheckoutFinder({}, '/replay/repository.git');
+  const finder = buildStubCheckoutReader({}, '/replay/repository.git');
 
-  const checkout = await finder.findCheckout('/w/other');
+  const checkout = await finder.readCheckout('/w/other');
 
   expect(checkout).toStrictEqual({
     worktree: '/w/other',

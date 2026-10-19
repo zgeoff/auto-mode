@@ -40,7 +40,7 @@ test('it reaches the decision handler through the real fetch', async () => {
 });
 
 test('it finds no checkout above the filesystem root with the real lookup', async () => {
-  const checkout = await buildMockRuntime().findCheckout('/', {});
+  const checkout = await buildMockRuntime().readCheckout('/', {});
 
   expect(checkout).toBeNull();
 });

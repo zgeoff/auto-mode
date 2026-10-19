@@ -1,9 +1,6 @@
 import { judgeVerdictSchema } from './judge-verdict-schema.ts';
 import type { JudgeReply } from './types.ts';
 
-const VERDICT = /<verdict>\s*(?<verdict>[^<]*?)\s*<\/verdict>/giu;
-const REASON = /<reason>(?<reason>[\s\S]*?)<\/reason>/giu;
-const BASIS = /<basis>\s*(?<basis>[^<]*?)\s*<\/basis>/giu;
 const JSON_FENCE = /^```(?:json)?\s*(?<body>[\s\S]*?)\s*```$/u;
 
 // The judge answers in tags or as one JSON verdict, so a reply that opens with
@@ -41,6 +38,10 @@ function parseJSONReply(body: string): JudgeReply {
     ? { kind: 'unreadable' }
     : { kind: 'overturn', basis: answer.basis, reason: answer.reason };
 }
+
+const VERDICT = /<verdict>\s*(?<verdict>[^<]*?)\s*<\/verdict>/giu;
+const REASON = /<reason>(?<reason>[\s\S]*?)<\/reason>/giu;
+const BASIS = /<basis>\s*(?<basis>[^<]*?)\s*<\/basis>/giu;
 
 // One verdict tag and one non-empty reason tag, and an overturn names its one
 // basis, or the reply is unreadable: a second tag could disagree with the first.

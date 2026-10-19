@@ -2,10 +2,10 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import { findExecutable } from './find-executable.ts';
+import { resolveExecutable } from './resolve-executable.ts';
 
 async function setupTest() {
-  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-find-executable-'));
+  const directory = await mkdtemp(join(tmpdir(), 'auto-mode-resolve-executable-'));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
@@ -21,7 +21,7 @@ test('it finds the first executable of that name along the PATH', async () => {
   await writeFile(join(ctx.directory, 'first', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
 
   expect(
-    findExecutable(
+    resolveExecutable(
       'claude',
       [join(ctx.directory, 'first'), join(ctx.directory, 'second')].join(delimiter),
     ),
@@ -37,7 +37,7 @@ test('it passes over a file of that name that is not executable', async () => {
   await writeFile(join(ctx.directory, 'second', 'claude'), '#!/bin/sh\n', { mode: 0o755 });
 
   expect(
-    findExecutable(
+    resolveExecutable(
       'claude',
       [join(ctx.directory, 'first'), join(ctx.directory, 'second')].join(delimiter),
     ),
@@ -49,9 +49,9 @@ test('it passes over a directory of that name', async () => {
 
   await mkdir(join(ctx.directory, 'claude'));
 
-  expect(findExecutable('claude', ctx.directory)).toBeNull();
+  expect(resolveExecutable('claude', ctx.directory)).toBeNull();
 });
 
 test('it finds nothing without a PATH', () => {
-  expect(findExecutable('claude', undefined)).toBeNull();
+  expect(resolveExecutable('claude', undefined)).toBeNull();
 });

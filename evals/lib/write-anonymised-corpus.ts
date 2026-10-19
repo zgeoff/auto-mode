@@ -1,6 +1,6 @@
 import { cp, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
-import { findEnclosingWorkTree } from 'auto-mode/eval';
+import { readEnclosingWorkTree } from 'auto-mode/eval';
 import { buildAnonymisedCorpus } from './build-anonymised-corpus.ts';
 import { checkCorpusSecrets } from './check-corpus-secrets.ts';
 import { loadCaptureRecords } from './load-capture-records.ts';
@@ -36,7 +36,7 @@ export async function writeAnonymisedCorpus(
     request.salt,
   );
 
-  const stagingWorkTree = await findEnclosingWorkTree(request.stagingRoot);
+  const stagingWorkTree = await readEnclosingWorkTree(request.stagingRoot);
 
   if (stagingWorkTree !== null) {
     throw new Error(
@@ -88,7 +88,7 @@ async function resolveOutDir(outDir: string): Promise<string> {
 
   const real = join(parent, basename(outDir));
 
-  const workTree = await findEnclosingWorkTree(real);
+  const workTree = await readEnclosingWorkTree(real);
 
   if (workTree !== null) {
     throw new Error(

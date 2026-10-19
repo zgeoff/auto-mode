@@ -2,24 +2,24 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { resolveConfigPath } from '../config/config.ts';
 import type { HostEnvironment } from '../config/types.ts';
-import { findCheckout } from '../git/find-checkout.ts';
-import type { CheckoutFinder } from '../git/types.ts';
+import { readCheckout } from '../git/read-checkout.ts';
+import type { CheckoutReader } from '../git/types.ts';
 import type { ActionRequest } from '../request/types.ts';
 import type { OwnedScope } from '../scope/types.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 import type { EditClassification } from './classify-edit.ts';
-import { getEditFields } from './get-edit-fields.ts';
+import { findEditFields } from './find-edit-fields.ts';
 import { resolveEditTarget } from './resolve-edit-target.ts';
 
 export interface EditFileReader {
   readonly resolveEditTarget: (path: string) => Promise<string | null>;
-  readonly findCheckout: CheckoutFinder;
+  readonly readCheckout: CheckoutReader;
   readonly readFile: (path: string) => Promise<string>;
 }
 
 const DISK_EDIT_FILE_READER: EditFileReader = {
   resolveEditTarget,
-  findCheckout,
+  readCheckout,
   readFile: (path) => readFile(path, 'utf8'),
 };
 
@@ -34,7 +34,7 @@ export async function tryClassifyEdit(
   reader: Readonly<Partial<EditFileReader>> = {},
 ): Promise<EditClassification | null> {
   const files = { ...DISK_EDIT_FILE_READER, ...reader };
-  const fields = getEditFields(request.toolName);
+  const fields = findEditFields(request.toolName);
   const path = fields === null ? undefined : request.toolInput[fields.path];
 
   if (typeof path !== 'string' || path === '') {
@@ -56,7 +56,7 @@ export async function tryClassifyEdit(
     }
 
     const [checkout, current] = await Promise.all([
-      files.findCheckout(dirname(target), host.env),
+      files.readCheckout(dirname(target), host.env),
       request.toolName === 'Edit' ? files.readFile(target).catch(() => null) : null,
     ]);
 

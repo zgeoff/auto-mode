@@ -114,33 +114,6 @@ export async function startJudgeServer(
   return { closed: closed.promise, stop };
 }
 
-// A server that another replaced leaves the newer socket in place.
-async function removeOwnSocket(
-  socketPath: string,
-  ino: number | null,
-  onRemoved: () => void,
-): Promise<void> {
-  const current = await stat(socketPath).catch(() => null);
-
-  if (ino !== null && current?.ino === ino) {
-    await rm(socketPath, { force: true });
-  }
-
-  onRemoved();
-}
-
-function startListening(server: Server, socketPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    server.once('error', reject);
-
-    server.listen(socketPath, () => {
-      server.off('error', reject);
-
-      resolve();
-    });
-  });
-}
-
 function isAnswering(socketPath: string): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = connect(socketPath);
@@ -155,6 +128,21 @@ function isAnswering(socketPath: string): Promise<boolean> {
       resolve(false);
     });
   });
+}
+
+// A server that another replaced leaves the newer socket in place.
+async function removeOwnSocket(
+  socketPath: string,
+  ino: number | null,
+  onRemoved: () => void,
+): Promise<void> {
+  const current = await stat(socketPath).catch(() => null);
+
+  if (ino !== null && current?.ino === ino) {
+    await rm(socketPath, { force: true });
+  }
+
+  onRemoved();
 }
 
 const MAX_REQUEST_BYTES = 4_194_304;
@@ -243,16 +231,28 @@ function readLine(socket: Socket, maxBytes: number): Promise<string> {
   });
 }
 
-function writeResponse(socket: Socket, response: z.output<typeof judgeServerResponseSchema>): void {
-  if (!socket.destroyed) {
-    socket.end(`${JSON.stringify(response)}\n`);
-  }
-}
-
 function parseJSON(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
     return null;
   }
+}
+
+function writeResponse(socket: Socket, response: z.output<typeof judgeServerResponseSchema>): void {
+  if (!socket.destroyed) {
+    socket.end(`${JSON.stringify(response)}\n`);
+  }
+}
+
+function startListening(server: Server, socketPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+
+    server.listen(socketPath, () => {
+      server.off('error', reject);
+
+      resolve();
+    });
+  });
 }

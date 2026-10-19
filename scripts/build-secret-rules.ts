@@ -203,7 +203,7 @@ function expandInlineFlag(source: string): string | null {
   }
 
   const body = match.start + match.length;
-  const group = findGroupEnd(source, body);
+  const group = getGroupEnd(source, body);
   const cuts = [body, ...group.bars.map((bar) => bar + 1)];
   const ends = [...group.bars, group.end];
   const pieces = cuts.map((cut, index) => `(?${match.flags}:${source.slice(cut, ends[index])})`);
@@ -231,7 +231,7 @@ function isEscaped(source: string, index: number): boolean {
   return count % 2 === 1;
 }
 
-function findGroupEnd(source: string, from: number): { end: number; bars: number[] } {
+function getGroupEnd(source: string, from: number): { end: number; bars: number[] } {
   const bars: number[] = [];
   let depth = 0;
   let inClass = false;
@@ -379,12 +379,12 @@ function splitListItems(text: string): string[] | null {
 }
 
 function normalizeParens(text: string): string {
-  return text.startsWith('(') && findClosingParen(text) === text.length - 1
+  return text.startsWith('(') && getClosingParen(text) === text.length - 1
     ? text.slice(1, -1).trim()
     : text;
 }
 
-function findClosingParen(text: string): number {
+function getClosingParen(text: string): number {
   let depth = 0;
   let quote: string | null = null;
 

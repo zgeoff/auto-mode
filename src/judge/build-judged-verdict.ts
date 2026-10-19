@@ -9,8 +9,6 @@ export interface JudgedVerdict {
   readonly overturnBasis: OverturnBasis | null;
 }
 
-export const JUDGE_REASON_MAX_CHARS = 600;
-
 export interface JudgedVerdictOptions {
   readonly overturns: JudgeOverturns;
   readonly heldReason?: string | undefined;
@@ -54,6 +52,8 @@ export function buildJudgedVerdict(
     overturnBasis: null,
   };
 }
+
+export const JUDGE_REASON_MAX_CHARS = 600;
 
 function formatJudgeText(text: string): string {
   const flat = text.replaceAll(/\s+/gu, ' ').trim();

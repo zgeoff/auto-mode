@@ -36,8 +36,8 @@ export function buildAnonymisedCorpus(
   return {
     schemaVersion: 1,
     cases: actions.map((action, index) => {
-      const removeQuotes = makeQuoteRemover(collectMessages(action.request, null), salt);
-      const toAnonymisedText: Rewriter = (text) => rewriteNames(removeQuotes(text));
+      const stripQuotes = makeQuoteRemover(collectMessages(action.request, null), salt);
+      const toAnonymisedText: Rewriter = (text) => rewriteNames(stripQuotes(text));
 
       return {
         id: `recorded-${String(index + 1).padStart(4, '0')}`,

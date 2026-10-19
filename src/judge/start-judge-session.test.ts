@@ -1,8 +1,9 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import * as z from 'zod';
+import invariant from 'tiny-invariant';
+import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
 import { startJudgeSession } from './start-judge-session.ts';
 
 async function setupTest(env: Readonly<Record<string, string>>) {
@@ -30,17 +31,6 @@ async function setupTest(env: Readonly<Record<string, string>>) {
 
   return { session, recordPath };
 }
-
-const RECORD = z.object({
-  pid: z.number(),
-  review: z.number(),
-  clears: z.number(),
-  cwd: z.string(),
-  argv: z.array(z.string()),
-  system: z.unknown(),
-  user: z.string(),
-  env: z.record(z.string(), z.string().optional()),
-});
 
 test('it answers a review with the judge’s text on the configured model', async () => {
   const ctx = await setupTest({
@@ -81,12 +71,7 @@ test('it answers a second review from the same process, after clearing the first
     AbortSignal.timeout(10_000),
   );
 
-  const recorded = await readFile(ctx.recordPath, 'utf8');
-
-  const records = recorded
-    .trim()
-    .split('\n')
-    .map((line) => RECORD.parse(JSON.parse(line)));
+  const records = await readStubClaudeRecords(ctx.recordPath);
 
   expect(second.warm).toBeTrue();
 
@@ -115,12 +100,7 @@ test('it starts a new process when a review names another model', async () => {
     AbortSignal.timeout(10_000),
   );
 
-  const recorded = await readFile(ctx.recordPath, 'utf8');
-
-  const records = recorded
-    .trim()
-    .split('\n')
-    .map((line) => RECORD.parse(JSON.parse(line)));
+  const records = await readStubClaudeRecords(ctx.recordPath);
 
   expect(second.warm).toBeFalse();
   expect(new Set(records.map((record) => record.pid)).size).toBe(2);
@@ -162,9 +142,13 @@ test('it sends the system prompt, no provider variables and a scratch directory 
     AbortSignal.timeout(10_000),
   );
 
-  const recorded = await readFile(ctx.recordPath, 'utf8');
+  const records = await readStubClaudeRecords(ctx.recordPath);
 
-  const record = RECORD.parse(JSON.parse(recorded));
+  expect(records).toHaveLength(1);
+
+  const [record] = records;
+
+  invariant(record);
 
   const temporaryRoot = await realpath(tmpdir());
 
@@ -310,12 +294,7 @@ test('it rejects a review whose process exits, and starts a new process for the 
 
   await expect(second).toReject();
 
-  const recorded = await readFile(ctx.recordPath, 'utf8');
-
-  const records = recorded
-    .trim()
-    .split('\n')
-    .map((line) => RECORD.parse(JSON.parse(line)));
+  const records = await readStubClaudeRecords(ctx.recordPath);
 
   expect(new Set(records.map((record) => record.pid)).size).toBe(2);
 });

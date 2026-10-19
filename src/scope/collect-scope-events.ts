@@ -27,6 +27,15 @@ export function collectScopeEvents(command: string, cwd: string, home: string): 
   });
 }
 
+type GitEventCollector = (rest: readonly string[], directory: string, home: string) => ScopeEvent[];
+
+const GIT_EVENT_COLLECTORS: Record<(typeof SCOPE_COMMANDS.git)[number], GitEventCollector> = {
+  'worktree add': collectWorktreeEvents,
+  checkout: collectSwitchEvents,
+  switch: collectSwitchEvents,
+  branch: collectBranchEvents,
+};
+
 function collectGitEvents(args: readonly string[], cwd: string, home: string): ScopeEvent[] {
   const git = splitGitCommand(args, cwd, home);
   const found = findScopeCommand(SCOPE_COMMANDS.git, git.args);
@@ -57,15 +66,6 @@ function findScopeCommand<C extends string>(
 
   return null;
 }
-
-type GitEventCollector = (rest: readonly string[], directory: string, home: string) => ScopeEvent[];
-
-const GIT_EVENT_COLLECTORS: Record<(typeof SCOPE_COMMANDS.git)[number], GitEventCollector> = {
-  'worktree add': collectWorktreeEvents,
-  checkout: collectSwitchEvents,
-  switch: collectSwitchEvents,
-  branch: collectBranchEvents,
-};
 
 function collectWorktreeEvents(
   rest: readonly string[],
@@ -107,6 +107,13 @@ function collectSwitchEvents(rest: readonly string[], directory: string): ScopeE
   return name === null ? [] : [{ kind: 'branch', name, directory }];
 }
 
+function findOptionValue(args: readonly string[], options: readonly string[]): string | null {
+  const index = args.findIndex((word) => options.includes(word));
+  const value = index === -1 ? undefined : args[index + 1];
+
+  return value === undefined || isUnresolvedWord(value) ? null : value;
+}
+
 function collectBranchEvents(rest: readonly string[], directory: string): ScopeEvent[] {
   if (rest.some((word) => BRANCH_OTHER_OPTIONS.test(word))) {
     return [];
@@ -115,11 +122,4 @@ function collectBranchEvents(rest: readonly string[], directory: string): ScopeE
   const name = rest.find((word) => !word.startsWith('-'));
 
   return name === undefined || isUnresolvedWord(name) ? [] : [{ kind: 'branch', name, directory }];
-}
-
-function findOptionValue(args: readonly string[], options: readonly string[]): string | null {
-  const index = args.findIndex((word) => options.includes(word));
-  const value = index === -1 ? undefined : args[index + 1];
-
-  return value === undefined || isUnresolvedWord(value) ? null : value;
 }

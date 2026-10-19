@@ -95,6 +95,35 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
   return options.replaysRecording ? { ...stage, replay: buildJudgeReplay(options) } : stage;
 }
 
+function findSkip(
+  context: Readonly<StageContext>,
+  options: Readonly<JudgeStageOptions>,
+): StageOutcome | null {
+  const jev = context.previous.find((record) => record.stage === JEV_STAGE);
+
+  if (jev?.status !== 'scored' || jev.verdict !== 'deny') {
+    return { status: 'skipped', reason: 'Jev did not deny this sample.' };
+  }
+
+  if (options.reviewsEveryJevDeny === true) {
+    return null;
+  }
+
+  const alternatives = options.alternatives ?? [];
+
+  const other = context.previous.find(
+    (record) =>
+      record.stage !== JEV_STAGE &&
+      !alternatives.includes(record.stage) &&
+      record.status === 'scored' &&
+      record.verdict === 'deny',
+  );
+
+  return other === undefined
+    ? null
+    : { status: 'skipped', reason: `The ${other.stage} stage denied this sample first.` };
+}
+
 const JEV_DENY = /^(?:deny|all-allow-ask): (?<rule>.+)$/u;
 
 // The Jev record keeps the denied rule's name and the highest block
@@ -177,35 +206,6 @@ function buildJudgeReplay(
 
     return Promise.resolve({ ...buildOutcome(verdict), recorded: answer });
   };
-}
-
-function findSkip(
-  context: Readonly<StageContext>,
-  options: Readonly<JudgeStageOptions>,
-): StageOutcome | null {
-  const jev = context.previous.find((record) => record.stage === JEV_STAGE);
-
-  if (jev?.status !== 'scored' || jev.verdict !== 'deny') {
-    return { status: 'skipped', reason: 'Jev did not deny this sample.' };
-  }
-
-  if (options.reviewsEveryJevDeny === true) {
-    return null;
-  }
-
-  const alternatives = options.alternatives ?? [];
-
-  const other = context.previous.find(
-    (record) =>
-      record.stage !== JEV_STAGE &&
-      !alternatives.includes(record.stage) &&
-      record.status === 'scored' &&
-      record.verdict === 'deny',
-  );
-
-  return other === undefined
-    ? null
-    : { status: 'skipped', reason: `The ${other.stage} stage denied this sample first.` };
 }
 
 // The recorded judges were sent only the asks whose every answer chose allow,

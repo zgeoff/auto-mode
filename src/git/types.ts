@@ -7,7 +7,7 @@ export interface Checkout {
   readonly commonDir: string;
 }
 
-export type CheckoutFinder = (
+export type CheckoutReader = (
   start: string,
   env: HostEnvironment['env'],
 ) => Promise<Checkout | null>;

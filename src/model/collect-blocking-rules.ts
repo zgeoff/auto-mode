@@ -7,6 +7,8 @@ interface BlockingRule {
   readonly answer: DecisionAnswer;
 }
 
+const TIER_ORDER: Readonly<Record<DecisionRule['tier'], number>> = { hard: 0, soft: 1 };
+
 export function collectBlockingRules(
   request: DecisionRequest,
   result: DecisionResult,
@@ -30,5 +32,3 @@ export function collectBlockingRules(
         TIER_ORDER[left.rule.tier] - TIER_ORDER[right.rule.tier],
     );
 }
-
-const TIER_ORDER: Readonly<Record<DecisionRule['tier'], number>> = { hard: 0, soft: 1 };

@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { basename, relative, sep } from 'node:path';
 import { findSecret } from '../secrets/find-secret.ts';
-import { getEditFields } from './get-edit-fields.ts';
+import { findEditFields } from './find-edit-fields.ts';
 
 export interface EditAction {
   readonly toolName: string;
@@ -29,7 +29,7 @@ export function classifyEdit(
   action: Readonly<EditAction>,
   scope: Readonly<EditScope>,
 ): EditClassification {
-  const fields = getEditFields(action.toolName);
+  const fields = findEditFields(action.toolName);
 
   if (fields === null) {
     return { kind: 'jev', reason: 'not a file-tool edit' };
@@ -80,90 +80,6 @@ export function classifyEdit(
   return secret === null
     ? { kind: 'bypass', target: action.target }
     : { kind: 'jev', reason: `secret scan matched ${secret.rule}` };
-}
-
-// A rule can need the text around a value, such as the assignment a key sits
-// in, and the curl rules span up to 11 newlines; so an Edit is scanned as the
-// lines around each replacement in the file it produces.
-const CONTEXT_LINES = 12;
-
-function buildScanText(
-  action: Readonly<EditAction>,
-  field: string,
-): string | { readonly reason: string } {
-  const content = action.toolInput[field] ?? '';
-
-  if (typeof content !== 'string') {
-    return { reason: 'edit content is not text' };
-  }
-
-  if (action.toolName !== 'Edit') {
-    return content;
-  }
-
-  const old = action.toolInput['old_string'];
-
-  if (typeof old !== 'string' || old === '' || action.current === null) {
-    return { reason: 'the edit cannot be read in the context of its file' };
-  }
-
-  const parts = action.current.split(old);
-
-  if (parts.length === 1) {
-    return { reason: 'the edit text is not in the file' };
-  }
-
-  const replaced = action.toolInput['replace_all'] === true ? parts.length - 1 : 1;
-  const spans: { start: number; end: number }[] = [];
-  let produced = parts[0] ?? '';
-
-  for (let index = 1; index < parts.length; index += 1) {
-    const isReplaced = index <= replaced;
-
-    if (isReplaced) {
-      spans.push({ start: produced.length, end: produced.length + content.length });
-    }
-
-    produced += `${isReplaced ? content : old}${parts[index] ?? ''}`;
-  }
-
-  return collectContext(produced, spans);
-}
-
-function collectContext(
-  text: string,
-  spans: readonly Readonly<{ start: number; end: number }>[],
-): string {
-  const lines = text.split('\n');
-  const starts: number[] = [];
-  let offset = 0;
-
-  for (const line of lines) {
-    starts.push(offset);
-
-    offset += line.length + 1;
-  }
-
-  const keep = new Set<number>();
-
-  for (const span of spans) {
-    const first = starts.findLastIndex((start) => start <= span.start);
-    const last = starts.findLastIndex((start) => start <= span.end);
-
-    for (let line = first - CONTEXT_LINES; line <= last + CONTEXT_LINES; line += 1) {
-      keep.add(line);
-    }
-  }
-
-  return lines.filter((_, index) => keep.has(index)).join('\n');
-}
-
-// A path outside every worktree keeps its whole spelling, so that a link from
-// an excluded directory such as `~/.claude` stays excluded.
-function toWorktreePath(path: string, worktrees: readonly string[]): string {
-  const worktree = findWorktree(path, worktrees);
-
-  return worktree === null ? path : relative(worktree, path).split(sep).join('/');
 }
 
 // Worktrees nest (`.worktrees/<name>` sits inside the main checkout), so the
@@ -234,4 +150,88 @@ function findExclusion(path: string): string | null {
   const name = basename(path);
 
   return EXCLUDED_NAMES.find(([pattern]) => pattern.test(name))?.[1] ?? null;
+}
+
+// A path outside every worktree keeps its whole spelling, so that a link from
+// an excluded directory such as `~/.claude` stays excluded.
+function toWorktreePath(path: string, worktrees: readonly string[]): string {
+  const worktree = findWorktree(path, worktrees);
+
+  return worktree === null ? path : relative(worktree, path).split(sep).join('/');
+}
+
+function buildScanText(
+  action: Readonly<EditAction>,
+  field: string,
+): string | { readonly reason: string } {
+  const content = action.toolInput[field] ?? '';
+
+  if (typeof content !== 'string') {
+    return { reason: 'edit content is not text' };
+  }
+
+  if (action.toolName !== 'Edit') {
+    return content;
+  }
+
+  const old = action.toolInput['old_string'];
+
+  if (typeof old !== 'string' || old === '' || action.current === null) {
+    return { reason: 'the edit cannot be read in the context of its file' };
+  }
+
+  const parts = action.current.split(old);
+
+  if (parts.length === 1) {
+    return { reason: 'the edit text is not in the file' };
+  }
+
+  const replaced = action.toolInput['replace_all'] === true ? parts.length - 1 : 1;
+  const spans: { start: number; end: number }[] = [];
+  let produced = parts[0] ?? '';
+
+  for (let index = 1; index < parts.length; index += 1) {
+    const isReplaced = index <= replaced;
+
+    if (isReplaced) {
+      spans.push({ start: produced.length, end: produced.length + content.length });
+    }
+
+    produced += `${isReplaced ? content : old}${parts[index] ?? ''}`;
+  }
+
+  return collectContext(produced, spans);
+}
+
+// A rule can need the text around a value, such as the assignment a key sits
+// in, and the curl rules span up to 11 newlines; so an Edit is scanned as the
+// lines around each replacement in the file it produces.
+const CONTEXT_LINES = 12;
+
+function collectContext(
+  text: string,
+  spans: readonly Readonly<{ start: number; end: number }>[],
+): string {
+  const lines = text.split('\n');
+  const starts: number[] = [];
+  let offset = 0;
+
+  for (const line of lines) {
+    starts.push(offset);
+
+    offset += line.length + 1;
+  }
+
+  const keep = new Set<number>();
+
+  for (const span of spans) {
+    const first = starts.findLastIndex((start) => start <= span.start);
+    const last = starts.findLastIndex((start) => start <= span.end);
+
+    for (let line = first - CONTEXT_LINES; line <= last + CONTEXT_LINES; line += 1) {
+      keep.add(line);
+    }
+  }
+
+  return lines.filter((_, index) => keep.has(index)).join('\n');
 }

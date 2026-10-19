@@ -8,9 +8,24 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import * as z from 'zod';
 import type { ModelRequest } from '../messages/anthropic-client.ts';
-import { findExecutable } from '../process/find-executable.ts';
+import { resolveExecutable } from '../process/resolve-executable.ts';
 import { startCappedProcess } from '../process/start-capped-process.ts';
 import type { JudgeMessageReply, JudgeSession } from './types.ts';
+
+interface Turn {
+  readonly result: SDKResultMessage;
+  readonly fallbacks: number;
+  readonly sessionFallback: boolean;
+}
+
+interface LiveProcess {
+  readonly key: string;
+  readonly send: (text: string) => Promise<Readonly<Turn>>;
+  readonly stop: () => void;
+  readonly closed: boolean;
+  reviews: number;
+  cleared: Promise<void>;
+}
 
 // One process answers every review, so only the first pays its start. Each
 // review starts from a cleared conversation, because one review's evidence must
@@ -100,70 +115,16 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
   };
 }
 
-function waitUnlessAborted(
-  previous: Readonly<Promise<void>>,
-  signal: Readonly<AbortSignal>,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const onAbort = (): void => {
-      reject(new DOMException('Judge review aborted', 'AbortError'));
-    };
-
-    if (signal.aborted) {
-      onAbort();
-
-      return;
-    }
-
-    signal.addEventListener('abort', onAbort, { once: true });
-
-    void waitThenRelease(previous, () => {
-      signal.removeEventListener('abort', onAbort);
-
-      resolve();
-    });
-  });
-}
-
-async function waitThenRelease(
-  previous: Readonly<Promise<void>>,
-  release: () => void,
-): Promise<void> {
-  await previous;
-
-  release();
-}
-
-// A failed clear ends the process, and the next review then starts a new one.
-async function sendClear(
-  send: (text: string) => Promise<Readonly<Turn>>,
-  stop: () => void,
-): Promise<void> {
-  try {
-    await send('/clear');
-  } catch {
-    stop();
-  }
-}
-
-interface LiveProcess {
-  readonly key: string;
-  readonly send: (text: string) => Promise<Readonly<Turn>>;
-  readonly stop: () => void;
-  readonly closed: boolean;
-  reviews: number;
-  cleared: Promise<void>;
-}
-
-interface Turn {
-  readonly result: SDKResultMessage;
-  readonly fallbacks: number;
-  readonly sessionFallback: boolean;
-}
-
 // Claude Code writes each reply as one stream-json line, and the judge server
 // holds the process for the whole agent session, so the cap bounds each line.
 const MAX_LINE_BYTES = 1024 * 1024;
+
+interface TurnWaiter {
+  readonly resolve: (turn: Readonly<Turn>) => void;
+  readonly reject: (error: Readonly<Error>) => void;
+  fallbacks: number;
+  sessionFallback: boolean;
+}
 
 function startLiveProcess(
   model: string,
@@ -172,7 +133,7 @@ function startLiveProcess(
   env: Readonly<Record<string, string | undefined>>,
 ): LiveProcess {
   const input = makeInputChannel();
-  const executable = findExecutable('claude', env['PATH']);
+  const executable = resolveExecutable('claude', env['PATH']);
   let waiter: TurnWaiter | null = null;
   let closed = false;
 
@@ -266,28 +227,10 @@ function startLiveProcess(
   };
 }
 
-interface TurnWaiter {
-  readonly resolve: (turn: Readonly<Turn>) => void;
-  readonly reject: (error: Readonly<Error>) => void;
-  fallbacks: number;
-  sessionFallback: boolean;
-}
-
-async function readMessages(
-  stream: Query,
-  onMessage: (message: SDKMessage) => void,
-  onEnd: () => void,
-): Promise<void> {
-  try {
-    for await (const message of stream) {
-      onMessage(message);
-    }
-  } catch {
-    // A process that exits or fails ends the stream; the stop that follows
-    // rejects the review it was answering.
-  }
-
-  onEnd();
+interface InputReader {
+  readonly shift: () => string | undefined;
+  readonly isClosed: () => boolean;
+  readonly waitForPush: () => Promise<void>;
 }
 
 function makeInputChannel(): {
@@ -330,12 +273,6 @@ function makeInputChannel(): {
   };
 }
 
-interface InputReader {
-  readonly shift: () => string | undefined;
-  readonly isClosed: () => boolean;
-  readonly waitForPush: () => Promise<void>;
-}
-
 async function* readPending(reader: Readonly<InputReader>): AsyncGenerator<SDKUserMessage> {
   for (;;) {
     const next = reader.shift();
@@ -359,6 +296,12 @@ async function* readPending(reader: Readonly<InputReader>): AsyncGenerator<SDKUs
   }
 }
 
+const PROVIDER_SWITCHES = new Set([
+  'CLAUDE_CODE_USE_BEDROCK',
+  'CLAUDE_CODE_USE_VERTEX',
+  'CLAUDE_CODE_USE_FOUNDRY',
+]);
+
 // A session pointed at another provider passes its endpoint and key in these
 // variables, and the judge must reach Claude through the claude login instead.
 function buildChildEnv(
@@ -371,11 +314,34 @@ function buildChildEnv(
   );
 }
 
-const PROVIDER_SWITCHES = new Set([
-  'CLAUDE_CODE_USE_BEDROCK',
-  'CLAUDE_CODE_USE_VERTEX',
-  'CLAUDE_CODE_USE_FOUNDRY',
-]);
+async function readMessages(
+  stream: Query,
+  onMessage: (message: SDKMessage) => void,
+  onEnd: () => void,
+): Promise<void> {
+  try {
+    for await (const message of stream) {
+      onMessage(message);
+    }
+  } catch {
+    // A process that exits or fails ends the stream; the stop that follows
+    // rejects the review it was answering.
+  }
+
+  onEnd();
+}
+
+// A failed clear ends the process, and the next review then starts a new one.
+async function sendClear(
+  send: (text: string) => Promise<Readonly<Turn>>,
+  stop: () => void,
+): Promise<void> {
+  try {
+    await send('/clear');
+  } catch {
+    stop();
+  }
+}
 
 // The usage and the stop count are parsed apart from the result, so a malformed
 // one keeps a readable reply on the configured model.
@@ -434,4 +400,38 @@ function isFallbackReply(
     entries.some((entry) => entry.outputTokens === 0) &&
     entries.some((entry) => entry.outputTokens > 0)
   );
+}
+
+function waitUnlessAborted(
+  previous: Readonly<Promise<void>>,
+  signal: Readonly<AbortSignal>,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onAbort = (): void => {
+      reject(new DOMException('Judge review aborted', 'AbortError'));
+    };
+
+    if (signal.aborted) {
+      onAbort();
+
+      return;
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true });
+
+    void waitThenRelease(previous, () => {
+      signal.removeEventListener('abort', onAbort);
+
+      resolve();
+    });
+  });
+}
+
+async function waitThenRelease(
+  previous: Readonly<Promise<void>>,
+  release: () => void,
+): Promise<void> {
+  await previous;
+
+  release();
 }

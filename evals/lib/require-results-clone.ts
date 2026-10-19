@@ -3,11 +3,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
-const RESULTS_REMOTE =
-  /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)zgeoff\/auto-mode-evals(?:\.git)?$/u;
-
-const RESULTS_README_TITLE = '# auto-mode-evals';
-
 export interface ResultsClone {
   readonly directory: string;
   readonly root: string;
@@ -36,7 +31,7 @@ export async function requireResultsClone(
     throw new Error(`The results directory is not in a git clone: ${real}`);
   }
 
-  if (!isResultsClone(root)) {
+  if (!probeResultsClone(root)) {
     throw new Error(`The results directory is not a clone of zgeoff/auto-mode-evals: ${root}`);
   }
 
@@ -61,7 +56,12 @@ function readGitRoot(directory: string): string | null {
   }
 }
 
-function isResultsClone(root: string): boolean {
+const RESULTS_REMOTE =
+  /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)zgeoff\/auto-mode-evals(?:\.git)?$/u;
+
+const RESULTS_README_TITLE = '# auto-mode-evals';
+
+function probeResultsClone(root: string): boolean {
   if (RESULTS_REMOTE.test(readOrigin(root))) {
     return true;
   }

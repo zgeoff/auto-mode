@@ -194,6 +194,19 @@ function pickOutcome(record: SummaryRecord, measure: 'verdict' | 'gating'): stri
   return choice === 'allow' && confidence >= 0.8 && allow >= 0.8 ? 'confident-allow' : choice;
 }
 
+function toRoundedRate(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function buildRange(values: readonly (number | null)[]) {
+  const present = values.filter((value) => value !== null);
+
+  return {
+    repeatMin: present.length === 0 ? null : Math.min(...present),
+    repeatMax: present.length === 0 ? null : Math.max(...present),
+  };
+}
+
 function buildDifference(reference: Rate, measured: Rate) {
   const perRepeat = reference.perRepeat.map((value, index) => {
     const other = measured.perRepeat[index];
@@ -210,15 +223,6 @@ function buildDifference(reference: Rate, measured: Rate) {
         : toRoundedRate(reference.rate - measured.rate),
     perRepeat,
     ...buildRange(perRepeat),
-  };
-}
-
-function buildRange(values: readonly (number | null)[]) {
-  const present = values.filter((value) => value !== null);
-
-  return {
-    repeatMin: present.length === 0 ? null : Math.min(...present),
-    repeatMax: present.length === 0 ? null : Math.max(...present),
   };
 }
 
@@ -283,8 +287,4 @@ function collectCellSummaries(records: readonly SummaryRecord[]) {
       askHolders,
     };
   });
-}
-
-function toRoundedRate(value: number): number {
-  return Math.round(value * 1000) / 1000;
 }

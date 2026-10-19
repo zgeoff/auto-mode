@@ -4,12 +4,9 @@ import { resolveClaudeConfigPath } from '../config/resolve-claude-config-path.ts
 import type { HostEnvironment } from '../config/types.ts';
 import { loadJSONFile } from '../state/load-json-file.ts';
 import type { MCPServerFact } from '../types.ts';
-import { findCheckout } from './find-checkout.ts';
+import { readCheckout } from './read-checkout.ts';
 import type { CheckoutFacts } from './types.ts';
 
-// Each entry is read field by field, so a credential in `env`, `headers` or
-// `args` is never parsed into the result.
-const serverSchema = z.looseObject({ type: z.string().optional(), url: z.string().optional() });
 const serversSchema = z.record(z.string(), z.unknown()).optional();
 
 const approvalSchema = z.looseObject({
@@ -46,7 +43,7 @@ export async function loadMCPServers(
   const directory = resolve(cwd);
 
   const checkout =
-    checkoutFacts === undefined ? await findCheckout(directory, host.env) : checkoutFacts.checkout;
+    checkoutFacts === undefined ? await readCheckout(directory, host.env) : checkoutFacts.checkout;
 
   const projectDir = checkout?.worktree ?? directory;
   const project = state?.projects?.[projectDir];
@@ -90,6 +87,10 @@ const TRANSPORTS: Readonly<Record<string, MCPServerFact['transport']>> = {
   sse: 'sse',
   ws: 'ws',
 };
+
+// Each entry is read field by field, so a credential in `env`, `headers` or
+// `args` is never parsed into the result.
+const serverSchema = z.looseObject({ type: z.string().optional(), url: z.string().optional() });
 
 function buildServerFacts(
   servers: Readonly<Record<string, unknown>> | undefined,

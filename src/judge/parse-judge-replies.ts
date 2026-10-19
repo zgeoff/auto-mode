@@ -13,7 +13,7 @@ export function parseJudgeReplies(text: string, rules: readonly string[]): reado
   const body = JSON_FENCE.exec(trimmed)?.groups?.['body'] ?? trimmed;
 
   const parsed = judgeReviewsSchema.safeParse(
-    parseJSON(body) ?? parseJSON(findTrailingReviews(body)),
+    parseJSON(body) ?? parseJSON(getTrailingReviews(body)),
   );
 
   if (!parsed.success) {
@@ -40,6 +40,14 @@ export function parseJudgeReplies(text: string, rules: readonly string[]): reado
   });
 }
 
+function parseJSON(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 const REVIEWS_START = /\{\s*"reviews"\s*:/u;
 const VERDICT_TAG = /<\s*\/?\s*(?:verdict|basis|reason)\b[^>]*>/iu;
 const CLOSING_FENCE = /\s*```\s*$/u;
@@ -47,17 +55,9 @@ const CLOSING_FENCE = /\s*```\s*$/u;
 // On a long case the judge often writes prose or a stray tool-call fragment
 // first. Only an object that ends the reply, in a fence or bare, after no
 // verdict tag, is the answer, so one quoted inside a tagged reason never is.
-function findTrailingReviews(text: string): string {
+function getTrailingReviews(text: string): string {
   const body = text.replace(CLOSING_FENCE, '');
   const start = body.search(REVIEWS_START);
 
   return start === -1 || VERDICT_TAG.test(body.slice(0, start)) ? '' : body.slice(start);
-}
-
-function parseJSON(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
 }

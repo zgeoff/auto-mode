@@ -13,6 +13,11 @@ export interface CorpusCaseKeys {
   readonly keys: readonly string[];
 }
 
+const namedCaseSchema = z.object({ name: z.string() });
+const namedCasesSchema = z.object({ cases: z.array(namedCaseSchema) });
+const idCaseSchema = z.object({ id: z.string() });
+const idCasesSchema = z.object({ cases: z.array(idCaseSchema) });
+
 export function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
   const corpus = basename(corpusDir);
 
@@ -72,11 +77,6 @@ export function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
       Promise.reject(new Error(`No case keys are defined for the corpus ${corpus}.`)),
     );
 }
-
-const namedCaseSchema = z.object({ name: z.string() });
-const namedCasesSchema = z.object({ cases: z.array(namedCaseSchema) });
-const idCaseSchema = z.object({ id: z.string() });
-const idCasesSchema = z.object({ cases: z.array(idCaseSchema) });
 
 interface RelayConsentCases {
   readonly actions: readonly { readonly id: string; readonly label: 'risky' | 'safe' }[];

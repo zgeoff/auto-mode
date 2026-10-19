@@ -61,7 +61,6 @@ export interface MeasurementSets {
 }
 
 const HELD_OUT = 'held-out';
-const SESSION_ID = 'measurement-experiment';
 
 // Each corpus becomes one set of cases that can build a live request, run the
 // containment check, and take recorded answers. The held-out set lives only in
@@ -147,31 +146,6 @@ async function loadCorpusCases(
   return Object.fromEntries(entries);
 }
 
-// A decision-rules case may leave out its message, cwd, repository and MCP
-// servers, and takes the corpus-wide ones; a relative file path is joined to the cwd.
-async function loadDecisionRulesFile(path: string): Promise<Record<string, MeasurementCase>> {
-  const text = await readFile(path, 'utf8');
-
-  const corpus = decisionRulesCorpusSchema.parse(JSON.parse(text));
-
-  return Object.fromEntries(
-    corpus.cases.map((entry) => {
-      const cwd = entry.cwd ?? corpus.cwd;
-      const repository = { cwd, ...(entry.repository ?? corpus.repository) };
-
-      return [
-        entry.id,
-        buildCase(entry.id, entry.tool, entry.input, {
-          lastUserMessage: entry.lastUserMessage ?? corpus.lastUserMessage,
-          repository,
-          mcpServers: entry.mcpServers ?? corpus.mcpServers ?? [],
-          configuredRules: null,
-        }),
-      ];
-    }),
-  );
-}
-
 const contextsSchema = z.object({
   contexts: z.record(z.string(), repositoryContextSchema),
 });
@@ -223,6 +197,8 @@ interface CaseOptions {
   readonly configuredRules: ClaudeRules | null;
 }
 
+const SESSION_ID = 'measurement-experiment';
+
 function buildCase(
   id: string,
   tool: string,
@@ -246,4 +222,29 @@ function buildCase(
     configuredRules: options.configuredRules,
     recorded: {},
   };
+}
+
+// A decision-rules case may leave out its message, cwd, repository and MCP
+// servers, and takes the corpus-wide ones; a relative file path is joined to the cwd.
+async function loadDecisionRulesFile(path: string): Promise<Record<string, MeasurementCase>> {
+  const text = await readFile(path, 'utf8');
+
+  const corpus = decisionRulesCorpusSchema.parse(JSON.parse(text));
+
+  return Object.fromEntries(
+    corpus.cases.map((entry) => {
+      const cwd = entry.cwd ?? corpus.cwd;
+      const repository = { cwd, ...(entry.repository ?? corpus.repository) };
+
+      return [
+        entry.id,
+        buildCase(entry.id, entry.tool, entry.input, {
+          lastUserMessage: entry.lastUserMessage ?? corpus.lastUserMessage,
+          repository,
+          mcpServers: entry.mcpServers ?? corpus.mcpServers ?? [],
+          configuredRules: null,
+        }),
+      ];
+    }),
+  );
 }

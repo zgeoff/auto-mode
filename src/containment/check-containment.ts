@@ -57,6 +57,10 @@ function formatContainmentReason(
   return `This action writes outside the task scope: ${targets}${more}. The task owns ${owned}. ${formatAdvice(findings)}`;
 }
 
+function formatList(one: string, many: string, values: readonly string[]): string {
+  return `the ${values.length === 1 ? one : many} ${values.join(', ')}`;
+}
+
 const DISCARD_ADVICE =
   'A hard reset onto another commit, or a branch deletion that names no branch, discards commits and changes the task may not have made. Sync a branch with git merge --ff-only or git rebase, and delete branches by name, or ask the user to run this action.';
 
@@ -71,8 +75,4 @@ function formatAdvice(findings: readonly ScopeFinding[]): string {
   }
 
   return discards === findings.length ? DISCARD_ADVICE : `${DISCARD_ADVICE} ${SCOPE_ADVICE}`;
-}
-
-function formatList(one: string, many: string, values: readonly string[]): string {
-  return `the ${values.length === 1 ? one : many} ${values.join(', ')}`;
 }

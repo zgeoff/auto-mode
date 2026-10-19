@@ -2,9 +2,9 @@ import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { match } from 'ts-pattern';
 import type { HostEnvironment } from '../config/types.ts';
-import { findCheckout } from '../git/find-checkout.ts';
 import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { readBranchCreatedAt } from '../git/read-branch-created-at.ts';
+import { readCheckout } from '../git/read-checkout.ts';
 import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import type { ScopeRecordRequest } from '../request/types.ts';
 import type { LockClock } from '../state/types.ts';
@@ -86,12 +86,6 @@ async function tryVerifyScopeEvent(
   }
 }
 
-// The forge's clock and this machine's can disagree by this much.
-const FORGE_CLOCK_SKEW_MS = 60_000;
-
-// Linux stamps files from a coarse clock that can trail Date.now() by a tick.
-const FILE_CLOCK_SLACK_MS = 50;
-
 function verifyScopeEvent(
   event: Readonly<ScopeEvent>,
   request: Readonly<ScopeRecordRequest>,
@@ -106,6 +100,9 @@ function verifyScopeEvent(
     )
     .exhaustive();
 }
+
+// Linux stamps files from a coarse clock that can trail Date.now() by a tick.
+const FILE_CLOCK_SLACK_MS = 50;
 
 async function verifyWorktreeEvent(
   path: string,
@@ -131,7 +128,7 @@ async function verifyWorktreeEvent(
     return { ...EMPTY_SESSION_SCOPE, worktrees: [path] };
   }
 
-  const isNew = await isBranchCreatedSince(checkout.commonDir, branch, request.startedAt);
+  const isNew = await probeBranchCreatedSince(checkout.commonDir, branch, request.startedAt);
 
   return {
     ...EMPTY_SESSION_SCOPE,
@@ -140,23 +137,44 @@ async function verifyWorktreeEvent(
   };
 }
 
+// The reflog dates a branch's creation to the second; the loose ref file the
+// creation writes carries the millisecond, and only a later update moves it.
+async function probeBranchCreatedSince(
+  commonDir: string,
+  branch: string,
+  since: number,
+): Promise<boolean> {
+  const createdAt = await readBranchCreatedAt(commonDir, branch);
+
+  if (createdAt === null || createdAt < Math.floor(since / 1000) * 1000) {
+    return false;
+  }
+
+  const ref = await stat(join(commonDir, 'refs', 'heads', branch)).catch(() => null);
+
+  return ref !== null && ref.mtimeMs >= since - FILE_CLOCK_SLACK_MS;
+}
+
 async function verifyBranchEvent(
   event: Readonly<Extract<ScopeEvent, { kind: 'branch' }>>,
   request: Readonly<ScopeRecordRequest>,
   options: Readonly<ScopeRecordOptions>,
 ): Promise<SessionScope> {
-  const checkout = await findCheckout(event.directory, options.env);
+  const checkout = await readCheckout(event.directory, options.env);
 
   if (checkout === null) {
     return EMPTY_SESSION_SCOPE;
   }
 
-  const isNew = await isBranchCreatedSince(checkout.commonDir, event.name, request.startedAt);
+  const isNew = await probeBranchCreatedSince(checkout.commonDir, event.name, request.startedAt);
 
   return isNew
     ? { ...EMPTY_SESSION_SCOPE, branches: [{ name: event.name, commonDir: checkout.commonDir }] }
     : EMPTY_SESSION_SCOPE;
 }
+
+// The forge's clock and this machine's can disagree by this much.
+const FORGE_CLOCK_SKEW_MS = 60_000;
 
 async function verifyPullRequestEvent(
   directory: string,
@@ -186,22 +204,4 @@ async function verifyPullRequestEvent(
   );
 
   return { ...EMPTY_SESSION_SCOPE, pullRequests: pulls.flat() };
-}
-
-// The reflog dates a branch's creation to the second; the loose ref file the
-// creation writes carries the millisecond, and only a later update moves it.
-async function isBranchCreatedSince(
-  commonDir: string,
-  branch: string,
-  since: number,
-): Promise<boolean> {
-  const createdAt = await readBranchCreatedAt(commonDir, branch);
-
-  if (createdAt === null || createdAt < Math.floor(since / 1000) * 1000) {
-    return false;
-  }
-
-  const ref = await stat(join(commonDir, 'refs', 'heads', branch)).catch(() => null);
-
-  return ref !== null && ref.mtimeMs >= since - FILE_CLOCK_SLACK_MS;
 }
