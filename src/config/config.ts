@@ -143,11 +143,18 @@ const configFileSchema = z.strictObject({
     })
     .optional(),
   capture: z
-    .strictObject({
-      enabled: z.boolean().optional(),
-      // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
-      dir: text.optional(),
-    })
+    .strictObject(
+      {
+        enabled: z.boolean().optional(),
+        directory: text.optional(),
+      },
+      {
+        error: (issue) =>
+          issue.code === 'unrecognized_keys'
+            ? `Unrecognized key: "${issue.keys.join('", "')}"; capture.directory sets the capture folder`
+            : undefined,
+      },
+    )
     .optional(),
 });
 
@@ -229,7 +236,7 @@ function buildConfig(json: unknown, path: string, home: string): Config {
       : {
           capture: {
             enabled: file.capture.enabled ?? false,
-            directory: expandHomePath(file.capture.dir, home),
+            directory: expandHomePath(file.capture.directory, home),
           },
         }),
     warnings,

@@ -674,13 +674,12 @@ test('#loadConfig rejects an empty protected branch pattern', async () => {
   ).rejects.toThrow('is not a valid config');
 });
 
-test('#loadConfig reads the capture block, expanding a leading tilde in its dir', async () => {
+test('#loadConfig reads the capture block, expanding a leading tilde in its directory', async () => {
   const ctx = await setupTest();
 
   await writeFile(
     ctx.configFile,
-    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
-    JSON.stringify({ capture: { enabled: true, dir: '~/captures' } }),
+    JSON.stringify({ capture: { enabled: true, directory: '~/captures' } }),
   );
 
   const config = await loadConfig(
@@ -705,6 +704,19 @@ test('#loadConfig leaves capture off when the capture block omits enabled', asyn
   );
 
   expect(config.capture).toStrictEqual({ enabled: false, directory: undefined });
+});
+
+test('#loadConfig refuses the old capture folder key and names capture.directory', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(ctx.configFile, '{"capture":{"enabled":true,"dir":"/var/captures"}}');
+
+  expect(
+    loadConfig(ctx.configFile, buildMockHostEnvironment({ env: {}, home: ctx.directory })),
+  ).rejects.toThrowWithMessage(
+    Error,
+    `${ctx.configFile} is not a valid config: ✖ Unrecognized key: "dir"; capture.directory sets the capture folder\n  → at capture`,
+  );
 });
 
 test('#loadConfig refuses a capture block with a key it does not know', async () => {

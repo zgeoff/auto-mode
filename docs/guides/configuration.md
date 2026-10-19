@@ -253,17 +253,17 @@ The capture records real traffic for an evaluation corpus. It is off unless the 
 { "capture": { "enabled": true } }
 ```
 
-| Field     | Default                               | Effect                                    |
-| --------- | ------------------------------------- | ----------------------------------------- |
-| `enabled` | `false`                               | Append each judged request to the capture |
-| `dir`     | `$XDG_STATE_HOME/auto-mode/captures/` | Absolute directory for the capture files  |
+| Field       | Default                               | Effect                                    |
+| ----------- | ------------------------------------- | ----------------------------------------- |
+| `enabled`   | `false`                               | Append each judged request to the capture |
+| `directory` | `$XDG_STATE_HOME/auto-mode/captures/` | Absolute directory for the capture files  |
 
 With capture on, `auto-mode run` appends one line per judged action to `requests-<date>.jsonl`, one
 file per UTC day: the mod request as the CLI received it, the verdict or `null` when it wrote none,
 the deciding stage, and whether the denial budget left the action to the user. The default directory
 falls back to `~/.local/state/auto-mode/captures/` when the variable is absent, and a leading `~/`
-in `dir` expands to the home directory. The CLI narrows the directory to mode `0700` and each file
-to `0600`, and refuses to write through a link at the file's path.
+in `directory` expands to the home directory. The CLI narrows the directory to mode `0700` and each
+file to `0600`, and refuses to write through a link at the file's path.
 
 A capture holds whole prompts, commands and paths, so it never goes into git. The CLI resolves the
 directory through any link and refuses one inside a git work tree: it writes nothing and prints
