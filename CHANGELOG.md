@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v2.0.1...auto-mode-v2.0.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* **geo-1287:** anonymise the question-severity corpus and its samples ([#241](https://github.com/zgeoff/auto-mode/issues/241)) ([30ac50c](https://github.com/zgeoff/auto-mode/commit/30ac50c5128c82e1a0a0d0217f916abe4e64dbd5))
+* **geo-1321:** invent the message text in the public corpora ([#243](https://github.com/zgeoff/auto-mode/issues/243)) ([d71b8d1](https://github.com/zgeoff/auto-mode/commit/d71b8d1509d2ede6b19875819022475f78d9412b))
+
 ## [2.0.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v2.0.0...auto-mode-v2.0.1) (2026-10-17)
 
 
