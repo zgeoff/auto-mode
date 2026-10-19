@@ -3,10 +3,10 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runGit } from '../../test-utils/run-git.ts';
-import { findCheckout } from './find-checkout.ts';
+import { readCheckout } from './read-checkout.ts';
 
 async function setupTest() {
-  const created = await mkdtemp(join(tmpdir(), 'auto-mode-find-checkout-'));
+  const created = await mkdtemp(join(tmpdir(), 'auto-mode-read-checkout-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
@@ -20,7 +20,7 @@ test('it finds the checkout whose .git directory sits in the start directory', a
 
   runGit(ctx.directory, ['init', '--quiet', 'app']);
 
-  const checkout = await findCheckout(join(ctx.directory, 'app'), {});
+  const checkout = await readCheckout(join(ctx.directory, 'app'), {});
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.directory, 'app'),
@@ -36,7 +36,7 @@ test('it walks up from a subdirectory to the checkout that holds it', async () =
 
   await mkdir(join(ctx.directory, 'app', 'src', 'scope'), { recursive: true });
 
-  const checkout = await findCheckout(join(ctx.directory, 'app', 'src', 'scope'), {});
+  const checkout = await readCheckout(join(ctx.directory, 'app', 'src', 'scope'), {});
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.directory, 'app'),
@@ -51,7 +51,7 @@ test('it finds the nearest checkout when one repository sits inside another', as
   runGit(ctx.directory, ['init', '--quiet', 'app']);
   runGit(ctx.directory, ['init', '--quiet', join('app', 'vendor', 'lib')]);
 
-  const checkout = await findCheckout(join(ctx.directory, 'app', 'vendor', 'lib'), {});
+  const checkout = await readCheckout(join(ctx.directory, 'app', 'vendor', 'lib'), {});
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.directory, 'app', 'vendor', 'lib'),
@@ -75,7 +75,7 @@ test('it finds a linked worktree and the git directory it shares with the main c
     '.worktrees/a',
   ]);
 
-  const checkout = await findCheckout(join(ctx.directory, 'app', '.worktrees', 'a'), {});
+  const checkout = await readCheckout(join(ctx.directory, 'app', '.worktrees', 'a'), {});
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.directory, 'app', '.worktrees', 'a'),
@@ -91,7 +91,7 @@ test('it takes the git directory a relative .git link names as the shared one wh
   await mkdir(join(ctx.directory, 'lib'));
   await writeFile(join(ctx.directory, 'lib', '.git'), 'gitdir: ../modules/lib\n');
 
-  const checkout = await findCheckout(join(ctx.directory, 'lib'), {});
+  const checkout = await readCheckout(join(ctx.directory, 'lib'), {});
 
   expect(checkout).toStrictEqual({
     worktree: join(ctx.directory, 'lib'),
@@ -108,13 +108,13 @@ test('it finds no checkout when the nearest .git file names no git directory', a
   await mkdir(join(ctx.directory, 'app', 'lib'));
   await writeFile(join(ctx.directory, 'app', 'lib', '.git'), 'not a link\n');
 
-  expect(findCheckout(join(ctx.directory, 'app', 'lib'), {})).resolves.toBeNull();
+  expect(readCheckout(join(ctx.directory, 'app', 'lib'), {})).resolves.toBeNull();
 });
 
 test('it finds no checkout when the walk reaches the root without a .git', () => {
   // A sandbox can place a .git above the system temp directory, so the walk
   // starts at the root, the one directory every host shares.
-  expect(findCheckout('/', {})).resolves.toBeNull();
+  expect(readCheckout('/', {})).resolves.toBeNull();
 });
 
 test('it finds no checkout above the stop directory', async () => {
@@ -125,7 +125,7 @@ test('it finds no checkout above the stop directory', async () => {
   await mkdir(join(ctx.directory, 'app', 'notes', 'drafts'), { recursive: true });
 
   expect(
-    findCheckout(
+    readCheckout(
       join(ctx.directory, 'app', 'notes', 'drafts'),
       {},
       join(ctx.directory, 'app', 'notes'),
@@ -140,7 +140,7 @@ test('it finds a checkout in the stop directory itself', async () => {
 
   await mkdir(join(ctx.directory, 'app', 'src'));
 
-  const checkout = await findCheckout(
+  const checkout = await readCheckout(
     join(ctx.directory, 'app', 'src'),
     {},
     join(ctx.directory, 'app'),
@@ -161,7 +161,7 @@ test.each([['GIT_DIR'], ['GIT_WORK_TREE'], ['GIT_COMMON_DIR']])(
     runGit(ctx.directory, ['init', '--quiet', 'app']);
 
     expect(
-      findCheckout(join(ctx.directory, 'app'), { [name]: '/elsewhere/.git' }),
+      readCheckout(join(ctx.directory, 'app'), { [name]: '/elsewhere/.git' }),
     ).resolves.toBeNull();
   },
 );

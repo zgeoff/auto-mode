@@ -1,4 +1,4 @@
-import { buildTaskScope, pickScopeSourceReader } from 'auto-mode/eval';
+import { buildTaskScope, makeScopeSourceReader } from 'auto-mode/eval';
 import type { OwnedScope } from 'auto-mode/eval';
 
 export interface RecordedRepository {
@@ -9,11 +9,11 @@ export interface RecordedRepository {
 // A recording holds neither the home directory nor the remotes: the home is
 // the first two parts of the cwd, and the one remote has no URL, so no pull
 // request belongs to the task.
-export async function buildCwdTaskScope(
+export async function readCwdTaskScope(
   cwd: string,
   repository: Readonly<RecordedRepository>,
 ): Promise<OwnedScope> {
-  const facts = await pickScopeSourceReader({ kind: 'cwd' })({
+  const facts = await makeScopeSourceReader({ kind: 'cwd' })({
     env: {},
     sessionID: '',
     cwd,

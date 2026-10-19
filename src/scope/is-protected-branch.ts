@@ -61,12 +61,12 @@ function buildBracketPattern(
       return { source: buildClassSource(members, negated), end: index + 1 };
     }
 
-    const low = readClassChar(pattern, index);
+    const low = parseClassChar(pattern, index);
 
     index = low.end;
 
     if (pattern[index] === '-' && index + 1 < pattern.length && pattern[index + 1] !== ']') {
-      const high = readClassChar(pattern, index + 1);
+      const high = parseClassChar(pattern, index + 1);
 
       index = high.end;
       members += buildRangeSource(low.char, high.char);
@@ -78,9 +78,17 @@ function buildBracketPattern(
   return null;
 }
 
+function buildClassSource(members: string, negated: boolean): string {
+  if (negated) {
+    return `[^/${members}]`;
+  }
+
+  return members === '' ? '(?!)' : `(?!/)[${members}]`;
+}
+
 // fnmatch reads a class member as a whole code point, where indexing a string
 // would split a character outside the Basic Multilingual Plane in two.
-function readClassChar(
+function parseClassChar(
   pattern: string,
   index: number,
 ): { readonly char: string; readonly end: number } {
@@ -97,14 +105,6 @@ function buildRangeSource(low: string, high: string): string {
   return (low.codePointAt(0) ?? 0) <= (high.codePointAt(0) ?? 0)
     ? `${toClassMember(low)}-${toClassMember(high)}`
     : '';
-}
-
-function buildClassSource(members: string, negated: boolean): string {
-  if (negated) {
-    return `[^/${members}]`;
-  }
-
-  return members === '' ? '(?!)' : `(?!/)[${members}]`;
 }
 
 function toClassMember(char: string): string {

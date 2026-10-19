@@ -1,4 +1,4 @@
-import type { CheckoutFinder } from '../git/types.ts';
+import type { CheckoutReader } from '../git/types.ts';
 import type { TaskScopeSummary } from '../types.ts';
 
 export interface OutputStream {
@@ -16,7 +16,7 @@ export interface Runtime {
   readonly now: () => number;
   readonly timeout: (timeoutMs: number) => AbortSignal;
   readonly fetch: (url: string, init: Readonly<RequestInit>) => Promise<Response>;
-  readonly findCheckout: CheckoutFinder;
+  readonly readCheckout: CheckoutReader;
 }
 
 export interface ClaudeRules {

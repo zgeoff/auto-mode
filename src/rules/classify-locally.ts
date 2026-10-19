@@ -108,6 +108,52 @@ function classifySegment(text: string, cwd: string): string | null {
   return null;
 }
 
+interface ShellWord {
+  readonly raw: string;
+  readonly value: string;
+}
+
+// The words as written and with their quotes removed. A quoted program name
+// matches no allowlist entry, because the raw word is what is matched.
+function splitWords(text: string): readonly ShellWord[] {
+  return splitShellTokens(text).tokens.flatMap((token) =>
+    token.kind === 'word' ? [{ raw: token.raw, value: token.value }] : [],
+  );
+}
+
+// A tilde expands only at the start of a word or after `=` or `:`, so the
+// literal `HEAD~1` stays readable.
+function hasShellExpansion(raw: string): boolean {
+  let quote: "'" | '"' | null = null;
+  let previous = '';
+
+  for (const char of raw) {
+    if (quote === "'") {
+      quote = char === "'" ? null : quote;
+    } else if (char === '\\' || char === '$' || char === '`') {
+      return true;
+    } else if (char === quote) {
+      quote = null;
+    } else if (quote === null && (char === "'" || char === '"')) {
+      quote = char;
+    } else if (quote === null && isExpansionCharacter(char, previous)) {
+      return true;
+    }
+
+    previous = char;
+  }
+
+  return false;
+}
+
+function isExpansionCharacter(char: string, previous: string): boolean {
+  if (char === '~') {
+    return previous === '' || previous === '=' || previous === ':';
+  }
+
+  return '{}*?[]()!'.includes(char) || /\s/u.test(char);
+}
+
 // Reads the arguments as getopt does, except that a value word starting with a
 // dash is read as an option, so a wrong value list can only make a call pass
 // on, never allow one.
@@ -147,6 +193,10 @@ function hasUnsafeOption(args: readonly string[], unsafe: Readonly<UnsafeOptions
   return unsafe.operands !== undefined && operands > unsafe.operands;
 }
 
+function isOptionWord(arg: string): boolean {
+  return arg.startsWith('-') && arg !== '-';
+}
+
 interface ParsedOption {
   readonly isUnsafe: boolean;
   readonly takesNextWord: boolean;
@@ -181,10 +231,6 @@ function parseOption(arg: string, unsafe: Readonly<UnsafeOptions>): ParsedOption
   }
 
   return { isUnsafe: false, takesNextWord: false };
-}
-
-function isOptionWord(arg: string): boolean {
-  return arg.startsWith('-') && arg !== '-';
 }
 
 function classifyGit(args: readonly string[], cwd: string): string | null {
@@ -261,52 +307,6 @@ function classifyRemove(args: readonly ShellWord[], cwd: string): string | null 
   }
 
   return 'Regenerable output';
-}
-
-interface ShellWord {
-  readonly raw: string;
-  readonly value: string;
-}
-
-// The words as written and with their quotes removed. A quoted program name
-// matches no allowlist entry, because the raw word is what is matched.
-function splitWords(text: string): readonly ShellWord[] {
-  return splitShellTokens(text).tokens.flatMap((token) =>
-    token.kind === 'word' ? [{ raw: token.raw, value: token.value }] : [],
-  );
-}
-
-// A tilde expands only at the start of a word or after `=` or `:`, so the
-// literal `HEAD~1` stays readable.
-function hasShellExpansion(raw: string): boolean {
-  let quote: "'" | '"' | null = null;
-  let previous = '';
-
-  for (const char of raw) {
-    if (quote === "'") {
-      quote = char === "'" ? null : quote;
-    } else if (char === '\\' || char === '$' || char === '`') {
-      return true;
-    } else if (char === quote) {
-      quote = null;
-    } else if (quote === null && (char === "'" || char === '"')) {
-      quote = char;
-    } else if (quote === null && isExpansionCharacter(char, previous)) {
-      return true;
-    }
-
-    previous = char;
-  }
-
-  return false;
-}
-
-function isExpansionCharacter(char: string, previous: string): boolean {
-  if (char === '~') {
-    return previous === '' || previous === '=' || previous === ':';
-  }
-
-  return '{}*?[]()!'.includes(char) || /\s/u.test(char);
 }
 
 // An operand quoted whole or not at all, with no whitespace, is the one shape

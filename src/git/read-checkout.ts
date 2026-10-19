@@ -1,12 +1,12 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
-import { findGitEntry } from './find-git-entry.ts';
+import { readGitEntry } from './read-git-entry.ts';
 import type { Checkout } from './types.ts';
 
 const GIT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
 
-export async function findCheckout(
+export async function readCheckout(
   start: string,
   env: HostEnvironment['env'],
   stopDir?: string,
@@ -15,7 +15,7 @@ export async function findCheckout(
     return null;
   }
 
-  const entry = await findGitEntry(start, stopDir);
+  const entry = await readGitEntry(start, stopDir);
 
   const info = entry === null ? null : await stat(entry.gitPath).catch(() => null);
 
@@ -25,14 +25,14 @@ export async function findCheckout(
 
   const gitDir = info.isDirectory()
     ? entry.gitPath
-    : await findLinkedGitDir(entry.directory, entry.gitPath);
+    : await readLinkedGitDir(entry.directory, entry.gitPath);
 
   return gitDir === null
     ? null
-    : { worktree: entry.directory, gitDir, commonDir: await findCommonDir(gitDir) };
+    : { worktree: entry.directory, gitDir, commonDir: await readCommonDir(gitDir) };
 }
 
-async function findLinkedGitDir(directory: string, gitPath: string): Promise<string | null> {
+async function readLinkedGitDir(directory: string, gitPath: string): Promise<string | null> {
   const link = await readFile(gitPath, 'utf8').catch(() => '');
 
   const path = /^gitdir: (?<path>.+)$/mu.exec(link)?.groups?.['path'];
@@ -40,7 +40,7 @@ async function findLinkedGitDir(directory: string, gitPath: string): Promise<str
   return path === undefined ? null : resolve(directory, path.trim());
 }
 
-async function findCommonDir(gitDir: string): Promise<string> {
+async function readCommonDir(gitDir: string): Promise<string> {
   const common = await readFile(join(gitDir, 'commondir'), 'utf8').catch(() => null);
 
   return common === null ? gitDir : resolve(gitDir, common.trim());

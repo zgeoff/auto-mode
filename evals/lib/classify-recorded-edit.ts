@@ -3,9 +3,9 @@ import { tryClassifyEdit } from 'auto-mode/eval';
 import type { EditClassification } from 'auto-mode/eval';
 import { buildStubEditFileReader } from '../../test-utils/build-stub-edit-file-reader.ts';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
-import type { RecordedRepository } from './build-cwd-task-scope.ts';
-import { buildCwdTaskScope } from './build-cwd-task-scope.ts';
 import type { RecordedCall } from './check-cwd-containment.ts';
+import type { RecordedRepository } from './read-cwd-task-scope.ts';
+import { readCwdTaskScope } from './read-cwd-task-scope.ts';
 
 // A recording holds no links and no file content: every path is its own real
 // path, git places every target in the cwd checkout, even one outside the
@@ -14,7 +14,7 @@ export async function classifyRecordedEdit(
   call: Readonly<RecordedCall>,
   repository: Readonly<RecordedRepository>,
 ): Promise<EditClassification | null> {
-  const scope = await buildCwdTaskScope(call.cwd, repository);
+  const scope = await readCwdTaskScope(call.cwd, repository);
 
   const path = call.input['file_path'];
   const old = call.input['old_string'];

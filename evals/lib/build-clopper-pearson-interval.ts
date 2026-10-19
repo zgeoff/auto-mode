@@ -1,7 +1,6 @@
 import type { Interval } from './build-wilson-interval.ts';
 
 const ALPHA = 0.05;
-const BISECTIONS = 100;
 
 // The exact interval as beta quantiles, which also takes the fractional counts a
 // design effect leaves: the lower bound is Beta(x, n - x + 1) at 2.5% and the
@@ -11,14 +10,16 @@ export function buildClopperPearsonInterval(events: number, total: number): Inte
     return { lower: 0, upper: 1 };
   }
 
-  const lower = events <= 0 ? 0 : findQuantile(events, total - events + 1, ALPHA / 2);
-  const upper = events >= total ? 1 : findQuantile(events + 1, total - events, 1 - ALPHA / 2);
+  const lower = events <= 0 ? 0 : getQuantile(events, total - events + 1, ALPHA / 2);
+  const upper = events >= total ? 1 : getQuantile(events + 1, total - events, 1 - ALPHA / 2);
 
   return { lower, upper };
 }
 
+const BISECTIONS = 100;
+
 // The regularized incomplete beta rises in x, so bisection converges on the one crossing.
-function findQuantile(alphaShape: number, betaShape: number, target: number): number {
+function getQuantile(alphaShape: number, betaShape: number, target: number): number {
   let low = 0;
   let high = 1;
 
@@ -58,6 +59,34 @@ function buildRegularizedBeta(x: number, alphaShape: number, betaShape: number):
   }
 
   return 1 - (front * buildBetaFraction(1 - x, betaShape, alphaShape)) / betaShape;
+}
+
+const LANCZOS = [
+  0.9999999999998099, 676.5203681218851, -1259.1392167224028, 771.3234287776531, -176.6150291621406,
+  12.507343278686905, -0.13857109526572012, 9.984369578019572e-6, 1.5056327351493116e-7,
+];
+
+// The Lanczos approximation with g = 7, accurate to about 15 digits for positive x.
+function buildLogGamma(x: number): number {
+  if (x < 0.5) {
+    return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - buildLogGamma(1 - x);
+  }
+
+  const shifted = x - 1;
+  let sum = LANCZOS[0] ?? 0;
+
+  for (let index = 1; index < LANCZOS.length; index += 1) {
+    sum += (LANCZOS[index] ?? 0) / (shifted + index);
+  }
+
+  const lanczosBase = shifted + 7.5;
+
+  return (
+    0.5 * Math.log(2 * Math.PI) +
+    (shifted + 0.5) * Math.log(lanczosBase) -
+    lanczosBase +
+    Math.log(sum)
+  );
 }
 
 const FRACTION_STEPS = 300;
@@ -102,32 +131,4 @@ function buildBetaFraction(x: number, alphaShape: number, betaShape: number): nu
 
 function buildNonZero(value: number): number {
   return Math.abs(value) < TINY ? TINY : value;
-}
-
-const LANCZOS = [
-  0.9999999999998099, 676.5203681218851, -1259.1392167224028, 771.3234287776531, -176.6150291621406,
-  12.507343278686905, -0.13857109526572012, 9.984369578019572e-6, 1.5056327351493116e-7,
-];
-
-// The Lanczos approximation with g = 7, accurate to about 15 digits for positive x.
-function buildLogGamma(x: number): number {
-  if (x < 0.5) {
-    return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - buildLogGamma(1 - x);
-  }
-
-  const shifted = x - 1;
-  let sum = LANCZOS[0] ?? 0;
-
-  for (let index = 1; index < LANCZOS.length; index += 1) {
-    sum += (LANCZOS[index] ?? 0) / (shifted + index);
-  }
-
-  const lanczosBase = shifted + 7.5;
-
-  return (
-    0.5 * Math.log(2 * Math.PI) +
-    (shifted + 0.5) * Math.log(lanczosBase) -
-    lanczosBase +
-    Math.log(sum)
-  );
 }

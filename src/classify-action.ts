@@ -26,8 +26,8 @@ import { findUserNamedGrant } from './containment/find-user-named-grant.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
 import { buildRepositoryEvidence } from './git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
-import { makeOnceCheckoutFinder } from './git/make-once-checkout-finder.ts';
-import type { CheckoutFacts, CheckoutFinder } from './git/types.ts';
+import { makeOnceCheckoutReader } from './git/make-once-checkout-reader.ts';
+import type { CheckoutFacts, CheckoutReader } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics, JudgeSession } from './judge/types.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
@@ -69,8 +69,6 @@ export interface ClassifyOptions extends EvaluationOptions {
   readonly judgeSession?: JudgeSession | undefined;
 }
 
-type StageOptions = Readonly<ClassifyOptions>;
-
 export async function classifyAction(
   request: ActionRequest,
   config: Config,
@@ -110,6 +108,8 @@ export async function classifyAction(
 
   return outcome;
 }
+
+type StageOptions = Readonly<ClassifyOptions>;
 
 async function classifyWithBudget(
   request: ActionRequest,
@@ -154,13 +154,9 @@ async function classifyWithBudget(
   };
 }
 
-// What a stage reads: the action, the run, and the facts the stages before it
-// passed on.
-interface StageContext extends StageFacts {
-  readonly request: ActionRequest;
-  readonly config: Config;
-  readonly options: StageOptions;
-  readonly findCheckout: CheckoutFinder;
+interface PendingGrant {
+  readonly evidence: JudgeEvidence;
+  readonly note: string;
 }
 
 interface StageFacts {
@@ -172,41 +168,14 @@ interface StageFacts {
   readonly grant: PendingGrant | null;
 }
 
-interface PendingGrant {
-  readonly evidence: JudgeEvidence;
-  readonly note: string;
+// What a stage reads: the action, the run, and the facts the stages before it
+// passed on.
+interface StageContext extends StageFacts {
+  readonly request: ActionRequest;
+  readonly config: Config;
+  readonly options: StageOptions;
+  readonly readCheckout: CheckoutReader;
 }
-
-// A stage's verdict travels with the note and diagnostics the action log
-// records, and a Jev deny also carries the evidence the judge reviews.
-type StageOutcome = ActionOutcome & { readonly review?: JudgeEvidence };
-
-type StageDecision =
-  | { readonly kind: 'decided'; readonly outcome: StageOutcome }
-  | { readonly kind: 'pass'; readonly facts?: Partial<StageFacts> };
-
-interface Stage {
-  readonly decide: (ctx: Readonly<StageContext>) => StageDecision | Promise<StageDecision>;
-}
-
-interface FinalStage {
-  readonly decide: (ctx: Readonly<StageContext>) => Promise<StageOutcome>;
-}
-
-// The first stage that decides ends the run. The read-only allow comes before
-// the task scope loads, and the regenerable-output allow after the containment
-// check, because it deletes files.
-const STAGES: readonly Stage[] = [
-  { decide: classifyClaudeSettings },
-  { decide: classifyReadOnly },
-  { decide: classifyContainment },
-  { decide: classifyRegenerable },
-  { decide: classifyEditBypass },
-  { decide: classifyLocalOnly },
-];
-
-// Jev decides every action the stages before it pass on.
-const FINAL_STAGE: FinalStage = { decide: classifyJev };
 
 async function classifyStages(
   request: ActionRequest,
@@ -220,7 +189,7 @@ async function classifyStages(
 
     // Every stage reads the checkout through one finder, which walks up from a
     // directory once per action.
-    findCheckout: makeOnceCheckoutFinder(options.runtime.findCheckout),
+    readCheckout: makeOnceCheckoutReader(options.runtime.readCheckout),
     claudeSettings: options.claudeSettings,
     hasConfiguredDenies: false,
     local: { kind: 'escalate' },
@@ -240,6 +209,37 @@ async function classifyStages(
 
   return { ...reviewed, verdict: buildGuidedVerdict(reviewed.verdict, guidance) };
 }
+
+// A stage's verdict travels with the note and diagnostics the action log
+// records, and a Jev deny also carries the evidence the judge reviews.
+type StageOutcome = ActionOutcome & { readonly review?: JudgeEvidence };
+
+type StageDecision =
+  | { readonly kind: 'decided'; readonly outcome: StageOutcome }
+  | { readonly kind: 'pass'; readonly facts?: Partial<StageFacts> };
+
+interface Stage {
+  readonly decide: (ctx: Readonly<StageContext>) => StageDecision | Promise<StageDecision>;
+}
+
+// The first stage that decides ends the run. The read-only allow comes before
+// the task scope loads, and the regenerable-output allow after the containment
+// check, because it deletes files.
+const STAGES: readonly Stage[] = [
+  { decide: classifyClaudeSettings },
+  { decide: classifyReadOnly },
+  { decide: classifyContainment },
+  { decide: classifyRegenerable },
+  { decide: classifyEditBypass },
+  { decide: classifyLocalOnly },
+];
+
+interface FinalStage {
+  readonly decide: (ctx: Readonly<StageContext>) => Promise<StageOutcome>;
+}
+
+// Jev decides every action the stages before it pass on.
+const FINAL_STAGE: FinalStage = { decide: classifyJev };
 
 async function runStages(ctx: StageContext): Promise<StageOutcome> {
   for (const stage of STAGES) {
@@ -302,16 +302,25 @@ function classifyReadOnly(ctx: Readonly<StageContext>): StageDecision {
   return { kind: 'pass', facts: { local } };
 }
 
+function buildLocalAllow(exception: string): ActionOutcome {
+  return {
+    verdict: { kind: 'allow' },
+    decidingStage: 'local',
+    note: `allowed by ${exception} (local)`,
+    status: 'allow',
+  };
+}
+
 async function classifyContainment(ctx: Readonly<StageContext>): Promise<StageDecision> {
   const host = ctx.options.runtime.host;
   const request = ctx.request;
 
   const checkout = await loadCheckoutFacts(request.cwd, host.env, {
-    findCheckout: ctx.findCheckout,
+    readCheckout: ctx.readCheckout,
   }).catch(() => null);
 
   const scope = await tryLoadTaskScope(
-    { sessionID: request.sessionID, cwd: request.cwd, checkout, findCheckout: ctx.findCheckout },
+    { sessionID: request.sessionID, cwd: request.cwd, checkout, readCheckout: ctx.readCheckout },
     ctx.config,
     host,
     ctx.options.stderr,
@@ -343,6 +352,36 @@ async function classifyContainment(ctx: Readonly<StageContext>): Promise<StageDe
   // the judge reviews the grant and any Jev deny in one call, so a hard rule or
   // a secret in the content still denies it.
   return { kind: 'pass', facts: { checkout, scope, grant: { evidence: grant, note } } };
+}
+
+// A scope that cannot be read leaves the action to the classifier, the same as
+// a target the containment check cannot resolve.
+async function tryLoadTaskScope(
+  request: Readonly<{
+    sessionID: string;
+    cwd: string;
+    checkout: CheckoutFacts | null;
+    readCheckout: CheckoutReader;
+  }>,
+  config: Readonly<Config>,
+  host: Readonly<HostEnvironment>,
+  stderr: Readonly<OutputStream>,
+): Promise<OwnedScope | null> {
+  try {
+    return await loadTaskScope(
+      {
+        ...request,
+        checkout: request.checkout ?? undefined,
+        stateDir: resolveXDGDir(host, 'state'),
+        protectedBranches: config.protectedBranches,
+      },
+      config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
+      host,
+      stderr,
+    );
+  } catch {
+    return null;
+  }
 }
 
 // The judge reviews a containment deny only when the current direct user
@@ -408,7 +447,7 @@ async function classifyEditBypass(ctx: Readonly<StageContext>): Promise<StageDec
   }
 
   const edit = await tryClassifyEdit(ctx.request, ctx.scope, ctx.options.runtime.host, {
-    findCheckout: ctx.findCheckout,
+    readCheckout: ctx.readCheckout,
   });
 
   if (edit?.kind !== 'bypass') {
@@ -448,7 +487,7 @@ async function classifyJev(ctx: Readonly<StageContext>): Promise<StageOutcome> {
     taskScope: ctx.scope === null ? undefined : buildTaskScopeSummary(ctx.scope),
     claudeSettings: ctx.claudeSettings,
     checkout: ctx.checkout ?? undefined,
-    findCheckout: ctx.findCheckout,
+    readCheckout: ctx.readCheckout,
   });
 
   return {
@@ -517,45 +556,6 @@ async function classifyWithGrant(
     ...judgedOutcome,
     note: `containment cleared by the judge for the targets the user named (${String(elapsedMs)}ms); ${judgedOutcome.note}`,
     grant: granted.diagnostics,
-  };
-}
-
-// A scope that cannot be read leaves the action to the classifier, the same as
-// a target the containment check cannot resolve.
-async function tryLoadTaskScope(
-  request: Readonly<{
-    sessionID: string;
-    cwd: string;
-    checkout: CheckoutFacts | null;
-    findCheckout: CheckoutFinder;
-  }>,
-  config: Readonly<Config>,
-  host: Readonly<HostEnvironment>,
-  stderr: Readonly<OutputStream>,
-): Promise<OwnedScope | null> {
-  try {
-    return await loadTaskScope(
-      {
-        ...request,
-        checkout: request.checkout ?? undefined,
-        stateDir: resolveXDGDir(host, 'state'),
-        protectedBranches: config.protectedBranches,
-      },
-      config.scopeSources ?? DEFAULT_SCOPE_SOURCES,
-      host,
-      stderr,
-    );
-  } catch {
-    return null;
-  }
-}
-
-function buildLocalAllow(exception: string): ActionOutcome {
-  return {
-    verdict: { kind: 'allow' },
-    decidingStage: 'local',
-    note: `allowed by ${exception} (local)`,
-    status: 'allow',
   };
 }
 

@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runGit } from '../../test-utils/run-git.ts';
-import { findCheckout } from './find-checkout.ts';
 import { loadCheckoutFacts } from './load-checkout-facts.ts';
+import { readCheckout } from './read-checkout.ts';
 
 async function setupTest() {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-checkout-facts-'));
@@ -32,9 +32,9 @@ test('it reads the checkout, its branches and its remotes from one walk', async 
     'ref: refs/remotes/origin/main\n',
   );
 
-  const find = mock(findCheckout);
+  const find = mock(readCheckout);
 
-  const facts = await loadCheckoutFacts(join(worktree, 'src', '..'), {}, { findCheckout: find });
+  const facts = await loadCheckoutFacts(join(worktree, 'src', '..'), {}, { readCheckout: find });
 
   expect(facts).toStrictEqual({
     cwd: worktree,

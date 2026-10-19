@@ -3,7 +3,7 @@ import { chmod, mkdir, open, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import type { Verdict } from '../request/types.ts';
 import type { DecidingStage } from '../types.ts';
-import { findEnclosingWorkTree } from './find-enclosing-work-tree.ts';
+import { readEnclosingWorkTree } from './read-enclosing-work-tree.ts';
 
 export interface CaptureRecord {
   readonly schemaVersion: 1;
@@ -28,7 +28,7 @@ export async function tryWriteRequestCapture(
   }
 
   try {
-    const before = await findEnclosingWorkTree(directory);
+    const before = await readEnclosingWorkTree(directory);
 
     if (before !== null) {
       return { kind: 'refused', reason: `the capture dir is inside the git work tree ${before}` };
@@ -40,7 +40,7 @@ export async function tryWriteRequestCapture(
 
     // A link created after the first check could point the dir into a work
     // tree, so the resolved dir is checked again before the write.
-    const after = await findEnclosingWorkTree(real);
+    const after = await readEnclosingWorkTree(real);
 
     if (after !== null) {
       return { kind: 'refused', reason: `the capture dir is inside the git work tree ${after}` };

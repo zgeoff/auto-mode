@@ -17,6 +17,8 @@ export interface JudgeInput {
   readonly repositoryContext: RepositoryContext | null;
 }
 
+const BASIS_UNRESOLVED = 'the supplied evidence cannot rule out the harm the rule describes';
+
 // The evidence goes out as one JSON value, so a user message or a command that
 // holds a closing tag cannot end its own field early.
 export function buildJudgeMessage(input: Readonly<JudgeInput>): string {
@@ -38,5 +40,3 @@ export function buildJudgeMessage(input: Readonly<JudgeInput>): string {
 
   return `Review each deny in \`denies\`, in order. The evidence is one JSON object.\n\n${JSON.stringify(evidence, null, 2)}`;
 }
-
-const BASIS_UNRESOLVED = 'the supplied evidence cannot rule out the harm the rule describes';

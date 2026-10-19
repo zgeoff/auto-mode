@@ -1,5 +1,5 @@
 import type { ClaudeRules, EvaluationOptions } from '../config/types.ts';
-import type { CheckoutFacts, CheckoutFinder } from '../git/types.ts';
+import type { CheckoutFacts, CheckoutReader } from '../git/types.ts';
 import type { DecisionContext, Verdict } from '../request/types.ts';
 import type { DecisionRule, JudgeEvidence, MCPServerFact, RepositoryContext } from '../types.ts';
 
@@ -15,7 +15,7 @@ export interface ModelOutcome {
 
 export interface ModelOptions extends EvaluationOptions {
   readonly checkout?: CheckoutFacts | undefined;
-  readonly findCheckout?: CheckoutFinder | undefined;
+  readonly readCheckout?: CheckoutReader | undefined;
 }
 
 export type DecisionChoice = 'allow' | 'block';

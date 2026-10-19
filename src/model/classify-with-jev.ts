@@ -62,7 +62,7 @@ export async function classifyWithJev(
 
     const checkout = await (options.checkout ??
       loadCheckoutFacts(payload.cwd, host.env, {
-        findCheckout: options.findCheckout,
+        readCheckout: options.readCheckout,
       }).catch(() => null));
 
     const repositoryContext =

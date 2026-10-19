@@ -22,7 +22,7 @@ export function buildAtcScopeFacts(
       ),
     ],
     pullRequests: scope.pullRequests.flatMap((pull) => {
-      const repository = toRepositorySlug(`https://${findHost(pull.url)}/${pull.repo}`);
+      const repository = toRepositorySlug(`https://${getHost(pull.url)}/${pull.repo}`);
 
       return pull.branch === null || repository === null
         ? []
@@ -34,6 +34,6 @@ export function buildAtcScopeFacts(
 
 // atc checks a declared PR through gh, whose default host is GitHub; the PR's
 // URL, when the record holds one, names the host it actually lives on.
-function findHost(url: string | undefined): string {
+function getHost(url: string | undefined): string {
   return (url === undefined ? null : URL.parse(url)?.host) ?? 'github.com';
 }

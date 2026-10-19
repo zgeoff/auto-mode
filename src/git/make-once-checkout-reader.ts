@@ -1,6 +1,6 @@
-import type { Checkout, CheckoutFinder } from './types.ts';
+import type { Checkout, CheckoutReader } from './types.ts';
 
-export function makeOnceCheckoutFinder(find: CheckoutFinder): CheckoutFinder {
+export function makeOnceCheckoutReader(find: CheckoutReader): CheckoutReader {
   const found = new Map<string, Promise<Checkout | null>>();
 
   return (start, env) => {

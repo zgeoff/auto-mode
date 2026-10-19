@@ -11,11 +11,10 @@ description:
 The shared `code-style` skill holds the rules and the function-verb taxonomy. This skill holds only
 what auto-mode adds: the meaning of its own verbs, and the rules for comments.
 
-## Project verbs
+## Free verbs
 
-auto-mode adds these verbs to the shared taxonomy. A new verb goes here and into the `verbs` option
-of `zgeoff/function-verb` in [`.oxlintrc.json`](../../../.oxlintrc.json) in the same PR, and
-`check-project-verbs.sh` fails when the two lists differ.
+auto-mode gives two free verbs a fixed meaning, so each one names the same job everywhere in the
+repo. `zgeoff/function-verb` passes any verb it does not ban, so neither verb needs a lint option.
 
 - `classify`: decide which category a value falls into, from a closed set the caller knows
   (`classifyLocally`, `classifySegment`). It differs from `check`, which reports findings rather
@@ -25,9 +24,12 @@ of `zgeoff/function-verb` in [`.oxlintrc.json`](../../../.oxlintrc.json) in the 
 
 ## Exempt names
 
-The verb rule skips these names, which also sit in the `exemptNames` option beside `verbs`.
+The verb rule skips these names, which also sit in its `exemptNames` option in
+[`.oxlintrc.json`](../../../.oxlintrc.json).
 
 - `main`, a script entrypoint
+- `fetch`, the request handler that `Bun.serve` names, and the runtime's stand-in for the global
+  `fetch`, which keeps the Fetch API's name and signature
 
 ## Comments
 

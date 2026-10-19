@@ -1,6 +1,6 @@
 import { buildHeredoc } from './build-heredoc.ts';
-import { findHeredocEnd } from './find-heredoc-end.ts';
 import { REDIRECTS, SEPARATORS, findOperator } from './find-operator.ts';
+import { getHeredocEnd } from './get-heredoc-end.ts';
 import type { Heredoc, ScannedRedirect, ScannedWord, ShellToken, WordParen } from './types.ts';
 
 export interface TextTokens {
@@ -8,17 +8,6 @@ export interface TextTokens {
   readonly substitutions: readonly string[];
   readonly hasSubstitution: boolean;
   readonly unclosedAt: number | null;
-}
-
-// One level of nesting: the top level, a `$(…)` body, or a heredoc body. The
-// balance counts only the grouping parentheses read at this level, so a quoted
-// or nested parenthesis never ends an arithmetic command.
-interface Level {
-  readonly substitutions: string[];
-  readonly limit: number;
-  readonly closer: ')' | null;
-  depth: number;
-  balance: number;
 }
 
 // What one `$(` read added to its level, and the first construct in it that
@@ -112,7 +101,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         index += separator.length;
 
         if (separator === '\n' && heredocs.length > 0) {
-          const read = readHeredocs(index, heredocs.splice(0));
+          const read = parseHeredocs(index, heredocs.splice(0));
 
           tokens.push(...read.tokens);
 
@@ -123,7 +112,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
       }
 
       const balance = level.balance;
-      const word = readWord(index);
+      const word = parseWord(index);
       const operator = findOperator(REDIRECTS, text, word.end);
       const isDescriptor = operator !== undefined && /^\d+$/u.test(word.raw);
 
@@ -148,7 +137,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
       }
 
       const opensHeredoc = (operator === '<<' || operator === '<<-') && arithmeticDepth <= 0;
-      const redirect = readRedirect(word.end, operator, opensHeredoc);
+      const redirect = parseRedirect(word.end, operator, opensHeredoc);
 
       tokens.push({
         kind: 'redirect',
@@ -181,7 +170,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   // A word ends at whitespace or at an operator outside quotes. A substitution
   // or `${…}` expansion stays inside the word it starts in, so `$(…)#L1` holds
   // no comment, while a `#` right after a grouping parenthesis starts one.
-  const readWord = (start: number): ScannedWord => {
+  const parseWord = (start: number): ScannedWord => {
     let value = '';
     let paren: WordParen | null = null;
     let parenEnd = -1;
@@ -205,7 +194,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
       if (ch === "'" || ch === '"' || (text.startsWith("$'", index) && !literals.has(index + 1))) {
         const isANSI = ch === '$';
         const quoteAt = isANSI ? index + 1 : index;
-        const quoted = readQuoted(quoteAt, isANSI);
+        const quoted = parseQuoted(quoteAt, isANSI);
 
         value += `${isANSI ? '$' : ''}${quoted.value}`;
         index = quoted.end;
@@ -223,7 +212,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         continue;
       }
 
-      const expansion = readExpansion(index, false);
+      const expansion = parseExpansion(index, false);
 
       if (expansion !== null) {
         value += text.slice(index, expansion.end);
@@ -268,7 +257,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   // A double-quoted string still expands `$(…)`, backticks and `${…}`, and a
   // backslash there escapes the next character. `$'…'` lets a backslash escape
   // the closing quote; a plain single quote does not.
-  const readQuoted = (
+  const parseQuoted = (
     start: number,
     isANSI: boolean,
   ): { value: string; end: number; isUnterminated: boolean } => {
@@ -288,7 +277,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         value += text.slice(index, index + 2);
         index += 2;
       } else {
-        const expansion = quote === '"' ? readExpansion(index, true) : null;
+        const expansion = quote === '"' ? parseExpansion(index, true) : null;
         const end = expansion?.end ?? index + 1;
 
         value += text.slice(index, end);
@@ -307,7 +296,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
 
   // `$(…)` and backticks run a command, whose body joins the level's
   // substitutions; `${…}` holds parameter text that can hold either.
-  const readExpansion = (
+  const parseExpansion = (
     index: number,
     isInDoubleQuotes: boolean,
   ): { end: number; isUnterminated: boolean } | null => {
@@ -318,14 +307,14 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
       const bodyStart = index + (isBacktick ? 1 : 2);
 
       if (isBacktick) {
-        return collectExpansionBody(index, bodyStart, findBacktickEnd(bodyStart));
+        return collectExpansionBody(index, bodyStart, getBacktickEnd(bodyStart));
       }
 
-      return readCommandSubstitution(index, bodyStart);
+      return parseCommandSubstitution(index, bodyStart);
     }
 
     if (text.startsWith('${', index)) {
-      return collectExpansionBody(index, -1, findParameterEnd(index + 2, isInDoubleQuotes));
+      return collectExpansionBody(index, -1, getParameterEnd(index + 2, isInDoubleQuotes));
     }
 
     return null;
@@ -334,7 +323,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   // A `$(` read depends only on its offset and the level's limit, so a second
   // read replays the first. Without the replay, each ambiguous `$((` reads its
   // body twice and nested ones double the scan per level.
-  const readCommandSubstitution = (
+  const parseCommandSubstitution = (
     index: number,
     bodyStart: number,
   ): { end: number; isUnterminated: boolean } => {
@@ -351,7 +340,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
 
     const collected = level.substitutions.length;
     const wasUnclosed = unclosedAt !== null;
-    const read = readCommandSubstitutionBody(index, bodyStart);
+    const read = parseCommandSubstitutionBody(index, bodyStart);
 
     commandSubstitutions.set(key, {
       ...read,
@@ -365,7 +354,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   // Bash reads `$((…))` as arithmetic, which runs only the substitutions
   // inside it, when the inner parenthesis closes right before the outer
   // one; otherwise the body is a command that starts with a subshell.
-  const readCommandSubstitutionBody = (
+  const parseCommandSubstitutionBody = (
     index: number,
     bodyStart: number,
   ): { end: number; isUnterminated: boolean } => {
@@ -404,7 +393,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
 
   // The shell ends a backtick body at the first unescaped backtick, before it
   // reads any quote.
-  const findBacktickEnd = (start: number): number => {
+  const getBacktickEnd = (start: number): number => {
     for (let index = start; index < level.limit; index += 1) {
       if (literals.has(index)) {
         continue;
@@ -423,7 +412,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   // A single-quoted `}` closes nothing and a bare `{` is plain text. Within
   // double quotes a single quote is literal, so a substitution between single
   // quotes still runs.
-  const findParameterEnd = (start: number, isInDoubleQuotes: boolean): number => {
+  const getParameterEnd = (start: number, isInDoubleQuotes: boolean): number => {
     let isDoubleQuoted = false;
     let isSingleQuoted = false;
     let index = start;
@@ -441,7 +430,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         continue;
       }
 
-      const expansion = readExpansion(index, isInDoubleQuotes || isDoubleQuoted);
+      const expansion = parseExpansion(index, isInDoubleQuotes || isDoubleQuoted);
 
       if (expansion !== null) {
         if (expansion.isUnterminated) {
@@ -480,7 +469,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   // The target is the next word. A target stops short at an unquoted parenthesis,
   // so `(echo x > out)` writes `out`, while the redirection still takes the
   // whole word. A process substitution runs its body as a command.
-  const readRedirect = (
+  const parseRedirect = (
     start: number,
     operator: string,
     opensHeredoc: boolean,
@@ -511,7 +500,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
 
     const collected = level.substitutions.length;
     const hadSubstitution = hasSubstitution;
-    const word = readWord(index);
+    const word = parseWord(index);
 
     // Bash only removes quotes from a heredoc delimiter, so a substitution in
     // it never runs.
@@ -536,7 +525,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   // Each body starts on the line after the one that opened it and ends at the
   // line that holds only its delimiter; a body with no such line runs to the end.
   // Quotes are plain text in a body, so only a backslash and a substitution count.
-  const readHeredocs = (
+  const parseHeredocs = (
     start: number,
     heredocs: readonly Heredoc[],
   ): { tokens: ShellToken[]; end: number } => {
@@ -545,7 +534,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
     let end = start;
 
     for (const heredoc of heredocs) {
-      const [bodyEnd, next] = findHeredocEnd(text, bodyStart, level.limit, heredoc);
+      const [bodyEnd, next] = getHeredocEnd(text, bodyStart, level.limit, heredoc);
       const substitutions = heredoc.isQuoted ? [] : collectHeredocSubstitutions(bodyStart, bodyEnd);
 
       tokens.push({
@@ -577,7 +566,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         } else if (text.charAt(index) === '\\') {
           index += 2;
         } else {
-          index = readExpansion(index, true)?.end ?? index + 1;
+          index = parseExpansion(index, true)?.end ?? index + 1;
         }
       }
     }).substitutions;
@@ -585,6 +574,17 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   const tokens = collectTokens(0).tokens;
 
   return { tokens, substitutions: top.substitutions, hasSubstitution, unclosedAt };
+}
+
+// One level of nesting: the top level, a `$(…)` body, or a heredoc body. The
+// balance counts only the grouping parentheses read at this level, so a quoted
+// or nested parenthesis never ends an arithmetic command.
+interface Level {
+  readonly substitutions: string[];
+  readonly limit: number;
+  readonly closer: ')' | null;
+  depth: number;
+  balance: number;
 }
 
 function buildLevel(limit: number, closer: ')' | null): Level {

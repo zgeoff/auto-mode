@@ -16,9 +16,95 @@ import {
 } from './identifier-patterns.ts';
 import type { Groups, IdentifierClass } from './identifier-patterns.ts';
 
+// Names that carry the shape of an action rather than who ran it; replacing
+// them would hide the structure the corpus exists to keep.
+const STRUCTURAL_NAMES = new Set([
+  'main',
+  'master',
+  'trunk',
+  'develop',
+  'head',
+  'origin',
+  'upstream',
+  'src',
+  'lib',
+  'app',
+  'apps',
+  'packages',
+  'docs',
+  'test',
+  'tests',
+  'tmp',
+  'dist',
+  'build',
+  'home',
+  'users',
+  'root',
+  'projects',
+  'code',
+  'work',
+  'repos',
+  'git',
+  'dev',
+  'example',
+  'invalid',
+  'localhost',
+  'worktrees',
+  'example.com',
+  'example.org',
+  'example.net',
+  'example.invalid',
+  '127.0.0.1',
+  '0.0.0.0',
+]);
+
+export function collectIdentifiers(
+  actions: readonly CapturedAction[],
+): Readonly<Record<string, IdentifierClass>> {
+  const found = new Map<string, IdentifierClass>();
+
+  for (const identifier of actions.flatMap((action) => collectActionIdentifiers(action))) {
+    const key = identifier.value.replace(/\.git$/u, '').toLowerCase();
+
+    if (key.length >= 3 && !STRUCTURAL_NAMES.has(key) && !found.has(key)) {
+      found.set(key, identifier.kind);
+    }
+  }
+
+  return Object.fromEntries(found);
+}
+
 interface Identifier {
   readonly value: string;
   readonly kind: IdentifierClass;
+}
+
+function collectActionIdentifiers(action: Readonly<CapturedAction>): Identifier[] {
+  const root = action.cwd.split('/.worktrees/')[0] ?? action.cwd;
+  const isHome = /^\/(?:home|Users)\/[^/]+\/?$/u.test(root) || root === '/';
+
+  return [
+    ...(isHome ? [] : [{ value: basename(root), kind: 'repo' as const }]),
+    ...collectStrings(action.request).flatMap((text) => collectTextIdentifiers(text)),
+    ...collectStrings(action.verdict).flatMap((text) => collectTextIdentifiers(text)),
+    ...collectCommands(action.request, null).flatMap((command) => collectCommandBranches(command)),
+  ];
+}
+
+function collectStrings(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item: unknown) => collectStrings(item));
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.values(value).flatMap((item: unknown) => collectStrings(item));
+  }
+
+  return [];
 }
 
 const FORGE_PATH =
@@ -33,62 +119,6 @@ const HOST_POSITION =
   /\b(?:ssh|scp|rsync|sftp|mosh|ping|telnet|nc|dig|nslookup|curl|wget)\b[^;&|\n]*?(?<=\s)(?:[\w.-]+@)?(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/gu;
 
 const HOST_FLAG = /(?:--host|-h|-H)[=\s]+(?<host>[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/gu;
-
-// Top-level and private suffixes that mark a dotted name as a host; a file
-// extension wins over a suffix, so `install.sh` and `README.md` stay names.
-const HOST_SUFFIXES = new Set([
-  'com',
-  'net',
-  'org',
-  'io',
-  'dev',
-  'app',
-  'ai',
-  'co',
-  'uk',
-  'de',
-  'fr',
-  'nl',
-  'eu',
-  'us',
-  'ca',
-  'au',
-  'jp',
-  'cn',
-  'ru',
-  'br',
-  'ch',
-  'se',
-  'no',
-  'fi',
-  'dk',
-  'pl',
-  'it',
-  'es',
-  'be',
-  'at',
-  'cz',
-  'info',
-  'biz',
-  'me',
-  'tv',
-  'cloud',
-  'tech',
-  'site',
-  'xyz',
-  'gov',
-  'edu',
-  'internal',
-  'local',
-  'lan',
-  'corp',
-  'home',
-  'intranet',
-  'private',
-  'localdomain',
-  'test',
-  'tld',
-]);
 
 const FILE_EXTENSIONS = new Set([
   'ts',
@@ -154,92 +184,6 @@ const BRANCH_PATTERNS = [
   // Sentence punctuation after a worktree in prose ends its name.
   /\.worktrees\/(?<branch>[^/\s"',;:()]+?)(?=[.!?]*(?:[/\s"',;:()]|$))/gu,
 ];
-
-// Names that carry the shape of an action rather than who ran it; replacing
-// them would hide the structure the corpus exists to keep.
-const STRUCTURAL_NAMES = new Set([
-  'main',
-  'master',
-  'trunk',
-  'develop',
-  'head',
-  'origin',
-  'upstream',
-  'src',
-  'lib',
-  'app',
-  'apps',
-  'packages',
-  'docs',
-  'test',
-  'tests',
-  'tmp',
-  'dist',
-  'build',
-  'home',
-  'users',
-  'root',
-  'projects',
-  'code',
-  'work',
-  'repos',
-  'git',
-  'dev',
-  'example',
-  'invalid',
-  'localhost',
-  'worktrees',
-  'example.com',
-  'example.org',
-  'example.net',
-  'example.invalid',
-  '127.0.0.1',
-  '0.0.0.0',
-]);
-
-export function collectIdentifiers(
-  actions: readonly CapturedAction[],
-): Readonly<Record<string, IdentifierClass>> {
-  const found = new Map<string, IdentifierClass>();
-
-  for (const identifier of actions.flatMap((action) => collectActionIdentifiers(action))) {
-    const key = identifier.value.replace(/\.git$/u, '').toLowerCase();
-
-    if (key.length >= 3 && !STRUCTURAL_NAMES.has(key) && !found.has(key)) {
-      found.set(key, identifier.kind);
-    }
-  }
-
-  return Object.fromEntries(found);
-}
-
-function collectActionIdentifiers(action: Readonly<CapturedAction>): Identifier[] {
-  const root = action.cwd.split('/.worktrees/')[0] ?? action.cwd;
-  const isHome = /^\/(?:home|Users)\/[^/]+\/?$/u.test(root) || root === '/';
-
-  return [
-    ...(isHome ? [] : [{ value: basename(root), kind: 'repo' as const }]),
-    ...collectStrings(action.request).flatMap((text) => collectTextIdentifiers(text)),
-    ...collectStrings(action.verdict).flatMap((text) => collectTextIdentifiers(text)),
-    ...collectCommands(action.request, null).flatMap((command) => collectCommandBranches(command)),
-  ];
-}
-
-function collectStrings(value: unknown): string[] {
-  if (typeof value === 'string') {
-    return [value];
-  }
-
-  if (Array.isArray(value)) {
-    return value.flatMap((item: unknown) => collectStrings(item));
-  }
-
-  if (typeof value === 'object' && value !== null) {
-    return Object.values(value).flatMap((item: unknown) => collectStrings(item));
-  }
-
-  return [];
-}
 
 function collectTextIdentifiers(text: string): Identifier[] {
   return [
@@ -309,6 +253,62 @@ function collectForgePath(groups: Groups): Identifier[] {
     : [];
 }
 
+// Top-level and private suffixes that mark a dotted name as a host; a file
+// extension wins over a suffix, so `install.sh` and `README.md` stay names.
+const HOST_SUFFIXES = new Set([
+  'com',
+  'net',
+  'org',
+  'io',
+  'dev',
+  'app',
+  'ai',
+  'co',
+  'uk',
+  'de',
+  'fr',
+  'nl',
+  'eu',
+  'us',
+  'ca',
+  'au',
+  'jp',
+  'cn',
+  'ru',
+  'br',
+  'ch',
+  'se',
+  'no',
+  'fi',
+  'dk',
+  'pl',
+  'it',
+  'es',
+  'be',
+  'at',
+  'cz',
+  'info',
+  'biz',
+  'me',
+  'tv',
+  'cloud',
+  'tech',
+  'site',
+  'xyz',
+  'gov',
+  'edu',
+  'internal',
+  'local',
+  'lan',
+  'corp',
+  'home',
+  'intranet',
+  'private',
+  'localdomain',
+  'test',
+  'tld',
+]);
+
 function isHostName(name: string): boolean {
   const labels = name.toLowerCase().split('.');
   const last = labels.at(-1) ?? '';
@@ -367,6 +367,35 @@ function collectCommandBranches(command: string): Identifier[] {
   );
 }
 
+const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash']);
+
+function collectSegmentBranches(words: readonly string[]): Identifier[] {
+  const [program = '', ...args] = words;
+  const script = args.findIndex((arg) => /^-\w*c\w*$/u.test(arg));
+
+  if (SHELLS.has(basename(program)) && script !== -1) {
+    return collectCommandBranches(args[script + 1] ?? '');
+  }
+
+  if (basename(program) !== 'git') {
+    return [];
+  }
+
+  const [subcommand, ...rest] = splitGitCommand(args, null, '').args;
+
+  return subcommand === 'push' ? collectPushedBranches(rest) : [];
+}
+
+// The first operand names the remote; every later one is a refspec whose
+// sides name branches.
+function collectPushedBranches(args: readonly string[]): Identifier[] {
+  const [, ...refspecs] = args.filter((arg) => !arg.startsWith('-'));
+
+  return refspecs.flatMap((refspec) =>
+    refspec.split(':').map((side) => ({ value: toBranchName(side), kind: 'branch' as const })),
+  );
+}
+
 const COMMAND_PREFIXES = new Set([
   '!',
   'if',
@@ -407,33 +436,4 @@ function toProgramWords(words: readonly string[]): readonly string[] {
   }
 
   return command.slice(index);
-}
-
-const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash']);
-
-function collectSegmentBranches(words: readonly string[]): Identifier[] {
-  const [program = '', ...args] = words;
-  const script = args.findIndex((arg) => /^-\w*c\w*$/u.test(arg));
-
-  if (SHELLS.has(basename(program)) && script !== -1) {
-    return collectCommandBranches(args[script + 1] ?? '');
-  }
-
-  if (basename(program) !== 'git') {
-    return [];
-  }
-
-  const [subcommand, ...rest] = splitGitCommand(args, null, '').args;
-
-  return subcommand === 'push' ? collectPushedBranches(rest) : [];
-}
-
-// The first operand names the remote; every later one is a refspec whose
-// sides name branches.
-function collectPushedBranches(args: readonly string[]): Identifier[] {
-  const [, ...refspecs] = args.filter((arg) => !arg.startsWith('-'));
-
-  return refspecs.flatMap((refspec) =>
-    refspec.split(':').map((side) => ({ value: toBranchName(side), kind: 'branch' as const })),
-  );
 }

@@ -39,9 +39,6 @@ export async function updateJSONFile<T>(
   }
 }
 
-// An update finishes in milliseconds; a lock older than this belongs to a
-// process that died holding it.
-const STALE_LOCK_MS = 10_000;
 const LOCK_WAIT_MS = 3000;
 const LOCK_POLL_MS = 10;
 
@@ -90,6 +87,10 @@ async function claimLock(lock: string, clock: Readonly<LockClock>): Promise<stri
 function hasErrorCode(error: unknown, code: string): boolean {
   return error instanceof Error && 'code' in error && error.code === code;
 }
+
+// An update finishes in milliseconds; a lock older than this belongs to a
+// process that died holding it.
+const STALE_LOCK_MS = 10_000;
 
 function isStale(file: Readonly<Pick<Stats, 'mtimeMs'>>, clock: Readonly<LockClock>): boolean {
   return clock.now() - file.mtimeMs > STALE_LOCK_MS;

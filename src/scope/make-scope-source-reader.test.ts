@@ -2,11 +2,11 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { buildStubCheckoutFinder } from '../../test-utils/build-stub-checkout-finder.ts';
+import { buildStubCheckoutReader } from '../../test-utils/build-stub-checkout-reader.ts';
 import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
 import { buildMockScopeSourceContext } from '../../test-utils/factories/build-mock-scope-source-context.ts';
 import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
-import { pickScopeSourceReader } from './pick-scope-source-reader.ts';
+import { makeScopeSourceReader } from './make-scope-source-reader.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {
   const directory = await mkdtemp(join(tmpdir(), 'auto-mode-scope-source-'));
@@ -17,7 +17,7 @@ async function setupTest(): Promise<{ readonly directory: string }> {
 }
 
 test('it owns the worktree and the branch of the cwd', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'cwd' })(
+  const facts = await makeScopeSourceReader({ kind: 'cwd' })(
     buildMockScopeSourceContext({ worktree: '/repo/.worktrees/feat', branch: 'feat' }),
   );
 
@@ -30,7 +30,7 @@ test('it owns the worktree and the branch of the cwd', async () => {
 });
 
 test('it owns no branch from the cwd when the checkout has none checked out', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'cwd' })(
+  const facts = await makeScopeSourceReader({ kind: 'cwd' })(
     buildMockScopeSourceContext({ worktree: '/repo', branch: null }),
   );
 
@@ -66,7 +66,7 @@ test('it owns what the session recorded, keeping only the branches of the action
     ),
   );
 
-  const facts = await pickScopeSourceReader({ kind: 'session' })(
+  const facts = await makeScopeSourceReader({ kind: 'session' })(
     buildMockScopeSourceContext({ sessionID: 'session-1', commonDir: '/repo/.git', stateDir }),
   );
 
@@ -89,7 +89,7 @@ test("it owns nothing from another session's recorded scope", async () => {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify(buildMockSessionScope({ worktrees: ['/elsewhere'] })));
 
-  const facts = await pickScopeSourceReader({ kind: 'session' })(
+  const facts = await makeScopeSourceReader({ kind: 'session' })(
     buildMockScopeSourceContext({ sessionID: 'session-2', stateDir }),
   );
 
@@ -97,7 +97,7 @@ test("it owns nothing from another session's recorded scope", async () => {
 });
 
 test('it owns the configured path globs', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'globs', paths: ['/scratch/**'] })(
+  const facts = await makeScopeSourceReader({ kind: 'globs', paths: ['/scratch/**'] })(
     buildMockScopeSourceContext(),
   );
 
@@ -110,7 +110,7 @@ test('it owns the configured path globs', async () => {
 });
 
 test('it owns no path glob when the globs source lists no paths', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'globs' })(buildMockScopeSourceContext());
+  const facts = await makeScopeSourceReader({ kind: 'globs' })(buildMockScopeSourceContext());
 
   expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
 });
@@ -140,7 +140,7 @@ test('it owns the atc checkouts and only the branches that share the action repo
 
   await writeFile(recordPath, JSON.stringify(record));
 
-  const facts = await pickScopeSourceReader({ kind: 'atc' })(
+  const facts = await makeScopeSourceReader({ kind: 'atc' })(
     buildMockScopeSourceContext({
       commonDir: join(repo, '.git'),
       atcRecordPath: recordPath,
@@ -174,7 +174,7 @@ test('it owns no atc branch when the action is outside every checkout', async ()
     ),
   );
 
-  const facts = await pickScopeSourceReader({ kind: 'atc' })(
+  const facts = await makeScopeSourceReader({ kind: 'atc' })(
     buildMockScopeSourceContext({
       commonDir: null,
       atcRecordPath: recordPath,
@@ -195,7 +195,7 @@ test('it owns nothing from an atc record of another version', async () => {
     JSON.stringify({ ...buildMockAtcSessionRecord({ session: 'atc-1' }), version: 2 }),
   );
 
-  const facts = await pickScopeSourceReader({ kind: 'atc' })(
+  const facts = await makeScopeSourceReader({ kind: 'atc' })(
     buildMockScopeSourceContext({ atcRecordPath: recordPath, atcSessionID: 'atc-1' }),
   );
 
@@ -213,7 +213,7 @@ test('it writes one diagnostic line for an atc record of another version', async
     JSON.stringify({ ...buildMockAtcSessionRecord({ session: 'atc-1' }), version: 2 }),
   );
 
-  await pickScopeSourceReader({ kind: 'atc' })(
+  await makeScopeSourceReader({ kind: 'atc' })(
     buildMockScopeSourceContext({
       atcRecordPath: recordPath,
       atcSessionID: 'atc-1',
@@ -227,7 +227,7 @@ test('it writes one diagnostic line for an atc record of another version', async
 });
 
 test('it owns nothing from atc when the session has no record', async () => {
-  const facts = await pickScopeSourceReader({ kind: 'atc' })(
+  const facts = await makeScopeSourceReader({ kind: 'atc' })(
     buildMockScopeSourceContext({ atcRecordPath: undefined }),
   );
 
@@ -237,7 +237,7 @@ test('it owns nothing from atc when the session has no record', async () => {
 test('it writes no diagnostic when the session has no atc record', async () => {
   const write = mock();
 
-  await pickScopeSourceReader({ kind: 'atc' })(
+  await makeScopeSourceReader({ kind: 'atc' })(
     buildMockScopeSourceContext({ atcRecordPath: undefined, stderr: { write } }),
   );
 
@@ -265,9 +265,9 @@ test('it owns only the atc branches whose checkout shares the action repository 
     ),
   );
 
-  const facts = await pickScopeSourceReader(
+  const facts = await makeScopeSourceReader(
     { kind: 'atc' },
-    buildStubCheckoutFinder({ '/w/app': '/w/app.git', '/w/other': '/w/other.git' }).findCheckout,
+    buildStubCheckoutReader({ '/w/app': '/w/app.git', '/w/other': '/w/other.git' }).readCheckout,
   )(
     buildMockScopeSourceContext({
       commonDir: '/w/app.git',

@@ -17,7 +17,7 @@ import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-deci
 import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import { classifyAction } from './classify-action.ts';
-import { findCheckout } from './git/find-checkout.ts';
+import { readCheckout } from './git/read-checkout.ts';
 
 async function setupTest(): Promise<{
   readonly directory: string;
@@ -1069,7 +1069,7 @@ test('it escalates a local regenerable-output removal when the task scope does n
         env: {},
         home: ctx.directory,
         scratchPaths: [],
-        findCheckout: () => Promise.reject(new Error('the git directory is unreadable')),
+        readCheckout: () => Promise.reject(new Error('the git directory is unreadable')),
       }),
       localOnly: true,
     },
@@ -1214,7 +1214,7 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
 test('it walks up to the checkout once for an action that reaches Jev', async () => {
   const ctx = await setupTest();
 
-  const walk = mock(findCheckout);
+  const walk = mock(readCheckout);
 
   const outcome = await classifyAction(
     buildMockActionRequest({
@@ -1233,7 +1233,7 @@ test('it walks up to the checkout once for an action that reaches Jev', async ()
         env: { TYPESAFE_API_KEY: 'test-key' },
         home: ctx.directory,
         scratchPaths: [],
-        findCheckout: walk,
+        readCheckout: walk,
       }),
     },
   );
@@ -1361,7 +1361,7 @@ test('it writes a started and a final action-log record when asked', async () =>
 test('it walks up to the checkout once for an edit the bypass sends on to Jev', async () => {
   const ctx = await setupTest();
 
-  const walk = mock(findCheckout);
+  const walk = mock(readCheckout);
 
   const outcome = await classifyAction(
     buildMockActionRequest({
@@ -1380,7 +1380,7 @@ test('it walks up to the checkout once for an edit the bypass sends on to Jev', 
         env: { TYPESAFE_API_KEY: 'test-key' },
         home: ctx.directory,
         scratchPaths: [],
-        findCheckout: walk,
+        readCheckout: walk,
       }),
     },
   );

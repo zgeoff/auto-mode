@@ -417,7 +417,7 @@ function buildAllowScore(
     const clearing = Math.min(answer.confidence, answer.probabilities[option] ?? 0);
 
     if (clearing < value) {
-      const ruleID = shape === 'categorical' ? findLeadingRefusal(answer) : id;
+      const ruleID = shape === 'categorical' ? getLeadingRefusal(answer) : id;
 
       value = clearing;
       heldBy = getRuleLabel(rules, ruleID);
@@ -427,7 +427,7 @@ function buildAllowScore(
   return { value, heldBy };
 }
 
-function findLeadingRefusal(answer: Readonly<ShapeAnswer>): string {
+function getLeadingRefusal(answer: Readonly<ShapeAnswer>): string {
   const [leading] = Object.entries(answer.probabilities)
     .filter(([option]) => option !== 'none')
     .toSorted(([, left], [, right]) => right - left);

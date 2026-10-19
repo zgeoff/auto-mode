@@ -2,11 +2,11 @@ import { join } from 'node:path';
 import {
   buildTaskScope,
   checkContainment,
-  pickScopeSourceReader,
+  makeScopeSourceReader,
   updateSessionScope,
 } from 'auto-mode/eval';
 import type { ContainmentDeny } from 'auto-mode/eval';
-import { buildStubCheckoutFinder } from '../../test-utils/build-stub-checkout-finder.ts';
+import { buildStubCheckoutReader } from '../../test-utils/build-stub-checkout-reader.ts';
 import { buildStubSessionScope } from './build-stub-session-scope.ts';
 import type { TaskScopeSessions } from './corpora/task-scope-sessions-schema.ts';
 import type { DecisionRulesCase } from './load-decision-rules-cases.ts';
@@ -96,14 +96,14 @@ async function checkSessionContainment(
   };
 
   const facts = await Promise.all([
-    pickScopeSourceReader({ kind: 'cwd' })(context),
-    pickScopeSourceReader({ kind: 'session' })(context),
+    makeScopeSourceReader({ kind: 'cwd' })(context),
+    makeScopeSourceReader({ kind: 'session' })(context),
 
     // A recording holds no checkout on disk; every recorded checkout is in the
     // action's repository.
-    pickScopeSourceReader(
+    makeScopeSourceReader(
       { kind: 'atc' },
-      buildStubCheckoutFinder({}, COMMON_DIR).findCheckout,
+      buildStubCheckoutReader({}, COMMON_DIR).readCheckout,
     )(context),
   ]);
 

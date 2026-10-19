@@ -284,6 +284,41 @@ function buildFinding(
   };
 }
 
+function pickOperands(
+  selector: OperandSelector,
+  rule: Readonly<WriteRule>,
+  call: Readonly<ProgramCall>,
+): readonly string[] {
+  const operands = call.operands;
+  const isNamed = hasOption(call, rule.options ?? []);
+
+  if (selector === 'all') {
+    return operands;
+  }
+
+  if (selector === 'first') {
+    return operands.slice(0, 1);
+  }
+
+  if (selector === 'after-first') {
+    return operands.slice(1);
+  }
+
+  if (selector === 'after-script') {
+    return hasOption(call, rule.scriptOptions ?? []) ? operands : operands.slice(1);
+  }
+
+  if (isNamed) {
+    return selector === 'sources' ? operands : [];
+  }
+
+  if (operands.length < 2) {
+    return [];
+  }
+
+  return selector === 'destination' ? operands.slice(-1) : operands.slice(0, -1);
+}
+
 interface RoleFindingOptions {
   readonly finding: ScopeFinding | null;
   readonly call: Readonly<ProgramCall>;
@@ -423,6 +458,36 @@ function collectNamedFindings(
   return collectForgeFindings(rule, targets[0] ?? '', finding, context.scope);
 }
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
+
+function isLocalUpload(words: readonly string[]): boolean {
+  const hosts = words
+    .filter((word) => /^(?:https?:\/\/|localhost\b|127\.)/u.test(word))
+    .map(
+      (word) =>
+        /^(?:https?:\/\/)?(?<host>\[[^\]]+\]|[^/:?#\s]+)/u
+          .exec(word)
+          ?.groups?.['host']?.toLowerCase() ?? '',
+    );
+
+  return hosts.length > 0 && hosts.every((host) => LOCAL_HOSTS.has(host));
+}
+
+// A remote command that is one read-only program, with no shell operators or
+// newlines, changes nothing on the host. A call with no host runs nothing.
+function isRemoteRead(words: readonly string[], reads: readonly string[]): boolean {
+  const [host, ...remote] = words;
+
+  if (host === undefined) {
+    return true;
+  }
+
+  const command = remote.join(' ');
+  const [program] = command.trim().split(/\s+/u);
+
+  return reads.includes(program ?? '') && !/[;&|<>`\n\r]|\$\(/u.test(command);
+}
+
 interface PullRequestFindingOptions {
   readonly finding: ScopeFinding;
   readonly call: Readonly<ProgramCall>;
@@ -490,69 +555,4 @@ function collectForgeFindings(
       target: `${finding.target} ${path}`,
     },
   ];
-}
-
-function pickOperands(
-  selector: OperandSelector,
-  rule: Readonly<WriteRule>,
-  call: Readonly<ProgramCall>,
-): readonly string[] {
-  const operands = call.operands;
-  const isNamed = hasOption(call, rule.options ?? []);
-
-  if (selector === 'all') {
-    return operands;
-  }
-
-  if (selector === 'first') {
-    return operands.slice(0, 1);
-  }
-
-  if (selector === 'after-first') {
-    return operands.slice(1);
-  }
-
-  if (selector === 'after-script') {
-    return hasOption(call, rule.scriptOptions ?? []) ? operands : operands.slice(1);
-  }
-
-  if (isNamed) {
-    return selector === 'sources' ? operands : [];
-  }
-
-  if (operands.length < 2) {
-    return [];
-  }
-
-  return selector === 'destination' ? operands.slice(-1) : operands.slice(0, -1);
-}
-
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
-
-function isLocalUpload(words: readonly string[]): boolean {
-  const hosts = words
-    .filter((word) => /^(?:https?:\/\/|localhost\b|127\.)/u.test(word))
-    .map(
-      (word) =>
-        /^(?:https?:\/\/)?(?<host>\[[^\]]+\]|[^/:?#\s]+)/u
-          .exec(word)
-          ?.groups?.['host']?.toLowerCase() ?? '',
-    );
-
-  return hosts.length > 0 && hosts.every((host) => LOCAL_HOSTS.has(host));
-}
-
-// A remote command that is one read-only program, with no shell operators or
-// newlines, changes nothing on the host. A call with no host runs nothing.
-function isRemoteRead(words: readonly string[], reads: readonly string[]): boolean {
-  const [host, ...remote] = words;
-
-  if (host === undefined) {
-    return true;
-  }
-
-  const command = remote.join(' ');
-  const [program] = command.trim().split(/\s+/u);
-
-  return reads.includes(program ?? '') && !/[;&|<>`\n\r]|\$\(/u.test(command);
 }

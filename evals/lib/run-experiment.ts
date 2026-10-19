@@ -75,6 +75,14 @@ export type RunResult =
       readonly summary: RunSummary;
     };
 
+interface Exchange {
+  requestHash: string | null;
+  answerHash: string | null;
+  model: string | null;
+  requestedModel: string | null;
+  fallback: boolean | null;
+}
+
 // Without live mode a plan that needs a model request stops at the plan; a plan of
 // deterministic stages and recorded answers alone runs, because it sends nothing.
 export async function runExperiment<Case>(
@@ -162,7 +170,7 @@ export async function runExperiment<Case>(
   const plan = isCounted
     ? planExperimentRun({
         ...planInput,
-        sending: await collectSendingRuns(bounds, stages.active, getLabelledCase, {
+        sending: await runSendingProbes(bounds, stages.active, getLabelledCase, {
           ...options,
           records,
           models: previous?.summary.config.models ?? {},
@@ -373,67 +381,14 @@ export async function runExperiment<Case>(
   return { kind: 'completed', plan, runDir, summary };
 }
 
-interface Exchange {
-  requestHash: string | null;
-  answerHash: string | null;
-  model: string | null;
-  requestedModel: string | null;
-  fallback: boolean | null;
-}
-
-function getActiveStage<Case>(
-  active: readonly ActiveStage<Case>[],
-  name: string,
-): ActiveStage<Case> {
-  const stage = active.find((entry) => entry.name === name);
-
-  if (stage === undefined) {
-    throw new Error(`The plan names a stage the experiment lacks: ${name}`);
+// A dirty tree has no commit that names its code, so a resume could not tell
+// whether the records it adds come from the same code.
+function requireCleanResume(previous: Readonly<RunConfig>): void {
+  if (previous.dirtyTree) {
+    throw new Error(
+      'Refusing to resume a run started from a dirty tree: no commit names its code.',
+    );
   }
-
-  return stage;
-}
-
-interface CheckedOutcome {
-  readonly status: StageOutcome['status'];
-  readonly verdict: 'allow' | 'deny' | null;
-  readonly pBlock: number | null;
-  readonly reason: string | null;
-}
-
-interface SampleRecordOptions {
-  readonly checked: Readonly<CheckedOutcome>;
-  readonly latencyMs: number | null;
-  readonly exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash' | 'model' | 'fallback'>>;
-}
-
-function buildSampleRecord<Case>(
-  labelled: Readonly<LabelledCase<Case>>,
-  sample: number,
-  stage: string,
-  options: Readonly<SampleRecordOptions>,
-): SampleRecord {
-  const checked = options.checked;
-
-  return {
-    caseKey: labelled.key,
-    labels: labelled.labels,
-    sample,
-    stage,
-    status: checked.status,
-    verdict: checked.status === 'scored' ? checked.verdict : null,
-    pBlock: checked.status === 'scored' ? checked.pBlock : null,
-    reason: checked.reason,
-    latencyMs: options.latencyMs,
-    requestHash: options.exchange.requestHash,
-    answerHash: options.exchange.answerHash,
-    model: options.exchange.model,
-    fallback: options.exchange.fallback,
-  };
-}
-
-class PlannedSendError extends Error {
-  override name = 'PlannedSendError';
 }
 
 // A replayed answer is known before the run, so each unit runs once with sends
@@ -444,7 +399,7 @@ interface SendingRunOptions extends RunOptions {
   readonly models: Readonly<Record<string, string>>;
 }
 
-async function collectSendingRuns<Case>(
+async function runSendingProbes<Case>(
   bounds: Readonly<ExperimentPlan>,
   active: readonly ActiveStage<Case>[],
   getLabelledCase: (caseKey: string) => LabelledCase<Case>,
@@ -532,42 +487,17 @@ async function collectSendingRuns<Case>(
   return sending;
 }
 
-// A dirty tree has no commit that names its code, so a resume could not tell
-// whether the records it adds come from the same code.
-function requireCleanResume(previous: Readonly<RunConfig>): void {
-  if (previous.dirtyTree) {
-    throw new Error(
-      'Refusing to resume a run started from a dirty tree: no commit names its code.',
-    );
-  }
-}
+function getActiveStage<Case>(
+  active: readonly ActiveStage<Case>[],
+  name: string,
+): ActiveStage<Case> {
+  const stage = active.find((entry) => entry.name === name);
 
-function requireResultsDir(resultsDir: string | null): string {
-  if (resultsDir === null) {
-    throw new Error(
-      'Name the results directory with --results or AUTO_MODE_EVALS_DIR: a clone of zgeoff/auto-mode-evals.',
-    );
+  if (stage === undefined) {
+    throw new Error(`The plan names a stage the experiment lacks: ${name}`);
   }
 
-  return resultsDir;
-}
-
-function requireCap(requests: number, maxRequests: number | null): void {
-  if (maxRequests === null) {
-    throw new Error('A live run needs --max-requests.');
-  }
-
-  if (requests > maxRequests) {
-    throw new Error(
-      `Refusing to run: the plan needs ${requests} model requests and --max-requests is ${maxRequests}.`,
-    );
-  }
-}
-
-function buildRunID(startedAt: string, frozen: Readonly<Record<string, unknown>>): string {
-  const stamp = startedAt.replaceAll(/[-:]/gu, '').replace(/\.\d+Z$/u, 'Z');
-
-  return `${stamp}-${toHash(JSON.stringify(frozen)).slice(0, 8)}`;
+  return stage;
 }
 
 // A decision request that fails, times out, or returns an invalid answer is an
@@ -588,11 +518,11 @@ async function tryRunStage(run: () => Promise<StageOutcome>): Promise<StageOutco
   }
 }
 
-function pickJudgeFailure(error: unknown): JudgeRequestError['reason'] {
-  const isTimeout =
-    error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
-
-  return isTimeout ? 'timeout' : 'request';
+interface CheckedOutcome {
+  readonly status: StageOutcome['status'];
+  readonly verdict: 'allow' | 'deny' | null;
+  readonly pBlock: number | null;
+  readonly reason: string | null;
 }
 
 // An answer to a request that named another model than the stage's first is not
@@ -615,4 +545,74 @@ function checkModel(
         reason: outcome.reason,
       }
     : { status: outcome.status, verdict: null, pBlock: null, reason: outcome.reason };
+}
+
+interface SampleRecordOptions {
+  readonly checked: Readonly<CheckedOutcome>;
+  readonly latencyMs: number | null;
+  readonly exchange: Readonly<Pick<Exchange, 'requestHash' | 'answerHash' | 'model' | 'fallback'>>;
+}
+
+function buildSampleRecord<Case>(
+  labelled: Readonly<LabelledCase<Case>>,
+  sample: number,
+  stage: string,
+  options: Readonly<SampleRecordOptions>,
+): SampleRecord {
+  const checked = options.checked;
+
+  return {
+    caseKey: labelled.key,
+    labels: labelled.labels,
+    sample,
+    stage,
+    status: checked.status,
+    verdict: checked.status === 'scored' ? checked.verdict : null,
+    pBlock: checked.status === 'scored' ? checked.pBlock : null,
+    reason: checked.reason,
+    latencyMs: options.latencyMs,
+    requestHash: options.exchange.requestHash,
+    answerHash: options.exchange.answerHash,
+    model: options.exchange.model,
+    fallback: options.exchange.fallback,
+  };
+}
+
+class PlannedSendError extends Error {
+  override name = 'PlannedSendError';
+}
+
+function requireCap(requests: number, maxRequests: number | null): void {
+  if (maxRequests === null) {
+    throw new Error('A live run needs --max-requests.');
+  }
+
+  if (requests > maxRequests) {
+    throw new Error(
+      `Refusing to run: the plan needs ${requests} model requests and --max-requests is ${maxRequests}.`,
+    );
+  }
+}
+
+function buildRunID(startedAt: string, frozen: Readonly<Record<string, unknown>>): string {
+  const stamp = startedAt.replaceAll(/[-:]/gu, '').replace(/\.\d+Z$/u, 'Z');
+
+  return `${stamp}-${toHash(JSON.stringify(frozen)).slice(0, 8)}`;
+}
+
+function requireResultsDir(resultsDir: string | null): string {
+  if (resultsDir === null) {
+    throw new Error(
+      'Name the results directory with --results or AUTO_MODE_EVALS_DIR: a clone of zgeoff/auto-mode-evals.',
+    );
+  }
+
+  return resultsDir;
+}
+
+function pickJudgeFailure(error: unknown): JudgeRequestError['reason'] {
+  const isTimeout =
+    error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
+
+  return isTimeout ? 'timeout' : 'request';
 }

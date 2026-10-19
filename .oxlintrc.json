@@ -9,7 +9,7 @@
     // zod schemas and jest-extended matchers are imported wholesale on purpose
     "import/no-namespace": "off",
 
-    "zgeoff/function-verb": ["error", { "verbs": ["classify", "record"], "exemptNames": ["main"] }],
+    "zgeoff/function-verb": ["error", { "exemptNames": ["main", "fetch"] }],
 
     // the module boundaries: every file under src/ belongs to a zone, and a
     // new src/ folder joins one here, in the same PR that adds it. A known

@@ -72,38 +72,6 @@ export function formatComparison(runA: Readonly<ComparedRun>, runB: Readonly<Com
   return `${lines.join('\n')}\n`;
 }
 
-function buildCountKey(
-  count: Readonly<Pick<MeasurementCount, 'measurement' | 'stage' | 'source'>>,
-): string {
-  return `${count.measurement} / ${count.stage} / ${count.source}`;
-}
-
-function formatCount(count: Readonly<MeasurementCount> | undefined): string {
-  if (count === undefined) {
-    return 'not measured';
-  }
-
-  const parts = [
-    `${count.events}/${count.total} over ${count.cases} cases`,
-    `Wilson ${formatRate(count.wilson.lower)}–${formatRate(count.wilson.upper)}`,
-    `exact ${formatRate(count.clopperPearson.lower)}–${formatRate(count.clopperPearson.upper)}`,
-  ];
-
-  if (count.ruleOfThree !== null) {
-    parts.push(`rule of three < ${formatRate(count.ruleOfThree)}`);
-  }
-
-  if (count.clusteredStandardError !== null) {
-    parts.push(`clustered SE ${formatRate(count.clusteredStandardError)}`);
-  }
-
-  if (count.effectiveTotal !== null) {
-    parts.push(`effective n ${count.effectiveTotal}`);
-  }
-
-  return parts.join(', ');
-}
-
 // A run from before the case filter holds no cases field, which matches a run
 // of every case.
 function formatField(value: unknown): string {
@@ -134,6 +102,44 @@ function sortKeys(value: unknown): unknown {
   );
 }
 
+function buildCountKey(
+  count: Readonly<Pick<MeasurementCount, 'measurement' | 'stage' | 'source'>>,
+): string {
+  return `${count.measurement} / ${count.stage} / ${count.source}`;
+}
+
+function toClustered(
+  observations: readonly { readonly caseKey: string; readonly event: boolean }[],
+): { cluster: string; value: number }[] {
+  return observations.map((entry) => ({ cluster: entry.caseKey, value: entry.event ? 1 : 0 }));
+}
+
+function formatCount(count: Readonly<MeasurementCount> | undefined): string {
+  if (count === undefined) {
+    return 'not measured';
+  }
+
+  const parts = [
+    `${count.events}/${count.total} over ${count.cases} cases`,
+    `Wilson ${formatRate(count.wilson.lower)}–${formatRate(count.wilson.upper)}`,
+    `exact ${formatRate(count.clopperPearson.lower)}–${formatRate(count.clopperPearson.upper)}`,
+  ];
+
+  if (count.ruleOfThree !== null) {
+    parts.push(`rule of three < ${formatRate(count.ruleOfThree)}`);
+  }
+
+  if (count.clusteredStandardError !== null) {
+    parts.push(`clustered SE ${formatRate(count.clusteredStandardError)}`);
+  }
+
+  if (count.effectiveTotal !== null) {
+    parts.push(`effective n ${count.effectiveTotal}`);
+  }
+
+  return parts.join(', ');
+}
+
 function formatRate(value: number | null): string {
   return value === null ? 'n/a' : value.toFixed(4);
 }
@@ -144,10 +150,4 @@ function formatSigned(value: number | null): string {
   }
 
   return `${value >= 0 ? '+' : ''}${value.toFixed(4)}`;
-}
-
-function toClustered(
-  observations: readonly { readonly caseKey: string; readonly event: boolean }[],
-): { cluster: string; value: number }[] {
-  return observations.map((entry) => ({ cluster: entry.caseKey, value: entry.event ? 1 : 0 }));
 }

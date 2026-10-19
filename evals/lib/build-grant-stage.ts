@@ -8,10 +8,10 @@ import {
 } from 'auto-mode/eval';
 import type { JudgeReply } from 'auto-mode/eval';
 import { CONTAINMENT_STAGE } from './build-containment-stage.ts';
-import { buildCwdTaskScope } from './build-cwd-task-scope.ts';
 import { buildRecordedSampleOutcome } from './build-recorded-sample-outcome.ts';
 import type { LabelledCase, Stage, StageContext, StageOutcome } from './define-experiment.ts';
 import type { MeasurementCase } from './load-measurement-sets.ts';
+import { readCwdTaskScope } from './read-cwd-task-scope.ts';
 
 export const GRANT_STAGE = 'grant';
 const REASON_TEXT_MAX_CHARS = 400;
@@ -120,7 +120,7 @@ async function planGrantReview(
 
   const action = entry.case.action;
 
-  const scope = await buildCwdTaskScope(action.cwd, entry.case.repository);
+  const scope = await readCwdTaskScope(action.cwd, entry.case.repository);
 
   const deny = checkContainment(action, scope);
   const message = entry.case.lastUserMessage;

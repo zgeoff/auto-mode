@@ -38,7 +38,7 @@ test('it resolves a path that is no listed link to itself', async () => {
 test('it places every directory in the one checkout given', async () => {
   const reader = buildStubEditFileReader({ checkout: '/w/app' });
 
-  const checkout = await reader.findCheckout('/elsewhere', {});
+  const checkout = await reader.readCheckout('/elsewhere', {});
 
   expect(checkout).toStrictEqual({
     worktree: '/w/app',
@@ -50,7 +50,7 @@ test('it places every directory in the one checkout given', async () => {
 test('it places no directory in a checkout when none is given', async () => {
   const reader = buildStubEditFileReader({ checkout: null });
 
-  const checkout = await reader.findCheckout('/w/app', {});
+  const checkout = await reader.readCheckout('/w/app', {});
 
   expect(checkout).toBeNull();
 });
@@ -58,7 +58,7 @@ test('it places no directory in a checkout when none is given', async () => {
 test('it fails every checkout lookup with the checkout error given', () => {
   const reader = buildStubEditFileReader({ checkout: '/w/app', checkoutError: 'git failed' });
 
-  expect(reader.findCheckout('/w/app', {})).rejects.toThrowWithMessage(Error, 'git failed');
+  expect(reader.readCheckout('/w/app', {})).rejects.toThrowWithMessage(Error, 'git failed');
 });
 
 test('it reads a listed file', async () => {

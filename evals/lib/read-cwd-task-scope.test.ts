@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { buildCwdTaskScope } from './build-cwd-task-scope.ts';
+import { readCwdTaskScope } from './read-cwd-task-scope.ts';
 
 test('it owns the cwd worktree and its branch', async () => {
-  const scope = await buildCwdTaskScope('/home/dev/app/.worktrees/feat', {
+  const scope = await readCwdTaskScope('/home/dev/app/.worktrees/feat', {
     branch: 'feat/a',
     defaultBranch: 'main',
   });
@@ -19,7 +19,7 @@ test('it owns the cwd worktree and its branch', async () => {
 });
 
 test('it reads the first two parts of the cwd as the home directory', async () => {
-  const scope = await buildCwdTaskScope('/Users/dev/app', {
+  const scope = await readCwdTaskScope('/Users/dev/app', {
     branch: 'feat/a',
     defaultBranch: 'main',
   });
@@ -28,7 +28,7 @@ test('it reads the first two parts of the cwd as the home directory', async () =
 });
 
 test('it gives the task one remote without a URL', async () => {
-  const scope = await buildCwdTaskScope('/home/dev/app', {
+  const scope = await readCwdTaskScope('/home/dev/app', {
     branch: 'feat/a',
     defaultBranch: 'main',
   });
@@ -37,7 +37,7 @@ test('it gives the task one remote without a URL', async () => {
 });
 
 test('it owns no branch when the cwd checkout is on the default branch', async () => {
-  const scope = await buildCwdTaskScope('/home/dev/app', { branch: 'main', defaultBranch: 'main' });
+  const scope = await readCwdTaskScope('/home/dev/app', { branch: 'main', defaultBranch: 'main' });
 
   expect(scope.branches).toStrictEqual([]);
 });

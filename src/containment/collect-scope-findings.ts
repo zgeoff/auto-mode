@@ -17,6 +17,13 @@ interface ScopeAction {
   readonly input: Readonly<Record<string, unknown>>;
 }
 
+const FILE_WRITE_TOOLS: ReadonlySet<string> = new Set([
+  'Edit',
+  'MultiEdit',
+  'Write',
+  'NotebookEdit',
+]);
+
 // Reads the action only, never the filesystem. A target it cannot resolve,
 // such as a path held in a variable, yields no finding, so the classifier
 // still judges it.
@@ -55,13 +62,6 @@ export function collectScopeFindings(
       ) === index,
   );
 }
-
-const FILE_WRITE_TOOLS: ReadonlySet<string> = new Set([
-  'Edit',
-  'MultiEdit',
-  'Write',
-  'NotebookEdit',
-]);
 
 function collectToolFindings(
   action: Readonly<ScopeAction>,
@@ -242,6 +242,64 @@ function findFixedXargsCommand(
   return { name, args };
 }
 
+function collectCallFindings(
+  name: string,
+  args: readonly string[],
+  context: Readonly<ProgramContext>,
+): ScopeFinding[] {
+  return [...collectProgramFindings(name, args, context), ...collectRecordFindings(name, args)];
+}
+
+const RECORD_LAUNCHERS: ReadonlySet<string> = new Set([
+  'bun',
+  'bunx',
+  'chrt',
+  'command',
+  'deno',
+  'doas',
+  'env',
+  'exec',
+  'flock',
+  'ionice',
+  'nice',
+  'node',
+  'nohup',
+  'npm',
+  'npx',
+  'pnpm',
+  'pnpx',
+  'setsid',
+  'stdbuf',
+  'strace',
+  'sudo',
+  'taskset',
+  'time',
+  'timeout',
+  'tsx',
+  'unbuffer',
+  'watch',
+  'xargs',
+  'yarn',
+]);
+
+// The mod alone reports finished calls; a record the agent sends is a claim
+// on scope it did not make. A leading option belongs to a wrapper the shell
+// reader stripped, such as `env -i`, so the words after it may run auto-mode.
+function collectRecordFindings(name: string, args: readonly string[]): ScopeFinding[] {
+  const words = [name, ...args];
+
+  const isLaunched =
+    name.startsWith('-') || RECORD_LAUNCHERS.has(name.slice(name.lastIndexOf('/') + 1));
+
+  const program = words.findIndex(
+    (word, index) => (index === 0 || isLaunched) && word.includes('auto-mode'),
+  );
+
+  return program !== -1 && words.slice(program + 1).includes('record')
+    ? [{ kind: 'credential', target: 'auto-mode record' }]
+    : [];
+}
+
 const XARGS_VALUE_OPTIONS = new Set(['-I', '-J', '-L', '-n', '-P', '-s', '-d', '-E']);
 
 // A branch list that only drops names, piped into `git branch -d`, deletes
@@ -350,61 +408,3 @@ function isSubstitutionOnly(args: readonly string[]): boolean {
     )
   );
 }
-
-function collectCallFindings(
-  name: string,
-  args: readonly string[],
-  context: Readonly<ProgramContext>,
-): ScopeFinding[] {
-  return [...collectProgramFindings(name, args, context), ...collectRecordFindings(name, args)];
-}
-
-// The mod alone reports finished calls; a record the agent sends is a claim
-// on scope it did not make. A leading option belongs to a wrapper the shell
-// reader stripped, such as `env -i`, so the words after it may run auto-mode.
-function collectRecordFindings(name: string, args: readonly string[]): ScopeFinding[] {
-  const words = [name, ...args];
-
-  const isLaunched =
-    name.startsWith('-') || RECORD_LAUNCHERS.has(name.slice(name.lastIndexOf('/') + 1));
-
-  const program = words.findIndex(
-    (word, index) => (index === 0 || isLaunched) && word.includes('auto-mode'),
-  );
-
-  return program !== -1 && words.slice(program + 1).includes('record')
-    ? [{ kind: 'credential', target: 'auto-mode record' }]
-    : [];
-}
-
-const RECORD_LAUNCHERS: ReadonlySet<string> = new Set([
-  'bun',
-  'bunx',
-  'chrt',
-  'command',
-  'deno',
-  'doas',
-  'env',
-  'exec',
-  'flock',
-  'ionice',
-  'nice',
-  'node',
-  'nohup',
-  'npm',
-  'npx',
-  'pnpm',
-  'pnpx',
-  'setsid',
-  'stdbuf',
-  'strace',
-  'sudo',
-  'taskset',
-  'time',
-  'timeout',
-  'tsx',
-  'unbuffer',
-  'watch',
-  'xargs',
-  'yarn',
-]);

@@ -27,21 +27,6 @@ export interface EvalCommandIO {
   readonly now: () => Date;
 }
 
-const USAGE = `Usage:
-  bun run eval list
-  bun run eval run <experiment> [--live --max-requests <n>] [--recorded <recording>]
-                   [--resume <run-dir>] [--seed <n>] [--samples <n>] [--results <dir>]
-                   [--judge-model <model>] [--case <case-key>...]
-  bun run eval compare <run-dir-a> <run-dir-b>
-  bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
-  bun run eval anonymise <capture.jsonl...> --out <dir>
-
-Results go to --results, or else to AUTO_MODE_EVALS_DIR: a clone of the
-private results repository, outside this repository.
-`;
-
-const DEFAULT_SEED = 1;
-
 // Exit 2 is a usage error, exit 1 a refusal or failure.
 export async function runEvalCommand(
   argv: readonly string[],
@@ -74,18 +59,6 @@ export async function runEvalCommand(
   }
 }
 
-class UsageError extends Error {
-  override readonly name = 'UsageError';
-}
-
-function printUsage(io: Readonly<EvalCommandIO>, problem: string | null): number {
-  const text = problem === null ? USAGE : `${problem}\n\n${USAGE}`;
-
-  io.stderr(text);
-
-  return 2;
-}
-
 function printList(io: Readonly<EvalCommandIO>): number {
   for (const experiment of io.experiments) {
     const stages = experiment.stages
@@ -103,6 +76,33 @@ function printList(io: Readonly<EvalCommandIO>): number {
 
   return 0;
 }
+
+class UsageError extends Error {
+  override readonly name = 'UsageError';
+}
+
+const USAGE = `Usage:
+  bun run eval list
+  bun run eval run <experiment> [--live --max-requests <n>] [--recorded <recording>]
+                   [--resume <run-dir>] [--seed <n>] [--samples <n>] [--results <dir>]
+                   [--judge-model <model>] [--case <case-key>...]
+  bun run eval compare <run-dir-a> <run-dir-b>
+  bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
+  bun run eval anonymise <capture.jsonl...> --out <dir>
+
+Results go to --results, or else to AUTO_MODE_EVALS_DIR: a clone of the
+private results repository, outside this repository.
+`;
+
+function printUsage(io: Readonly<EvalCommandIO>, problem: string | null): number {
+  const text = problem === null ? USAGE : `${problem}\n\n${USAGE}`;
+
+  io.stderr(text);
+
+  return 2;
+}
+
+const DEFAULT_SEED = 1;
 
 async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>): Promise<number> {
   const parsed = parseCommandArgs(args, {
@@ -224,6 +224,49 @@ async function runCommand(args: readonly string[], io: Readonly<EvalCommandIO>):
   }
 
   return 0;
+}
+
+type OptionSpec = Readonly<Record<string, { readonly type: 'boolean' | 'string' }>>;
+
+function parseCommandArgs<Options extends OptionSpec>(args: readonly string[], options: Options) {
+  try {
+    return parseArgs({ args: [...args], options, allowPositionals: true, strict: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    throw new UsageError(message);
+  }
+}
+
+function parseCount(
+  value: string | undefined,
+  flag: string,
+  fallback: number | null,
+): number | null {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  if (!/^\d+$/u.test(value)) {
+    throw new UsageError(`${flag} takes a whole number, not ${value}.`);
+  }
+
+  return Number(value);
+}
+
+// Runs go under the clone's root, so a directory inside the clone is refused too.
+async function resolveResultsDir(option: string | null, repoRoot: string): Promise<string | null> {
+  if (option === null) {
+    return null;
+  }
+
+  const clone = await requireResultsClone(resolve(option), repoRoot);
+
+  if (clone.directory !== clone.root) {
+    throw new Error(`Name the root of the results clone, ${clone.root}, not ${clone.directory}.`);
+  }
+
+  return clone.directory;
 }
 
 function printCounts(io: Readonly<EvalCommandIO>, counts: readonly MeasurementCount[]): void {
@@ -401,47 +444,4 @@ async function runAnonymiseCommand(
   );
 
   return 0;
-}
-
-type OptionSpec = Readonly<Record<string, { readonly type: 'boolean' | 'string' }>>;
-
-function parseCommandArgs<Options extends OptionSpec>(args: readonly string[], options: Options) {
-  try {
-    return parseArgs({ args: [...args], options, allowPositionals: true, strict: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    throw new UsageError(message);
-  }
-}
-
-function parseCount(
-  value: string | undefined,
-  flag: string,
-  fallback: number | null,
-): number | null {
-  if (value === undefined) {
-    return fallback;
-  }
-
-  if (!/^\d+$/u.test(value)) {
-    throw new UsageError(`${flag} takes a whole number, not ${value}.`);
-  }
-
-  return Number(value);
-}
-
-// Runs go under the clone's root, so a directory inside the clone is refused too.
-async function resolveResultsDir(option: string | null, repoRoot: string): Promise<string | null> {
-  if (option === null) {
-    return null;
-  }
-
-  const clone = await requireResultsClone(resolve(option), repoRoot);
-
-  if (clone.directory !== clone.root) {
-    throw new Error(`Name the root of the results clone, ${clone.root}, not ${clone.directory}.`);
-  }
-
-  return clone.directory;
 }

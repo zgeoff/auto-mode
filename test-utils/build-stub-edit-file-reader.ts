@@ -22,7 +22,7 @@ export function buildStubEditFileReader(stub: Readonly<StubEditFiles>): EditFile
 
   return {
     resolveEditTarget: (path) => Promise.resolve(stub.links?.[path] ?? path),
-    findCheckout: () =>
+    readCheckout: () =>
       stub.checkoutError === undefined
         ? Promise.resolve(checkout)
         : Promise.reject(new Error(stub.checkoutError)),

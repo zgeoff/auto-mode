@@ -29,7 +29,7 @@ test('it sends requests through the real fetch', async () => {
 });
 
 test('it finds no checkout above the filesystem root', async () => {
-  const checkout = await readRuntime().findCheckout('/', {});
+  const checkout = await readRuntime().readCheckout('/', {});
 
   expect(checkout).toBeNull();
 });

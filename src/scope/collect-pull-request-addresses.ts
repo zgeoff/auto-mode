@@ -5,6 +5,9 @@ export interface PullRequestAddress {
   readonly number: number;
 }
 
+const PULL_REQUEST_URL =
+  /https:\/\/(?<repository>[^/\s]+\/[^/\s]+\/[^/\s]+)\/pull\/(?<number>[1-9]\d*)\b/gu;
+
 export function collectPullRequestAddresses(text: string): PullRequestAddress[] {
   const addresses = new Map<string, PullRequestAddress>();
 
@@ -19,6 +22,3 @@ export function collectPullRequestAddresses(text: string): PullRequestAddress[] 
 
   return [...addresses.values()];
 }
-
-const PULL_REQUEST_URL =
-  /https:\/\/(?<repository>[^/\s]+\/[^/\s]+\/[^/\s]+)\/pull\/(?<number>[1-9]\d*)\b/gu;

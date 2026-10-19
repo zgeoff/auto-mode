@@ -1,6 +1,6 @@
 export { tryClassifyEdit } from '../bypass/try-classify-edit.ts';
 export type { EditClassification } from '../bypass/classify-edit.ts';
-export { findEnclosingWorkTree } from '../capture/find-enclosing-work-tree.ts';
+export { readEnclosingWorkTree } from '../capture/read-enclosing-work-tree.ts';
 
 export {
   DEFAULT_BLOCK_THRESHOLD,
@@ -44,7 +44,7 @@ export { repositoryContextSchema } from '../model/repository-context-schema.ts';
 export { readContainmentRule } from '../policy/read-containment-rule.ts';
 export { actionRequestSchema } from '../request/action-request-schema.ts';
 export { collectPullRequestAddresses } from '../scope/collect-pull-request-addresses.ts';
-export { pickScopeSourceReader } from '../scope/pick-scope-source-reader.ts';
+export { makeScopeSourceReader } from '../scope/make-scope-source-reader.ts';
 export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';
 export { updateSessionScope } from '../scope/update-session-scope.ts';
 export { findSecret } from '../secrets/find-secret.ts';

@@ -146,6 +146,10 @@ function buildTaskOutcome(key: string, actions: readonly ActionLogRecord[]): Tas
   };
 }
 
+function toRounded(value: number): number {
+  return Math.round(value * 10_000) / 10_000;
+}
+
 // Every stage shares one denominator, all actions, so the per-stage rates sum to
 // the all-stages rate. Actions repeat within a task, so the task is the cluster.
 function buildDenialGroups(finals: readonly ActionLogRecord[]): MeasurementObservations[] {
@@ -169,8 +173,4 @@ function buildDenialGroups(finals: readonly ActionLogRecord[]): MeasurementObser
         (stage === ALL_STAGES || (record.decidingStage ?? 'none') === stage),
     })),
   }));
-}
-
-function toRounded(value: number): number {
-  return Math.round(value * 10_000) / 10_000;
 }

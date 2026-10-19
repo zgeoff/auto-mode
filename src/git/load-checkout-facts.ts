@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
-import { findCheckout } from './find-checkout.ts';
 import { loadCheckoutRemotes } from './load-checkout-remotes.ts';
-import type { CheckoutFacts, CheckoutFinder } from './types.ts';
+import { readCheckout } from './read-checkout.ts';
+import type { CheckoutFacts, CheckoutReader } from './types.ts';
 
 interface CheckoutFactsOptions {
   readonly stopDir?: string | undefined;
-  readonly findCheckout?: CheckoutFinder | undefined;
+  readonly readCheckout?: CheckoutReader | undefined;
 }
 
 export async function loadCheckoutFacts(
@@ -19,9 +19,9 @@ export async function loadCheckoutFacts(
   const stopDir = options.stopDir === undefined ? undefined : resolve(options.stopDir);
 
   const found =
-    options.findCheckout === undefined
-      ? findCheckout(directory, env, stopDir)
-      : options.findCheckout(directory, env);
+    options.readCheckout === undefined
+      ? readCheckout(directory, env, stopDir)
+      : options.readCheckout(directory, env);
 
   const checkout = await found;
 
