@@ -2223,8 +2223,7 @@ test('it refuses to capture inside a git work tree and keeps the verdict', async
 
   await writeFile(
     join(ctx.directory, 'auto-mode', 'config.json'),
-    // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
-    JSON.stringify({ capture: { enabled: true, dir: join(ctx.repo, 'captures') } }),
+    JSON.stringify({ capture: { enabled: true, directory: join(ctx.repo, 'captures') } }),
   );
 
   const payload = buildMockModRequest({
@@ -2261,8 +2260,7 @@ test('it keeps the verdict and exit code when the capture write fails', async ()
   await writeFile(
     join(ctx.directory, 'auto-mode', 'config.json'),
     JSON.stringify({
-      // oxlint-disable-next-line zgeoff/no-abbreviated-names -- a key in the user's config file
-      capture: { enabled: true, dir: join(ctx.directory, 'blocker', 'captures') },
+      capture: { enabled: true, directory: join(ctx.directory, 'blocker', 'captures') },
     }),
   );
 
