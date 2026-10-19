@@ -15,7 +15,7 @@ export function buildMockRuntime(overrides: MockRuntimeOverrides = {}): Runtime 
     now: now ?? Date.now,
     timeout: timeout ?? ((timeoutMs) => AbortSignal.timeout(timeoutMs)),
     fetch: send ?? sendThroughGlobalFetch,
-    readCheckout: reader ?? readRealCheckout,
+    readCheckout: reader ?? readCheckout,
   };
 }
 
@@ -23,8 +23,4 @@ export function buildMockRuntime(overrides: MockRuntimeOverrides = {}): Runtime 
 // holding the function it found when the runtime was built.
 function sendThroughGlobalFetch(url: string, init: Readonly<RequestInit>): Promise<Response> {
   return fetch(url, init);
-}
-
-function readRealCheckout(start: string, env: HostEnvironment['env']) {
-  return readCheckout(start, env);
 }
