@@ -63,11 +63,11 @@ covers and what clears it, in one of two forms: the action matches the rule, whe
 or the evidence cannot rule out the harm, when Jev chose allow but the probability still reached the
 threshold.
 
-The rule the judge reviews is not always the rule the deny holds. A hard rule never clears, so when
-any hard rule blocks, the judge reviews that hard rule, even if a soft rule ranks above it.
-Reviewing the soft rule instead would let consent in the user's message clear an action that a hard
-rule also blocks. Once the judge has reviewed a deny, the deny holds the reviewed rule and its
-reason, whichever rule ranked first.
+The rule the judge reviews is not always the rule the deny holds. A hard rule never clears on
+consent, so when any hard rule blocks, the judge reviews that hard rule, even if a soft rule ranks
+above it. Reviewing the soft rule instead would let consent in the user's message clear an action
+that a hard rule also blocks. Once the judge has reviewed a deny, the deny holds the reviewed rule
+and its reason, whichever rule ranked first.
 
 ## Failure
 

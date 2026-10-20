@@ -21,6 +21,12 @@ export interface DeniedRule {
   readonly basis: DenyBasis;
 }
 
+// A hard rule that Jev chose to allow, with a low block probability and no
+// other rule blocking, is the one hard deny a misread overturn clears.
+export interface ReviewedRule extends DeniedRule {
+  readonly misreadClears: boolean;
+}
+
 export interface TaskScopeSummary {
   readonly worktrees: readonly string[];
   readonly branches: readonly string[];
@@ -63,6 +69,7 @@ export interface ContainmentEvidence {
 }
 
 export interface JudgeEvidence extends DeniedRule {
+  readonly misreadClears?: boolean | undefined;
   readonly repositoryContext: RepositoryContext | null;
   readonly containment?: ContainmentEvidence | undefined;
 }

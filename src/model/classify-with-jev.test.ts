@@ -565,6 +565,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
         text: expect.toStartWith('### Data Exfiltration\n'),
       },
       basis: 'matched',
+      misreadClears: false,
       repositoryContext: expect.toBeObject(),
     },
     diagnostics: {
@@ -670,6 +671,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
       review: {
         rule: { name, tier: 'hard', source: 'replacement', text: expect.toBeString() },
         basis: 'matched',
+        misreadClears: false,
         repositoryContext: expect.toBeObject(),
       },
       diagnostics: {
@@ -973,6 +975,7 @@ test('it evaluates a subagent on its task context', async () => {
         text: expect.toBeString(),
       },
       basis: 'unresolved',
+      misreadClears: false,
       repositoryContext: expect.toBeObject(),
     },
     diagnostics: {
@@ -1428,6 +1431,7 @@ test.each<BranchEvidenceCase>([
     review: {
       rule: { name: row.rule, tier: row.tier, source: 'replacement', text: expect.toBeString() },
       basis: 'matched',
+      misreadClears: false,
       repositoryContext: expect.toBeObject(),
     },
     diagnostics: {
@@ -1584,6 +1588,7 @@ test.each(['Write', 'Edit'])(
           text: expect.toBeString(),
         },
         basis: 'matched',
+        misreadClears: false,
         repositoryContext: expect.toBeObject(),
       },
       diagnostics: {
@@ -1748,6 +1753,7 @@ test.each([
           text: expect.toBeString(),
         },
         basis: 'matched',
+        misreadClears: false,
         repositoryContext: null,
       },
       diagnostics: {
@@ -1891,6 +1897,7 @@ test('it denies an unsure allow at the block threshold and records only the rule
         text: expect.toBeString(),
       },
       basis: 'unresolved',
+      misreadClears: true,
       repositoryContext: expect.toBeObject(),
     },
     diagnostics: {

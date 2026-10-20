@@ -87,7 +87,7 @@ test('it denies a reply at the block threshold and hands the judge the rule with
       reason:
         'The action matches this rule: rewriting history on the default branch, a protected branch, or a branch outside the task scope. A direct user instruction that names the force push, the rewrite, or the remote branch clears it.',
     },
-    review: { rule, basis: 'matched', repositoryContext },
+    review: { rule, basis: 'matched', misreadClears: false, repositoryContext },
     diagnostics: {
       status: 'deny',
       stage: 'response',

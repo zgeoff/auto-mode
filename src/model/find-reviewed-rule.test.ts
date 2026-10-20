@@ -34,6 +34,90 @@ test('it reviews a blocking hard rule ranked below a soft rule', () => {
   expect(findReviewedRule(request, result, 0.2)).toStrictEqual({
     rule: hard,
     basis: 'unresolved',
+    misreadClears: false,
+  });
+});
+
+test('it lets a misread clear a shipped hard rule that blocks alone with a low block probability Jev chose to allow', () => {
+  const hard = buildMockDecisionRule({
+    name: 'Secret Persistence',
+    tier: 'hard',
+    source: 'shipped',
+  });
+
+  const request = buildMockDecisionRequest({ rules: { rule_1: hard } });
+
+  const result = buildMockDecisionResult({
+    answers: {
+      rule_1: buildMockDecisionAnswer({
+        choice: 'allow',
+        confidence: 0.58,
+        probabilities: { allow: 0.79, block: 0.21 },
+      }),
+    },
+  });
+
+  expect(findReviewedRule(request, result, 0.2)).toStrictEqual({
+    rule: hard,
+    basis: 'unresolved',
+    misreadClears: true,
+  });
+});
+
+test.each([
+  ['a shipped rule at a block probability of 0.35', 'shipped', 0.35, true],
+  ['a shipped rule at a block probability of 0.36', 'shipped', 0.36, false],
+  ['a configured hard deny entry at a block probability of 0.21', 'configured', 0.21, false],
+] as const)(
+  'it marks whether a misread clears a lone hard deny Jev chose to allow for %s',
+  (_, source, block, expected) => {
+    const hard = buildMockDecisionRule({ name: 'Secret Persistence', tier: 'hard', source });
+    const request = buildMockDecisionRequest({ rules: { rule_1: hard } });
+
+    const result = buildMockDecisionResult({
+      answers: {
+        rule_1: buildMockDecisionAnswer({
+          choice: 'allow',
+          confidence: 1 - block,
+          probabilities: { allow: 1 - block, block },
+        }),
+      },
+    });
+
+    expect(findReviewedRule(request, result, 0.2)?.misreadClears).toBe(expected);
+  },
+);
+
+test('it keeps a low-probability hard deny final when a soft rule also blocks', () => {
+  const soft = buildMockDecisionRule({ name: 'History Rewrite', tier: 'soft', source: 'shipped' });
+
+  const hard = buildMockDecisionRule({
+    name: 'Secret Persistence',
+    tier: 'hard',
+    source: 'shipped',
+  });
+
+  const request = buildMockDecisionRequest({ rules: { rule_0: soft, rule_1: hard } });
+
+  const result = buildMockDecisionResult({
+    answers: {
+      rule_0: buildMockDecisionAnswer({
+        choice: 'block',
+        confidence: 0.9,
+        probabilities: { allow: 0.1, block: 0.9 },
+      }),
+      rule_1: buildMockDecisionAnswer({
+        choice: 'allow',
+        confidence: 0.79,
+        probabilities: { allow: 0.79, block: 0.21 },
+      }),
+    },
+  });
+
+  expect(findReviewedRule(request, result, 0.2)).toStrictEqual({
+    rule: hard,
+    basis: 'unresolved',
+    misreadClears: false,
   });
 });
 
@@ -76,7 +160,11 @@ test('it reviews the top soft rule when no hard rule blocks', () => {
     },
   });
 
-  expect(findReviewedRule(request, result, 0.2)).toStrictEqual({ rule: top, basis: 'matched' });
+  expect(findReviewedRule(request, result, 0.2)).toStrictEqual({
+    rule: top,
+    basis: 'matched',
+    misreadClears: false,
+  });
 });
 
 test('it reviews no rule when every block probability is below the threshold', () => {

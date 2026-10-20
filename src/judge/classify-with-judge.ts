@@ -68,6 +68,7 @@ export async function classifyWithJudge(
         rule: entry.rule,
         basis: entry.basis,
         containment: entry.containment,
+        misreadClears: entry.misreadClears,
       })),
       action: { tool: payload.toolName, cwd: payload.cwd, input: payload.toolInput },
       lastUserMessage: directMessage,
@@ -120,6 +121,7 @@ export async function classifyWithJudge(
     const verdict = buildJudgedVerdict(entry.rule, entry.basis, reply, {
       overturns,
       heldReason: entry.containment?.reason,
+      misreadClears: entry.misreadClears,
     });
 
     return {

@@ -10,6 +10,7 @@ interface ReviewCase {
   readonly basis: DenyBasis;
   readonly reply: JudgeReply | null;
   readonly overturns: JudgeOverturns;
+  readonly misreadClears?: boolean;
   readonly expected: JudgedVerdict;
 }
 
@@ -107,6 +108,60 @@ test.each<ReviewCase>([
     },
   },
   {
+    label: 'allows a clearable hard-rule deny the judge overturns as a misread',
+    rule: { name: 'Secret Persistence', tier: 'hard', source: 'shipped' },
+    basis: 'unresolved',
+    reply: {
+      kind: 'overturn',
+      basis: 'misread',
+      reason: 'The command writes test output to a scratch directory and stores no secret.',
+    },
+    overturns: 'any',
+    misreadClears: true,
+    expected: { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'misread' },
+  },
+  {
+    label: 'holds a clearable hard-rule deny the judge overturns on consent',
+    rule: { name: 'Secret Persistence', tier: 'hard', source: 'shipped' },
+    basis: 'unresolved',
+    reply: { kind: 'overturn', basis: 'consent', reason: 'The user asked for the test run.' },
+    overturns: 'any',
+    misreadClears: true,
+    expected: {
+      verdict: {
+        kind: 'deny',
+        rule: 'Secret Persistence',
+        reason:
+          'The supplied evidence cannot rule out writing a credential in plain text into a tracked file, an image, CI configuration, or a shipped log. No instruction or configuration clears this rule.',
+      },
+      status: 'held',
+      overturnBasis: 'consent',
+    },
+  },
+  {
+    label:
+      'holds a clearable hard-rule deny the judge overturns as a misread when only consent may overturn',
+    rule: { name: 'Secret Persistence', tier: 'hard', source: 'shipped' },
+    basis: 'unresolved',
+    reply: {
+      kind: 'overturn',
+      basis: 'misread',
+      reason: 'The command writes test output to a scratch directory and stores no secret.',
+    },
+    overturns: 'consent',
+    misreadClears: true,
+    expected: {
+      verdict: {
+        kind: 'deny',
+        rule: 'Secret Persistence',
+        reason:
+          'The supplied evidence cannot rule out writing a credential in plain text into a tracked file, an image, CI configuration, or a shipped log. No instruction or configuration clears this rule.',
+      },
+      status: 'held',
+      overturnBasis: 'misread',
+    },
+  },
+  {
     label: 'denies with the judge’s reason when the judge confirms',
     rule: { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
     basis: 'matched',
@@ -159,7 +214,10 @@ test.each<ReviewCase>([
   },
 ])('it $label', (row) => {
   expect(
-    buildJudgedVerdict(row.rule, row.basis, row.reply, { overturns: row.overturns }),
+    buildJudgedVerdict(row.rule, row.basis, row.reply, {
+      overturns: row.overturns,
+      misreadClears: row.misreadClears,
+    }),
   ).toStrictEqual(row.expected);
 });
 

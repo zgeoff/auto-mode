@@ -15,6 +15,7 @@ export { pickJudgeLane } from '../config/pick-judge-lane.ts';
 export type { ClaudeRules } from '../config/types.ts';
 export { checkContainment, type ContainmentDeny } from '../containment/check-containment.ts';
 export { buildDecisionRequest } from '../model/build-decision-request.ts';
+export { MISREAD_CLEARABLE_BLOCK_PROBABILITY } from '../model/find-reviewed-rule.ts';
 export { DecisionRequestError } from '../model/decision-request-error.ts';
 export { sendDecision } from '../model/send-decision.ts';
 export type { DecisionRequest, DecisionResult, RecordedDecisionChoice } from '../model/types.ts';

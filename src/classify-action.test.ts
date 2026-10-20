@@ -820,6 +820,115 @@ test('it keeps a hard-rule Jev deny with its template reason when the judge over
   });
 });
 
+test('it allows a scratch-directory test run that Jev chose to allow but scored just over the threshold on a hard rule when the judge overturns it as a misread', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set(
+    'rule_1',
+    buildMockDecisionAnswer({
+      choice: 'allow',
+      confidence: 0.58,
+      probabilities: { allow: 0.79, block: 0.21 },
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Bash',
+      toolInput: {
+        command:
+          'mkdir -p /tmp/short-tmp && TMPDIR=/tmp/short-tmp bash scripts/test-lib/test-create-stub-checks-docker.sh 2>&1 | tail -6',
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      judgeOverturns: 'any',
+      blockThreshold: 0.2,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '{"verdict":"overturn","basis":"misread","reason":"The command runs a test script with a scratch TMPDIR and writes no secret."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    decidingStage: 'judge',
+    status: 'allow',
+    judge: {
+      status: 'overturned',
+      overturnBasis: 'misread',
+      rule: 'Secret Persistence',
+      tier: 'hard',
+    },
+  });
+
+  const calls = await readFile(ctx.recordPath, 'utf8');
+
+  expect(calls).toInclude(String.raw`\"misreadMayClear\": true`);
+});
+
+test('it keeps a hard-rule deny Jev chose to allow when its block probability is above the misread bound', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set(
+    'rule_1',
+    buildMockDecisionAnswer({
+      choice: 'allow',
+      confidence: 0.64,
+      probabilities: { allow: 0.64, block: 0.36 },
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'bash scripts/run-checks.sh' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      judgeOverturns: 'any',
+      blockThreshold: 0.2,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '{"verdict":"overturn","basis":"misread","reason":"The script writes no secret."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Secret Persistence' },
+    decidingStage: 'judge',
+    status: 'deny',
+    judge: { status: 'held', overturnBasis: 'misread', tier: 'hard' },
+  });
+});
+
 test('it keeps a Jev deny the judge overturns on consent when a configured hard deny also blocks below the top soft rule', async () => {
   const ctx = await setupTest();
 
