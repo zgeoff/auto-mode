@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v2.0.2...auto-mode-v3.0.0) (2026-10-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **geo-1385:** the capture folder key is now `capture.directory`. A config that sets `capture.dir` no longer loads: rename the key to `capture.directory` in your auto-mode config file.
+
+### Features
+
+* **geo-1385:** rename capture.dir to capture.directory ([#272](https://github.com/zgeoff/auto-mode/issues/272)) ([69c731f](https://github.com/zgeoff/auto-mode/commit/69c731f705871b5a966bc9a3ddd6ca9aa966e2ba))
+
 ## [2.0.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v2.0.1...auto-mode-v2.0.2) (2026-10-19)
 
 
