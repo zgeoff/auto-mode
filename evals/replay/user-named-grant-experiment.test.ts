@@ -132,7 +132,7 @@ test('it replays the GEO-163 run, holding control-11 and the cleanup near-miss a
         "twins-credited",
         "grant",
         "synthetic",
-        8,
+        9,
         24,
       ],
       [
@@ -160,7 +160,7 @@ test('it replays the GEO-163 run, holding control-11 and the cleanup near-miss a
         "twins-credited",
         "all-stages",
         "synthetic",
-        23,
+        24,
         39,
       ],
       [

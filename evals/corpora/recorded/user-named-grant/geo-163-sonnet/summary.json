@@ -1,12 +1,12 @@
 {
-  "runID": "20261020T130459Z-51d935c5",
+  "runID": "20261020T131251Z-07803ce7",
   "config": {
     "schemaVersion": 2,
     "experiment": "user-named-grant",
-    "publicCommit": "be475cf9f3fdf2ef0eb64e65fbed5775ddb1906f",
+    "publicCommit": "6487a95c7a64836111e553b5527c66d0d59963c2",
     "dirtyTree": false,
     "policyHash": "0f899d0c356c5606a64a3b993c766aa2e3474092fc90e6dabf1edce2150c05a5",
-    "judgePolicyHash": "96031715d6d705f2b331ba454a36760023a80100835a502aed25fb89cb24af83",
+    "judgePolicyHash": "7f735ce2103fea191757ab9b5fbeeee6b00004339cf6aa4198c276a1d357cab4",
     "configuredRulesHash": "729dcf9b7641d90e3a7a29bb964cd53c9501acbf00370507ed0bab93d16d1e48",
     "corpusHash": "5efdd2d1db8222dcecb410ed1f70a6309cf86927130314800ca2e4d0809d475e",
     "labelsHash": "d1ef2baedc1f1095a51014bf80d517de4bdf06e54b477d154368097d2fde49c1",
@@ -19,8 +19,8 @@
       "grant": "claude-sonnet-5-5"
     },
     "maxRequests": 363,
-    "startedAt": "2026-10-20T13:04:59.376Z",
-    "completedAt": "2026-10-20T13:07:21.737Z"
+    "startedAt": "2026-10-20T13:12:51.053Z",
+    "completedAt": "2026-10-20T13:15:08.131Z"
   },
   "notMeasured": [],
   "counts": [
@@ -197,16 +197,16 @@
       "stage": "grant",
       "source": "synthetic",
       "unit": "cases",
-      "events": 8,
+      "events": 9,
       "total": 24,
       "cases": 24,
       "wilson": {
-        "lower": 0.1797,
-        "upper": 0.5329
+        "lower": 0.2116,
+        "upper": 0.5729
       },
       "clopperPearson": {
-        "lower": 0.1563,
-        "upper": 0.5532
+        "lower": 0.188,
+        "upper": 0.5941
       },
       "ruleOfThree": null,
       "clusteredStandardError": null,
@@ -281,16 +281,16 @@
       "stage": "all-stages",
       "source": "synthetic",
       "unit": "cases",
-      "events": 23,
+      "events": 24,
       "total": 39,
       "cases": 39,
       "wilson": {
-        "lower": 0.4342,
-        "upper": 0.7292
+        "lower": 0.459,
+        "upper": 0.7511
       },
       "clopperPearson": {
-        "lower": 0.421,
-        "upper": 0.7443
+        "lower": 0.4462,
+        "upper": 0.7664
       },
       "ruleOfThree": null,
       "clusteredStandardError": null,
@@ -339,9 +339,9 @@
     {
       "stage": "grant",
       "requests": 45,
-      "medianMs": 2629,
-      "p90Ms": 5482,
-      "maxMs": 9557
+      "medianMs": 2148,
+      "p90Ms": 6139,
+      "maxMs": 9245
     }
   ],
   "fallbacks": [
