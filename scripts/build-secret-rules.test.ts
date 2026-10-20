@@ -1,0 +1,112 @@
+import { expect, onTestFinished, test } from 'bun:test';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import invariant from 'tiny-invariant';
+
+async function setupTest(): Promise<{ readonly directory: string }> {
+  const directory = await mkdtemp(join(tmpdir(), 'build-secret-rules-'));
+
+  onTestFinished(() => rm(directory, { recursive: true, force: true }));
+
+  return { directory };
+}
+
+test('it writes the rule set as a module that exports it under its type', async () => {
+  const ctx = await setupTest();
+
+  const out = join(ctx.directory, 'betterleaks-rules.ts');
+
+  await writeFile(
+    join(ctx.directory, 'betterleaks.toml'),
+    [
+      `prefilter = '''matchesAny(finding["path"], [\`\\.lock$\`])'''`,
+      `filter = '''entropy(finding["secret"]) <= 3.0'''`,
+      '',
+      '[[rules]]',
+      'id = "example-token"',
+      String.raw`regex = '''\bexm_[a-z0-9]{8}\b'''`,
+      'keywords = ["EXM_"]',
+      `filter = '''containsAny(finding["secret"], ["exm_00000000"])'''`,
+      '',
+      '[[rules]]',
+      'id = "example-file"',
+      String.raw`path = '''(?i)\.example$'''`,
+      'skipReport = true',
+      '',
+    ].join('\n'),
+  );
+
+  await writeFile(join(ctx.directory, 'LICENSE'), 'MIT License\n\nExample notice.\n');
+
+  const result = Bun.spawnSync(
+    [
+      process.execPath,
+      join(import.meta.dirname, 'build-secret-rules.ts'),
+      '--config',
+      join(ctx.directory, 'betterleaks.toml'),
+      '--license',
+      join(ctx.directory, 'LICENSE'),
+      '--version',
+      'v0.0.1',
+      '--commit',
+      'abc123',
+      '--out',
+      out,
+    ],
+    { env: { PATH: process.env['PATH'] } },
+  );
+
+  const text = await readFile(out, 'utf8');
+  const exported: unknown = await import(out);
+
+  invariant(typeof exported === 'object' && exported !== null, 'the output is a module');
+
+  expect({
+    exitCode: result.exitCode,
+    stdout: result.stdout.toString(),
+    stderr: result.stderr.toString(),
+  }).toStrictEqual({
+    exitCode: 0,
+    stdout: '{"rules":2,"reported":1,"re2":[],"unported":0}\n',
+    stderr: '',
+  });
+
+  expect(text).toStartWith(
+    "import type { SecretRuleSet } from './types.ts';\n\nexport const BETTERLEAKS_RULES: SecretRuleSet = {",
+  );
+
+  expect({ ...exported }).toStrictEqual({
+    BETTERLEAKS_RULES: {
+      source: {
+        repository: 'https://github.com/betterleaks/betterleaks',
+        version: 'v0.0.1',
+        commit: 'abc123',
+      },
+      notice: 'MIT License\n\nExample notice.\n',
+      prefilter: [{ source: String.raw`\.lock$`, flags: '', engine: 'js' }],
+      filter: [{ kind: 'entropy', op: '<=', value: 3 }],
+      rules: [
+        {
+          id: 'example-token',
+          pattern: { source: String.raw`\bexm_[a-z0-9]{8}\b`, flags: '', engine: 'js' },
+          path: null,
+          keywords: ['exm_'],
+          secretGroup: 0,
+          filter: [{ kind: 'contains', field: 'secret', values: ['exm_00000000'], negate: false }],
+          report: true,
+        },
+        {
+          id: 'example-file',
+          pattern: null,
+          path: { source: String.raw`\.example$`, flags: 'i', engine: 'js' },
+          keywords: [],
+          secretGroup: 0,
+          filter: [],
+          report: false,
+        },
+      ],
+      unported: [],
+    },
+  });
+});
