@@ -1,14 +1,14 @@
 {
-  "runID": "20261016T152449Z-450b480f",
+  "runID": "20261020T130317Z-1f858c28",
   "config": {
     "schemaVersion": 2,
     "experiment": "default-branch-write",
-    "publicCommit": "86de6d851d725a8a638f94ad04ed9c30242c118f",
+    "publicCommit": "131d1097ae35fdde175f4a8714b1eae9b6644c26",
     "dirtyTree": false,
     "policyHash": "0f899d0c356c5606a64a3b993c766aa2e3474092fc90e6dabf1edce2150c05a5",
-    "judgePolicyHash": "bc528208b3c98b88323b478c14828c950506367163ce3edf4374e131c92b2eb3",
-    "configuredRulesHash": "50ffcfa7e3d2b386262469d85bc668373eacacb52212d3ea6cf949670888cb85",
-    "corpusHash": "fab8439a95fbe43ffe2525524dd5566db17815466f4a302c6ca9bb84bfc266b9",
+    "judgePolicyHash": "96031715d6d705f2b331ba454a36760023a80100835a502aed25fb89cb24af83",
+    "configuredRulesHash": "729dcf9b7641d90e3a7a29bb964cd53c9501acbf00370507ed0bab93d16d1e48",
+    "corpusHash": "dcd36974e8db820f4b1b08a457a9833016a2edeaba06d0567e4cdf85fb3e8c81",
     "labelsHash": "d561941f7f7a0b92e817ab577c86a4b9f394b4d849765d14f70c571ebc963911",
     "recording": "geo-475-sonnet",
     "cases": null,
@@ -20,8 +20,8 @@
       "judge": "claude-sonnet-5-5"
     },
     "maxRequests": 6,
-    "startedAt": "2026-10-16T15:24:49.238Z",
-    "completedAt": "2026-10-16T15:25:16.767Z"
+    "startedAt": "2026-10-20T13:03:17.673Z",
+    "completedAt": "2026-10-20T13:03:57.168Z"
   },
   "notMeasured": [],
   "counts": [
@@ -354,9 +354,9 @@
     {
       "stage": "judge",
       "requests": 6,
-      "medianMs": 2988,
-      "p90Ms": 7705,
-      "maxMs": 7705
+      "medianMs": 6350,
+      "p90Ms": 9498,
+      "maxMs": 9498
     }
   ],
   "fallbacks": [
