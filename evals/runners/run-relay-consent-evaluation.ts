@@ -204,7 +204,7 @@ async function main(): Promise<void> {
         variants.find((item) => item.action.id === action.id)?.controlHash,
       ]),
     ),
-    summary: null as ReturnType<typeof buildRelayConsentSummary> | null,
+    summary: null,
     records,
   };
 
@@ -437,9 +437,7 @@ async function main(): Promise<void> {
 
   segment.completedAt = new Date().toISOString();
 
-  report.summary = buildRelayConsentSummary(records);
-
-  await writeReport(output, report);
+  await writeReport(output, { ...report, summary: buildRelayConsentSummary(records) });
 }
 
 function parseCorpus(text: string) {

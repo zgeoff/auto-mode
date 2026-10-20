@@ -2092,7 +2092,7 @@ test('it captures the mod request with its verdict and deciding stage when captu
 
   expect(files[0]).toMatch(/^requests-\d{4}-\d{2}-\d{2}\.jsonl$/u);
 
-  expect(lines.map((line) => JSON.parse(line) as unknown)).toStrictEqual([
+  expect(lines.map((line): unknown => JSON.parse(line))).toStrictEqual([
     {
       schemaVersion: 1,
       time: expect.toSatisfy(

@@ -163,5 +163,12 @@
       "rules": { "zgeoff/no-abbreviated-names": "off" }
     }
   ],
-  "ignorePatterns": [".claude/**", ".reviews/**", ".worktrees/**"]
+  "ignorePatterns": [
+    ".claude/**",
+    ".reviews/**",
+    ".worktrees/**",
+    // generated from the Betterleaks rule set, whose patterns are JSON strings;
+    // the type check still checks it against the rule-set type
+    "src/secrets/betterleaks-rules.ts"
+  ]
 }
