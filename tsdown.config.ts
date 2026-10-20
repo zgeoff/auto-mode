@@ -1,4 +1,7 @@
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { defineConfig } from 'tsdown';
+import { BETTERLEAKS_RULES } from './src/secrets/betterleaks-rules.ts';
 
 export default defineConfig({
   entry: ['src/index.ts', 'src/cli.ts'],
@@ -17,5 +20,12 @@ export default defineConfig({
   // against 31ms bundled, and the package ships 206kB rather than 8.8MB.
   deps: { alwaysBundle: ['zod', 'ts-pattern', 'tiny-invariant', 're2js', 'gunshi'] },
 
-  copy: [{ from: 'src/secrets/betterleaks-rules.json', to: 'dist', rename: 'secret-rules.json' }],
+  hooks: {
+    'build:done': async (ctx) => {
+      await writeFile(
+        join(ctx.options.outDir, 'secret-rules.json'),
+        `${JSON.stringify(BETTERLEAKS_RULES)}\n`,
+      );
+    },
+  },
 });

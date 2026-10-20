@@ -58,7 +58,7 @@ async function main(): Promise<void> {
       args.version !== undefined &&
       args.commit !== undefined &&
       args.out !== undefined,
-    'usage: build-secret-rules --config betterleaks.toml --license LICENSE --version v --commit sha --out rules.json',
+    'usage: build-secret-rules --config betterleaks.toml --license LICENSE --version v --commit sha --out betterleaks-rules.ts',
   );
 
   const [toml, notice] = await Promise.all([
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
       path: rule.path === undefined ? null : buildPattern(rule.path),
       keywords: [...new Set((rule.keywords ?? []).map((keyword) => keyword.toLowerCase()))],
       secretGroup: rule.secretGroup ?? 0,
-      filter: [] as FilterTerm[],
+      filter: [],
       report: rule.skipReport !== true,
     } satisfies SecretRule,
     filter: rule.filter === undefined ? null : parseFilter(rule.id, rule.filter),
@@ -110,7 +110,10 @@ async function main(): Promise<void> {
     unported,
   };
 
-  await writeFile(args.out, `${JSON.stringify(ruleSet)}\n`);
+  await writeFile(
+    args.out,
+    `import type { SecretRuleSet } from './types.ts';\n\nexport const BETTERLEAKS_RULES: SecretRuleSet = ${JSON.stringify(ruleSet)};\n`,
+  );
 
   console.log(
     JSON.stringify({

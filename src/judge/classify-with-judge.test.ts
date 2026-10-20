@@ -644,7 +644,7 @@ test('it confirms a deny through a Messages judge with the judge policy as the s
     }),
   );
 
-  const received = { headers: new Headers(), body: null as unknown };
+  const received: { headers: Headers; body: unknown } = { headers: new Headers(), body: null };
 
   server.use(
     http.post(MESSAGES_URL, async (info) => {

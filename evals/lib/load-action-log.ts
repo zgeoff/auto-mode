@@ -77,7 +77,7 @@ export async function loadActionLog(path: string, since: string | null): Promise
 
 function parseJSON(line: string): unknown {
   try {
-    return JSON.parse(line) as unknown;
+    return JSON.parse(line);
   } catch {
     return undefined;
   }

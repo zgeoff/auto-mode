@@ -18,4 +18,4 @@ paths = ['''^fixtures/''', '''^evals/corpora/''']
 [[allowlists]]
 targetRules = ["sourcegraph-access-token", "aws-amazon-bedrock-api-key-short-lived"]
 description = "the bundled secret rule set holds detection patterns, which read as tokens"
-paths = ['''^src/secrets/betterleaks-rules\.json$''']
+paths = ['''^src/secrets/betterleaks-rules\.ts$''']

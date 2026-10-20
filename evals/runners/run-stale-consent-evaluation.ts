@@ -100,7 +100,7 @@ async function main(): Promise<void> {
     samplesPerCase: 1,
     retries: 0,
     startedAt: new Date().toISOString(),
-    completedAt: null as string | null,
+    completedAt: null,
     policyHash: toHash(policy),
     configuredRulesHash: toHash(JSON.stringify(configuredRules)),
     configuredRuleCounts: {
@@ -203,9 +203,7 @@ async function main(): Promise<void> {
   }
 
   if (output !== undefined && key !== null) {
-    report.completedAt = new Date().toISOString();
-
-    await writeReport(output, report);
+    await writeReport(output, { ...report, completedAt: new Date().toISOString() });
   }
 }
 

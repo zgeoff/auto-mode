@@ -11,7 +11,7 @@
     "CHANGELOG.md",
     // generated from the Betterleaks rule set; a reflow would separate it from
     // what the build script writes and grow the bundle
-    "src/secrets/betterleaks-rules.json"
+    "src/secrets/betterleaks-rules.ts"
   ],
   "proseWrap": "always",
   "semi": true,

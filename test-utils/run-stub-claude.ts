@@ -116,7 +116,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   printLine(
     buildResult({
       result: reply,
-      ...(modelUsage === undefined ? {} : { modelUsage: JSON.parse(modelUsage) as unknown }),
+      ...(modelUsage === undefined ? {} : { modelUsage: JSON.parse(modelUsage) }),
       ...(safetyStops === undefined ? {} : { safety_stops: Number(safetyStops) }),
     }),
   );
