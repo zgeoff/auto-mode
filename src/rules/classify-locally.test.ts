@@ -267,6 +267,11 @@ test.each([
   'git commit --no-verify -m x',
   'git push --no-verify',
   'git commit -n -m x',
+  'LEFTHOOK_EXCLUDE=test git push',
+  'LEFTHOOK_SKIP=lint git commit -m x',
+  'LEFTHOOK_EXCLUDE=test gh stack push',
+  'LEFTHOOK_EXCLUDE=test gh stack sync',
+  'LEFTHOOK_EXCLUDE=test gh stack submit',
 ])('it escalates the hook bypass %s', (command) => {
   const payload = buildMockActionRequest({
     toolName: 'Bash',

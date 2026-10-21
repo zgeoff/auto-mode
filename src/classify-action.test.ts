@@ -1952,6 +1952,11 @@ test.each([
   ['HUSKY=0 git commit -m x', 'HUSKY=0'],
   ['git commit --no-verify -m x', '--no-verify'],
   ['git push --no-verify', '--no-verify'],
+  ['LEFTHOOK_EXCLUDE=test git push', 'LEFTHOOK_EXCLUDE'],
+  ['LEFTHOOK_SKIP=lint git commit -m x', 'LEFTHOOK_SKIP'],
+  ['LEFTHOOK_EXCLUDE=test gh stack push', 'LEFTHOOK_EXCLUDE'],
+  ['LEFTHOOK_EXCLUDE=test gh stack sync', 'LEFTHOOK_EXCLUDE'],
+  ['LEFTHOOK_EXCLUDE=test gh stack submit', 'LEFTHOOK_EXCLUDE'],
 ])('it sends the hook bypass %s to Jev under Policy Tampering', async (command, bypass) => {
   const ctx = await setupTest();
 
@@ -2021,6 +2026,84 @@ test.each([
   invariant(question, 'the request asks about Policy Tampering');
 
   expect(question.instructions).toInclude(
-    `The pending action runs a git commit or push with the repository's hooks turned off, through ${bypass}.`,
+    `The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off, through ${bypass}.`,
+  );
+});
+
+test('it sends a write of a skip setting into the local lefthook config to Jev under Policy Tampering', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/feature',
+    '-b',
+    'feature',
+  ]);
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const worktree = join(ctx.directory, 'repo', '.worktrees', 'feature');
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: worktree,
+      toolName: 'Write',
+      toolInput: {
+        file_path: join(worktree, 'lefthook-local.yml'),
+        content: 'pre-push:\n  jobs:\n    - name: test\n      skip: true\n',
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+
+  const questionSchema = z.object({ instructions: z.string() });
+  const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const questions = Object.values(requestSchema.parse(call[0]).questions);
+  const question = questions.find((entry) => entry.instructions.includes('### Policy Tampering\n'));
+
+  invariant(question, 'the request asks about Policy Tampering');
+
+  expect(question.instructions).toInclude(
+    "The pending action writes a skip or exclude setting into lefthook's local config",
   );
 });
