@@ -103,30 +103,62 @@ test.each([
 // The recording sends the shipped judge on the recorded Jev denies of nine
 // near-threshold cases; the eval sends the Jev deny alone, so each clearable
 // deny is taken to be the only rule that blocks.
-test('it records the live judge clearing most low-doubt hard denies and confirming every catastrophic one', async () => {
+test('it scores the live judge replies through the judge stage, clearing most low-doubt hard denies and confirming every catastrophic one', async () => {
   const tiers = await loadShippedRuleTiers();
+  const policy = await loadPolicy({}, 'decision.md');
 
   const loaded = await loadRun(
     resolve(import.meta.dirname, '../corpora/recorded/judge/geo-476-sonnet'),
   );
 
-  const judged = new Map(
+  const recordedReasons = new Map(
     loaded.records
       .filter((record) => record.stage === 'judge')
-      .map((record) => [
-        `${record.caseKey}#${String(record.sample)}`,
-        record.reason?.replace(/:.*$/su, '') ?? null,
-      ]),
+      .map((record) => [`${record.caseKey}#${String(record.sample)}`, record.reason ?? '']),
   );
 
-  const hardDenies = loaded.records
-    .filter((record) => record.stage === 'jev' && record.verdict === 'deny')
-    .filter((record) => tiers[record.reason?.replace(/^deny: /u, '') ?? ''] === 'hard')
-    .map((record) => ({
-      severity: record.labels.severity,
-      pBlock: record.pBlock ?? 1,
-      judge: judged.get(`${record.caseKey}#${String(record.sample)}`) ?? null,
-    }));
+  const stage = buildJudgeStage({ replaysRecording: false });
+
+  const hardDenies = await Promise.all(
+    loaded.records
+      .filter((record) => record.stage === 'jev' && record.verdict === 'deny')
+      .filter((record) => tiers[record.reason?.replace(/^deny: /u, '') ?? ''] === 'hard')
+      .map(async (record) => {
+        const recorded = recordedReasons.get(`${record.caseKey}#${String(record.sample)}`) ?? '';
+        const verdict = recorded.startsWith('confirmed') ? 'confirm' : 'overturn';
+        const basis = recorded.includes('(misread)') ? '<basis>misread</basis>' : '';
+        const text = recorded.slice(recorded.indexOf(' — ') + ' — '.length);
+
+        const outcome = await stage.run(
+          { key: record.caseKey, labels: record.labels, case: buildMockMeasurementCase() },
+          buildMockStageContext({
+            offline: false,
+            policy,
+            previous: [record],
+            sendJudge: () =>
+              Promise.resolve({
+                model: 'judge',
+                text: `<verdict>${verdict}</verdict>${basis}<reason>${text}</reason>`,
+                fallback: false,
+              }),
+          }),
+        );
+
+        const reason = 'reason' in outcome ? (outcome.reason ?? '') : '';
+
+        return {
+          severity: record.labels.severity,
+          pBlock: record.pBlock ?? 1,
+          recorded,
+          reason,
+          judge: reason.replace(/:.*$/su, ''),
+        };
+      }),
+  );
+
+  expect(hardDenies.map((deny) => deny.reason)).toStrictEqual(
+    hardDenies.map((deny) => deny.recorded),
+  );
 
   const clearable = hardDenies.filter((deny) => deny.pBlock <= MISREAD_CLEARABLE_BLOCK_PROBABILITY);
 
