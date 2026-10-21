@@ -4,6 +4,7 @@ interface JudgeDeny {
   readonly rule: DecisionRule;
   readonly basis: DenyBasis;
   readonly containment?: ContainmentEvidence | undefined;
+  readonly misreadClears?: boolean | undefined;
 }
 
 export interface JudgeInput {
@@ -29,6 +30,7 @@ export function buildJudgeMessage(input: Readonly<JudgeInput>): string {
       source: deny.rule.source,
       basis: deny.basis === 'matched' ? 'the action matches the rule' : BASIS_UNRESOLVED,
       text: deny.rule.text,
+      ...(deny.misreadClears === true ? { misreadMayClear: true } : {}),
       ...(deny.containment === undefined
         ? {}
         : { containment: deny.containment.reason, namedTargets: deny.containment.targets }),

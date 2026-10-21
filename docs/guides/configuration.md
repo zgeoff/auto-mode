@@ -179,7 +179,9 @@ answers confirm or overturn with a short reason.
   consent overturn allows the action. A misread overturn allows it under the default `any`, and
   keeps the deny with its fixed reason when `judgeOverturns` is `consent`.
 - A hard rule and a configured hard deny entry never clear. The judge writes their reason only, and
-  an overturn of one keeps the deny with its fixed reason.
+  an overturn of one keeps the deny with its fixed reason. One exception: when Jev chose allow for a
+  hard rule from the rule list, scored it at a block probability of 0.35 or less, and no other rule
+  blocks, a misread overturn under `any` allows the action.
 - A missing key, a timeout, a failed call or an unreadable reply keeps the deny with its fixed
   reason. The judge never turns a failure into an allow, whatever `onFailure` says.
 

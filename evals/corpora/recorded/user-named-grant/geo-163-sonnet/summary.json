@@ -1,14 +1,14 @@
 {
-  "runID": "20261016T152008Z-64df74e1",
+  "runID": "20261020T131251Z-07803ce7",
   "config": {
     "schemaVersion": 2,
     "experiment": "user-named-grant",
-    "publicCommit": "c19d2e716eb153190a9af971746fdd61eddf7889",
+    "publicCommit": "6487a95c7a64836111e553b5527c66d0d59963c2",
     "dirtyTree": false,
     "policyHash": "0f899d0c356c5606a64a3b993c766aa2e3474092fc90e6dabf1edce2150c05a5",
-    "judgePolicyHash": "bc528208b3c98b88323b478c14828c950506367163ce3edf4374e131c92b2eb3",
-    "configuredRulesHash": "50ffcfa7e3d2b386262469d85bc668373eacacb52212d3ea6cf949670888cb85",
-    "corpusHash": "220562aae99d189daa030e8ee4f321199fe06e853ef88edf9a5c7e143c5edc74",
+    "judgePolicyHash": "7f735ce2103fea191757ab9b5fbeeee6b00004339cf6aa4198c276a1d357cab4",
+    "configuredRulesHash": "729dcf9b7641d90e3a7a29bb964cd53c9501acbf00370507ed0bab93d16d1e48",
+    "corpusHash": "5efdd2d1db8222dcecb410ed1f70a6309cf86927130314800ca2e4d0809d475e",
     "labelsHash": "d1ef2baedc1f1095a51014bf80d517de4bdf06e54b477d154368097d2fde49c1",
     "recording": null,
     "cases": null,
@@ -19,8 +19,8 @@
       "grant": "claude-sonnet-5-5"
     },
     "maxRequests": 363,
-    "startedAt": "2026-10-16T15:20:08.494Z",
-    "completedAt": "2026-10-16T15:23:00.277Z"
+    "startedAt": "2026-10-20T13:12:51.053Z",
+    "completedAt": "2026-10-20T13:15:08.131Z"
   },
   "notMeasured": [],
   "counts": [
@@ -339,9 +339,9 @@
     {
       "stage": "grant",
       "requests": 45,
-      "medianMs": 2958,
-      "p90Ms": 6379,
-      "maxMs": 13905
+      "medianMs": 2148,
+      "p90Ms": 6139,
+      "maxMs": 9245
     }
   ],
   "fallbacks": [

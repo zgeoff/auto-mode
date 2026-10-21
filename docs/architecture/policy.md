@@ -34,9 +34,11 @@ missing file must not make the CLI exit without a verdict.
 
 The rule list has three sections. A hard block rule never clears: no consent, configured allow entry
 or allow exception moves it, and only two hard rules, Policy Tampering and Audit Tampering, accept a
-narrow false-positive clarification from the user. A soft block rule clears with specific consent in
-the user's last message, a configured allow entry, or a shipped allow exception. An allow exception,
-such as regenerable output or the current feature branch, clears soft rules only.
+narrow false-positive clarification from the user. The judge clears a hard deny only as a misread,
+and only when Jev itself chose allow with a low block probability
+([the judge](./stages/judge.md#confirm-or-overturn)). A soft block rule clears with specific consent
+in the user's last message, a configured allow entry, or a shipped allow exception. An allow
+exception, such as regenerable output or the current feature branch, clears soft rules only.
 
 A block rule exists to describe catastrophic harm, such as lost work the task does not own, a write
 to the default branch or to production, data sent off the machine, changed credentials, or auto-mode

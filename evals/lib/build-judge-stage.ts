@@ -1,5 +1,6 @@
 import {
   DEFAULT_JUDGE_OVERTURNS,
+  MISREAD_CLEARABLE_BLOCK_PROBABILITY,
   buildDecisionRequest,
   buildJudgeMessage,
   buildJudgedVerdict,
@@ -59,7 +60,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
 
       const reply = await context.sendJudge({
         user: buildJudgeMessage({
-          denies: [{ rule: denied.rule, basis: denied.basis }],
+          denies: [{ rule: denied.rule, basis: denied.basis, misreadClears: denied.misreadClears }],
           action: {
             tool: entry.case.action.toolName,
             cwd: entry.case.action.cwd,
@@ -74,6 +75,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
 
       const judged = buildJudgedVerdict(denied.rule, denied.basis, parsed, {
         overturns: DEFAULT_JUDGE_OVERTURNS,
+        misreadClears: denied.misreadClears,
       });
 
       if (judged.status === 'failed') {
@@ -126,13 +128,19 @@ function findSkip(
 
 const JEV_DENY = /^(?:deny|all-allow-ask): (?<rule>.+)$/u;
 
-// The Jev record keeps the denied rule's name and the highest block
-// probability, which belongs to that rule; a choice of block is the answer
-// whose block probability passes one half.
+interface JevDeny {
+  readonly rule: DecisionRule;
+  readonly basis: 'matched' | 'unresolved';
+  readonly misreadClears: boolean;
+}
+
+// The Jev record keeps only the denied rule and its block probability, the
+// highest, so a choice of block passes one half and a clearable hard deny is
+// read as the only rule that blocks.
 function findJevDeny(
   entry: Readonly<MeasurementCase>,
   context: Readonly<StageContext>,
-): { readonly rule: DecisionRule; readonly basis: 'matched' | 'unresolved' } | StageOutcome | null {
+): JevDeny | StageOutcome | null {
   const jev = context.previous.find((record) => record.stage === JEV_STAGE);
 
   const name =
@@ -160,7 +168,16 @@ function findJevDeny(
     return { status: 'not-scorable', reason: 'jev-rule-not-shipped' };
   }
 
-  return { rule, basis: (jev.pBlock ?? 1) > 0.5 ? 'matched' : 'unresolved' };
+  const pBlock = jev.pBlock ?? 1;
+
+  return {
+    rule,
+    basis: pBlock > 0.5 ? 'matched' : 'unresolved',
+    misreadClears:
+      rule.tier === 'hard' &&
+      rule.source !== 'configured' &&
+      pBlock <= MISREAD_CLEARABLE_BLOCK_PROBABILITY,
+  };
 }
 
 function buildJudgeReplay(

@@ -21,6 +21,10 @@ export interface DeniedRule {
   readonly basis: DenyBasis;
 }
 
+export interface ReviewedRule extends DeniedRule {
+  readonly misreadClears: boolean;
+}
+
 export interface TaskScopeSummary {
   readonly worktrees: readonly string[];
   readonly branches: readonly string[];
@@ -63,6 +67,7 @@ export interface ContainmentEvidence {
 }
 
 export interface JudgeEvidence extends DeniedRule {
+  readonly misreadClears?: boolean | undefined;
   readonly repositoryContext: RepositoryContext | null;
   readonly containment?: ContainmentEvidence | undefined;
 }
