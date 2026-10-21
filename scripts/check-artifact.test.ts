@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { $ } from 'bun';
 import { runGit } from '../test-utils/run-git.ts';
 
-// The test script builds dist/ before the suite runs, so the check has an artifact to run.
 async function setupTest(): Promise<{ readonly gitDirectory: string }> {
   const directory = await mkdtemp(join(tmpdir(), 'check-artifact-'));
 
