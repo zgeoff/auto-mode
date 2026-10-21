@@ -11,7 +11,10 @@ export default defineConfig({
 
   // type:module makes .js unambiguously ESM; keep extensions plain (.js/.d.ts).
   fixedExtension: false,
-  dts: true,
+
+  // tsrs writes the declarations: the dts plugin runs it as a custom
+  // executable for its tsgo generator.
+  dts: { generator: 'tsgo', tsgo: { path: join(import.meta.dirname, 'node_modules/.bin/tsrs') } },
   clean: true,
   treeshake: true,
 
