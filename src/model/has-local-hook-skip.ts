@@ -1,4 +1,6 @@
 import type { ActionRequest } from '../request/types.ts';
+import { splitCommandWords } from '../shell/split-command-words.ts';
+import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import { toWordValues } from '../shell/to-word-values.ts';
 import { isLocalHookConfig } from './is-local-hook-config.ts';
@@ -67,13 +69,54 @@ function isShellSkipWrite(command: string): boolean {
 
   const tees = words.includes('tee') && words.some((word) => isLocalHookConfig(word));
 
-  // printf and `echo -e` turn `\n` and `\t` into a newline and a tab.
   const payload = [
-    ...words.map((word) => word.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\t`, '\t')),
+    ...splitShellCommand(command).segments.map((segment) => buildWrittenText(segment.text)),
     ...tokens.flatMap((token) => (token.kind === 'heredoc' ? [token.body] : [])),
   ].join('\n');
 
   return (redirects || tees) && collectSkipSettings(payload).length > 0;
+}
+
+// printf fills its format from the words after it, and printf and `echo -e`
+// turn `\n` and `\t` into a newline and a tab.
+function buildWrittenText(text: string): string {
+  const [program = '', format, ...args] = splitCommandWords(text);
+  const words = splitShellTokens(text).tokens.flatMap((token) => toWordValues(token));
+
+  const written =
+    program.slice(program.lastIndexOf('/') + 1) === 'printf' && format !== undefined
+      ? formatPrintf(format, args)
+      : words.join('\n');
+
+  return written.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\t`, '\t');
+}
+
+// printf repeats its format until the arguments run out, and `%%` is a
+// literal percent sign.
+function formatPrintf(format: string, args: readonly string[]): string {
+  const parts = format.split(/(?<spec>%%|%[-+ #0-9.]*[a-zA-Z])/u);
+  const slots = parts.filter((part, index) => index % 2 === 1 && part !== '%%').length;
+  const rounds = slots === 0 ? 1 : Math.max(1, Math.ceil(args.length / slots));
+
+  return Array.from({ length: rounds }, (_, round) => {
+    let slot = round * slots;
+
+    return parts
+      .map((part, index) => {
+        if (index % 2 === 0) {
+          return part;
+        }
+
+        if (part === '%%') {
+          return '%';
+        }
+
+        slot += 1;
+
+        return args[slot - 1] ?? '';
+      })
+      .join('');
+  }).join('');
 }
 
 // The value is a bracketed list, or runs to the end of its line, a comma or a

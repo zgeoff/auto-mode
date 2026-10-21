@@ -152,6 +152,11 @@ test.each([
   String.raw`printf 'pre-push:\n  exclude_tags: [test]\n' >> /repo/.lefthook-local.yml`,
   "cat > lefthook-local.yml <<'EOF'\npre-push:\n  jobs:\n    - name: test\n      skip: true\nEOF",
   'echo \'{"pre-push":{"skip":true}}\' | tee lefthook-local.json',
+  String.raw`printf 'pre-push:\n  skip: %s\n' true > lefthook-local.yml`,
+  String.raw`printf '%s:\n  exclude_tags: [%s]\n' pre-commit lint >> lefthook-local.yml`,
+  String.raw`printf 'pre-push:\n  %s: true\n' skip > lefthook-local.yml`,
+  String.raw`printf '  %s: %s\n' parallel true skip true >> lefthook-local.yml`,
+  String.raw`printf '  exclude: "%%%s"\n' lint >> lefthook-local.yml`,
 ])('it finds the shell write of a skip setting in %s', (command) => {
   expect(hasLocalHookSkip({ toolName: 'Bash', toolInput: { command } }, null)).toBeTrue();
 });
@@ -163,6 +168,9 @@ test.each([
   String.raw`printf 'pre-push:\n  parallel: true\n' > lefthook-local.yml`,
   String.raw`printf 'pre-push:\n  skip: false\n' > lefthook-local.yml`,
   String.raw`printf 'pre-commit:\n  exclude_tags: []\n' >> lefthook-local.yml`,
+  String.raw`printf 'pre-push:\n  skip: %s\n' false > lefthook-local.yml`,
+  String.raw`printf '%s:\n  skip: %s\n' pre-push false > lefthook-local.yml`,
+  String.raw`printf '  %s: %s\n' parallel true skip false >> lefthook-local.yml`,
   "cat > lefthook-local.yml <<'EOF'\npre-push:\n  skip: false\nEOF",
   'grep -n "skip:" lefthook-local.yml 2>&1',
 ])('it finds no shell write of a skip setting in %s', (command) => {
