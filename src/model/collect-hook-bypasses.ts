@@ -2,25 +2,68 @@ import { splitCommandWords } from '../shell/split-command-words.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
+import { toWordValues } from '../shell/to-word-values.ts';
 
-// The switches in a shell command that turn off the repository's git hooks for
-// a commit or a push. Each is a fixed label, never the command's own text,
-// because the labels reach the classifier's trusted instructions.
+// Each switch is a fixed label, never the command's own text, because the
+// labels reach the classifier's trusted instructions.
 export function collectHookBypasses(command: string): readonly string[] {
-  return splitShellCommand(command).segments.flatMap((segment) =>
-    collectSegmentBypasses(segment.text),
-  );
+  const exported = new Map<string, string>();
+
+  const bypasses: string[] = [];
+
+  for (const segment of splitShellCommand(command).segments) {
+    bypasses.push(...collectSegmentBypasses(segment.text, exported));
+  }
+
+  return bypasses;
 }
 
-function collectSegmentBypasses(text: string): readonly string[] {
-  const words = splitShellTokens(text).tokens.flatMap((token) =>
-    token.kind === 'word' ? [token.value] : [],
-  );
+// The gh stack commands that commit or push through git, and so run its hooks.
+const GH_STACK_WRITES: ReadonlySet<string> = new Set(['add', 'push', 'submit', 'sync']);
 
+function collectSegmentBypasses(text: string, exported: Map<string, string>): readonly string[] {
+  const words = splitShellTokens(text).tokens.flatMap((token) => toWordValues(token));
   const program = splitCommandWords(text);
   const [name = '', ...args] = program;
+  const prefix = words.slice(0, words.length - program.length);
+  const programName = name.slice(name.lastIndexOf('/') + 1);
 
-  if (name.slice(name.lastIndexOf('/') + 1) !== 'git') {
+  if (programName === 'export' && prefix.length === 0) {
+    for (const arg of args.filter((word) => /^\w+=/u.test(word))) {
+      exported.set(arg.slice(0, arg.indexOf('=')), arg);
+    }
+
+    return [];
+  }
+
+  // A bare assignment changes a variable the shell already exports.
+  if (program.length === 0) {
+    for (const word of prefix.filter((entry) => /^\w+=/u.test(entry))) {
+      const variable = word.slice(0, word.indexOf('='));
+
+      if (exported.has(variable)) {
+        exported.set(variable, word);
+      }
+    }
+
+    return [];
+  }
+
+  if (programName === 'unset' && prefix.length === 0) {
+    for (const arg of args) {
+      exported.delete(arg);
+    }
+
+    return [];
+  }
+
+  if (programName === 'gh') {
+    return args[0] === 'stack' && GH_STACK_WRITES.has(args[1] ?? '')
+      ? collectHookSwitches(prefix, exported)
+      : [];
+  }
+
+  if (programName !== 'git') {
     return [];
   }
 
@@ -30,10 +73,60 @@ function collectSegmentBypasses(text: string): readonly string[] {
     return [];
   }
 
-  const prefix = words.slice(0, words.length - program.length);
   const option = findNoVerifyOption(subArgs, subcommand);
 
-  return [...collectHookSwitches(prefix), ...(option === null ? [] : [option])];
+  return [...collectHookSwitches(prefix, exported), ...(option === null ? [] : [option])];
+}
+
+// lefthook skips its hooks for `0` or `false`, and husky for `0` alone. lefthook
+// leaves out each step or tag that LEFTHOOK_EXCLUDE names. lefthook 2.2.1 reads
+// no LEFTHOOK_SKIP, so an agent that sets it means to leave a step out.
+const HOOK_SWITCH_NAMES = ['LEFTHOOK', 'HUSKY', 'LEFTHOOK_EXCLUDE', 'LEFTHOOK_SKIP'] as const;
+
+// The words before the program set and unset variables in order, over what an
+// earlier export left: a later assignment replaces an earlier one, and
+// `env -u NAME` removes it, so only the last state of each name reaches git.
+function collectHookSwitches(
+  prefix: readonly string[],
+  exported: ReadonlyMap<string, string>,
+): readonly string[] {
+  const reaching = new Map(exported);
+
+  for (let index = 0; index < prefix.length; index += 1) {
+    const word = prefix[index] ?? '';
+    const name = word.slice(0, word.indexOf('='));
+
+    if (word === '-u') {
+      reaching.delete(prefix[index + 1] ?? '');
+
+      index += 1;
+    } else if (/^\w+$/u.test(name)) {
+      reaching.set(name, word);
+    }
+  }
+
+  return HOOK_SWITCH_NAMES.flatMap((name) => {
+    const word = reaching.get(name);
+    const label = word === undefined ? null : findSwitchLabel(name, word.slice(name.length + 1));
+
+    return label === null ? [] : [label];
+  });
+}
+
+function findSwitchLabel(name: string, value: string): string | null {
+  if (name === 'LEFTHOOK' && (value === '0' || value === 'false')) {
+    return `LEFTHOOK=${value}`;
+  }
+
+  if (name === 'HUSKY' && value === '0') {
+    return 'HUSKY=0';
+  }
+
+  if ((name === 'LEFTHOOK_EXCLUDE' || name === 'LEFTHOOK_SKIP') && /[^\s,]/u.test(value)) {
+    return name;
+  }
+
+  return null;
 }
 
 const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([
@@ -170,36 +263,4 @@ function parseCommitCluster(arg: string): CommitCluster {
   }
 
   return { hasNoVerify, takesNextWord: false };
-}
-
-// lefthook skips its hooks for `0` or `false`, husky for `0` alone.
-const HOOK_SWITCH_VALUES: ReadonlyMap<string, readonly string[]> = new Map([
-  ['LEFTHOOK', ['0', 'false']],
-  ['HUSKY', ['0']],
-]);
-
-// The words before the program set and unset variables in order: a later
-// assignment replaces an earlier one, and `env -u NAME` removes it, so only
-// the last state of each name reaches git.
-function collectHookSwitches(prefix: readonly string[]): readonly string[] {
-  const reaching = new Map<string, string>();
-
-  for (let index = 0; index < prefix.length; index += 1) {
-    const word = prefix[index] ?? '';
-    const name = word.slice(0, word.indexOf('='));
-
-    if (word === '-u') {
-      reaching.delete(prefix[index + 1] ?? '');
-
-      index += 1;
-    } else if (/^\w+$/u.test(name)) {
-      reaching.set(name, word);
-    }
-  }
-
-  return [...HOOK_SWITCH_VALUES].flatMap(([name, values]) => {
-    const word = reaching.get(name);
-
-    return word !== undefined && values.includes(word.slice(name.length + 1)) ? [word] : [];
-  });
 }

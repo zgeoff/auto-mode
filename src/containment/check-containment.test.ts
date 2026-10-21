@@ -253,6 +253,11 @@ test.each([
   'git commit --no-verify -m x',
   'git push --no-verify',
   'git commit -n -m x',
+  'LEFTHOOK_EXCLUDE=test git push',
+  'LEFTHOOK_SKIP=lint git commit -m x',
+  'LEFTHOOK_EXCLUDE=test gh stack push',
+  'LEFTHOOK_EXCLUDE=test gh stack sync',
+  'LEFTHOOK_EXCLUDE=test gh stack submit',
 ])('it passes the in-scope hook bypass %s on with no deny', (command) => {
   const request = buildMockActionRequest({
     toolName: 'Bash',

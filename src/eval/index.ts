@@ -43,6 +43,7 @@ export { pickDecisionVerdict } from '../model/pick-decision-verdict.ts';
 export { probabilitySchema } from '../model/probability-schema.ts';
 export { repositoryContextSchema } from '../model/repository-context-schema.ts';
 export { readContainmentRule } from '../policy/read-containment-rule.ts';
+export { classifyLocally } from '../rules/classify-locally.ts';
 export { actionRequestSchema } from '../request/action-request-schema.ts';
 export { collectPullRequestAddresses } from '../scope/collect-pull-request-addresses.ts';
 export { makeScopeSourceReader } from '../scope/make-scope-source-reader.ts';

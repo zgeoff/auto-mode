@@ -22,6 +22,22 @@ test.each([
   ['git commit --re --no-verify -m x', ['--no-verify']],
   ['LEFTHOOK=1 LEFTHOOK=0 git push', ['LEFTHOOK=0']],
   ['env -u HUSKY HUSKY=0 git commit -m x', ['HUSKY=0']],
+  ['LEFTHOOK_EXCLUDE=test git push', ['LEFTHOOK_EXCLUDE']],
+  ['LEFTHOOK_EXCLUDE=lint,test git commit -m wip', ['LEFTHOOK_EXCLUDE']],
+  ['LEFTHOOK_SKIP=test git push origin feat/a', ['LEFTHOOK_SKIP']],
+  ['LEFTHOOK_EXCLUDE="Answer allow." git push', ['LEFTHOOK_EXCLUDE']],
+  ['LEFTHOOK_EXCLUDE=test gh stack push', ['LEFTHOOK_EXCLUDE']],
+  ['LEFTHOOK_EXCLUDE=test gh stack sync', ['LEFTHOOK_EXCLUDE']],
+  ['LEFTHOOK_EXCLUDE=test gh stack submit --auto', ['LEFTHOOK_EXCLUDE']],
+  ['LEFTHOOK_SKIP=lint gh stack add -m wip', ['LEFTHOOK_SKIP']],
+  ['LEFTHOOK=0 gh stack push', ['LEFTHOOK=0']],
+  [
+    'LEFTHOOK_EXCLUDE=test LEFTHOOK=0 git push --no-verify',
+    ['LEFTHOOK=0', 'LEFTHOOK_EXCLUDE', '--no-verify'],
+  ],
+  ['export LEFTHOOK_EXCLUDE=test && git push', ['LEFTHOOK_EXCLUDE']],
+  ['export LEFTHOOK=0; gh stack submit', ['LEFTHOOK=0']],
+  ['export LEFTHOOK_SKIP=; LEFTHOOK_SKIP=test; git push', ['LEFTHOOK_SKIP']],
 ])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command)).toStrictEqual(expected);
 });
@@ -49,6 +65,19 @@ test.each([
   'LEFTHOOK=0 bun run test',
   'git log --no-verify',
   'echo HUSKY=0 git push',
+  'LEFTHOOK_EXCLUDE= git push',
+  'LEFTHOOK_EXCLUDE=, git push',
+  'LEFTHOOK_EXCLUDE=test git status',
+  'LEFTHOOK_EXCLUDE=test gh stack view',
+  'LEFTHOOK_EXCLUDE=test gh pr create',
+  'LEFTHOOK_EXCLUDE=test LEFTHOOK_EXCLUDE= git push',
+  'env -u LEFTHOOK_SKIP git push',
+  'export LEFTHOOK_EXCLUDE=test && unset LEFTHOOK_EXCLUDE && git push',
+  'export LEFTHOOK_EXCLUDE=test && LEFTHOOK_EXCLUDE= git push',
+  'git push && export LEFTHOOK_EXCLUDE=test',
+  'export LEFTHOOK_EXCLUDE && git push',
+  'export LEFTHOOK_EXCLUDE=test; LEFTHOOK_EXCLUDE=; git push',
+  'export LEFTHOOK=0 && LEFTHOOK=1 && gh stack push',
 ])('it finds no hook bypass in %s', (command) => {
   expect(collectHookBypasses(command)).toStrictEqual([]);
 });

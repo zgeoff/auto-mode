@@ -48,7 +48,7 @@ export function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
 
       return { key: 'id', keys: cases.map((entry) => entry.id) };
     })
-    .with('default-branch-write', 'held-out', 'question-severity', async () => {
+    .with('default-branch-write', 'held-out', 'hook-bypass', 'question-severity', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), decisionRulesCorpusSchema);
 
       return { key: 'id', keys: loaded.data.cases.map((entry) => entry.id) };
