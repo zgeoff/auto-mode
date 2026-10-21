@@ -53,7 +53,7 @@ test.each([
   },
 );
 
-// The GEO-476 run sends the shipped judge on the GEO-161 Jev denies of nine
+// The recording sends the shipped judge on the recorded Jev denies of nine
 // near-threshold cases; the eval sends the Jev deny alone, so each clearable
 // deny is taken to be the only rule that blocks.
 test('it records the live judge clearing most low-doubt hard denies and confirming every catastrophic one', async () => {
