@@ -7,6 +7,14 @@ export interface Checkout {
   readonly commonDir: string;
 }
 
+// Where a checkout's hooks run from: the folder git runs them from, and the
+// config lefthook loads, or null when the worktree root holds none.
+export interface HookFacts {
+  readonly worktree: string;
+  readonly hooksDirectory: string;
+  readonly lefthookConfig: string | null;
+}
+
 export type CheckoutReader = (
   start: string,
   env: HostEnvironment['env'],

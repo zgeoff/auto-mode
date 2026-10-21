@@ -39,7 +39,109 @@ test.each([
   ['export LEFTHOOK=0; gh stack submit', ['LEFTHOOK=0']],
   ['export LEFTHOOK_SKIP=; LEFTHOOK_SKIP=test; git push', ['LEFTHOOK_SKIP']],
 ])('it finds the hook bypass in %s', (command, expected) => {
-  expect(collectHookBypasses(command)).toStrictEqual(expected);
+  expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
+});
+
+test.each([
+  ['LEFTHOOK_CONFIG=other.yml git commit -m wip', ['LEFTHOOK_CONFIG']],
+  ['LEFTHOOK_CONFIG=/tmp/empty.yml git push', ['LEFTHOOK_CONFIG']],
+  ['LEFTHOOK_CONFIG=.lefthook.yml git push', ['LEFTHOOK_CONFIG']],
+  ['LEFTHOOK_CONFIG=$OTHER git push', ['LEFTHOOK_CONFIG']],
+  ['LEFTHOOK_CONFIG=other.yml gh stack submit', ['LEFTHOOK_CONFIG']],
+  ['export LEFTHOOK_CONFIG=other.yml && git push', ['LEFTHOOK_CONFIG']],
+  ['git -C /srv/other push', []],
+  ['git -C /srv/other -c core.hooksPath=/srv/harbor/.git/hooks push', ['core.hooksPath']],
+  ['git -C /srv/other -c core.hooksPath=.git/hooks push', ['core.hooksPath']],
+  ['LEFTHOOK_CONFIG=lefthook.yml git -C /srv/other push', ['LEFTHOOK_CONFIG']],
+  ['cd /srv/other && git -c core.hooksPath=/srv/harbor/.git/hooks push', ['core.hooksPath']],
+  ['git -c core.hooksPath=/dev/null commit -m wip', ['core.hooksPath']],
+  ['git -c core.hooksPath= push', ['core.hooksPath']],
+  ['git -c core.hooksPath=.git/hooks push', ['core.hooksPath']],
+  ['git -c CORE.HOOKSPATH=/tmp/none push', ['core.hooksPath']],
+  ['git -c core.hooksPath=~/hooks push', ['core.hooksPath']],
+  ['git -c core.hooksPath=$HOOKS push', ['core.hooksPath']],
+  [
+    'git -c core.hooksPath=/srv/harbor/.git/hooks -c core.hooksPath=/tmp/none push',
+    ['core.hooksPath'],
+  ],
+  ['git --config-env=core.hooksPath=HOOKS commit -m wip', ['core.hooksPath']],
+  ['HOOKS=/tmp/none git --config-env core.hooksPath=HOOKS push', ['core.hooksPath']],
+  [
+    'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none git push',
+    ['core.hooksPath'],
+  ],
+  [
+    'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none gh stack push',
+    ['core.hooksPath'],
+  ],
+  [
+    'export GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/tmp/none; gh stack sync',
+    ['core.hooksPath'],
+  ],
+  [
+    'GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/srv/harbor/.git/hooks GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/tmp/none git push',
+    ['core.hooksPath'],
+  ],
+  [
+    'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/srv/harbor/.git/hooks git -c core.hooksPath=/tmp/none push',
+    ['core.hooksPath'],
+  ],
+  [
+    'LEFTHOOK_CONFIG=other.yml git -c core.hooksPath=/tmp/none push --no-verify',
+    ['LEFTHOOK_CONFIG', 'core.hooksPath', '--no-verify'],
+  ],
+])('it finds the hook bypass in %s run in a worktree with known hooks', (command, expected) => {
+  expect(
+    collectHookBypasses(command, '/srv/harbor/.worktrees/feat', {
+      worktree: '/srv/harbor/.worktrees/feat',
+      hooksDirectory: '/srv/harbor/.git/hooks',
+      lefthookConfig: '/srv/harbor/.worktrees/feat/lefthook.yml',
+    }),
+  ).toStrictEqual(expected);
+});
+
+test.each([
+  'LEFTHOOK_CONFIG= git push',
+  'LEFTHOOK_CONFIG=lefthook.yml git commit -m wip',
+  'LEFTHOOK_CONFIG=./lefthook.yml gh stack submit',
+  'LEFTHOOK_CONFIG=/srv/harbor/.worktrees/feat/lefthook.yml git push',
+  'LEFTHOOK_CONFIG=other.yml git status',
+  'git -c core.hooksPath=/srv/harbor/.git/hooks commit -m wip',
+  'git -c core.hooksPath=/srv/harbor/.git/hooks/ push',
+  'git -c core.hooksPath=../../.git/hooks push',
+  'git -C src -c core.hooksPath=/srv/harbor/.git/hooks push',
+  'git -c core.hooksPath=/tmp/none -c core.hooksPath=/srv/harbor/.git/hooks push',
+  'git -c core.hooksPath=/tmp/none status',
+  'git -c user.name=robin -c core.hooksPathx=/tmp/none push',
+  'HOOKS=/srv/harbor/.git/hooks git --config-env=core.hooksPath=HOOKS push',
+  'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/srv/harbor/.git/hooks gh stack push',
+  'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/tmp/none git push',
+  'GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none git push',
+  'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none git -c core.hooksPath=/srv/harbor/.git/hooks push',
+])('it finds no hook bypass in %s run in a worktree with known hooks', (command) => {
+  expect(
+    collectHookBypasses(command, '/srv/harbor/.worktrees/feat', {
+      worktree: '/srv/harbor/.worktrees/feat',
+      hooksDirectory: '/srv/harbor/.git/hooks',
+      lefthookConfig: '/srv/harbor/.worktrees/feat/lefthook.yml',
+    }),
+  ).toStrictEqual([]);
+});
+
+test('it counts any LEFTHOOK_CONFIG as another config when the worktree holds no lefthook config', () => {
+  expect(
+    collectHookBypasses('LEFTHOOK_CONFIG=lefthook.yml git push', '/srv/harbor', {
+      worktree: '/srv/harbor',
+      hooksDirectory: '/srv/harbor/.git/hooks',
+      lefthookConfig: null,
+    }),
+  ).toStrictEqual(['LEFTHOOK_CONFIG']);
+});
+
+test('it counts the repository hooks folder as another one when the checkout is unknown', () => {
+  expect(
+    collectHookBypasses('git -c core.hooksPath=/srv/harbor/.git/hooks push', '/srv/harbor', null),
+  ).toStrictEqual(['core.hooksPath']);
 });
 
 test.each([
@@ -79,5 +181,5 @@ test.each([
   'export LEFTHOOK_EXCLUDE=test; LEFTHOOK_EXCLUDE=; git push',
   'export LEFTHOOK=0 && LEFTHOOK=1 && gh stack push',
 ])('it finds no hook bypass in %s', (command) => {
-  expect(collectHookBypasses(command)).toStrictEqual([]);
+  expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual([]);
 });
