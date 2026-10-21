@@ -108,5 +108,10 @@ jobs:
       - name: Test
         run: bun run test
 
+      # builds the package as the release does, so publint lints the files
+      # that ship and tsdown's declaration step runs on every pull request
+      - name: Build
+        run: bun run build
+
       - name: Lint the published package
         run: bun run publint
