@@ -38,6 +38,19 @@ function collectSegmentBypasses(text: string, exported: Map<string, string>): re
     return [];
   }
 
+  // A bare assignment changes a variable the shell already exports.
+  if (program.length === 0) {
+    for (const word of prefix.filter((entry) => /^\w+=/u.test(entry))) {
+      const variable = word.slice(0, word.indexOf('='));
+
+      if (exported.has(variable)) {
+        exported.set(variable, word);
+      }
+    }
+
+    return [];
+  }
+
   if (programName === 'unset' && prefix.length === 0) {
     for (const arg of args) {
       exported.delete(arg);
