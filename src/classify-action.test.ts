@@ -2030,6 +2030,87 @@ test.each([
   );
 });
 
+test('it reads the local lefthook config to tell Jev that an Edit of a bare value turns a skip on', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/feature',
+    '-b',
+    'feature',
+  ]);
+
+  const worktree = join(ctx.directory, 'repo', '.worktrees', 'feature');
+
+  await writeFile(join(worktree, 'lefthook-local.yml'), 'pre-push:\n  skip: false\n');
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: worktree,
+      toolName: 'Edit',
+      toolInput: {
+        file_path: join(worktree, 'lefthook-local.yml'),
+        old_string: 'false',
+        new_string: 'true',
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+
+  const questionSchema = z.object({ instructions: z.string() });
+  const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const questions = Object.values(requestSchema.parse(call[0]).questions);
+  const question = questions.find((entry) => entry.instructions.includes('### Policy Tampering\n'));
+
+  invariant(question, 'the request asks about Policy Tampering');
+
+  expect(question.instructions).toInclude(
+    "The pending action writes a skip or exclude setting into lefthook's local config",
+  );
+});
+
 test('it sends a write of a skip setting into the local lefthook config to Jev under Policy Tampering', async () => {
   const ctx = await setupTest();
 

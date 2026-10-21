@@ -18,6 +18,7 @@ export interface DecisionRequestOptions {
   readonly rulesSource?: 'shipped' | 'replacement' | undefined;
   readonly repositoryContext?: RepositoryContext | null | undefined;
   readonly mcpServers?: readonly MCPServerFact[] | undefined;
+  readonly localHookConfig?: string | null | undefined;
 }
 
 export function buildDecisionRequest(
@@ -80,7 +81,7 @@ export function buildDecisionRequest(
 
   const command = payload.toolName === 'Bash' ? payload.toolInput['command'] : undefined;
   const hookBypasses = typeof command === 'string' ? collectHookBypasses(command) : [];
-  const writesLocalHookSkip = hasLocalHookSkip(payload);
+  const writesLocalHookSkip = hasLocalHookSkip(payload, options.localHookConfig ?? null);
 
   const questions = Object.fromEntries(
     Object.entries(rules).map(([id, rule]) => {

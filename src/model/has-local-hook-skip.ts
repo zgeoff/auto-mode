@@ -1,12 +1,12 @@
 import type { ActionRequest } from '../request/types.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import { toWordValues } from '../shell/to-word-values.ts';
+import { isLocalHookConfig } from './is-local-hook-config.ts';
 
-// lefthook merges its local config over the shared one, in YAML, JSON, JSONC or
-// TOML, with or without a leading dot.
-const LOCAL_CONFIG = /(?:^|\/)\.?lefthook-local\.(?:ya?ml|jsonc?|toml)$/iu;
-
-export function hasLocalHookSkip(call: Pick<ActionRequest, 'toolName' | 'toolInput'>): boolean {
+export function hasLocalHookSkip(
+  call: Pick<ActionRequest, 'toolName' | 'toolInput'>,
+  current: string | null,
+): boolean {
   const input = call.toolInput;
 
   if (call.toolName === 'Bash') {
@@ -17,7 +17,7 @@ export function hasLocalHookSkip(call: Pick<ActionRequest, 'toolName' | 'toolInp
 
   const path = input['file_path'];
 
-  if (typeof path !== 'string' || !LOCAL_CONFIG.test(path)) {
+  if (typeof path !== 'string' || !isLocalHookConfig(path)) {
     return false;
   }
 
@@ -25,11 +25,29 @@ export function hasLocalHookSkip(call: Pick<ActionRequest, 'toolName' | 'toolInp
     return collectSkipSettings(input['content']).length > 0;
   }
 
-  if (call.toolName === 'Edit') {
-    return hasNewSetting(collectSkipSettings(input['old_string']), input['new_string']);
+  if (call.toolName !== 'Edit') {
+    return false;
   }
 
-  return false;
+  const oldString = input['old_string'];
+  const newString = input['new_string'];
+
+  if (
+    current === null ||
+    typeof oldString !== 'string' ||
+    typeof newString !== 'string' ||
+    oldString === '' ||
+    !current.includes(oldString)
+  ) {
+    return hasNewSetting(collectSkipSettings(oldString), newString);
+  }
+
+  const edited =
+    input['replace_all'] === true
+      ? current.replaceAll(oldString, () => newString)
+      : current.replace(oldString, () => newString);
+
+  return hasNewSetting(collectSkipSettings(current), edited);
 }
 
 // `>&2` and `2>&1` duplicate a descriptor and write no file.
@@ -44,10 +62,10 @@ function isShellSkipWrite(command: string): boolean {
       token.kind === 'redirect' &&
       token.target !== null &&
       WRITE_REDIRECTS.has(token.operator.replace(/^\d+/u, '')) &&
-      LOCAL_CONFIG.test(token.target),
+      isLocalHookConfig(token.target),
   );
 
-  const tees = words.includes('tee') && words.some((word) => LOCAL_CONFIG.test(word));
+  const tees = words.includes('tee') && words.some((word) => isLocalHookConfig(word));
 
   // printf and `echo -e` turn `\n` and `\t` into a newline and a tab.
   const payload = [

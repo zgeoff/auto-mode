@@ -95,7 +95,7 @@ test.each([
     },
   ],
 ])('it finds a skip setting written by %s into a local lefthook config', (toolName, toolInput) => {
-  expect(hasLocalHookSkip({ toolName, toolInput })).toBeTrue();
+  expect(hasLocalHookSkip({ toolName, toolInput }, null)).toBeTrue();
 });
 
 test.each([
@@ -144,7 +144,7 @@ test.each([
   ['NotebookEdit', { notebook_path: '/repo/lefthook-local.yml', new_source: 'skip: true' }],
   ['Read', { file_path: '/repo/lefthook-local.yml' }],
 ])('it finds no skip setting written by %s in %o', (toolName, toolInput) => {
-  expect(hasLocalHookSkip({ toolName, toolInput })).toBeFalse();
+  expect(hasLocalHookSkip({ toolName, toolInput }, null)).toBeFalse();
 });
 
 test.each([
@@ -153,7 +153,7 @@ test.each([
   "cat > lefthook-local.yml <<'EOF'\npre-push:\n  jobs:\n    - name: test\n      skip: true\nEOF",
   'echo \'{"pre-push":{"skip":true}}\' | tee lefthook-local.json',
 ])('it finds the shell write of a skip setting in %s', (command) => {
-  expect(hasLocalHookSkip({ toolName: 'Bash', toolInput: { command } })).toBeTrue();
+  expect(hasLocalHookSkip({ toolName: 'Bash', toolInput: { command } }, null)).toBeTrue();
 });
 
 test.each([
@@ -166,5 +166,53 @@ test.each([
   "cat > lefthook-local.yml <<'EOF'\npre-push:\n  skip: false\nEOF",
   'grep -n "skip:" lefthook-local.yml 2>&1',
 ])('it finds no shell write of a skip setting in %s', (command) => {
-  expect(hasLocalHookSkip({ toolName: 'Bash', toolInput: { command } })).toBeFalse();
+  expect(hasLocalHookSkip({ toolName: 'Bash', toolInput: { command } }, null)).toBeFalse();
+});
+
+test.each([
+  ['pre-push:\n  skip: false\n', 'false', 'true', true],
+  ['pre-commit:\n  exclude_tags: [lint]\n', 'lint]', 'lint, test]', true],
+  [
+    'pre-push:\n  jobs:\n    - name: test\n',
+    'name: test\n',
+    'name: test\n      skip: true\n',
+    true,
+  ],
+  ['pre-push:\n  skip: true\n', 'true', 'false', false],
+  ['pre-push:\n  skip: true\n  parallel: false\n', 'parallel: false', 'parallel: true', false],
+  ['pre-push:\n  skip: false\n', 'skip: false', 'skip: false\n  parallel: true', false],
+])(
+  'it reads the Edit of %o from %o to %o against the current config as adding a skip: %p',
+  (current, oldString, newString, expected) => {
+    expect(
+      hasLocalHookSkip(
+        {
+          toolName: 'Edit',
+          toolInput: {
+            file_path: '/repo/lefthook-local.yml',
+            old_string: oldString,
+            new_string: newString,
+          },
+        },
+        current,
+      ),
+    ).toBe(expected);
+  },
+);
+
+test('it applies an Edit that replaces every match to each place in the current config', () => {
+  expect(
+    hasLocalHookSkip(
+      {
+        toolName: 'Edit',
+        toolInput: {
+          file_path: '/repo/lefthook-local.yml',
+          old_string: 'skip: false',
+          new_string: 'skip: true',
+          replace_all: true,
+        },
+      },
+      'pre-push:\n  skip: true\npre-commit:\n  skip: false\n',
+    ),
+  ).toBeTrue();
 });

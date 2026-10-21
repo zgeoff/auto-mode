@@ -11,6 +11,7 @@ import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import { buildJevOutcome } from './build-jev-outcome.ts';
+import { readLocalHookConfig } from './read-local-hook-config.ts';
 import { sendDecision } from './send-decision.ts';
 import type { DecisionDiagnostics, ModelOptions, ModelOutcome } from './types.ts';
 
@@ -68,7 +69,7 @@ export async function classifyWithJev(
     const repositoryContext =
       checkout === null ? null : buildRepositoryEvidence(checkout, options.taskScope);
 
-    const [policy, mcpServers] = await Promise.all([
+    const [policy, mcpServers, localHookConfig] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
@@ -76,6 +77,7 @@ export async function classifyWithJev(
       loadMCPServers(payload.cwd, host, settings.userSettings, checkout ?? undefined).catch(
         () => [],
       ),
+      readLocalHookConfig(payload),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
@@ -86,6 +88,7 @@ export async function classifyWithJev(
       rulesSource,
       repositoryContext,
       mcpServers,
+      localHookConfig,
     });
 
     const signal = createDeadlineSignal(config.provider.timeoutMs, options);
