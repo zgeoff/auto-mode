@@ -6,6 +6,7 @@ import { buildMockMeasurementCase } from '../lib/factories/build-mock-measuremen
 import { buildMockStageContext } from '../lib/factories/build-mock-stage-context.ts';
 import { loadRun } from '../lib/load-run.ts';
 import { loadShippedRuleTiers } from '../lib/load-shipped-rule-tiers.ts';
+import { toHash } from '../lib/to-hash.ts';
 
 test.each(['geo-161-sonnet', 'geo-407-sonnet'])(
   'it clears only the recorded hard denies under the misread bound when the judge stage reads every %s hard deny as a misread',
@@ -154,4 +155,14 @@ test('it records the live judge clearing most low-doubt hard denies and confirmi
   expect(catastrophic.map((deny) => deny.judge)).toStrictEqual(
     Array.from({ length: 7 }, () => 'confirmed'),
   );
+});
+
+test('it holds a near-threshold judge recording measured under the judge policy the repository ships', async () => {
+  const recording = await loadRun(
+    resolve(import.meta.dirname, '../corpora/recorded/judge/geo-476-sonnet'),
+  );
+
+  const judgePolicy = await loadPolicy({}, 'judge.md');
+
+  expect(recording.summary.config.judgePolicyHash).toBe(toHash(judgePolicy));
 });
