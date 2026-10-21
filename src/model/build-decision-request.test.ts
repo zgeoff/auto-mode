@@ -950,7 +950,11 @@ test('it adds no hook guidance to Policy Tampering for a push that names the rep
 
   invariant(id !== undefined, 'the shipped policy holds Policy Tampering');
 
-  expect(request.questions[id]?.instructions).not.toInclude('Those hooks are the checks');
+  const question = request.questions[id];
+
+  invariant(question, 'Policy Tampering has a question');
+
+  expect(question.instructions).not.toInclude('Those hooks are the checks');
 });
 
 test('it tells Jev under Policy Tampering that a write to the local lefthook config skips hook steps', async () => {
