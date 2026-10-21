@@ -64,7 +64,7 @@
     "prepare": "bash scripts/link-evals-package.sh && (command -v git > /dev/null 2>&1 && lefthook install --force || true)",
     "publint": "publint",
     "test": "bun run build && bun --no-env-file test --conditions=auto-mode-eval",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p evals/tsconfig.json --noEmit",
+    "typecheck": "tsrs -p tsconfig.json --noEmit && tsrs -p evals/tsconfig.json --noEmit",
     "check:artifact": "bun --no-env-file scripts/check-artifact.ts",
     "check:claude-mod": "bun --no-env-file scripts/check-claude-mod.ts",
     "files:branch": "bun scripts/read-branch-files.ts",
@@ -96,6 +96,7 @@
     "tiny-invariant": "1.3.3",
     "ts-pattern": "5.9.0",
     "tsdown": "0.23.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "7.0.2",
     "zod": "4.6.6"
   },
