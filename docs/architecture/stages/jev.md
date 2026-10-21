@@ -45,6 +45,16 @@ question then names each switch and asks Jev to judge the call under that rule. 
 a fixed label, never by the command's own text, because the question is trusted instruction and the
 agent under review writes the command.
 
+A command that replaces the repository's hooks gets the same guidance. It applies when a variable
+points lefthook at a config other than the one the worktree loads, or when a git config option or
+git's config variables point git at a hooks folder other than the repository's. The config variables
+are the only way to change the hooks folder of a gh stack command. To tell the repository's own
+hooks from others, the Jev stage reads the checkout: the hooks folder from git's config files,
+resolved as git resolves it, and the first lefthook config at the worktree root. A path that names
+those exactly keeps the hooks and adds nothing. Any other path counts as a replacement, as does
+every path when the checkout is unknown or the command leaves it. An empty hooks folder runs no
+hooks, so it counts too.
+
 A skip or exclude setting in lefthook's local config leaves steps out of every later commit and
 push, so a write that adds one gets the same guidance, whether a file tool or a shell redirection
 makes it. No earlier stage allows these calls: the local rules never allow a commit, a push or a
