@@ -1,5 +1,5 @@
 import { access, readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
 import { parseConfigValue } from './parse-config-value.ts';
 import type { Checkout, HookFacts } from './types.ts';
@@ -22,21 +22,22 @@ export async function readHookFacts(
       join(xdgConfig, 'git', 'config'),
       join(host.home, '.gitconfig'),
       join(checkout.commonDir, 'config'),
-    ].map((path) => readFile(path, 'utf8').catch(() => '')),
+    ].map((path) => readConfigHooksPath(path, host.home, 0)),
   );
 
-  const worktreeConfig = await readFile(join(checkout.gitDir, 'config.worktree'), 'utf8').catch(
-    () => null,
+  // A worktree's own config can set core.hooksPath, and git reads it only
+  // under an extension this reader does not check.
+  const hasWorktreeConfig = await access(join(checkout.gitDir, 'config.worktree')).then(
+    () => true,
+    () => false,
   );
 
-  // An included file or a worktree's own config can set core.hooksPath where
-  // this reader does not follow, so the hooks folder is unknown.
-  if (worktreeConfig !== null || configs.some((config) => hasConfigInclude(config))) {
+  if (hasWorktreeConfig || configs.some((config) => !config.isKnown)) {
     return null;
   }
 
   const hooksPath =
-    configs.map((config) => findHooksPath(config)).findLast((path) => path !== null) ?? null;
+    configs.map((config) => config.hooksPath).findLast((path) => path !== null) ?? null;
 
   const candidates = LEFTHOOK_EXTENSIONS.flatMap((extension) =>
     LEFTHOOK_NAMES.map((name) => join(checkout.worktree, `${name}.${extension}`)),
@@ -61,29 +62,61 @@ export async function readHookFacts(
   };
 }
 
-function hasConfigInclude(config: string): boolean {
-  return /^\s*\[\s*include(?:if)?\b/imu.test(config);
+interface ConfigHooksPath {
+  readonly isKnown: boolean;
+  readonly hooksPath: string | null;
 }
 
-function findHooksPath(config: string): string | null {
-  let isCore = false;
-  let found: string | null = null;
+// git stops past this many nested includes.
+const MAX_INCLUDE_DEPTH = 10;
 
-  for (const line of config.split('\n')) {
+// git reads an included file in place, ignores one that is missing, and reads
+// a relative include path from the including file's folder. An includeIf
+// holds a condition this reader does not judge, so it leaves the value unknown.
+async function readConfigHooksPath(
+  path: string,
+  home: string,
+  depth: number,
+): Promise<ConfigHooksPath> {
+  const config = await readFile(path, 'utf8').catch(() => null);
+
+  let section = '';
+  let hooksPath: string | null = null;
+
+  for (const line of config?.split('\n') ?? []) {
     const header = /^\s*\[(?<section>[^\]]*)\]/u.exec(line)?.groups?.['section'];
+    const entry = /^\s*(?<key>[\w-]+)\s*=(?<value>.*)$/u.exec(line)?.groups;
+    const key = entry?.['key']?.toLowerCase();
+    const value = parseConfigValue(entry?.['value'] ?? '');
 
     if (header !== undefined) {
-      isCore = header.trim().toLowerCase() === 'core';
-    } else if (isCore) {
-      const value = /^\s*hookspath\s*=(?<value>.*)$/iu.exec(line)?.groups?.['value'];
+      section = header.trim().toLowerCase();
 
-      if (value !== undefined) {
-        found = parseConfigValue(value);
+      if (section.startsWith('includeif')) {
+        return { isKnown: false, hooksPath: null };
       }
+    } else if (section === 'core' && key === 'hookspath') {
+      hooksPath = value;
+    } else if (section === 'include' && key === 'path') {
+      if (depth >= MAX_INCLUDE_DEPTH) {
+        return { isKnown: false, hooksPath: null };
+      }
+
+      const includePath = value.startsWith('~/')
+        ? join(home, value.slice(2))
+        : resolve(dirname(path), value);
+
+      const included = await readConfigHooksPath(includePath, home, depth + 1);
+
+      if (!included.isKnown) {
+        return included;
+      }
+
+      hooksPath = included.hooksPath ?? hooksPath;
     }
   }
 
-  return found;
+  return { isKnown: true, hooksPath };
 }
 
 // git expands a leading `~/` in a path value, and reads a relative one from
