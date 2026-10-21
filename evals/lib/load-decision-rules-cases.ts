@@ -1,3 +1,4 @@
+import type { HookFacts } from 'auto-mode/eval';
 import { decisionRulesCorpusSchema } from './decision-rules-corpus-schema.ts';
 import { loadCorpus } from './load-corpus.ts';
 
@@ -10,6 +11,7 @@ export interface DecisionRulesCase {
   readonly repository: {
     readonly branch: string | null;
     readonly defaultBranch: string | null;
+    readonly hooks?: HookFacts | undefined;
   };
 }
 

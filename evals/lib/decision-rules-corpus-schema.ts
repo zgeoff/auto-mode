@@ -10,11 +10,18 @@ const taskScopeSchema = z.object({
   pullRequests: z.array(pullRequestSchema),
 });
 
+const hooksSchema = z.object({
+  worktree: z.string().refine(isAbsolute),
+  hooksDirectory: z.string().refine(isAbsolute),
+  lefthookConfig: z.string().refine(isAbsolute).nullable(),
+});
+
 const repositorySchema = z.object({
   branch: z.string(),
   defaultBranch: z.string(),
   remotes: z.array(remoteSchema).optional(),
   taskScope: taskScopeSchema.optional(),
+  hooks: hooksSchema.optional(),
 });
 
 const mcpServerSchema = z.object({
