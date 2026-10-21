@@ -7,6 +7,7 @@ import { pickClassifierLane } from '../config/pick-classifier-lane.ts';
 import { buildRepositoryEvidence } from '../git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { loadMCPServers } from '../git/load-mcp-servers.ts';
+import { nodeHookFactsFiles } from '../git/node-hook-facts-files.ts';
 import { readHookFacts } from '../git/read-hook-facts.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
@@ -81,7 +82,7 @@ export async function classifyWithJev(
       readLocalHookConfig(payload),
       checkout === null || checkout.checkout === null
         ? null
-        : readHookFacts(checkout.checkout, host).catch(() => null),
+        : readHookFacts(checkout.checkout, host, nodeHookFactsFiles).catch(() => null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';

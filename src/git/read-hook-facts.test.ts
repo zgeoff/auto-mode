@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { nodeHookFactsFiles } from './node-hook-facts-files.ts';
 import { readHookFacts } from './read-hook-facts.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {
@@ -24,6 +25,7 @@ test('it reads the common hooks folder and no lefthook config from a checkout th
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: {}, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts).toStrictEqual({
@@ -61,6 +63,7 @@ test('it reads a relative core.hooksPath from the worktree root and the config l
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: {}, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts).toStrictEqual({
@@ -91,6 +94,7 @@ test('it reads the user core.hooksPath under home when the repository sets none'
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: { XDG_CONFIG_HOME: join(ctx.directory, 'xdg') }, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts?.hooksDirectory).toBe(join(ctx.directory, 'home', 'hooks'));
@@ -115,6 +119,7 @@ test('it reads the repository core.hooksPath over the user one', async () => {
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: {}, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts?.hooksDirectory).toBe('/srv/repo-hooks');
@@ -142,6 +147,7 @@ test('it reads core.hooksPath from a file the repository config includes, from t
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: {}, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts?.hooksDirectory).toBe(join(ctx.directory, 'repo', '.checks'));
@@ -178,6 +184,7 @@ test('it reads a core.hooksPath set after an include over the included one, and 
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: {}, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts?.hooksDirectory).toBe('/srv/user-hooks');
@@ -200,6 +207,7 @@ test('it reads no hook facts from a config with an includeIf', async () => {
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: {}, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts).toBeNull();
@@ -218,9 +226,58 @@ test('it reads no hook facts from a config that includes itself', async () => {
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: {}, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts).toBeNull();
+});
+
+test('it rejects when a git config file cannot be read', () => {
+  expect(
+    readHookFacts(
+      { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+      { env: {}, home: '/home/robin' },
+      {
+        readText: () => Promise.reject(new Error('EACCES: permission denied')),
+        probeFile: () => Promise.resolve(false),
+      },
+    ),
+  ).rejects.toThrowWithMessage(Error, /EACCES/u);
+});
+
+test('it rejects when a lefthook config cannot be probed', () => {
+  expect(
+    readHookFacts(
+      { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+      { env: {}, home: '/home/robin' },
+      {
+        readText: () => Promise.resolve(null),
+        probeFile: () => Promise.reject(new Error('EACCES: permission denied')),
+      },
+    ),
+  ).rejects.toThrowWithMessage(Error, /EACCES/u);
+});
+
+test('it reads the hooks folder through the files its caller passes', async () => {
+  const configs: Readonly<Record<string, string>> = {
+    '/srv/harbor/.git/config': '[include]\n\tpath = hooks.config\n',
+    '/srv/harbor/.git/hooks.config': '[core]\n\thooksPath = .checks\n',
+  };
+
+  const facts = await readHookFacts(
+    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+    { env: {}, home: '/home/robin' },
+    {
+      readText: (path) => Promise.resolve(configs[path] ?? null),
+      probeFile: (path) => Promise.resolve(path === '/srv/harbor/lefthook.toml'),
+    },
+  );
+
+  expect(facts).toStrictEqual({
+    worktree: '/srv/harbor',
+    hooksDirectory: '/srv/harbor/.checks',
+    lefthookConfig: '/srv/harbor/lefthook.toml',
+  });
 });
 
 test('it reads no hook facts from a worktree with its own config', async () => {
@@ -240,6 +297,7 @@ test('it reads no hook facts from a worktree with its own config', async () => {
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
     { env: {}, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
   );
 
   expect(facts).toBeNull();

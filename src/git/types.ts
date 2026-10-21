@@ -15,6 +15,13 @@ export interface HookFacts {
   readonly lefthookConfig: string | null;
 }
 
+// The file reads the hook reader makes. A missing file reads as null and
+// probes as false; any other failure rejects.
+export interface HookFactsFiles {
+  readonly readText: (path: string) => Promise<string | null>;
+  readonly probeFile: (path: string) => Promise<boolean>;
+}
+
 export type CheckoutReader = (
   start: string,
   env: HostEnvironment['env'],

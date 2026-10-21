@@ -1,8 +1,7 @@
-import { access, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
 import { parseConfigEntries } from './parse-config-entries.ts';
-import type { Checkout, HookFacts } from './types.ts';
+import type { Checkout, HookFacts, HookFactsFiles } from './types.ts';
 
 // lefthook 2.2.1 tries each extension in turn, and each name within it, and
 // loads the first file that exists at the worktree root.
@@ -12,6 +11,7 @@ const LEFTHOOK_NAMES = ['lefthook', '.lefthook', '.config/lefthook'];
 export async function readHookFacts(
   checkout: Checkout,
   host: Pick<HostEnvironment, 'env' | 'home'>,
+  files: HookFactsFiles,
 ): Promise<HookFacts | null> {
   const xdgConfig = host.env['XDG_CONFIG_HOME'] ?? join(host.home, '.config');
 
@@ -22,15 +22,12 @@ export async function readHookFacts(
       join(xdgConfig, 'git', 'config'),
       join(host.home, '.gitconfig'),
       join(checkout.commonDir, 'config'),
-    ].map((path) => readConfigHooksPath(path, host.home, 0)),
+    ].map((path) => readConfigHooksPath(path, host.home, 0, files)),
   );
 
   // A worktree's own config can set core.hooksPath, and git reads it only
   // under an extension this reader does not check.
-  const hasWorktreeConfig = await access(join(checkout.gitDir, 'config.worktree')).then(
-    () => true,
-    () => false,
-  );
+  const hasWorktreeConfig = await files.probeFile(join(checkout.gitDir, 'config.worktree'));
 
   if (hasWorktreeConfig || configs.some((config) => !config.isKnown)) {
     return null;
@@ -43,14 +40,7 @@ export async function readHookFacts(
     LEFTHOOK_NAMES.map((name) => join(checkout.worktree, `${name}.${extension}`)),
   );
 
-  const present = await Promise.all(
-    candidates.map((path) =>
-      access(path).then(
-        () => true,
-        () => false,
-      ),
-    ),
-  );
+  const present = await Promise.all(candidates.map((path) => files.probeFile(path)));
 
   return {
     worktree: checkout.worktree,
@@ -72,12 +62,13 @@ async function readConfigHooksPath(
   path: string,
   home: string,
   depth: number,
+  files: HookFactsFiles,
 ): Promise<ConfigHooksPath> {
-  const config = await readFile(path, 'utf8').catch(() => '');
+  const config = await files.readText(path);
 
   let hooksPath: string | null = null;
 
-  for (const entry of parseConfigEntries(config, { path, home, depth })) {
+  for (const entry of parseConfigEntries(config ?? '', { path, home, depth })) {
     if (entry.kind === 'unknown') {
       return { isKnown: false, hooksPath: null };
     }
@@ -85,7 +76,7 @@ async function readConfigHooksPath(
     const value =
       entry.kind === 'hooks-path'
         ? { isKnown: true, hooksPath: entry.value }
-        : await readConfigHooksPath(entry.path, home, depth + 1);
+        : await readConfigHooksPath(entry.path, home, depth + 1, files);
 
     if (!value.isKnown) {
       return value;
