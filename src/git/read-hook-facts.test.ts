@@ -93,7 +93,7 @@ test('it reads the user core.hooksPath under home when the repository sets none'
     { env: { XDG_CONFIG_HOME: join(ctx.directory, 'xdg') }, home: join(ctx.directory, 'home') },
   );
 
-  expect(facts.hooksDirectory).toBe(join(ctx.directory, 'home', 'hooks'));
+  expect(facts?.hooksDirectory).toBe(join(ctx.directory, 'home', 'hooks'));
 });
 
 test('it reads the repository core.hooksPath over the user one', async () => {
@@ -117,5 +117,74 @@ test('it reads the repository core.hooksPath over the user one', async () => {
     { env: {}, home: join(ctx.directory, 'home') },
   );
 
-  expect(facts.hooksDirectory).toBe('/srv/repo-hooks');
+  expect(facts?.hooksDirectory).toBe('/srv/repo-hooks');
+});
+
+test.each([
+  ['[include]\n\tpath = extra.config\n'],
+  ['[includeIf "gitdir:~/work/"]\n\tpath = work.config\n'],
+])(
+  'it reads no hook facts from a repository config that includes another file: %p',
+  async (config) => {
+    const ctx = await setupTest();
+
+    await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+    await writeFile(join(ctx.directory, 'repo', '.git', 'config'), config);
+
+    const facts = await readHookFacts(
+      {
+        worktree: join(ctx.directory, 'repo'),
+        gitDir: join(ctx.directory, 'repo', '.git'),
+        commonDir: join(ctx.directory, 'repo', '.git'),
+      },
+      { env: {}, home: join(ctx.directory, 'home') },
+    );
+
+    expect(facts).toBeNull();
+  },
+);
+
+test('it reads no hook facts from a user config that includes another file', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+  await mkdir(join(ctx.directory, 'home'), { recursive: true });
+
+  await writeFile(
+    join(ctx.directory, 'home', '.gitconfig'),
+    '[include]\n\tpath = ~/.gitconfig.local\n',
+  );
+
+  const facts = await readHookFacts(
+    {
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
+    },
+    { env: {}, home: join(ctx.directory, 'home') },
+  );
+
+  expect(facts).toBeNull();
+});
+
+test('it reads no hook facts from a worktree with its own config', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git', 'worktrees', 'feat'), { recursive: true });
+
+  await writeFile(
+    join(ctx.directory, 'repo', '.git', 'worktrees', 'feat', 'config.worktree'),
+    '[core]\n\thooksPath = /srv/feat-hooks\n',
+  );
+
+  const facts = await readHookFacts(
+    {
+      worktree: join(ctx.directory, 'repo', '.worktrees', 'feat'),
+      gitDir: join(ctx.directory, 'repo', '.git', 'worktrees', 'feat'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
+    },
+    { env: {}, home: join(ctx.directory, 'home') },
+  );
+
+  expect(facts).toBeNull();
 });

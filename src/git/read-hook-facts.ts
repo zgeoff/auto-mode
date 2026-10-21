@@ -12,7 +12,7 @@ const LEFTHOOK_NAMES = ['lefthook', '.lefthook', '.config/lefthook'];
 export async function readHookFacts(
   checkout: Checkout,
   host: Pick<HostEnvironment, 'env' | 'home'>,
-): Promise<HookFacts> {
+): Promise<HookFacts | null> {
   const xdgConfig = host.env['XDG_CONFIG_HOME'] ?? join(host.home, '.config');
 
   // git reads the user's config files before the repository's, and the last
@@ -24,6 +24,16 @@ export async function readHookFacts(
       join(checkout.commonDir, 'config'),
     ].map((path) => readFile(path, 'utf8').catch(() => '')),
   );
+
+  const worktreeConfig = await readFile(join(checkout.gitDir, 'config.worktree'), 'utf8').catch(
+    () => null,
+  );
+
+  // An included file or a worktree's own config can set core.hooksPath where
+  // this reader does not follow, so the hooks folder is unknown.
+  if (worktreeConfig !== null || configs.some((config) => hasConfigInclude(config))) {
+    return null;
+  }
 
   const hooksPath =
     configs.map((config) => findHooksPath(config)).findLast((path) => path !== null) ?? null;
@@ -49,6 +59,10 @@ export async function readHookFacts(
         : resolveHooksPath(hooksPath, checkout.worktree, host.home),
     lefthookConfig: candidates.find((_, index) => present[index] === true) ?? null,
   };
+}
+
+function hasConfigInclude(config: string): boolean {
+  return /^\s*\[\s*include(?:if)?\b/imu.test(config);
 }
 
 function findHooksPath(config: string): string | null {
