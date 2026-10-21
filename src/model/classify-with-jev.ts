@@ -7,6 +7,8 @@ import { pickClassifierLane } from '../config/pick-classifier-lane.ts';
 import { buildRepositoryEvidence } from '../git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import { loadMCPServers } from '../git/load-mcp-servers.ts';
+import { nodeHookFactsFiles } from '../git/node-hook-facts-files.ts';
+import { readHookFacts } from '../git/read-hook-facts.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
@@ -69,7 +71,7 @@ export async function classifyWithJev(
     const repositoryContext =
       checkout === null ? null : buildRepositoryEvidence(checkout, options.taskScope);
 
-    const [policy, mcpServers, localHookConfig] = await Promise.all([
+    const [policy, mcpServers, localHookConfig, hookFacts] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
         'decision.md',
@@ -78,6 +80,9 @@ export async function classifyWithJev(
         () => [],
       ),
       readLocalHookConfig(payload),
+      checkout === null || checkout.checkout === null
+        ? null
+        : readHookFacts(checkout.checkout, host, nodeHookFactsFiles).catch(() => null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';
@@ -89,6 +94,7 @@ export async function classifyWithJev(
       repositoryContext,
       mcpServers,
       localHookConfig,
+      hookFacts,
     });
 
     const signal = createDeadlineSignal(config.provider.timeoutMs, options);

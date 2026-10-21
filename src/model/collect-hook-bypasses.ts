@@ -1,18 +1,34 @@
+import { resolve } from 'node:path';
+import type { HookFacts } from '../git/types.ts';
+import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
+import type { GitConfigOption } from '../shell/split-git-command.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import { toWordValues } from '../shell/to-word-values.ts';
 
 // Each switch is a fixed label, never the command's own text, because the
-// labels reach the classifier's trusted instructions.
-export function collectHookBypasses(command: string): readonly string[] {
+// labels reach the classifier's trusted instructions. Without the checkout's
+// facts, any hooks folder or lefthook config counts as another one.
+export function collectHookBypasses(
+  command: string,
+  cwd: string,
+  facts: HookFacts | null,
+): readonly string[] {
   const exported = new Map<string, string>();
 
   const bypasses: string[] = [];
+  let segmentFacts = facts;
 
   for (const segment of splitShellCommand(command).segments) {
-    bypasses.push(...collectSegmentBypasses(segment.text, exported));
+    const found = collectSegmentBypasses(segment.text, exported, cwd, segmentFacts);
+
+    if (found === 'moved') {
+      segmentFacts = null;
+    } else {
+      bypasses.push(...found);
+    }
   }
 
   return bypasses;
@@ -20,13 +36,23 @@ export function collectHookBypasses(command: string): readonly string[] {
 
 // The gh stack commands that commit or push through git, and so run its hooks.
 const GH_STACK_WRITES: ReadonlySet<string> = new Set(['add', 'push', 'submit', 'sync']);
+const DIRECTORY_CHANGES: ReadonlySet<string> = new Set(['cd', 'pushd', 'popd']);
 
-function collectSegmentBypasses(text: string, exported: Map<string, string>): readonly string[] {
+function collectSegmentBypasses(
+  text: string,
+  exported: Map<string, string>,
+  cwd: string,
+  facts: HookFacts | null,
+): readonly string[] | 'moved' {
   const words = splitShellTokens(text).tokens.flatMap((token) => toWordValues(token));
   const program = splitCommandWords(text);
   const [name = '', ...args] = program;
   const prefix = words.slice(0, words.length - program.length);
   const programName = name.slice(name.lastIndexOf('/') + 1);
+
+  if (DIRECTORY_CHANGES.has(programName)) {
+    return 'moved';
+  }
 
   if (programName === 'export' && prefix.length === 0) {
     for (const arg of args.filter((word) => /^\w+=/u.test(word))) {
@@ -57,9 +83,12 @@ function collectSegmentBypasses(text: string, exported: Map<string, string>): re
     return [];
   }
 
+  const reaching = buildReachingVariables(prefix, exported);
+  const checkoutFacts = hasCheckoutOverride(reaching) ? null : facts;
+
   if (programName === 'gh') {
     return args[0] === 'stack' && GH_STACK_WRITES.has(args[1] ?? '')
-      ? collectHookSwitches(prefix, exported)
+      ? collectHookSwitches(reaching, [], checkoutFacts)
       : [];
   }
 
@@ -67,29 +96,36 @@ function collectSegmentBypasses(text: string, exported: Map<string, string>): re
     return [];
   }
 
-  const [subcommand, ...subArgs] = splitGitCommand(args, null, '').args;
+  const git = splitGitCommand(args, cwd, '');
+  const [subcommand, ...subArgs] = git.args;
 
   if (subcommand !== 'commit' && subcommand !== 'push') {
     return [];
   }
 
+  const globals = args.slice(0, args.length - git.args.length);
+
+  // A -C into a subfolder can enter a nested repository, so only the cwd
+  // keeps the checkout the facts describe.
+  const isSameCheckout =
+    git.directory === cwd && !globals.some((arg) => /^--(?:git-dir|work-tree)(?:=|$)/u.test(arg));
+
+  const gitFacts = isSameCheckout ? checkoutFacts : null;
   const option = findNoVerifyOption(subArgs, subcommand);
 
-  return [...collectHookSwitches(prefix, exported), ...(option === null ? [] : [option])];
+  return [
+    ...collectHookSwitches(reaching, git.config, gitFacts),
+    ...(option === null ? [] : [option]),
+  ];
 }
-
-// lefthook skips its hooks for `0` or `false`, and husky for `0` alone. lefthook
-// leaves out each step or tag that LEFTHOOK_EXCLUDE names. lefthook 2.2.1 reads
-// no LEFTHOOK_SKIP, so an agent that sets it means to leave a step out.
-const HOOK_SWITCH_NAMES = ['LEFTHOOK', 'HUSKY', 'LEFTHOOK_EXCLUDE', 'LEFTHOOK_SKIP'] as const;
 
 // The words before the program set and unset variables in order, over what an
 // earlier export left: a later assignment replaces an earlier one, and
 // `env -u NAME` removes it, so only the last state of each name reaches git.
-function collectHookSwitches(
+function buildReachingVariables(
   prefix: readonly string[],
   exported: ReadonlyMap<string, string>,
-): readonly string[] {
+): ReadonlyMap<string, string> {
   const reaching = new Map(exported);
 
   for (let index = 0; index < prefix.length; index += 1) {
@@ -105,15 +141,48 @@ function collectHookSwitches(
     }
   }
 
-  return HOOK_SWITCH_NAMES.flatMap((name) => {
+  return reaching;
+}
+
+const CHECKOUT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
+
+function hasCheckoutOverride(reaching: ReadonlyMap<string, string>): boolean {
+  return CHECKOUT_OVERRIDES.some((name) => reaching.has(name));
+}
+
+// lefthook skips its hooks for `0` or `false`, and husky for `0` alone. lefthook
+// leaves out each step or tag that LEFTHOOK_EXCLUDE names. lefthook 2.2.1 reads
+// no LEFTHOOK_SKIP, so an agent that sets it means to leave a step out.
+const HOOK_SWITCH_NAMES = [
+  'LEFTHOOK',
+  'HUSKY',
+  'LEFTHOOK_EXCLUDE',
+  'LEFTHOOK_SKIP',
+  'LEFTHOOK_CONFIG',
+] as const;
+
+function collectHookSwitches(
+  reaching: ReadonlyMap<string, string>,
+  config: readonly GitConfigOption[],
+  facts: HookFacts | null,
+): readonly string[] {
+  const switches = HOOK_SWITCH_NAMES.flatMap((name) => {
     const word = reaching.get(name);
-    const label = word === undefined ? null : findSwitchLabel(name, word.slice(name.length + 1));
+
+    const label =
+      word === undefined ? null : findSwitchLabel(name, word.slice(name.length + 1), facts);
 
     return label === null ? [] : [label];
   });
+
+  const hooksPath = findHooksPath(reaching, config);
+
+  return hooksPath === undefined || isKeptHooksPath(hooksPath, facts)
+    ? switches
+    : [...switches, 'core.hooksPath'];
 }
 
-function findSwitchLabel(name: string, value: string): string | null {
+function findSwitchLabel(name: string, value: string, facts: HookFacts | null): string | null {
   if (name === 'LEFTHOOK' && (value === '0' || value === 'false')) {
     return `LEFTHOOK=${value}`;
   }
@@ -126,7 +195,86 @@ function findSwitchLabel(name: string, value: string): string | null {
     return name;
   }
 
+  // lefthook loads its usual config for an empty LEFTHOOK_CONFIG, and reads a
+  // relative one from the worktree root.
+  if (
+    name === 'LEFTHOOK_CONFIG' &&
+    value !== '' &&
+    (facts === null ||
+      facts.lefthookConfig === null ||
+      !isResolvableWord(value) ||
+      resolve(facts.worktree, value) !== facts.lefthookConfig)
+  ) {
+    return name;
+  }
+
   return null;
+}
+
+function isResolvableWord(value: string): boolean {
+  return !isUnresolvedWord(value) && !value.startsWith('~');
+}
+
+// A `-c` or `--config-env` setting wins over the GIT_CONFIG_COUNT variables,
+// and within each source the last setting wins. A `--config-env` variable this
+// command does not set has a value the command text cannot show.
+function findHooksPath(
+  reaching: ReadonlyMap<string, string>,
+  config: readonly GitConfigOption[],
+): string | null | undefined {
+  const fromOptions = config.flatMap((option) => {
+    const separator = option.setting.indexOf('=');
+
+    if (separator === -1 || !isHooksPathKey(option.setting.slice(0, separator))) {
+      return [];
+    }
+
+    const value = option.setting.slice(separator + 1);
+
+    if (option.source === 'value') {
+      return [value];
+    }
+
+    const word = reaching.get(value);
+
+    return [word === undefined ? null : word.slice(value.length + 1)];
+  });
+
+  if (fromOptions.length > 0) {
+    return fromOptions.at(-1);
+  }
+
+  const count = Number(reaching.get('GIT_CONFIG_COUNT')?.slice('GIT_CONFIG_COUNT='.length));
+
+  const fromVariables = [...reaching.entries()]
+    .flatMap(([name, word]) => {
+      const index = Number(/^GIT_CONFIG_KEY_(?<index>0|[1-9]\d*)$/u.exec(name)?.groups?.['index']);
+      const value = reaching.get(`GIT_CONFIG_VALUE_${index}`);
+
+      return index < count && value !== undefined && isHooksPathKey(word.slice(name.length + 1))
+        ? [{ index, value: value.slice(value.indexOf('=') + 1) }]
+        : [];
+    })
+    .toSorted((left, right) => left.index - right.index);
+
+  return fromVariables.at(-1)?.value;
+}
+
+// git reads a config key's section and name without case.
+function isHooksPathKey(key: string): boolean {
+  return key.toLowerCase() === 'core.hookspath';
+}
+
+// An empty core.hooksPath runs no hooks. git reads a relative one from the
+// worktree root.
+function isKeptHooksPath(value: string | null, facts: HookFacts | null): boolean {
+  return (
+    value !== null &&
+    value !== '' &&
+    facts !== null &&
+    isResolvableWord(value) &&
+    resolve(facts.worktree, value) === facts.hooksDirectory
+  );
 }
 
 const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([

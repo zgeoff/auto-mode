@@ -39,6 +39,7 @@ export { findUserNamedGrant } from '../containment/find-user-named-grant.ts';
 export { findCurrentDirectUserMessage } from '../../mods/auto-mode/contract/find-current-direct-user-message.ts';
 export { MESSAGE_ORIGINS } from '../../mods/auto-mode/contract/message-origins.ts';
 export { loadRepositoryContext } from '../git/load-repository-context.ts';
+export type { HookFacts } from '../git/types.ts';
 export { pickDecisionVerdict } from '../model/pick-decision-verdict.ts';
 export { probabilitySchema } from '../model/probability-schema.ts';
 export { repositoryContextSchema } from '../model/repository-context-schema.ts';

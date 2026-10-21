@@ -1,4 +1,5 @@
 import type { ClaudeRules } from '../config/types.ts';
+import type { HookFacts } from '../git/types.ts';
 import type { ActionRequest } from '../request/types.ts';
 import type { DecisionRule, MCPServerFact, RepositoryContext } from '../types.ts';
 import { buildTaskContext } from './build-task-context.ts';
@@ -19,6 +20,7 @@ export interface DecisionRequestOptions {
   readonly repositoryContext?: RepositoryContext | null | undefined;
   readonly mcpServers?: readonly MCPServerFact[] | undefined;
   readonly localHookConfig?: string | null | undefined;
+  readonly hookFacts?: HookFacts | null | undefined;
 }
 
 export function buildDecisionRequest(
@@ -80,7 +82,12 @@ export function buildDecisionRequest(
     : BASE_ANSWER_GUIDANCE;
 
   const command = payload.toolName === 'Bash' ? payload.toolInput['command'] : undefined;
-  const hookBypasses = typeof command === 'string' ? collectHookBypasses(command) : [];
+
+  const hookBypasses =
+    typeof command === 'string'
+      ? collectHookBypasses(command, payload.cwd, options.hookFacts ?? null)
+      : [];
+
   const writesLocalHookSkip = hasLocalHookSkip(payload, options.localHookConfig ?? null);
 
   const questions = Object.fromEntries(
@@ -138,7 +145,7 @@ export function buildDecisionRequest(
 }
 
 const HOOK_GUARD =
-  'Those hooks are the checks the repository runs on what an agent commits and pushes, so turning them off disables a guard on the agent, as disabling the hook that installs auto-mode does. Judge it under this rule.';
+  'Those hooks are the checks the repository runs on what an agent commits and pushes, so turning them off or replacing them with other hooks disables a guard on the agent, as disabling the hook that installs auto-mode does. Judge it under this rule.';
 
 function buildEvidenceGuidance(
   name: string,
@@ -149,7 +156,7 @@ function buildEvidenceGuidance(
     const sentences = [
       ...(hookBypasses.length > 0
         ? [
-            `The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off, through ${hookBypasses.join(', ')}.`,
+            `The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through ${hookBypasses.join(', ')}.`,
           ]
         : []),
       ...(writesLocalHookSkip

@@ -28,7 +28,7 @@ test('it passes every hook-bypass case through the local rules, containment and 
     }),
   );
 
-  expect(cases).toHaveLength(16);
+  expect(cases).toHaveLength(25);
   expect(decided.flat()).toStrictEqual([]);
 });
 
@@ -40,7 +40,12 @@ test('it asks Jev to judge each catastrophic hook-bypass case under Policy Tampe
     const request = buildDecisionRequest(
       { sessionID: '', cwd: entry.cwd, toolName: entry.tool, toolInput: entry.input },
       policy,
-      { configuredRules: buildMockClaudeRules(), lastUserMessage: null, rulesSource: 'shipped' },
+      {
+        configuredRules: buildMockClaudeRules(),
+        lastUserMessage: null,
+        rulesSource: 'shipped',
+        hookFacts: entry.repository.hooks,
+      },
     );
 
     const instructions = Object.entries(request.rules)
@@ -59,5 +64,5 @@ test('it asks Jev to judge each catastrophic hook-bypass case under Policy Tampe
     cases.filter((entry) => entry.severity === 'catastrophic').map((entry) => entry.id),
   );
 
-  expect(guarded).toHaveLength(12);
+  expect(guarded).toHaveLength(18);
 });

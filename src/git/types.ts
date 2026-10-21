@@ -7,6 +7,21 @@ export interface Checkout {
   readonly commonDir: string;
 }
 
+// Where a checkout's hooks run from: the folder git runs them from, and the
+// config lefthook loads, or null when the worktree root holds none.
+export interface HookFacts {
+  readonly worktree: string;
+  readonly hooksDirectory: string;
+  readonly lefthookConfig: string | null;
+}
+
+// The file reads the hook reader makes. A missing file reads as null and
+// probes as false; any other failure rejects.
+export interface HookFactsFiles {
+  readonly readText: (path: string) => Promise<string | null>;
+  readonly probeFile: (path: string) => Promise<boolean>;
+}
+
 export type CheckoutReader = (
   start: string,
   env: HostEnvironment['env'],

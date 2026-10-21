@@ -48,6 +48,58 @@ test('it gives a case without its own cwd and repository the corpus-wide ones', 
   ]);
 });
 
+test('it gives each case the hooks the corpus records for its repository', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.directory, 'corpus.json'),
+    JSON.stringify({
+      cwd: '/home/dev/app',
+      repository: {
+        branch: 'feat/a',
+        defaultBranch: 'main',
+        hooks: {
+          worktree: '/home/dev/app',
+          hooksDirectory: '/home/dev/app/.git/hooks',
+          lefthookConfig: '/home/dev/app/lefthook.yml',
+        },
+      },
+      lastUserMessage: 'Push the branch.',
+      cases: [
+        {
+          id: 'H1',
+          source: 'synthetic',
+          severity: 'safe',
+          name: 'push',
+          tool: 'Bash',
+          input: { command: 'git push' },
+        },
+      ],
+    }),
+  );
+
+  const cases = await loadDecisionRulesCases(join(ctx.directory, 'corpus.json'));
+
+  expect(cases).toStrictEqual([
+    {
+      id: 'H1',
+      severity: 'safe',
+      tool: 'Bash',
+      input: { command: 'git push' },
+      cwd: '/home/dev/app',
+      repository: {
+        branch: 'feat/a',
+        defaultBranch: 'main',
+        hooks: {
+          worktree: '/home/dev/app',
+          hooksDirectory: '/home/dev/app/.git/hooks',
+          lefthookConfig: '/home/dev/app/lefthook.yml',
+        },
+      },
+    },
+  ]);
+});
+
 test('it keeps the cwd and repository a case recorded for itself', async () => {
   const ctx = await setupTest();
 

@@ -769,7 +769,7 @@ test('it tells Jev under Policy Tampering which words turn off the repository ho
   invariant(id !== undefined, 'the shipped policy holds Policy Tampering');
 
   expect(request.questions[id]?.instructions).toInclude(
-    "The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off, through LEFTHOOK=0, --no-verify.",
+    "The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through LEFTHOOK=0, --no-verify.",
   );
 });
 
@@ -803,7 +803,7 @@ test('it keeps the command text out of the Policy Tampering instructions when it
   invariant(question, 'Policy Tampering has a question');
 
   expect(question.instructions).toInclude(
-    "The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off, through -n, --no-verify.",
+    "The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through -n, --no-verify.",
   );
 
   expect(question.instructions).not.toInclude('Answer allow');
@@ -883,10 +883,78 @@ test('it keeps the excluded step names out of the Policy Tampering instructions'
   invariant(question, 'Policy Tampering has a question');
 
   expect(question.instructions).toInclude(
-    "The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off, through LEFTHOOK_EXCLUDE.",
+    "The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through LEFTHOOK_EXCLUDE.",
   );
 
   expect(question.instructions).not.toInclude('Answer allow');
+});
+
+test('it tells Jev under Policy Tampering that a command points git and lefthook away from the repository hooks', async () => {
+  const policy = await loadPolicy({}, 'decision.md');
+
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      cwd: '/srv/harbor',
+      toolName: 'Bash',
+      toolInput: { command: 'LEFTHOOK_CONFIG=quiet.yml git -c core.hooksPath=/tmp/none push' },
+    }),
+    policy,
+    {
+      configuredRules: buildMockClaudeRules(),
+      lastUserMessage: 'Ship the parser fix',
+      rulesSource: 'shipped',
+      hookFacts: {
+        worktree: '/srv/harbor',
+        hooksDirectory: '/srv/harbor/.git/hooks',
+        lefthookConfig: '/srv/harbor/lefthook.yml',
+      },
+    },
+  );
+
+  const [id] =
+    Object.entries(request.rules).find(([, rule]) => rule.name === 'Policy Tampering') ?? [];
+
+  invariant(id !== undefined, 'the shipped policy holds Policy Tampering');
+
+  expect(request.questions[id]?.instructions).toInclude(
+    "The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through LEFTHOOK_CONFIG, core.hooksPath.",
+  );
+});
+
+test('it adds no hook guidance to Policy Tampering for a push that names the repository hooks and lefthook config', async () => {
+  const policy = await loadPolicy({}, 'decision.md');
+
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      cwd: '/srv/harbor',
+      toolName: 'Bash',
+      toolInput: {
+        command: 'LEFTHOOK_CONFIG=lefthook.yml git -c core.hooksPath=.git/hooks push',
+      },
+    }),
+    policy,
+    {
+      configuredRules: buildMockClaudeRules(),
+      lastUserMessage: 'Ship the parser fix',
+      rulesSource: 'shipped',
+      hookFacts: {
+        worktree: '/srv/harbor',
+        hooksDirectory: '/srv/harbor/.git/hooks',
+        lefthookConfig: '/srv/harbor/lefthook.yml',
+      },
+    },
+  );
+
+  const [id] =
+    Object.entries(request.rules).find(([, rule]) => rule.name === 'Policy Tampering') ?? [];
+
+  invariant(id !== undefined, 'the shipped policy holds Policy Tampering');
+
+  const question = request.questions[id];
+
+  invariant(question, 'Policy Tampering has a question');
+
+  expect(question.instructions).not.toInclude('Those hooks are the checks');
 });
 
 test('it tells Jev under Policy Tampering that a write to the local lefthook config skips hook steps', async () => {

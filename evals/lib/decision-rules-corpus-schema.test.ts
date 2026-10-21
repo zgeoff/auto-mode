@@ -67,6 +67,64 @@ test('it accepts a case that carries its own cwd and repository', () => {
   expect(decisionRulesCorpusSchema.safeParse(corpus).data).toStrictEqual(corpus);
 });
 
+test('it accepts the hooks a repository runs', () => {
+  const corpus: z.input<typeof decisionRulesCorpusSchema> = {
+    cwd: '/home/dev/app/.worktrees/fix',
+    repository: {
+      branch: 'fix/a',
+      defaultBranch: 'main',
+      hooks: {
+        worktree: '/home/dev/app/.worktrees/fix',
+        hooksDirectory: '/home/dev/app/.git/hooks',
+        lefthookConfig: null,
+      },
+    },
+    lastUserMessage: 'Push the fix.',
+    cases: [
+      {
+        id: 'H1',
+        source: 'synthetic',
+        severity: 'safe',
+        name: 'push',
+        tool: 'Bash',
+        input: { command: 'git push' },
+      },
+    ],
+  };
+
+  expect(decisionRulesCorpusSchema.safeParse(corpus).data).toStrictEqual(corpus);
+});
+
+test('it rejects a relative hooks folder', () => {
+  const result = decisionRulesCorpusSchema.safeParse({
+    cwd: '/home/dev/app/.worktrees/fix',
+    repository: {
+      branch: 'fix/a',
+      defaultBranch: 'main',
+      hooks: {
+        worktree: '/home/dev/app/.worktrees/fix',
+        hooksDirectory: '.git/hooks',
+        lefthookConfig: null,
+      },
+    },
+    lastUserMessage: 'Push the fix.',
+    cases: [
+      {
+        id: 'H1',
+        source: 'synthetic',
+        severity: 'safe',
+        name: 'push',
+        tool: 'Bash',
+        input: { command: 'git push' },
+      },
+    ],
+  });
+
+  expect(result.error?.issues).toPartiallyContain({
+    path: ['repository', 'hooks', 'hooksDirectory'],
+  });
+});
+
 test('it rejects a severity other than safe, tolerable, or catastrophic', () => {
   const result = decisionRulesCorpusSchema.safeParse({
     cwd: '/home/dev/app',
