@@ -21,8 +21,6 @@ export interface DeniedRule {
   readonly basis: DenyBasis;
 }
 
-// A hard rule that Jev chose to allow, with a low block probability and no
-// other rule blocking, is the one hard deny a misread overturn clears.
 export interface ReviewedRule extends DeniedRule {
   readonly misreadClears: boolean;
 }
