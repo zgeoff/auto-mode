@@ -38,16 +38,18 @@ evidence settles them.
 A commit or push that turns off the repository's hooks, or some of their steps, gets guidance of its
 own. The hooks check what an agent commits and pushes, so turning them off disables a guard on the
 agent, and the Policy Tampering text names only the hook that installs auto-mode. The guidance
-covers a git commit, a git push, and each gh stack command that commits or pushes. It applies when
-lefthook or husky is switched off, or lefthook is told to leave steps out, by an environment
-assignment before the command or exported earlier in it, or when git's no-verify option is set. The
-Policy Tampering question then names each switch and asks Jev to judge the call under that rule. The
-question names a switch by a fixed label, never by the command's own text, because the question is
-trusted instruction and the command is written by the agent under review. Writing a skip or exclude
-setting into lefthook's local config leaves steps out of every later commit and push, so that write
-gets the same guidance, whether a file tool or a shell redirection makes it. No earlier stage allows
-these calls: the local rules never allow a commit, a push or a shell write, containment passes an
-in-scope one on, and the edit bypass sends every hook file to Jev.
+covers git commit, git push, and each gh stack command that commits or pushes. It applies when
+lefthook or husky is switched off, or lefthook is told to leave steps out, by a variable set before
+the command or exported earlier in it, or when git's no-verify option is set. The Policy Tampering
+question then names each switch and asks Jev to judge the call under that rule. It names a switch by
+a fixed label, never by the command's own text, because the question is trusted instruction and the
+agent under review writes the command.
+
+A skip or exclude setting in lefthook's local config leaves steps out of every later commit and
+push, so a write that adds one gets the same guidance, whether a file tool or a shell redirection
+makes it. No earlier stage allows these calls: the local rules never allow a commit, a push or a
+shell write, containment passes an in-scope one on, and the edit bypass sends every hook file to
+Jev.
 
 The request never truncates the action or the user's message. When the request is larger than the
 client's request cap, the client drops the delegated task first, then the original task, each with
