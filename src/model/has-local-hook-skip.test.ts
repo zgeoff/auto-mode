@@ -58,6 +58,30 @@ test.each([
     'Edit',
     {
       file_path: '/repo/lefthook-local.yml',
+      old_string: '  exclude_tags:\n    - lint\n',
+      new_string: '  exclude_tags:\n    - lint\n    - test\n',
+    },
+  ],
+  [
+    'Edit',
+    {
+      file_path: '/repo/lefthook-local.yml',
+      old_string: '  exclude_tags: [lint]\n',
+      new_string: '  exclude_tags: [lint, test]\n',
+    },
+  ],
+  [
+    'Edit',
+    {
+      file_path: '/repo/lefthook-local.json',
+      old_string: '"exclude_tags": ["lint"]',
+      new_string: '"exclude_tags": ["lint", "test"]',
+    },
+  ],
+  [
+    'Edit',
+    {
+      file_path: '/repo/lefthook-local.yml',
       old_string: '  skip: [merge]\n',
       new_string: '  skip: true\n',
     },

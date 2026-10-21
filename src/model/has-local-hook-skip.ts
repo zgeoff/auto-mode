@@ -52,10 +52,10 @@ function isShellSkipWrite(command: string): boolean {
   return (redirects || tees) && collectSkipSettings(command).length > 0;
 }
 
-// The value runs to the end of its line, a comma or a brace, or is the YAML
-// list item on the next line.
+// The value is a bracketed list, or runs to the end of its line, a comma or a
+// brace, and a YAML block list follows on the lines after it.
 const SKIP_SETTING =
-  /(?:^|[\s{,"'])(?<key>skip|exclude(?:_tags)?)["']?[ \t]*[:=][ \t]*(?<inline>[^\n,}]*)(?:\n[ \t]*(?<item>-[^\n]*))?/gu;
+  /(?:^|[\s{,"'])(?<key>skip|exclude(?:_tags)?)["']?[ \t]*[:=][ \t]*(?<inline>\[[^\]\n]*\]|[^\n,}]*)(?<items>(?:\n[ \t]*-[^\n]*)*)/gu;
 
 // lefthook runs a step whose skip is false and excludes nothing for an empty
 // list or string.
@@ -73,15 +73,19 @@ function collectSkipSettings(text: unknown): readonly string[] {
 
   return [...uncommented.matchAll(SKIP_SETTING)].flatMap((match) => {
     const key = match.groups?.['key'] ?? '';
-    const listItem = match.groups?.['item'];
+
+    const items = (match.groups?.['items'] ?? '')
+      .split('\n')
+      .map((item) => item.trim())
+      .filter((item) => item !== '');
 
     const value = (match.groups?.['inline'] ?? '')
       .replace(/\s#.*$/u, '')
       .trim()
       .replaceAll(/^["']|["']$/gu, '');
 
-    if (value === '' && listItem !== undefined) {
-      return [`${key}=${listItem.trim()}`];
+    if (value === '' && items.length > 0) {
+      return [`${key}=${items.join(',')}`];
     }
 
     return INACTIVE_VALUES.has(value) ? [] : [`${key}=${value}`];
