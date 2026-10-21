@@ -46,6 +46,30 @@ test.each([
       new_string: '      skip: [merge]\n    - name: lint\n      skip: true\n',
     },
   ],
+  [
+    'Edit',
+    {
+      file_path: '/repo/lefthook-local.yml',
+      old_string: '  exclude_tags: []\n',
+      new_string: '  exclude_tags: [test]\n',
+    },
+  ],
+  [
+    'Edit',
+    {
+      file_path: '/repo/lefthook-local.yml',
+      old_string: '  skip: [merge]\n',
+      new_string: '  skip: true\n',
+    },
+  ],
+  [
+    'Edit',
+    {
+      file_path: '/repo/lefthook-local.yml',
+      old_string: '  # skip: true\n',
+      new_string: '  skip: true\n',
+    },
+  ],
 ])('it finds a skip setting written by %s into a local lefthook config', (toolName, toolInput) => {
   expect(hasLocalHookSkip({ toolName, toolInput })).toBeTrue();
 });
@@ -70,6 +94,27 @@ test.each([
       file_path: '/repo/lefthook-local.yml',
       old_string: '  skip: true\n',
       new_string: '',
+    },
+  ],
+  [
+    'Write',
+    { file_path: '/repo/lefthook-local.yml', content: '# skip: true\noutput: [summary]\n' },
+  ],
+  ['Write', { file_path: '/repo/lefthook-local.yml', content: 'pre-push:\n  exclude_tags: []\n' }],
+  ['Write', { file_path: '/repo/lefthook-local.yml', content: 'pre-push:\n  exclude: ""\n' }],
+  [
+    'Write',
+    {
+      file_path: '/repo/lefthook-local.jsonc',
+      content: '// "skip": true\n{"output": ["summary"]}',
+    },
+  ],
+  [
+    'Edit',
+    {
+      file_path: '/repo/lefthook-local.yml',
+      old_string: 'pre-push:\n  skip: [merge]\n  parallel: false\n',
+      new_string: 'pre-push:\n  skip: [merge]\n  parallel: true\n',
     },
   ],
   ['NotebookEdit', { notebook_path: '/repo/lefthook-local.yml', new_source: 'skip: true' }],

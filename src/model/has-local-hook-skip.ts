@@ -21,11 +21,11 @@ export function hasLocalHookSkip(call: Pick<ActionRequest, 'toolName' | 'toolInp
   }
 
   if (call.toolName === 'Write') {
-    return countSkipSettings(input['content']) > 0;
+    return collectSkipSettings(input['content']).length > 0;
   }
 
   if (call.toolName === 'Edit') {
-    return countSkipSettings(input['new_string']) > countSkipSettings(input['old_string']);
+    return hasNewSetting(collectSkipSettings(input['old_string']), input['new_string']);
   }
 
   return false;
@@ -48,12 +48,59 @@ function isShellSkipWrite(command: string): boolean {
 
   const tees = words.includes('tee') && words.some((word) => LOCAL_CONFIG.test(word));
 
-  return (redirects || tees) && countSkipSettings(command) > 0;
+  return (redirects || tees) && collectSkipSettings(command).length > 0;
 }
 
-// A `skip: false` setting runs the step, so it adds no skip.
-const SKIP_SETTING = /(?:^|[\s{,"'])(?:skip|exclude(?:_tags)?)["']?\s*[:=](?![\s"']*false\b)/gu;
+// The value runs to the end of its line, a comma or a brace, or is the YAML
+// list item on the next line.
+const SKIP_SETTING =
+  /(?:^|[\s{,"'])(?<key>skip|exclude(?:_tags)?)["']?[ \t]*[:=][ \t]*(?<inline>[^\n,}]*)(?:\n[ \t]*(?<item>-[^\n]*))?/gu;
 
-function countSkipSettings(text: unknown): number {
-  return typeof text === 'string' ? [...text.matchAll(SKIP_SETTING)].length : 0;
+// lefthook runs a step whose skip is false and excludes nothing for an empty
+// list or string.
+const INACTIVE_VALUES: ReadonlySet<string> = new Set(['', 'false', '[]', 'null', '~']);
+
+function collectSkipSettings(text: unknown): readonly string[] {
+  if (typeof text !== 'string') {
+    return [];
+  }
+
+  const uncommented = text
+    .split('\n')
+    .filter((line) => !/^\s*(?:#|\/\/)/u.test(line))
+    .join('\n');
+
+  return [...uncommented.matchAll(SKIP_SETTING)].flatMap((match) => {
+    const key = match.groups?.['key'] ?? '';
+    const listItem = match.groups?.['item'];
+
+    const value = (match.groups?.['inline'] ?? '')
+      .replace(/\s#.*$/u, '')
+      .trim()
+      .replaceAll(/^["']|["']$/gu, '');
+
+    if (value === '' && listItem !== undefined) {
+      return [`${key}=${listItem.trim()}`];
+    }
+
+    return INACTIVE_VALUES.has(value) ? [] : [`${key}=${value}`];
+  });
+}
+
+// An Edit that keeps a setting as it was adds none, so each old setting
+// cancels one equal new setting.
+function hasNewSetting(old: readonly string[], text: unknown): boolean {
+  const remaining = [...old];
+
+  return collectSkipSettings(text).some((setting) => {
+    const index = remaining.indexOf(setting);
+
+    if (index === -1) {
+      return true;
+    }
+
+    remaining.splice(index, 1);
+
+    return false;
+  });
 }
