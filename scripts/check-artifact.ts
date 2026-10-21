@@ -13,8 +13,17 @@ async function main() {
       JSON.stringify({ decision: { classifier: 'jev' }, policy: { claudeSettingsPath: null } }),
     );
 
+    // A pre-push hook in a linked worktree exports GIT_DIR, and the CLI's git would read this
+    // repository in place of the request's, so the artifact runs without git's repository variables.
+    const inherited = Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([name]) =>
+          !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR'].includes(name),
+      ),
+    );
+
     const env = {
-      ...process.env,
+      ...inherited,
       XDG_CONFIG_HOME: directory,
       XDG_STATE_HOME: directory,
       AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
