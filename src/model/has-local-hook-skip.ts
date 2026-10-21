@@ -1,5 +1,6 @@
 import type { ActionRequest } from '../request/types.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
+import { toWordValues } from '../shell/to-word-values.ts';
 
 // lefthook merges its local config over the shared one, in YAML, JSON, JSONC or
 // TOML, with or without a leading dot.
@@ -36,7 +37,7 @@ const WRITE_REDIRECTS: ReadonlySet<string> = new Set(['>', '>>', '>|', '&>', '&>
 
 function isShellSkipWrite(command: string): boolean {
   const tokens = splitShellTokens(command).tokens;
-  const words = tokens.flatMap((token) => (token.kind === 'word' ? [token.value] : []));
+  const words = tokens.flatMap((token) => toWordValues(token));
 
   const redirects = tokens.some(
     (token) =>

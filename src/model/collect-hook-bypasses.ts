@@ -2,6 +2,7 @@ import { splitCommandWords } from '../shell/split-command-words.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
+import { toWordValues } from '../shell/to-word-values.ts';
 
 // Each switch is a fixed label, never the command's own text, because the
 // labels reach the classifier's trusted instructions.
@@ -21,10 +22,7 @@ export function collectHookBypasses(command: string): readonly string[] {
 const GH_STACK_WRITES: ReadonlySet<string> = new Set(['add', 'push', 'submit', 'sync']);
 
 function collectSegmentBypasses(text: string, exported: Map<string, string>): readonly string[] {
-  const words = splitShellTokens(text).tokens.flatMap((token) =>
-    token.kind === 'word' ? [token.value] : [],
-  );
-
+  const words = splitShellTokens(text).tokens.flatMap((token) => toWordValues(token));
   const program = splitCommandWords(text);
   const [name = '', ...args] = program;
   const prefix = words.slice(0, words.length - program.length);

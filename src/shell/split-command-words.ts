@@ -1,13 +1,11 @@
 import { splitShellTokens } from './split-shell-tokens.ts';
+import { toWordValues } from './to-word-values.ts';
 
 // Splits one shell segment into words with their quotes removed, then drops
 // leading environment assignments and wrappers (env, sudo, timeout) and every
 // redirection, so the first word is the program and the rest its arguments.
 export function splitCommandWords(text: string): readonly string[] {
-  const words = splitShellTokens(text).tokens.flatMap((token) =>
-    token.kind === 'word' ? [token.value] : [],
-  );
-
+  const words = splitShellTokens(text).tokens.flatMap((token) => toWordValues(token));
   let index = 0;
 
   while (index < words.length) {
