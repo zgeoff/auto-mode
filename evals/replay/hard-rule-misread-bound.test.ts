@@ -4,9 +4,6 @@ import { MISREAD_CLEARABLE_BLOCK_PROBABILITY } from 'auto-mode/eval';
 import { loadRun } from '../lib/load-run.ts';
 import { loadShippedRuleTiers } from '../lib/load-shipped-rule-tiers.ts';
 
-// Each recorded run holds 102 hard-rule Jev denies. Jev chose allow on 8 of
-// them, 6 sit at or under the misread bound, and the lowest catastrophic one
-// has a block probability of 0.74.
 test.each([
   ['geo-161-sonnet', 1],
   ['geo-407-sonnet', 0],
