@@ -49,7 +49,13 @@ function isShellSkipWrite(command: string): boolean {
 
   const tees = words.includes('tee') && words.some((word) => LOCAL_CONFIG.test(word));
 
-  return (redirects || tees) && collectSkipSettings(command).length > 0;
+  // printf and `echo -e` turn `\n` and `\t` into a newline and a tab.
+  const payload = [
+    ...words.map((word) => word.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\t`, '\t')),
+    ...tokens.flatMap((token) => (token.kind === 'heredoc' ? [token.body] : [])),
+  ].join('\n');
+
+  return (redirects || tees) && collectSkipSettings(payload).length > 0;
 }
 
 // The value is a bracketed list, or runs to the end of its line, a comma or a

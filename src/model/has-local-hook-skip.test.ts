@@ -161,6 +161,9 @@ test.each([
   'grep -n "skip:" lefthook-local.yml',
   String.raw`printf 'pre-push:\n  skip: true\n' > lefthook.yml`,
   String.raw`printf 'pre-push:\n  parallel: true\n' > lefthook-local.yml`,
+  String.raw`printf 'pre-push:\n  skip: false\n' > lefthook-local.yml`,
+  String.raw`printf 'pre-commit:\n  exclude_tags: []\n' >> lefthook-local.yml`,
+  "cat > lefthook-local.yml <<'EOF'\npre-push:\n  skip: false\nEOF",
   'grep -n "skip:" lefthook-local.yml 2>&1',
 ])('it finds no shell write of a skip setting in %s', (command) => {
   expect(hasLocalHookSkip({ toolName: 'Bash', toolInput: { command } })).toBeFalse();
