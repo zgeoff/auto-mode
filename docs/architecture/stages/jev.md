@@ -52,8 +52,9 @@ are the only way to change the hooks folder of a gh stack command. To tell the r
 hooks from others, the Jev stage reads the checkout: the hooks folder from git's config files,
 resolved as git resolves it, and the first lefthook config at the worktree root. A path that names
 those exactly keeps the hooks and adds nothing. Any other path counts as a replacement, as does
-every path when the checkout is unknown or the command leaves it. An empty hooks folder runs no
-hooks, so it counts too.
+every path when the checkout is unknown, when its git config includes a file the stage does not
+read, or when the command may leave it, through a directory change or a git directory override. An
+empty hooks folder runs no hooks, so it counts too.
 
 A skip or exclude setting in lefthook's local config leaves steps out of every later commit and
 push, so a write that adds one gets the same guidance, whether a file tool or a shell redirection

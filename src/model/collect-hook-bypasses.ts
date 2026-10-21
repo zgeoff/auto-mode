@@ -1,4 +1,4 @@
-import { resolve, sep } from 'node:path';
+import { resolve } from 'node:path';
 import type { HookFacts } from '../git/types.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
@@ -83,9 +83,12 @@ function collectSegmentBypasses(
     return [];
   }
 
+  const reaching = buildReachingVariables(prefix, exported);
+  const checkoutFacts = hasCheckoutOverride(reaching) ? null : facts;
+
   if (programName === 'gh') {
     return args[0] === 'stack' && GH_STACK_WRITES.has(args[1] ?? '')
-      ? collectHookSwitches(buildReachingVariables(prefix, exported), [], facts)
+      ? collectHookSwitches(reaching, [], checkoutFacts)
       : [];
   }
 
@@ -100,18 +103,51 @@ function collectSegmentBypasses(
     return [];
   }
 
-  const isInWorktree =
-    facts !== null &&
-    git.directory !== null &&
-    (git.directory === facts.worktree || git.directory.startsWith(`${facts.worktree}${sep}`));
+  const globals = args.slice(0, args.length - git.args.length);
 
-  const worktreeFacts = isInWorktree ? facts : null;
+  // A -C into a subfolder can enter a nested repository, so only the cwd
+  // keeps the checkout the facts describe.
+  const isSameCheckout =
+    git.directory === cwd && !globals.some((arg) => /^--(?:git-dir|work-tree)(?:=|$)/u.test(arg));
+
+  const gitFacts = isSameCheckout ? checkoutFacts : null;
   const option = findNoVerifyOption(subArgs, subcommand);
 
   return [
-    ...collectHookSwitches(buildReachingVariables(prefix, exported), git.config, worktreeFacts),
+    ...collectHookSwitches(reaching, git.config, gitFacts),
     ...(option === null ? [] : [option]),
   ];
+}
+
+// The words before the program set and unset variables in order, over what an
+// earlier export left: a later assignment replaces an earlier one, and
+// `env -u NAME` removes it, so only the last state of each name reaches git.
+function buildReachingVariables(
+  prefix: readonly string[],
+  exported: ReadonlyMap<string, string>,
+): ReadonlyMap<string, string> {
+  const reaching = new Map(exported);
+
+  for (let index = 0; index < prefix.length; index += 1) {
+    const word = prefix[index] ?? '';
+    const name = word.slice(0, word.indexOf('='));
+
+    if (word === '-u') {
+      reaching.delete(prefix[index + 1] ?? '');
+
+      index += 1;
+    } else if (/^\w+$/u.test(name)) {
+      reaching.set(name, word);
+    }
+  }
+
+  return reaching;
+}
+
+const CHECKOUT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];
+
+function hasCheckoutOverride(reaching: ReadonlyMap<string, string>): boolean {
+  return CHECKOUT_OVERRIDES.some((name) => reaching.has(name));
 }
 
 // lefthook skips its hooks for `0` or `false`, and husky for `0` alone. lefthook
@@ -239,31 +275,6 @@ function isKeptHooksPath(value: string | null, facts: HookFacts | null): boolean
     isResolvableWord(value) &&
     resolve(facts.worktree, value) === facts.hooksDirectory
   );
-}
-
-// The words before the program set and unset variables in order, over what an
-// earlier export left: a later assignment replaces an earlier one, and
-// `env -u NAME` removes it, so only the last state of each name reaches git.
-function buildReachingVariables(
-  prefix: readonly string[],
-  exported: ReadonlyMap<string, string>,
-): ReadonlyMap<string, string> {
-  const reaching = new Map(exported);
-
-  for (let index = 0; index < prefix.length; index += 1) {
-    const word = prefix[index] ?? '';
-    const name = word.slice(0, word.indexOf('='));
-
-    if (word === '-u') {
-      reaching.delete(prefix[index + 1] ?? '');
-
-      index += 1;
-    } else if (/^\w+$/u.test(name)) {
-      reaching.set(name, word);
-    }
-  }
-
-  return reaching;
 }
 
 const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([

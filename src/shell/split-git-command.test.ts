@@ -28,6 +28,17 @@ test('it keeps each --config-env setting in order, in either spelling', () => {
   });
 });
 
+test.each([['--git-dir'], ['--work-tree'], ['--namespace']])(
+  'it skips the value of a two-word %s',
+  (option) => {
+    expect(splitGitCommand([option, '/srv/other', 'push'], '/w', '/h')).toStrictEqual({
+      directory: '/w',
+      config: [],
+      args: ['push'],
+    });
+  },
+);
+
 test('it skips a global flag that takes no value', () => {
   expect(splitGitCommand(['--no-pager', 'log'], '/w', '/h')).toStrictEqual({
     directory: '/w',

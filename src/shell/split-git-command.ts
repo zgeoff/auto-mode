@@ -11,6 +11,15 @@ export interface GitCommand {
   readonly args: readonly string[];
 }
 
+const VALUED_GLOBALS: ReadonlySet<string> = new Set([
+  '-C',
+  '-c',
+  '--config-env',
+  '--git-dir',
+  '--work-tree',
+  '--namespace',
+]);
+
 // Reads git's global options: `-C` moves the directory git runs in, and `-c`
 // and `--config-env` set a config value, in order. The arguments left start at
 // the subcommand.
@@ -37,7 +46,7 @@ export function splitGitCommand(
       config.push({ source: 'environment', setting: option.slice('--config-env='.length) });
     }
 
-    index += option === '-C' || option === '-c' || option === '--config-env' ? 2 : 1;
+    index += VALUED_GLOBALS.has(option) ? 2 : 1;
   }
 
   return { directory: gitDirectory, config, args: args.slice(index) };
