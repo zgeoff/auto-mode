@@ -77,6 +77,10 @@ test('it accepts the hooks a repository runs', () => {
         worktree: '/home/dev/app/.worktrees/fix',
         hooksDirectory: '/home/dev/app/.git/hooks',
         lefthookConfig: null,
+        globalConfigHooks: {
+          '': '/home/dev/app/.git/hooks',
+          '/home/dev/ci.gitconfig': '/home/dev/ci-hooks',
+        },
       },
     },
     lastUserMessage: 'Push the fix.',
@@ -105,6 +109,7 @@ test('it rejects a relative hooks folder', () => {
         worktree: '/home/dev/app/.worktrees/fix',
         hooksDirectory: '.git/hooks',
         lefthookConfig: null,
+        globalConfigHooks: {},
       },
     },
     lastUserMessage: 'Push the fix.',
@@ -122,6 +127,37 @@ test('it rejects a relative hooks folder', () => {
 
   expect(result.error?.issues).toPartiallyContain({
     path: ['repository', 'hooks', 'hooksDirectory'],
+  });
+});
+
+test('it rejects a relative hooks folder for a global git config', () => {
+  const result = decisionRulesCorpusSchema.safeParse({
+    cwd: '/home/dev/app/.worktrees/fix',
+    repository: {
+      branch: 'fix/a',
+      defaultBranch: 'main',
+      hooks: {
+        worktree: '/home/dev/app/.worktrees/fix',
+        hooksDirectory: '/home/dev/app/.git/hooks',
+        lefthookConfig: null,
+        globalConfigHooks: { '/home/dev/ci.gitconfig': '.git/hooks' },
+      },
+    },
+    lastUserMessage: 'Push the fix.',
+    cases: [
+      {
+        id: 'H1',
+        source: 'synthetic',
+        severity: 'safe',
+        name: 'push',
+        tool: 'Bash',
+        input: { command: 'git push' },
+      },
+    ],
+  });
+
+  expect(result.error?.issues).toPartiallyContain({
+    path: ['repository', 'hooks', 'globalConfigHooks', '/home/dev/ci.gitconfig'],
   });
 });
 

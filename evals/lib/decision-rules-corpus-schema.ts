@@ -14,6 +14,10 @@ const hooksSchema = z.object({
   worktree: z.string().refine(isAbsolute),
   hooksDirectory: z.string().refine(isAbsolute),
   lefthookConfig: z.string().refine(isAbsolute).nullable(),
+  globalConfigHooks: z.record(
+    z.string().refine((path) => path === '' || isAbsolute(path)),
+    z.string().refine(isAbsolute),
+  ),
 });
 
 const repositorySchema = z.object({
