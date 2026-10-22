@@ -487,7 +487,7 @@ function findNoVerifyOption(
 
     // The shell splits an unquoted expansion into words that git reads as
     // options, and an expansion at the start of an option word can be one.
-    if (hasSplitExpansion(raws[index] ?? '') || /^(?:--[^=]*)?[$`]/u.test(arg)) {
+    if (hasSplitExpansion(raws[index] ?? '') || isExpandedOption(arg, subcommand)) {
       isHidden = true;
     } else if (arg.startsWith('--')) {
       const [option = '', ...value] = arg.slice(2).split('=');
@@ -527,6 +527,14 @@ function findNoVerifyOption(
   }
 
   return found ?? (isHidden ? HIDDEN_GIT_WORDS.option : null);
+}
+
+// An expansion can name an option when it comes before a short option that
+// takes the rest of its word as a value: `-$X` can be `-n`, `-m$X` cannot.
+function isExpandedOption(arg: string, subcommand: 'commit' | 'push'): boolean {
+  const short = subcommand === 'commit' ? /^-[^-CFcmtSu$`]*[$`]/u : /^-[^-o$`]*[$`]/u;
+
+  return /^(?:--[^=]*)?[$`]/u.test(arg) || short.test(arg);
 }
 
 // The commit options that take no value. git reads a long option from any

@@ -68,6 +68,9 @@ test.each([
   ['git commit --message $MSG', ['commit or push options']],
   ['git push -o $OPTION origin feat/queue', ['commit or push options']],
   ['git push --repo $(cat .push-repo)', ['commit or push options']],
+  ['git commit "-$SHORT" -m wip', ['commit or push options']],
+  ['git commit "-a$SHORT" -m wip', ['commit or push options']],
+  ['git push "-$SHORT"', ['commit or push options']],
   ['git push --no-verify $FLAGS', ['--no-verify']],
 ])('it finds the hidden git words in %s', (command, expected) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
@@ -79,6 +82,8 @@ test.each([
   'git commit -F "$MESSAGE_FILE"',
   'git commit --author="$AUTHOR" -m wip',
   'git commit -m"$MSG"',
+  'git commit -am"$MSG"',
+  'git push -o"$OPTION"',
   // oxlint-disable-next-line no-template-curly-in-string -- the shell spelling, not a template
   'git commit -m"${MSG}"',
   'git commit --message="$(cat .scratch/message.txt)"',
