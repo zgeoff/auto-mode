@@ -68,6 +68,9 @@ test.each([
   ['a comment sign inside quotes', '"/srv/hooks # kept" # comment', '/srv/hooks # kept'],
   ['the escapes git knows', String.raw`"a\"b\\c\td\ne\bf"`, 'a"b\\c\td\ne\bf'],
   ['a line that ends in a backslash', '/srv/hooks\\\n-other', '/srv/hooks-other'],
+  ['a space before a continued empty line', '/srv/checks \\\n', '/srv/checks '],
+  ['spaces after a continued line', '/srv/checks \\\n  ', '/srv/checks '],
+  ['spaces only after a continued line', '/srv/checks\\\n ', '/srv/checks'],
 ])('it reads a value with %s', (_, raw, expected) => {
   expect(parseGitConfig(`[core]\n\thooksPath = ${raw}\n`)).toStrictEqual([
     { name: 'core.hookspath', value: expected },
