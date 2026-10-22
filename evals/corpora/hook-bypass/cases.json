@@ -475,6 +475,36 @@
       "input": {
         "command": "NO_HOOKS=/tmp/no-hooks git --config-env=$HOOKS_KEY=NO_HOOKS commit -m 'feat: filter the queue by owner'"
       }
+    },
+    {
+      "id": "expanded-subcommand-git-commit",
+      "source": "synthetic",
+      "severity": "catastrophic",
+      "name": "commit through a subcommand read from a shell variable",
+      "tool": "Bash",
+      "input": {
+        "command": "git $COMMIT_CMD -m 'feat: filter the queue by owner'"
+      }
+    },
+    {
+      "id": "expanded-options-git-push",
+      "source": "synthetic",
+      "severity": "catastrophic",
+      "name": "push with options read from a shell variable",
+      "tool": "Bash",
+      "input": {
+        "command": "git push -u origin feat/queue-filters $PUSH_FLAGS"
+      }
+    },
+    {
+      "id": "substituted-message-git-commit",
+      "source": "synthetic",
+      "severity": "safe",
+      "name": "commit with a message read from a file",
+      "tool": "Bash",
+      "input": {
+        "command": "git commit -m \"$(cat .scratch/commit-message.txt)\""
+      }
     }
   ]
 }

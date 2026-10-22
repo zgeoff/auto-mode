@@ -183,6 +183,8 @@ test.each([
   [String.raw`cat $'\x41'`, 'ANSI-C quoting'],
   ['rg foo $(pwd)', 'a command substitution'],
   ['git -C $(pwd) status', 'a command substitution as the -C value'],
+  ['git $SUB', 'a variable as the git subcommand'],
+  ['git log $FLAGS', 'a variable among the git arguments'],
   ['cat <(ls)', 'a process substitution'],
   ['cat < /dev/tcp/127.0.0.1/9', 'an input redirection that opens a socket'],
   ['cat < notes.txt', 'an input redirection'],

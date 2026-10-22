@@ -32,7 +32,7 @@ test.each([
   ['containment', 13],
   ['decision-rules', 284],
   ['default-branch-write', 3],
-  ['hook-bypass', 45],
+  ['hook-bypass', 48],
   ['question-severity', 56],
   ['relay-consent', 76],
   ['second-judge', 83],

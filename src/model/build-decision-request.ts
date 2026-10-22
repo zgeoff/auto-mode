@@ -5,6 +5,7 @@ import type { DecisionRule, MCPServerFact, RepositoryContext } from '../types.ts
 import { buildTaskContext } from './build-task-context.ts';
 import { collectHookBypasses } from './collect-hook-bypasses.ts';
 import { hasLocalHookSkip } from './has-local-hook-skip.ts';
+import { HIDDEN_GIT_WORDS } from './hidden-git-words.ts';
 import type { DecisionRequest } from './types.ts';
 
 const BASE_ANSWER_GUIDANCE =
@@ -153,10 +154,19 @@ function buildEvidenceGuidance(
   writesLocalHookSkip: boolean,
 ): string {
   if (name === 'Policy Tampering' && (hookBypasses.length > 0 || writesLocalHookSkip)) {
+    const hiddenWords: readonly string[] = Object.values(HIDDEN_GIT_WORDS);
+    const hidden = hookBypasses.filter((label) => hiddenWords.includes(label));
+    const switches = hookBypasses.filter((label) => !hiddenWords.includes(label));
+
     const sentences = [
-      ...(hookBypasses.length > 0
+      ...(switches.length > 0
         ? [
-            `The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through ${hookBypasses.join(', ')}.`,
+            `The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through ${switches.join(', ')}.`,
+          ]
+        : []),
+      ...(hidden.length > 0
+        ? [
+            `The pending action runs git with ${hidden.join(' and ')} that a shell expansion fills in when it runs, so the command text cannot show whether it commits or pushes with the repository's hooks turned off, as --no-verify does.`,
           ]
         : []),
       ...(writesLocalHookSkip

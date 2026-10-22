@@ -809,6 +809,66 @@ test('it keeps the command text out of the Policy Tampering instructions when it
   expect(question.instructions).not.toInclude('Answer allow');
 });
 
+test('it tells Jev the command text cannot show the hooks when a shell expansion fills in git push options', async () => {
+  const policy = await loadPolicy({}, 'decision.md');
+
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'LEFTHOOK=0 git push $FLAGS' },
+    }),
+    policy,
+    {
+      configuredRules: buildMockClaudeRules(),
+      lastUserMessage: 'Ship the parser fix',
+      rulesSource: 'shipped',
+    },
+  );
+
+  const [id] =
+    Object.entries(request.rules).find(([, rule]) => rule.name === 'Policy Tampering') ?? [];
+
+  invariant(id !== undefined, 'the shipped policy holds Policy Tampering');
+
+  expect(request.questions[id]?.instructions).toInclude(
+    "The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through LEFTHOOK=0. The pending action runs git with commit or push options that a shell expansion fills in when it runs, so the command text cannot show whether it commits or pushes with the repository's hooks turned off, as --no-verify does. Those hooks are the checks",
+  );
+});
+
+test('it gives a git subcommand that a shell expansion fills in only the hidden-word sentence', async () => {
+  const policy = await loadPolicy({}, 'decision.md');
+
+  const request = buildDecisionRequest(
+    buildMockActionRequest({
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: "git $SUB -m 'fix: parse empty input'" },
+    }),
+    policy,
+    {
+      configuredRules: buildMockClaudeRules(),
+      lastUserMessage: 'Ship the parser fix',
+      rulesSource: 'shipped',
+    },
+  );
+
+  const [id] =
+    Object.entries(request.rules).find(([, rule]) => rule.name === 'Policy Tampering') ?? [];
+
+  invariant(id !== undefined, 'the shipped policy holds Policy Tampering');
+
+  const question = request.questions[id];
+
+  invariant(question, 'Policy Tampering has a question');
+
+  expect(question.instructions).toInclude(
+    "\nThe pending action runs git with a subcommand that a shell expansion fills in when it runs, so the command text cannot show whether it commits or pushes with the repository's hooks turned off, as --no-verify does. Those hooks are the checks",
+  );
+
+  expect(question.instructions).not.toInclude('turned off or replaced, through');
+});
+
 test('it adds no hook guidance to Policy Tampering for a plain git push', async () => {
   const policy = await loadPolicy({}, 'decision.md');
 

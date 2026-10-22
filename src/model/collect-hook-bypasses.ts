@@ -3,6 +3,7 @@ import { parseConfigParameters } from '../git/parse-config-parameters.ts';
 import { parseGitBoolean } from '../git/parse-git-boolean.ts';
 import { resolveConfigFilePath } from '../git/resolve-config-file-path.ts';
 import type { HookFacts } from '../git/types.ts';
+import { hasExpansion } from '../shell/has-expansion.ts';
 import { hasUnquotedExpansion } from '../shell/has-unquoted-expansion.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
@@ -11,6 +12,8 @@ import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import { toWordValues } from '../shell/to-word-values.ts';
+import { findNoVerifyOption } from './find-no-verify-option.ts';
+import { HIDDEN_GIT_WORDS } from './hidden-git-words.ts';
 
 // Each switch is a fixed label, never the command's own text, because the
 // labels reach the classifier's trusted instructions. Without the checkout's
@@ -103,13 +106,13 @@ function collectSegmentBypasses(
   }
 
   const git = splitGitCommand(args, cwd, '');
-  const [subcommand, ...subArgs] = git.args;
+  const [subcommand = '', ...subArgs] = git.args;
+  const writing = subcommand === 'commit' || subcommand === 'push' ? subcommand : null;
+  const globals = args.slice(0, args.length - git.args.length);
 
-  if (subcommand !== 'commit' && subcommand !== 'push') {
+  if (writing === null && !hasExpansion(raws[prefix.length + globals.length + 1] ?? '', 'any')) {
     return [];
   }
-
-  const globals = args.slice(0, args.length - git.args.length);
 
   // A -C into a subfolder can enter a nested repository, so only the cwd
   // keeps the checkout the facts describe.
@@ -117,7 +120,11 @@ function collectSegmentBypasses(
     git.directory === cwd && !globals.some((arg) => /^--(?:git-dir|work-tree)(?:=|$)/u.test(arg));
 
   const gitFacts = isSameCheckout ? checkoutFacts : null;
-  const option = findNoVerifyOption(subArgs, subcommand);
+
+  const option =
+    writing === null
+      ? HIDDEN_GIT_WORDS.subcommand
+      : findNoVerifyOption(subArgs, raws.slice(prefix.length + globals.length + 2), writing);
 
   // An unquoted expansion can split into several words, and so end git's
   // options early: a later `-c` then lands in the subcommand's arguments.
@@ -437,140 +444,4 @@ function findSystemLayerHooks(
   }
 
   return system === undefined ? undefined : findLayerHooks(system, null, facts);
-}
-
-const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([
-  'author',
-  'cleanup',
-  'date',
-  'file',
-  'fixup',
-  'message',
-  'pathspec-from-file',
-  'reedit-message',
-  'reuse-message',
-  'squash',
-  'template',
-  'trailer',
-]);
-
-// git keeps the last of `--no-verify` and `--verify`, so a later `--verify`
-// runs the hooks again.
-function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'push'): string | null {
-  let found: string | null = null;
-  let index = 0;
-
-  while (index < args.length && args[index] !== '--') {
-    const arg = args[index] ?? '';
-
-    if (arg.startsWith('--')) {
-      const [option = '', ...value] = arg.slice(2).split('=');
-
-      // git accepts an unambiguous prefix of a long option, such as `--no-veri`.
-      if (option.startsWith('no-ve') && 'no-verify'.startsWith(option)) {
-        found = '--no-verify';
-      } else if (option.startsWith('veri') && 'verify'.startsWith(option)) {
-        found = null;
-      }
-
-      if (
-        subcommand === 'commit' &&
-        value.length === 0 &&
-        COMMIT_VALUED_LONG.has(findCommitOption(option) ?? '')
-      ) {
-        index += 1;
-      }
-    } else if (subcommand === 'commit' && arg.startsWith('-') && arg !== '-') {
-      // On `git push`, `-n` is `--dry-run` and keeps the hooks.
-      const cluster = parseCommitCluster(arg);
-
-      if (cluster.hasNoVerify) {
-        found = '-n';
-      }
-
-      if (cluster.takesNextWord) {
-        index += 1;
-      }
-    }
-
-    index += 1;
-  }
-
-  return found;
-}
-
-// The commit options that take no value. git reads a long option from any
-// prefix that names one option alone, and an exact name wins over a longer
-// one, so `--mess` is `--message` and `--all` is not `--allow-empty`.
-const COMMIT_FLAG_LONG: ReadonlySet<string> = new Set([
-  'ahead-behind',
-  'all',
-  'allow-empty',
-  'allow-empty-message',
-  'amend',
-  'branch',
-  'dry-run',
-  'edit',
-  'gpg-sign',
-  'include',
-  'interactive',
-  'long',
-  'no-post-rewrite',
-  'no-verify',
-  'null',
-  'only',
-  'patch',
-  'pathspec-file-nul',
-  'porcelain',
-  'post-rewrite',
-  'quiet',
-  'reset-author',
-  'short',
-  'signoff',
-  'status',
-  'untracked-files',
-  'verbose',
-  'verify',
-]);
-
-// An ambiguous prefix makes git refuse the commit, so it names no option.
-function findCommitOption(option: string): string | null {
-  const names = [...COMMIT_VALUED_LONG, ...COMMIT_FLAG_LONG];
-
-  if (names.includes(option)) {
-    return option;
-  }
-
-  const matches = names.filter((name) => name.startsWith(option));
-
-  return matches.length === 1 ? (matches[0] ?? null) : null;
-}
-
-interface CommitCluster {
-  readonly hasNoVerify: boolean;
-  readonly takesNextWord: boolean;
-}
-
-// The commit options that take a value, so the value word is not read as an
-// option. A short one takes the rest of its cluster, or else the next word;
-// `-u` and `-S` take only the rest.
-const COMMIT_VALUED_SHORT = 'CFcmt';
-const COMMIT_ATTACHED_SHORT = 'Su';
-
-function parseCommitCluster(arg: string): CommitCluster {
-  let hasNoVerify = false;
-
-  for (let index = 1; index < arg.length; index += 1) {
-    const letter = arg.charAt(index);
-
-    if (letter === 'n') {
-      hasNoVerify = true;
-    } else if (COMMIT_ATTACHED_SHORT.includes(letter)) {
-      break;
-    } else if (COMMIT_VALUED_SHORT.includes(letter)) {
-      return { hasNoVerify, takesNextWord: index === arg.length - 1 };
-    }
-  }
-
-  return { hasNoVerify, takesNextWord: false };
 }
