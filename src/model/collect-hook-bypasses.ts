@@ -11,6 +11,7 @@ import { splitGitCommand } from '../shell/split-git-command.ts';
 import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import { toWordValues } from '../shell/to-word-values.ts';
+import { HIDDEN_GIT_WORDS } from './hidden-git-words.ts';
 
 // Each switch is a fixed label, never the command's own text, because the
 // labels reach the classifier's trusted instructions. Without the checkout's
@@ -103,9 +104,10 @@ function collectSegmentBypasses(
   }
 
   const git = splitGitCommand(args, cwd, '');
-  const [subcommand, ...subArgs] = git.args;
+  const [subcommand = '', ...subArgs] = git.args;
+  const writing = subcommand === 'commit' || subcommand === 'push' ? subcommand : null;
 
-  if (subcommand !== 'commit' && subcommand !== 'push') {
+  if (writing === null && !isUnresolvedWord(subcommand)) {
     return [];
   }
 
@@ -117,7 +119,11 @@ function collectSegmentBypasses(
     git.directory === cwd && !globals.some((arg) => /^--(?:git-dir|work-tree)(?:=|$)/u.test(arg));
 
   const gitFacts = isSameCheckout ? checkoutFacts : null;
-  const option = findNoVerifyOption(subArgs, subcommand);
+
+  const option =
+    writing === null
+      ? HIDDEN_GIT_WORDS.subcommand
+      : findNoVerifyOption(subArgs, raws.slice(prefix.length + globals.length + 2), writing);
 
   // An unquoted expansion can split into several words, and so end git's
   // options early: a later `-c` then lands in the subcommand's arguments.
@@ -454,16 +460,34 @@ const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([
   'trailer',
 ]);
 
+// The push options that take the next word as their value.
+const PUSH_VALUED_LONG: ReadonlySet<string> = new Set([
+  'exec',
+  'push-option',
+  'receive-pack',
+  'repo',
+]);
+
 // git keeps the last of `--no-verify` and `--verify`, so a later `--verify`
-// runs the hooks again.
-function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'push'): string | null {
+// runs the hooks again, unless an expanded word before it can take it as its
+// value.
+function findNoVerifyOption(
+  args: readonly string[],
+  raws: readonly string[],
+  subcommand: 'commit' | 'push',
+): string | null {
   let found: string | null = null;
+  let isHidden = false;
   let index = 0;
 
   while (index < args.length && args[index] !== '--') {
     const arg = args[index] ?? '';
 
-    if (arg.startsWith('--')) {
+    // The shell splits an unquoted expansion into words that git reads as
+    // options, and an expansion at the start of an option word can be one.
+    if (hasUnquotedExpansion(raws[index] ?? '') || /^(?:--[^=]*)?[$`]/u.test(arg)) {
+      isHidden = true;
+    } else if (arg.startsWith('--')) {
       const [option = '', ...value] = arg.slice(2).split('=');
 
       // git accepts an unambiguous prefix of a long option, such as `--no-veri`.
@@ -473,13 +497,16 @@ function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'pus
         found = null;
       }
 
-      if (
-        subcommand === 'commit' &&
-        value.length === 0 &&
-        COMMIT_VALUED_LONG.has(findCommitOption(option) ?? '')
-      ) {
+      const takesNextWord =
+        subcommand === 'commit'
+          ? COMMIT_VALUED_LONG.has(findCommitOption(option) ?? '')
+          : PUSH_VALUED_LONG.has(option);
+
+      if (value.length === 0 && takesNextWord) {
         index += 1;
       }
+    } else if (subcommand === 'push' && arg === '-o') {
+      index += 1;
     } else if (subcommand === 'commit' && arg.startsWith('-') && arg !== '-') {
       // On `git push`, `-n` is `--dry-run` and keeps the hooks.
       const cluster = parseCommitCluster(arg);
@@ -496,7 +523,7 @@ function findNoVerifyOption(args: readonly string[], subcommand: 'commit' | 'pus
     index += 1;
   }
 
-  return found;
+  return found ?? (isHidden ? HIDDEN_GIT_WORDS.option : null);
 }
 
 // The commit options that take no value. git reads a long option from any

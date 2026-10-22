@@ -46,6 +46,48 @@ test.each([
 });
 
 test.each([
+  ["git $SUB -m 'feat: filter the queue'", ['a subcommand']],
+  ['git "$SUB" --no-verify -m wip', ['a subcommand']],
+  ['git $(printf push)', ['a subcommand']],
+  ['git -C /srv/harbor `printf commit` -m wip', ['a subcommand']],
+  ['git $ARGS', ['a subcommand']],
+  ['LEFTHOOK=0 git $SUB', ['LEFTHOOK=0', 'a subcommand']],
+  ['git push $FLAGS', ['commit or push options']],
+  ['git push "$FLAGS"', ['commit or push options']],
+  ['git push -u origin feat/queue $FLAGS', ['commit or push options']],
+  ['git push origin "$BRANCH"', ['commit or push options']],
+  ['git push origin feat/$NAME', ['commit or push options']],
+  ['git push "--no-$CHECK"', ['commit or push options']],
+  ['NV=--no-verify; git push $NV', ['commit or push options']],
+  ['git push $(cat .push-flags)', ['commit or push options']],
+  ['git push $FLAGS --verify', ['commit or push options']],
+  ["git commit $FLAGS -m 'feat: filter the queue'", ['commit or push options']],
+  ['git commit -m wip "$FLAGS"', ['commit or push options']],
+  ['git commit --message=$MSG', ['commit or push options']],
+  ['git push --no-verify $FLAGS', ['--no-verify']],
+])('it finds the hidden git words in %s', (command, expected) => {
+  expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
+});
+
+test.each([
+  'git commit -m "$MSG"',
+  'git commit -m "$(cat .scratch/message.txt)"',
+  'git commit -F "$MESSAGE_FILE"',
+  'git commit --author="$AUTHOR" -m wip',
+  'git commit -m"$MSG"',
+  'git commit -m wip -- "$FILE"',
+  'git push origin "feat/$NAME"',
+  'git push -o "$OPTION" origin feat/queue',
+  'git push --push-option "$OPTION"',
+  'git push -- origin "$BRANCH"',
+  'git status $PATHS',
+  'git -c user.name="$NAME" push',
+  'git log $RANGE',
+])('it finds no hidden git words in %s', (command) => {
+  expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual([]);
+});
+
+test.each([
   ['LEFTHOOK_CONFIG=other.yml git commit -m wip', ['LEFTHOOK_CONFIG']],
   ['LEFTHOOK_CONFIG=/tmp/empty.yml git push', ['LEFTHOOK_CONFIG']],
   ['LEFTHOOK_CONFIG=.lefthook.yml git push', ['LEFTHOOK_CONFIG']],
