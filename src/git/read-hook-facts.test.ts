@@ -24,7 +24,10 @@ test('it reads the common hooks folder and no lefthook config from a checkout th
       gitDir: join(ctx.directory, 'repo', '.git'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: {}, home: join(ctx.directory, 'home') },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );
@@ -32,8 +35,10 @@ test('it reads the common hooks folder and no lefthook config from a checkout th
   expect(facts).toStrictEqual({
     worktree: join(ctx.directory, 'repo'),
     hooksDirectory: join(ctx.directory, 'repo', '.git', 'hooks'),
+    defaultHooksDirectory: join(ctx.directory, 'repo', '.git', 'hooks'),
     lefthookConfig: null,
-    globalConfigHooks: {},
+    layerHooks: { system: null, global: null, repository: null },
+    configFileHooks: {},
   });
 });
 
@@ -64,7 +69,10 @@ test('it reads a relative core.hooksPath from the worktree root and the config l
       gitDir: join(ctx.directory, 'repo', '.git', 'worktrees', 'feat'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: {}, home: join(ctx.directory, 'home') },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );
@@ -72,8 +80,14 @@ test('it reads a relative core.hooksPath from the worktree root and the config l
   expect(facts).toStrictEqual({
     worktree: join(ctx.directory, 'repo', '.worktrees', 'feat'),
     hooksDirectory: join(ctx.directory, 'repo', '.worktrees', 'feat', 'githooks'),
+    defaultHooksDirectory: join(ctx.directory, 'repo', '.git', 'hooks'),
     lefthookConfig: join(ctx.directory, 'repo', '.worktrees', 'feat', '.lefthook.yml'),
-    globalConfigHooks: {},
+    layerHooks: {
+      system: null,
+      global: null,
+      repository: join(ctx.directory, 'repo', '.worktrees', 'feat', 'githooks'),
+    },
+    configFileHooks: {},
   });
 });
 
@@ -123,7 +137,10 @@ test('it reads the repository core.hooksPath over the user one', async () => {
       gitDir: join(ctx.directory, 'repo', '.git'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: {}, home: join(ctx.directory, 'home') },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );
@@ -152,7 +169,10 @@ test('it reads core.hooksPath from a file the repository config includes, from t
       gitDir: join(ctx.directory, 'repo', '.git'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: {}, home: join(ctx.directory, 'home') },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );
@@ -190,7 +210,10 @@ test('it reads a core.hooksPath set after an include over the included one, and 
       gitDir: join(ctx.directory, 'repo', '.git'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: {}, home: join(ctx.directory, 'home') },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );
@@ -214,7 +237,10 @@ test('it reads no hook facts from a config with an includeIf', async () => {
       gitDir: join(ctx.directory, 'repo', '.git'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: {}, home: join(ctx.directory, 'home') },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );
@@ -234,7 +260,10 @@ test('it reads no hook facts from a config that includes itself', async () => {
       gitDir: join(ctx.directory, 'repo', '.git'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: {}, home: join(ctx.directory, 'home') },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );
@@ -289,12 +318,120 @@ test('it reads the hooks folder through the files its caller passes', async () =
   expect(facts).toStrictEqual({
     worktree: '/srv/harbor',
     hooksDirectory: '/srv/harbor/.checks',
+    defaultHooksDirectory: '/srv/harbor/.git/hooks',
     lefthookConfig: '/srv/harbor/lefthook.toml',
-    globalConfigHooks: {},
+    layerHooks: { system: null, global: null, repository: '/srv/harbor/.checks' },
+    configFileHooks: {},
   });
 });
 
-test('it reads the hooks folder git runs with each global config the caller names', async () => {
+test('it reads the system core.hooksPath from /etc/gitconfig under the user and repository ones', async () => {
+  const configs: Readonly<Record<string, string>> = {
+    '/etc/gitconfig': '[core]\n\thooksPath = /srv/shared-hooks\n',
+  };
+
+  const facts = await readHookFacts(
+    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+    { env: {}, home: '/home/robin' },
+    {
+      readText: (path) => Promise.resolve(configs[path] ?? null),
+      probeFile: () => Promise.resolve(false),
+    },
+    [],
+  );
+
+  expect(facts).toStrictEqual({
+    worktree: '/srv/harbor',
+    hooksDirectory: '/srv/shared-hooks',
+    defaultHooksDirectory: '/srv/harbor/.git/hooks',
+    lefthookConfig: null,
+    layerHooks: { system: '/srv/shared-hooks', global: null, repository: null },
+    configFileHooks: {},
+  });
+});
+
+test('it reads the user core.hooksPath over the system one', async () => {
+  const configs: Readonly<Record<string, string>> = {
+    '/etc/gitconfig': '[core]\n\thooksPath = /srv/shared-hooks\n',
+    '/home/robin/.gitconfig': '[core]\n\thooksPath = /srv/user-hooks\n',
+  };
+
+  const facts = await readHookFacts(
+    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+    { env: {}, home: '/home/robin' },
+    {
+      readText: (path) => Promise.resolve(configs[path] ?? null),
+      probeFile: () => Promise.resolve(false),
+    },
+    [],
+  );
+
+  expect(facts?.hooksDirectory).toBe('/srv/user-hooks');
+});
+
+test("it reads the system config from the session's GIT_CONFIG_SYSTEM in place of /etc/gitconfig", async () => {
+  const configs: Readonly<Record<string, string>> = {
+    '/etc/gitconfig': '[core]\n\thooksPath = /srv/shared-hooks\n',
+    '/srv/harbor/system.gitconfig': '[core]\n\thooksPath = /srv/session-hooks\n',
+  };
+
+  const facts = await readHookFacts(
+    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+    { env: { GIT_CONFIG_SYSTEM: 'system.gitconfig' }, home: '/home/robin' },
+    {
+      readText: (path) => Promise.resolve(configs[path] ?? null),
+      probeFile: () => Promise.resolve(false),
+    },
+    [],
+  );
+
+  expect(facts?.layerHooks.system).toBe('/srv/session-hooks');
+});
+
+test.each(['1', 'true'])(
+  "it reads no system config when the session's GIT_CONFIG_NOSYSTEM is %s",
+  async (value) => {
+    const configs: Readonly<Record<string, string>> = {
+      '/etc/gitconfig': '[core]\n\thooksPath = /srv/shared-hooks\n',
+      '/srv/harbor/system.gitconfig': '[core]\n\thooksPath = /srv/session-hooks\n',
+    };
+
+    const facts = await readHookFacts(
+      { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+      {
+        env: { GIT_CONFIG_NOSYSTEM: value, GIT_CONFIG_SYSTEM: 'system.gitconfig' },
+        home: '/home/robin',
+      },
+      {
+        readText: (path) => Promise.resolve(configs[path] ?? null),
+        probeFile: () => Promise.resolve(false),
+      },
+      [],
+    );
+
+    expect(facts?.hooksDirectory).toBe('/srv/harbor/.git/hooks');
+  },
+);
+
+test('it reads no hook facts from a system config with an includeIf', async () => {
+  const configs: Readonly<Record<string, string>> = {
+    '/etc/gitconfig': '[includeIf "gitdir:/srv/"]\n\tpath = /etc/gitconfig.srv\n',
+  };
+
+  const facts = await readHookFacts(
+    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+    { env: {}, home: '/home/robin' },
+    {
+      readText: (path) => Promise.resolve(configs[path] ?? null),
+      probeFile: () => Promise.resolve(false),
+    },
+    [],
+  );
+
+  expect(facts).toBeNull();
+});
+
+test('it reads the hooks folder each git config file the caller names sets', async () => {
   const configs: Readonly<Record<string, string>> = {
     '/home/robin/.gitconfig': '[core]\n\thooksPath = /srv/user-hooks\n',
     '/srv/harbor/quick.gitconfig': '[core]\n\thooksPath = checks\n',
@@ -321,38 +458,19 @@ test('it reads the hooks folder git runs with each global config the caller name
   expect(facts).toStrictEqual({
     worktree: '/srv/harbor',
     hooksDirectory: '/srv/user-hooks',
+    defaultHooksDirectory: '/srv/harbor/.git/hooks',
     lefthookConfig: null,
-    globalConfigHooks: {
+    layerHooks: { system: null, global: '/srv/user-hooks', repository: null },
+    configFileHooks: {
       '/srv/harbor/quick.gitconfig': '/srv/harbor/checks',
-      '/srv/harbor/plain.gitconfig': '/srv/harbor/.git/hooks',
-      '': '/srv/harbor/.git/hooks',
-      '/srv/missing.gitconfig': '/srv/harbor/.git/hooks',
+      '/srv/harbor/plain.gitconfig': null,
+      '': null,
+      '/srv/missing.gitconfig': null,
     },
   });
 });
 
-test('it reads the repository core.hooksPath over the one a named global config sets', async () => {
-  const configs: Readonly<Record<string, string>> = {
-    '/srv/harbor/.git/config': '[core]\n\thooksPath = .githooks\n',
-    '/tmp/quick.gitconfig': '[core]\n\thooksPath = /tmp/no-hooks\n',
-  };
-
-  const facts = await readHookFacts(
-    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
-    { env: {}, home: '/home/robin' },
-    {
-      readText: (path) => Promise.resolve(configs[path] ?? null),
-      probeFile: () => Promise.resolve(false),
-    },
-    ['/tmp/quick.gitconfig'],
-  );
-
-  expect(facts?.globalConfigHooks).toStrictEqual({
-    '/tmp/quick.gitconfig': '/srv/harbor/.githooks',
-  });
-});
-
-test('it leaves out a named global config that cannot be read, and keeps the other facts', async () => {
+test('it leaves out a named git config file that cannot be read, and keeps the other facts', async () => {
   const facts = await readHookFacts(
     { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
     { env: {}, home: '/home/robin' },
@@ -369,8 +487,10 @@ test('it leaves out a named global config that cannot be read, and keeps the oth
   expect(facts).toStrictEqual({
     worktree: '/srv/harbor',
     hooksDirectory: '/srv/harbor/.git/hooks',
+    defaultHooksDirectory: '/srv/harbor/.git/hooks',
     lefthookConfig: null,
-    globalConfigHooks: {},
+    layerHooks: { system: null, global: null, repository: null },
+    configFileHooks: {},
   });
 });
 
@@ -409,7 +529,10 @@ test('it reads no hook facts from a worktree with its own config', async () => {
       gitDir: join(ctx.directory, 'repo', '.git', 'worktrees', 'feat'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: {}, home: join(ctx.directory, 'home') },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );

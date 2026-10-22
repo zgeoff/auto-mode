@@ -131,8 +131,10 @@ test.each([
     collectHookBypasses(command, '/srv/harbor/.worktrees/feat', {
       worktree: '/srv/harbor/.worktrees/feat',
       hooksDirectory: '/srv/harbor/.git/hooks',
+      defaultHooksDirectory: '/srv/harbor/.git/hooks',
       lefthookConfig: '/srv/harbor/.worktrees/feat/lefthook.yml',
-      globalConfigHooks: {},
+      layerHooks: { system: null, global: null, repository: null },
+      configFileHooks: {},
     }),
   ).toStrictEqual(expected);
 });
@@ -170,8 +172,10 @@ test.each([
     collectHookBypasses(command, '/srv/harbor/.worktrees/feat', {
       worktree: '/srv/harbor/.worktrees/feat',
       hooksDirectory: '/srv/harbor/.git/hooks',
+      defaultHooksDirectory: '/srv/harbor/.git/hooks',
       lefthookConfig: '/srv/harbor/.worktrees/feat/lefthook.yml',
-      globalConfigHooks: {},
+      layerHooks: { system: null, global: null, repository: null },
+      configFileHooks: {},
     }),
   ).toStrictEqual([]);
 });
@@ -181,8 +185,10 @@ test('it counts any LEFTHOOK_CONFIG as another config when the worktree holds no
     collectHookBypasses('LEFTHOOK_CONFIG=lefthook.yml git push', '/srv/harbor', {
       worktree: '/srv/harbor',
       hooksDirectory: '/srv/harbor/.git/hooks',
+      defaultHooksDirectory: '/srv/harbor/.git/hooks',
       lefthookConfig: null,
-      globalConfigHooks: {},
+      layerHooks: { system: null, global: null, repository: null },
+      configFileHooks: {},
     }),
   ).toStrictEqual(['LEFTHOOK_CONFIG']);
 });
@@ -200,18 +206,35 @@ test.each([
   ['GIT_CONFIG_GLOBAL=ci.gitconfig gh stack push', []],
   ['GIT_CONFIG_GLOBAL=/tmp/quick.gitconfig git -c core.hooksPath=/srv/harbor/.git/hooks push', []],
   ['GIT_CONFIG_GLOBAL=/tmp/quick.gitconfig git status', []],
+  ['GIT_CONFIG_SYSTEM=/tmp/quick.gitconfig git push', ['GIT_CONFIG_SYSTEM']],
+  ['GIT_CONFIG_SYSTEM=/tmp/unread.gitconfig gh stack push', ['GIT_CONFIG_SYSTEM']],
+  [
+    'GIT_CONFIG_SYSTEM=/tmp/quick.gitconfig GIT_CONFIG_GLOBAL=/dev/null git commit -m wip',
+    ['GIT_CONFIG_SYSTEM', 'GIT_CONFIG_GLOBAL'],
+  ],
+  ['GIT_CONFIG_NOSYSTEM=0 git push', ['GIT_CONFIG_NOSYSTEM']],
+  ['GIT_CONFIG_NOSYSTEM=$SKIP git push', ['GIT_CONFIG_NOSYSTEM']],
+  ['GIT_CONFIG_NOSYSTEM=1 git push', []],
+  ['GIT_CONFIG_SYSTEM=/dev/null git push', []],
+  ['GIT_CONFIG_SYSTEM= git push', []],
+  ['GIT_CONFIG_SYSTEM=/tmp/quick.gitconfig GIT_CONFIG_NOSYSTEM=yes git push', []],
+  ['GIT_CONFIG_NOSYSTEM=false GIT_CONFIG_SYSTEM=ci.gitconfig git push', []],
+  ['GIT_CONFIG_SYSTEM=/tmp/quick.gitconfig GIT_CONFIG_GLOBAL=hooks.gitconfig git push', []],
 ])(
-  'it finds the hooks folder that the global git config in %s leaves git with',
+  'it finds the hooks folder that the git config files in %s leave git with',
   (command, expected) => {
     expect(
       collectHookBypasses(command, '/srv/harbor/.worktrees/feat', {
         worktree: '/srv/harbor/.worktrees/feat',
         hooksDirectory: '/srv/harbor/.git/hooks',
+        defaultHooksDirectory: '/srv/harbor/.git/hooks',
         lefthookConfig: '/srv/harbor/.worktrees/feat/lefthook.yml',
-        globalConfigHooks: {
-          '': '/srv/harbor/.git/hooks',
-          '/dev/null': '/srv/harbor/.git/hooks',
-          '/srv/harbor/.worktrees/feat/ci.gitconfig': '/srv/harbor/.git/hooks',
+        layerHooks: { system: null, global: null, repository: null },
+        configFileHooks: {
+          '': null,
+          '/dev/null': null,
+          '/srv/harbor/.worktrees/feat/ci.gitconfig': null,
+          '/srv/harbor/.worktrees/feat/hooks.gitconfig': '/srv/harbor/.git/hooks',
           '/tmp/quick.gitconfig': '/tmp/no-hooks',
         },
       }),
@@ -220,9 +243,44 @@ test.each([
 );
 
 test.each([
+  ['GIT_CONFIG_NOSYSTEM=1 git commit -m wip', ['GIT_CONFIG_NOSYSTEM']],
+  ['GIT_CONFIG_SYSTEM=/dev/null git push', ['GIT_CONFIG_SYSTEM']],
+  ['GIT_CONFIG_GLOBAL=/dev/null git push', []],
+  ['GIT_CONFIG_NOSYSTEM=1 git -c core.hooksPath=/srv/shared-hooks push', []],
+])(
+  'it finds the hooks folder that %s leaves git with when the system config sets one',
+  (command, expected) => {
+    expect(
+      collectHookBypasses(command, '/srv/harbor', {
+        worktree: '/srv/harbor',
+        hooksDirectory: '/srv/shared-hooks',
+        defaultHooksDirectory: '/srv/harbor/.git/hooks',
+        lefthookConfig: null,
+        layerHooks: { system: '/srv/shared-hooks', global: null, repository: null },
+        configFileHooks: { '/dev/null': null },
+      }),
+    ).toStrictEqual(expected);
+  },
+);
+
+test('it keeps the repository hooks folder over the one a named global git config sets', () => {
+  expect(
+    collectHookBypasses('GIT_CONFIG_GLOBAL=/tmp/quick.gitconfig git push', '/srv/harbor', {
+      worktree: '/srv/harbor',
+      hooksDirectory: '/srv/harbor/.githooks',
+      defaultHooksDirectory: '/srv/harbor/.git/hooks',
+      lefthookConfig: null,
+      layerHooks: { system: null, global: null, repository: '/srv/harbor/.githooks' },
+      configFileHooks: { '/tmp/quick.gitconfig': '/tmp/no-hooks' },
+    }),
+  ).toStrictEqual([]);
+});
+
+test.each([
   ['LEFTHOOK_BIN=node_modules/.bin/lefthook git push', ['LEFTHOOK_BIN']],
   ['LEFTHOOK_BIN=lefthook git push', []],
   ['GIT_CONFIG_GLOBAL=/dev/null git push', ['GIT_CONFIG_GLOBAL']],
+  ['GIT_CONFIG_NOSYSTEM=1 gh stack push', ['GIT_CONFIG_NOSYSTEM']],
 ])('it judges %s with the checkout unknown', (command, expected) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
 });

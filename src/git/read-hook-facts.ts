@@ -1,7 +1,8 @@
 import { join, resolve } from 'node:path';
 import type { HostEnvironment } from '../config/types.ts';
 import { parseConfigEntries } from './parse-config-entries.ts';
-import { resolveGlobalConfigPath } from './resolve-global-config-path.ts';
+import { parseGitBoolean } from './parse-git-boolean.ts';
+import { resolveConfigFilePath } from './resolve-config-file-path.ts';
 import type { Checkout, HookFacts, HookFactsFiles } from './types.ts';
 
 // lefthook 2.2.1 tries each extension in turn, and each name within it, and
@@ -20,33 +21,41 @@ export async function readHookFacts(
   checkout: Checkout,
   host: Pick<HostEnvironment, 'env' | 'home'>,
   files: HookFactsFiles,
-  globalConfigs: readonly string[],
+  configFiles: readonly string[],
 ): Promise<HookFacts | null> {
   const xdgConfig = host.env['XDG_CONFIG_HOME'] ?? join(host.home, '.config');
   const sessionGlobalConfig = host.env['GIT_CONFIG_GLOBAL'];
+  const sessionSystemConfig = host.env['GIT_CONFIG_SYSTEM'];
 
   // GIT_CONFIG_GLOBAL takes the place of both user config files.
-  const userPaths =
+  const globalPaths =
     sessionGlobalConfig === undefined
       ? [join(xdgConfig, 'git', 'config'), join(host.home, '.gitconfig')]
-      : [resolveGlobalConfigPath(sessionGlobalConfig, checkout.worktree)];
+      : [resolveConfigFilePath(sessionGlobalConfig, checkout.worktree)];
 
-  const [repository, users] = await Promise.all([
+  // Distribution builds of git read the system config from /etc/gitconfig.
+  const systemPaths =
+    parseGitBoolean(host.env['GIT_CONFIG_NOSYSTEM'] ?? '') === true
+      ? []
+      : [resolveConfigFilePath(sessionSystemConfig ?? '/etc/gitconfig', checkout.worktree)];
+
+  const [repository, globals, systems] = await Promise.all([
     readConfigHooksPath(join(checkout.commonDir, 'config'), host.home, 0, files),
-    Promise.all(userPaths.map((path) => readConfigHooksPath(path, host.home, 0, files))),
+    Promise.all(globalPaths.map((path) => readConfigHooksPath(path, host.home, 0, files))),
+    Promise.all(systemPaths.map((path) => readConfigHooksPath(path, host.home, 0, files))),
   ]);
 
   // A worktree's own config can set core.hooksPath, and git reads it only
   // under an extension this reader does not check.
   const hasWorktreeConfig = await files.probeFile(join(checkout.gitDir, 'config.worktree'));
 
-  if (hasWorktreeConfig || [repository, ...users].some((config) => !config.isKnown)) {
+  if (hasWorktreeConfig || [repository, ...globals, ...systems].some((config) => !config.isKnown)) {
     return null;
   }
 
-  // A replacement git cannot read fails only the commands that name it.
-  const replacements = await Promise.all(
-    [...new Set(globalConfigs.map((path) => resolveGlobalConfigPath(path, checkout.worktree)))].map(
+  // A named file git cannot read fails only the commands that name it.
+  const named = await Promise.all(
+    [...new Set(configFiles.map((path) => resolveConfigFilePath(path, checkout.worktree)))].map(
       async (path) => ({
         path,
         config: await readConfigHooksPath(path, host.home, 0, files).catch(() => UNKNOWN_CONFIG),
@@ -60,21 +69,27 @@ export async function readHookFacts(
 
   const present = await Promise.all(candidates.map((path) => files.probeFile(path)));
 
-  // git reads the user's config files before the repository's, and the last
-  // core.hooksPath it reads wins.
+  const layerHooks = {
+    system: findHooksDirectory(systems, checkout.worktree, host.home),
+    global: findHooksDirectory(globals, checkout.worktree, host.home),
+    repository: findHooksDirectory([repository], checkout.worktree, host.home),
+  };
+
+  const defaultHooksDirectory = join(checkout.commonDir, 'hooks');
+
+  // git reads the system config, then the user's, then the repository's, and
+  // the last core.hooksPath it reads wins.
   return {
     worktree: checkout.worktree,
-    hooksDirectory: buildHooksDirectory([...users, repository], checkout, host.home),
+    hooksDirectory:
+      layerHooks.repository ?? layerHooks.global ?? layerHooks.system ?? defaultHooksDirectory,
+    defaultHooksDirectory,
     lefthookConfig: candidates.find((_, index) => present[index] === true) ?? null,
-    globalConfigHooks: Object.fromEntries(
-      replacements.flatMap((replacement) =>
-        replacement.config.isKnown
-          ? [
-              [
-                replacement.path,
-                buildHooksDirectory([replacement.config, repository], checkout, host.home),
-              ],
-            ]
+    layerHooks,
+    configFileHooks: Object.fromEntries(
+      named.flatMap((file) =>
+        file.config.isKnown
+          ? [[file.path, findHooksDirectory([file.config], checkout.worktree, host.home)]]
           : [],
       ),
     ),
@@ -116,17 +131,15 @@ async function readConfigHooksPath(
   return { isKnown: true, hooksPath };
 }
 
-function buildHooksDirectory(
+function findHooksDirectory(
   configs: readonly ConfigHooksPath[],
-  checkout: Checkout,
+  worktree: string,
   home: string,
-): string {
+): string | null {
   const hooksPath =
     configs.map((config) => config.hooksPath).findLast((path) => path !== null) ?? null;
 
-  return hooksPath === null
-    ? join(checkout.commonDir, 'hooks')
-    : resolveHooksPath(hooksPath, checkout.worktree, home);
+  return hooksPath === null ? null : resolveHooksPath(hooksPath, worktree, home);
 }
 
 // git expands a leading `~/` in a path value, and reads a relative one from

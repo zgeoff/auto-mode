@@ -906,8 +906,10 @@ test('it tells Jev under Policy Tampering that a command points git and lefthook
       hookFacts: {
         worktree: '/srv/harbor',
         hooksDirectory: '/srv/harbor/.git/hooks',
+        defaultHooksDirectory: '/srv/harbor/.git/hooks',
         lefthookConfig: '/srv/harbor/lefthook.yml',
-        globalConfigHooks: {},
+        layerHooks: { system: null, global: null, repository: null },
+        configFileHooks: {},
       },
     },
   );
@@ -941,8 +943,10 @@ test('it adds no hook guidance to Policy Tampering for a push that names the rep
       hookFacts: {
         worktree: '/srv/harbor',
         hooksDirectory: '/srv/harbor/.git/hooks',
+        defaultHooksDirectory: '/srv/harbor/.git/hooks',
         lefthookConfig: '/srv/harbor/lefthook.yml',
-        globalConfigHooks: {},
+        layerHooks: { system: null, global: null, repository: null },
+        configFileHooks: {},
       },
     },
   );

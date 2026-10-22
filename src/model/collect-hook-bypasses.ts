@@ -1,6 +1,7 @@
 import { join, relative, resolve } from 'node:path';
 import { parseConfigParameters } from '../git/parse-config-parameters.ts';
-import { resolveGlobalConfigPath } from '../git/resolve-global-config-path.ts';
+import { parseGitBoolean } from '../git/parse-git-boolean.ts';
+import { resolveConfigFilePath } from '../git/resolve-config-file-path.ts';
 import type { HookFacts } from '../git/types.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
@@ -164,6 +165,12 @@ const HOOK_SWITCH_NAMES = [
   'LEFTHOOK_BIN',
 ] as const;
 
+const CONFIG_FILE_VARIABLES = [
+  'GIT_CONFIG_SYSTEM',
+  'GIT_CONFIG_NOSYSTEM',
+  'GIT_CONFIG_GLOBAL',
+] as const;
+
 function collectHookSwitches(
   reaching: ReadonlyMap<string, string>,
   config: readonly GitConfigOption[],
@@ -184,11 +191,11 @@ function collectHookSwitches(
     return isKeptHooksPath(hooksPath, facts) ? switches : [...switches, 'core.hooksPath'];
   }
 
-  const globalConfig = reaching.get('GIT_CONFIG_GLOBAL')?.slice('GIT_CONFIG_GLOBAL='.length);
+  const fileVariables = CONFIG_FILE_VARIABLES.filter((name) => reaching.has(name));
 
-  return globalConfig === undefined || isKeptGlobalConfig(globalConfig, facts)
+  return fileVariables.length === 0 || isKeptConfigFiles(reaching, facts)
     ? switches
-    : [...switches, 'GIT_CONFIG_GLOBAL'];
+    : [...switches, ...fileVariables];
 }
 
 function findSwitchLabel(name: string, value: string, facts: HookFacts | null): string | null {
@@ -329,14 +336,76 @@ function isKeptHooksPath(value: string | null, facts: HookFacts | null): boolean
   );
 }
 
-// The GIT_CONFIG_GLOBAL file takes the place of the user's config, and the
-// repository's config still wins over it.
-function isKeptGlobalConfig(value: string, facts: HookFacts | null): boolean {
-  return (
-    facts !== null &&
-    isResolvableWord(value) &&
-    facts.globalConfigHooks[resolveGlobalConfigPath(value, facts.worktree)] === facts.hooksDirectory
+// git reads the system config, then the user's, then the repository's, and the
+// last core.hooksPath wins. A variable takes the place of its layer's file.
+function isKeptConfigFiles(
+  reaching: ReadonlyMap<string, string>,
+  facts: HookFacts | null,
+): boolean {
+  if (facts === null) {
+    return false;
+  }
+
+  const system = findSystemLayerHooks(reaching, facts);
+
+  const global = findLayerHooks(
+    findVariableValue(reaching, 'GIT_CONFIG_GLOBAL'),
+    facts.layerHooks.global,
+    facts,
   );
+
+  return (
+    system !== undefined &&
+    global !== undefined &&
+    (facts.layerHooks.repository ?? global ?? system ?? facts.defaultHooksDirectory) ===
+      facts.hooksDirectory
+  );
+}
+
+// A session that skips the system config leaves its hooks folder unread, so
+// a command that turns the system config back on sets one the facts lack.
+function findSystemLayerHooks(
+  reaching: ReadonlyMap<string, string>,
+  facts: HookFacts,
+): string | null | undefined {
+  const noSystem = findVariableValue(reaching, 'GIT_CONFIG_NOSYSTEM');
+  const system = findVariableValue(reaching, 'GIT_CONFIG_SYSTEM');
+
+  if (noSystem === undefined) {
+    return findLayerHooks(system, facts.layerHooks.system, facts);
+  }
+
+  if (isUnresolvedWord(noSystem)) {
+    return undefined;
+  }
+
+  if (parseGitBoolean(noSystem) === true) {
+    return null;
+  }
+
+  return system === undefined ? undefined : findLayerHooks(system, null, facts);
+}
+
+function findVariableValue(
+  reaching: ReadonlyMap<string, string>,
+  name: string,
+): string | undefined {
+  return reaching.get(name)?.slice(name.length + 1);
+}
+
+// undefined: a hooks folder the facts cannot tell.
+function findLayerHooks(
+  value: string | undefined,
+  sessionHooks: string | null,
+  facts: HookFacts,
+): string | null | undefined {
+  if (value === undefined) {
+    return sessionHooks;
+  }
+
+  return isResolvableWord(value)
+    ? facts.configFileHooks[resolveConfigFilePath(value, facts.worktree)]
+    : undefined;
 }
 
 const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([

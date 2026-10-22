@@ -5,13 +5,13 @@ import { toWordValues } from '../shell/to-word-values.ts';
 
 // A value that reaches no git command costs one file read, less than a second
 // walk of what each command's variables reach.
-export function collectGlobalConfigPaths(command: string): readonly string[] {
+export function collectConfigFilePaths(command: string): readonly string[] {
   const values = splitShellCommand(command)
     .segments.flatMap((segment) =>
       splitShellTokens(segment.text).tokens.flatMap((token) => toWordValues(token)),
     )
     .flatMap((word) => {
-      const value = /^GIT_CONFIG_GLOBAL=(?<value>.*)$/su.exec(word)?.groups?.['value'];
+      const value = /^GIT_CONFIG_(?:GLOBAL|SYSTEM)=(?<value>.*)$/su.exec(word)?.groups?.['value'];
 
       return value === undefined || isUnresolvedWord(value) || value.startsWith('~') ? [] : [value];
     });
