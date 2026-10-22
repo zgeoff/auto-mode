@@ -3,6 +3,7 @@ import { parseConfigParameters } from '../git/parse-config-parameters.ts';
 import { parseGitBoolean } from '../git/parse-git-boolean.ts';
 import { resolveConfigFilePath } from '../git/resolve-config-file-path.ts';
 import type { HookFacts } from '../git/types.ts';
+import { hasUnquotedExpansion } from '../shell/has-unquoted-expansion.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
 import type { GitConfigOption } from '../shell/split-git-command.ts';
@@ -47,7 +48,9 @@ function collectSegmentBypasses(
   cwd: string,
   facts: HookFacts | null,
 ): readonly string[] | 'moved' {
-  const words = splitShellTokens(text).tokens.flatMap((token) => toWordValues(token));
+  const tokens = splitShellTokens(text).tokens;
+  const words = tokens.flatMap((token) => toWordValues(token));
+  const raws = tokens.flatMap((token) => (token.kind === 'word' ? [token.raw] : []));
   const program = splitCommandWords(text);
   const [name = '', ...args] = program;
   const prefix = words.slice(0, words.length - program.length);
@@ -116,10 +119,15 @@ function collectSegmentBypasses(
   const gitFacts = isSameCheckout ? checkoutFacts : null;
   const option = findNoVerifyOption(subArgs, subcommand);
 
-  return [
-    ...collectHookSwitches(reaching, git.config, gitFacts),
-    ...(option === null ? [] : [option]),
-  ];
+  // An unquoted expansion can split into several words, and so end git's
+  // options early: a later `-c` then lands in the subcommand's arguments.
+  const hasSplitGlobal = raws
+    .slice(prefix.length + 1, prefix.length + 1 + globals.length)
+    .some((raw) => hasUnquotedExpansion(raw));
+
+  const config = hasSplitGlobal ? null : git.config;
+
+  return [...collectHookSwitches(reaching, config, gitFacts), ...(option === null ? [] : [option])];
 }
 
 // The words before the program set and unset variables in order, over what an
@@ -171,9 +179,10 @@ const CONFIG_FILE_VARIABLES = [
   'GIT_CONFIG_GLOBAL',
 ] as const;
 
+// null config: git's options the command text cannot tell.
 function collectHookSwitches(
   reaching: ReadonlyMap<string, string>,
-  config: readonly GitConfigOption[],
+  config: readonly GitConfigOption[] | null,
   facts: HookFacts | null,
 ): readonly string[] {
   const switches = HOOK_SWITCH_NAMES.flatMap((name) => {
@@ -260,8 +269,12 @@ function isKeptLefthookBinary(value: string, facts: HookFacts | null): boolean {
 // `--config-env` variable, or a key or count the shell expands, is unknown.
 function findHooksPath(
   reaching: ReadonlyMap<string, string>,
-  config: readonly GitConfigOption[],
+  config: readonly GitConfigOption[] | null,
 ): string | null | undefined {
+  if (config === null) {
+    return null;
+  }
+
   const fromOptions = config.flatMap((option) => {
     const separator = option.setting.indexOf('=');
     const key = separator === -1 ? option.setting : option.setting.slice(0, separator);

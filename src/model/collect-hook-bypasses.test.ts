@@ -116,6 +116,10 @@ test.each([
   ['git -c "$KEY=/tmp/none" push', ['core.hooksPath']],
   ['git -c "$SETTING" push', ['core.hooksPath']],
   ['HOOKS=/tmp/none git --config-env=$KEY=HOOKS commit -m wip', ['core.hooksPath']],
+  ['git -c $KEY=/tmp/none -c core.hooksPath=/srv/harbor/.git/hooks push', ['core.hooksPath']],
+  ['git -c "core."$NAME=/tmp/none -c core.hooksPath=../../.git/hooks push', ['core.hooksPath']],
+  ['git --config-env=$SETTING -c core.hooksPath=/srv/harbor/.git/hooks push', ['core.hooksPath']],
+  ['git -c user.name=$NAME commit -m wip', ['core.hooksPath']],
   [
     'LEFTHOOK_CONFIG=other.yml git -c core.hooksPath=/tmp/none push --no-verify',
     ['LEFTHOOK_CONFIG', 'core.hooksPath', '--no-verify'],
@@ -182,7 +186,6 @@ test.each([
   'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none git -c core.hooksPath=/srv/harbor/.git/hooks push',
   'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=$NAME git push',
   'GIT_CONFIG_COUNT=$COUNT GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none git -c core.hooksPath=/srv/harbor/.git/hooks push',
-  'git -c user.name=$NAME commit -m wip',
   'git -c "$KEY=/tmp/none" -c core.hooksPath=/srv/harbor/.git/hooks push',
   'LEFTHOOK_BIN= git push',
   'LEFTHOOK_BIN=lefthook git push',

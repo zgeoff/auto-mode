@@ -63,8 +63,10 @@ lefthook config at the worktree root. A path that names those exactly keeps the 
 nothing. Any other path counts as a replacement. Every path counts when the checkout is unknown,
 when a conditional include or a worktree's own config may set the hooks folder, when the config
 files and their includes take more reads or bytes than one call's read budget, or when the command
-may leave the checkout, through a directory change or a git directory override. An empty hooks
-folder runs no hooks, so it counts too.
+may leave the checkout, through a directory change or a git directory override. Every path also
+counts when an unquoted variable or substitution sits among git's options, because the shell can
+split it into several words that end git's options early and move a later config option into the
+subcommand's arguments. An empty hooks folder runs no hooks, so it counts too.
 
 A skip or exclude setting in lefthook's local config leaves steps out of every later commit and
 push, so a write that adds one gets the same guidance, whether a file tool or a shell redirection
