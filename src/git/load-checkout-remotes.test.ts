@@ -38,6 +38,32 @@ test('it reads remote URLs the way Git does, without quotes, escapes, or comment
   ]);
 });
 
+test('it reads a remote URL on its section header line', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.directory, 'config'),
+    '[remote "origin"] url = https://example.test/app.git\n',
+  );
+
+  const remotes = await loadCheckoutRemotes(ctx.directory);
+
+  expect(remotes).toStrictEqual([{ name: 'origin', url: 'https://example.test/app.git' }]);
+});
+
+test('it reads no remote from a config git refuses', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(
+    join(ctx.directory, 'config'),
+    '[remote "origin"]\n\turl = "https://example.test/app.git\n',
+  );
+
+  const remotes = await loadCheckoutRemotes(ctx.directory);
+
+  expect(remotes).toStrictEqual([]);
+});
+
 test('it reads no remote when the checkout has no config file', async () => {
   const ctx = await setupTest();
   const remotes = await loadCheckoutRemotes(ctx.directory);
