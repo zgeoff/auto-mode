@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreBinaries": ["gitleaks", "shellcheck", "shfmt", "actionlint"],
+  "ignoreBinaries": ["gitleaks", "shellcheck", "shfmt", "actionlint", "mkfifo"],
   "ignoreIssues": {
     "mods/auto-mode/hooks/types.ts": ["types"]
   },

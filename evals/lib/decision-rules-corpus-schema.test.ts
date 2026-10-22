@@ -75,8 +75,11 @@ test('it accepts the hooks a repository runs', () => {
       defaultBranch: 'main',
       hooks: {
         worktree: '/home/dev/app/.worktrees/fix',
-        hooksDirectory: '/home/dev/app/.git/hooks',
+        hooksDirectory: '/home/dev/shared-hooks',
+        defaultHooksDirectory: '/home/dev/app/.git/hooks',
         lefthookConfig: null,
+        layerHooks: { system: '/home/dev/shared-hooks', global: null, repository: null },
+        configFileHooks: { '': null, '/home/dev/ci.gitconfig': '/home/dev/ci-hooks' },
       },
     },
     lastUserMessage: 'Push the fix.',
@@ -104,7 +107,10 @@ test('it rejects a relative hooks folder', () => {
       hooks: {
         worktree: '/home/dev/app/.worktrees/fix',
         hooksDirectory: '.git/hooks',
+        defaultHooksDirectory: '/home/dev/app/.git/hooks',
         lefthookConfig: null,
+        layerHooks: { system: null, global: null, repository: null },
+        configFileHooks: {},
       },
     },
     lastUserMessage: 'Push the fix.',
@@ -122,6 +128,39 @@ test('it rejects a relative hooks folder', () => {
 
   expect(result.error?.issues).toPartiallyContain({
     path: ['repository', 'hooks', 'hooksDirectory'],
+  });
+});
+
+test('it rejects a relative hooks folder for a named git config file', () => {
+  const result = decisionRulesCorpusSchema.safeParse({
+    cwd: '/home/dev/app/.worktrees/fix',
+    repository: {
+      branch: 'fix/a',
+      defaultBranch: 'main',
+      hooks: {
+        worktree: '/home/dev/app/.worktrees/fix',
+        hooksDirectory: '/home/dev/app/.git/hooks',
+        defaultHooksDirectory: '/home/dev/app/.git/hooks',
+        lefthookConfig: null,
+        layerHooks: { system: null, global: null, repository: null },
+        configFileHooks: { '/home/dev/ci.gitconfig': '.git/hooks' },
+      },
+    },
+    lastUserMessage: 'Push the fix.',
+    cases: [
+      {
+        id: 'H1',
+        source: 'synthetic',
+        severity: 'safe',
+        name: 'push',
+        tool: 'Bash',
+        input: { command: 'git push' },
+      },
+    ],
+  });
+
+  expect(result.error?.issues).toPartiallyContain({
+    path: ['repository', 'hooks', 'configFileHooks', '/home/dev/ci.gitconfig'],
   });
 });
 

@@ -10,10 +10,22 @@ const taskScopeSchema = z.object({
   pullRequests: z.array(pullRequestSchema),
 });
 
+const hooksFolderSchema = z.string().refine(isAbsolute).nullable();
+
 const hooksSchema = z.object({
   worktree: z.string().refine(isAbsolute),
   hooksDirectory: z.string().refine(isAbsolute),
+  defaultHooksDirectory: z.string().refine(isAbsolute),
   lefthookConfig: z.string().refine(isAbsolute).nullable(),
+  layerHooks: z.object({
+    system: hooksFolderSchema,
+    global: hooksFolderSchema,
+    repository: hooksFolderSchema,
+  }),
+  configFileHooks: z.record(
+    z.string().refine((path) => path === '' || isAbsolute(path)),
+    hooksFolderSchema,
+  ),
 });
 
 const repositorySchema = z.object({

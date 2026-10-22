@@ -1,4 +1,7 @@
-import { resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
+import { parseConfigParameters } from '../git/parse-config-parameters.ts';
+import { parseGitBoolean } from '../git/parse-git-boolean.ts';
+import { resolveConfigFilePath } from '../git/resolve-config-file-path.ts';
 import type { HookFacts } from '../git/types.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
@@ -159,6 +162,13 @@ const HOOK_SWITCH_NAMES = [
   'LEFTHOOK_EXCLUDE',
   'LEFTHOOK_SKIP',
   'LEFTHOOK_CONFIG',
+  'LEFTHOOK_BIN',
+] as const;
+
+const CONFIG_FILE_VARIABLES = [
+  'GIT_CONFIG_SYSTEM',
+  'GIT_CONFIG_NOSYSTEM',
+  'GIT_CONFIG_GLOBAL',
 ] as const;
 
 function collectHookSwitches(
@@ -177,9 +187,15 @@ function collectHookSwitches(
 
   const hooksPath = findHooksPath(reaching, config);
 
-  return hooksPath === undefined || isKeptHooksPath(hooksPath, facts)
+  if (hooksPath !== undefined) {
+    return isKeptHooksPath(hooksPath, facts) ? switches : [...switches, 'core.hooksPath'];
+  }
+
+  const fileVariables = CONFIG_FILE_VARIABLES.filter((name) => reaching.has(name));
+
+  return fileVariables.length === 0 || isKeptConfigFiles(reaching, facts)
     ? switches
-    : [...switches, 'core.hooksPath'];
+    : [...switches, ...fileVariables];
 }
 
 function findSwitchLabel(name: string, value: string, facts: HookFacts | null): string | null {
@@ -208,6 +224,10 @@ function findSwitchLabel(name: string, value: string, facts: HookFacts | null): 
     return name;
   }
 
+  if (name === 'LEFTHOOK_BIN' && !isKeptLefthookBinary(value, facts)) {
+    return name;
+  }
+
   return null;
 }
 
@@ -215,17 +235,42 @@ function isResolvableWord(value: string): boolean {
   return !isUnresolvedWord(value) && !value.startsWith('~');
 }
 
-// A `-c` or `--config-env` setting wins over the GIT_CONFIG_COUNT variables,
-// and within each source the last setting wins. A `--config-env` variable this
-// command does not set has a value the command text cannot show.
+// lefthook's hook script runs a non-empty LEFTHOOK_BIN in place of its own
+// lookup, which tries `lefthook` on PATH and then the worktree's packages. The
+// hook runs at the worktree root, so a relative path reads from there.
+const LEFTHOOK_PACKAGE_BINARY =
+  /^(?:\.(?:bun|pnpm)\/[^/]+\/node_modules\/)?(?:\.bin\/lefthook|lefthook\/bin\/index\.js|lefthook-[\da-z]+-[\da-z]+\/bin\/lefthook(?:\.exe)?|@evilmartians\/lefthook\/bin\/lefthook-[\da-z]+-[\da-z]+\/lefthook(?:\.exe)?|@evilmartians\/lefthook-installer\/bin\/lefthook)$/u;
+
+function isKeptLefthookBinary(value: string, facts: HookFacts | null): boolean {
+  if (value === '' || value === 'lefthook') {
+    return true;
+  }
+
+  if (facts === null || !isResolvableWord(value)) {
+    return false;
+  }
+
+  return LEFTHOOK_PACKAGE_BINARY.test(
+    relative(join(facts.worktree, 'node_modules'), resolve(facts.worktree, value)),
+  );
+}
+
+// git reads the GIT_CONFIG_COUNT variables, then GIT_CONFIG_PARAMETERS, then
+// each `-c` or `--config-env`, and the last setting wins. An unset
+// `--config-env` variable, or a key or count the shell expands, is unknown.
 function findHooksPath(
   reaching: ReadonlyMap<string, string>,
   config: readonly GitConfigOption[],
 ): string | null | undefined {
   const fromOptions = config.flatMap((option) => {
     const separator = option.setting.indexOf('=');
+    const key = separator === -1 ? option.setting : option.setting.slice(0, separator);
 
-    if (separator === -1 || !isHooksPathKey(option.setting.slice(0, separator))) {
+    if (isUnresolvedWord(key)) {
+      return [null];
+    }
+
+    if (separator === -1 || !isHooksPathKey(key)) {
       return [];
     }
 
@@ -240,20 +285,47 @@ function findHooksPath(
     return [word === undefined ? null : word.slice(value.length + 1)];
   });
 
-  if (fromOptions.length > 0) {
-    return fromOptions.at(-1);
+  const parametersWord =
+    reaching.get('GIT_CONFIG_PARAMETERS')?.slice('GIT_CONFIG_PARAMETERS='.length) ?? '';
+
+  // The shell expands a variable anywhere in GIT_CONFIG_PARAMETERS before git
+  // parses it, and the expansion can close one quoted word and open another.
+  // git refuses to run with one it cannot parse.
+  const fromParameters = isUnresolvedWord(parametersWord)
+    ? [null]
+    : (parseConfigParameters(parametersWord) ?? [])
+        .filter((parameter) => isHooksPathKey(parameter.key))
+        .map((parameter) => parameter.value);
+
+  const fromCommand = [...fromParameters, ...fromOptions];
+
+  if (fromCommand.length > 0) {
+    return fromCommand.at(-1);
   }
 
-  const count = Number(reaching.get('GIT_CONFIG_COUNT')?.slice('GIT_CONFIG_COUNT='.length));
+  const countWord = findVariableValue(reaching, 'GIT_CONFIG_COUNT');
+
+  if (countWord !== undefined && isUnresolvedWord(countWord)) {
+    return null;
+  }
+
+  const count = Number(countWord);
 
   const fromVariables = [...reaching.entries()]
-    .flatMap(([name, word]) => {
+    .flatMap(([name, word]): readonly { index: number; value: string | null }[] => {
       const index = Number(/^GIT_CONFIG_KEY_(?<index>0|[1-9]\d*)$/u.exec(name)?.groups?.['index']);
-      const value = reaching.get(`GIT_CONFIG_VALUE_${index}`);
+      const key = word.slice(name.length + 1);
+      const value = findVariableValue(reaching, `GIT_CONFIG_VALUE_${index}`);
 
-      return index < count && value !== undefined && isHooksPathKey(word.slice(name.length + 1))
-        ? [{ index, value: value.slice(value.indexOf('=') + 1) }]
-        : [];
+      if (!(index < count) || value === undefined) {
+        return [];
+      }
+
+      if (isUnresolvedWord(key)) {
+        return [{ index, value: null }];
+      }
+
+      return isHooksPathKey(key) ? [{ index, value }] : [];
     })
     .toSorted((left, right) => left.index - right.index);
 
@@ -263,6 +335,13 @@ function findHooksPath(
 // git reads a config key's section and name without case.
 function isHooksPathKey(key: string): boolean {
   return key.toLowerCase() === 'core.hookspath';
+}
+
+function findVariableValue(
+  reaching: ReadonlyMap<string, string>,
+  name: string,
+): string | undefined {
+  return reaching.get(name)?.slice(name.length + 1);
 }
 
 // An empty core.hooksPath runs no hooks. git reads a relative one from the
@@ -275,6 +354,76 @@ function isKeptHooksPath(value: string | null, facts: HookFacts | null): boolean
     isResolvableWord(value) &&
     resolve(facts.worktree, value) === facts.hooksDirectory
   );
+}
+
+// git reads the system config, then the user's, then the repository's, and the
+// last core.hooksPath wins. A variable takes the place of its layer's file.
+function isKeptConfigFiles(
+  reaching: ReadonlyMap<string, string>,
+  facts: HookFacts | null,
+): boolean {
+  if (facts === null) {
+    return false;
+  }
+
+  // A layer that sets the hooks folder hides every layer git reads before it,
+  // so an unknown lower layer changes nothing.
+  if (facts.layerHooks.repository !== null) {
+    return facts.layerHooks.repository === facts.hooksDirectory;
+  }
+
+  const global = findLayerHooks(
+    findVariableValue(reaching, 'GIT_CONFIG_GLOBAL'),
+    facts.layerHooks.global,
+    facts,
+  );
+
+  if (global !== null) {
+    return global === facts.hooksDirectory;
+  }
+
+  const system = findSystemLayerHooks(reaching, facts);
+
+  return system !== undefined && (system ?? facts.defaultHooksDirectory) === facts.hooksDirectory;
+}
+
+// undefined: a hooks folder the facts cannot tell.
+function findLayerHooks(
+  value: string | undefined,
+  sessionHooks: string | null,
+  facts: HookFacts,
+): string | null | undefined {
+  if (value === undefined) {
+    return sessionHooks;
+  }
+
+  return isResolvableWord(value)
+    ? facts.configFileHooks[resolveConfigFilePath(value, facts.worktree)]
+    : undefined;
+}
+
+// A session that skips the system config leaves its hooks folder unread, so
+// a command that turns the system config back on sets one the facts lack.
+function findSystemLayerHooks(
+  reaching: ReadonlyMap<string, string>,
+  facts: HookFacts,
+): string | null | undefined {
+  const noSystem = findVariableValue(reaching, 'GIT_CONFIG_NOSYSTEM');
+  const system = findVariableValue(reaching, 'GIT_CONFIG_SYSTEM');
+
+  if (noSystem === undefined) {
+    return findLayerHooks(system, facts.layerHooks.system, facts);
+  }
+
+  if (isUnresolvedWord(noSystem)) {
+    return undefined;
+  }
+
+  if (parseGitBoolean(noSystem) === true) {
+    return null;
+  }
+
+  return system === undefined ? undefined : findLayerHooks(system, null, facts);
 }
 
 const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([

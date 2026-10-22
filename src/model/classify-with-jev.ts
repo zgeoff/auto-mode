@@ -13,6 +13,7 @@ import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import { buildJevOutcome } from './build-jev-outcome.ts';
+import { collectConfigFilePaths } from './collect-config-file-paths.ts';
 import { readLocalHookConfig } from './read-local-hook-config.ts';
 import { sendDecision } from './send-decision.ts';
 import type { DecisionDiagnostics, ModelOptions, ModelOutcome } from './types.ts';
@@ -71,6 +72,9 @@ export async function classifyWithJev(
     const repositoryContext =
       checkout === null ? null : buildRepositoryEvidence(checkout, options.taskScope);
 
+    const command = payload.toolName === 'Bash' ? payload.toolInput['command'] : undefined;
+    const configFiles = typeof command === 'string' ? collectConfigFilePaths(command) : [];
+
     const [policy, mcpServers, localHookConfig, hookFacts] = await Promise.all([
       loadPolicy(
         { classifierPath: config.classifierPath, rulesPath: config.rulesPath },
@@ -82,7 +86,7 @@ export async function classifyWithJev(
       readLocalHookConfig(payload),
       checkout === null || checkout.checkout === null
         ? null
-        : readHookFacts(checkout.checkout, host, nodeHookFactsFiles).catch(() => null),
+        : readHookFacts(checkout.checkout, host, nodeHookFactsFiles, configFiles).catch(() => null),
     ]);
 
     const rulesSource = config.rulesPath === undefined ? 'shipped' : 'replacement';

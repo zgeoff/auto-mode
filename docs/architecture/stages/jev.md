@@ -45,17 +45,26 @@ question then names each switch and asks Jev to judge the call under that rule. 
 a fixed label, never by the command's own text, because the question is trusted instruction and the
 agent under review writes the command.
 
-A command that replaces the repository's hooks gets the same guidance. It applies when a variable
-points lefthook at a config other than the one the worktree loads, or when a git config option or
-git's config variables point git at a hooks folder other than the repository's. The config variables
-are the only way to change the hooks folder of a gh stack command. To tell the repository's own
-hooks from others, the Jev stage reads the checkout: the hooks folder from git's config files and
-the files they include, resolved as git resolves it, and the first lefthook config at the worktree
-root. A path that names those exactly keeps the hooks and adds nothing. Any other path counts as a
-replacement. Every path counts when the checkout is unknown, when a conditional include or a
-worktree's own config may set the hooks folder, or when the command may leave the checkout, through
-a directory change or a git directory override. An empty hooks folder runs no hooks, so it counts
-too.
+A command that replaces the repository's hooks gets the same guidance. It applies in three cases:
+
+- A variable points lefthook at a config other than the one the worktree loads, or at a binary other
+  than lefthook on the path or the one the worktree's packages install.
+- A git config option, or a variable that git reads config from, points git at a hooks folder other
+  than the repository's. The variables are the only way to change the hooks folder of a gh stack
+  command.
+- A variable swaps the system or the user's git config for another file, or skips the system config,
+  and leaves git with a hooks folder other than the repository's. The repository's own config still
+  wins over both.
+
+To tell the repository's own hooks from others, the Jev stage reads the checkout: the hooks folder
+that the system, user and repository git config files set, with the files they include, resolved as
+git resolves it; the hooks folder each git config file the command names sets; and the first
+lefthook config at the worktree root. A path that names those exactly keeps the hooks and adds
+nothing. Any other path counts as a replacement. Every path counts when the checkout is unknown,
+when a conditional include or a worktree's own config may set the hooks folder, when the config
+files and their includes take more reads or bytes than one call's read budget, or when the command
+may leave the checkout, through a directory change or a git directory override. An empty hooks
+folder runs no hooks, so it counts too.
 
 A skip or exclude setting in lefthook's local config leaves steps out of every later commit and
 push, so a write that adds one gets the same guidance, whether a file tool or a shell redirection

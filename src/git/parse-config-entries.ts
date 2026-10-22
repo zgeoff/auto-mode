@@ -1,5 +1,5 @@
 import { dirname, join, resolve } from 'node:path';
-import { parseConfigValue } from './parse-config-value.ts';
+import { parseGitConfig } from './parse-git-config.ts';
 
 export type ConfigEntry =
   | { readonly kind: 'hooks-path'; readonly value: string }
@@ -14,39 +14,37 @@ export interface ConfigSource {
 
 // git stops past this many nested includes.
 const MAX_INCLUDE_DEPTH = 10;
+const UNKNOWN_ENTRY: ConfigEntry = { kind: 'unknown' };
 
 // git reads a relative include path from the including file's folder. An
-// includeIf holds a condition this parser does not judge, so its value is
-// unknown, as is an include past git's depth.
+// includeIf's condition goes unjudged, so it is unknown, as are an include past
+// git's depth, a key with no value, and a file git refuses.
 export function parseConfigEntries(config: string, source: ConfigSource): readonly ConfigEntry[] {
-  let section = '';
-  const entries: ConfigEntry[] = [];
+  const variables = parseGitConfig(config);
 
-  for (const line of config.split('\n')) {
-    const header = /^\s*\[(?<section>[^\]]*)\]/u.exec(line)?.groups?.['section'];
-    const entry = /^\s*(?<key>[\w-]+)\s*=(?<value>.*)$/u.exec(line)?.groups;
-    const key = entry?.['key']?.toLowerCase();
-    const value = parseConfigValue(entry?.['value'] ?? '');
-
-    if (header !== undefined) {
-      section = header.trim().toLowerCase();
-
-      if (section.startsWith('includeif')) {
-        entries.push({ kind: 'unknown' });
-      }
-    } else if (section === 'core' && key === 'hookspath') {
-      entries.push({ kind: 'hooks-path', value });
-    } else if (section === 'include' && key === 'path') {
-      const include: ConfigEntry =
-        source.depth >= MAX_INCLUDE_DEPTH
-          ? { kind: 'unknown' }
-          : { kind: 'include', path: resolveIncludePath(value, source) };
-
-      entries.push(include);
-    }
+  if (variables === null) {
+    return [UNKNOWN_ENTRY];
   }
 
-  return entries;
+  return variables.flatMap((variable): readonly ConfigEntry[] => {
+    const isIncludeIf = variable.name.startsWith('includeif.') && variable.name.endsWith('.path');
+
+    if (variable.name !== 'core.hookspath' && variable.name !== 'include.path' && !isIncludeIf) {
+      return [];
+    }
+
+    if (variable.value === null || isIncludeIf) {
+      return [UNKNOWN_ENTRY];
+    }
+
+    if (variable.name === 'core.hookspath') {
+      return [{ kind: 'hooks-path', value: variable.value }];
+    }
+
+    return source.depth >= MAX_INCLUDE_DEPTH
+      ? [UNKNOWN_ENTRY]
+      : [{ kind: 'include', path: resolveIncludePath(variable.value, source) }];
+  });
 }
 
 function resolveIncludePath(path: string, source: ConfigSource): string {
