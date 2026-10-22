@@ -351,37 +351,58 @@ test('it reads the system core.hooksPath from /etc/gitconfig under the user and 
 });
 
 test('it reads the user core.hooksPath over the system one', async () => {
-  const configs: Readonly<Record<string, string>> = {
-    '/etc/gitconfig': '[core]\n\thooksPath = /srv/shared-hooks\n',
-    '/home/robin/.gitconfig': '[core]\n\thooksPath = /srv/user-hooks\n',
-  };
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+  await mkdir(join(ctx.directory, 'home'), { recursive: true });
+  await writeFile(join(ctx.directory, 'gitconfig'), '[core]\n\thooksPath = /srv/shared-hooks\n');
+
+  await writeFile(
+    join(ctx.directory, 'home', '.gitconfig'),
+    '[core]\n\thooksPath = /srv/user-hooks\n',
+  );
 
   const facts = await readHookFacts(
-    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
-    { env: {}, home: '/home/robin' },
     {
-      readText: (path) => Promise.resolve(configs[path] ?? null),
-      probeFile: () => Promise.resolve(false),
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
     },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
     [],
   );
+
+  expect(facts?.layerHooks).toStrictEqual({
+    system: '/srv/shared-hooks',
+    global: '/srv/user-hooks',
+    repository: null,
+  });
 
   expect(facts?.hooksDirectory).toBe('/srv/user-hooks');
 });
 
-test("it reads the system config from the session's GIT_CONFIG_SYSTEM in place of /etc/gitconfig", async () => {
-  const configs: Readonly<Record<string, string>> = {
-    '/etc/gitconfig': '[core]\n\thooksPath = /srv/shared-hooks\n',
-    '/srv/harbor/system.gitconfig': '[core]\n\thooksPath = /srv/session-hooks\n',
-  };
+test("it reads the system config from the session's relative GIT_CONFIG_SYSTEM at the worktree root", async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+
+  await writeFile(
+    join(ctx.directory, 'repo', 'system.gitconfig'),
+    '[core]\n\thooksPath = /srv/session-hooks\n',
+  );
 
   const facts = await readHookFacts(
-    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
-    { env: { GIT_CONFIG_SYSTEM: 'system.gitconfig' }, home: '/home/robin' },
     {
-      readText: (path) => Promise.resolve(configs[path] ?? null),
-      probeFile: () => Promise.resolve(false),
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
     },
+    { env: { GIT_CONFIG_SYSTEM: 'system.gitconfig' }, home: join(ctx.directory, 'home') },
+    nodeHookFactsFiles,
     [],
   );
 
@@ -391,40 +412,50 @@ test("it reads the system config from the session's GIT_CONFIG_SYSTEM in place o
 test.each(['1', 'true'])(
   "it reads no system config when the session's GIT_CONFIG_NOSYSTEM is %s",
   async (value) => {
-    const configs: Readonly<Record<string, string>> = {
-      '/etc/gitconfig': '[core]\n\thooksPath = /srv/shared-hooks\n',
-      '/srv/harbor/system.gitconfig': '[core]\n\thooksPath = /srv/session-hooks\n',
-    };
+    const ctx = await setupTest();
+
+    await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+    await writeFile(join(ctx.directory, 'gitconfig'), '[core]\n\thooksPath = /srv/session-hooks\n');
 
     const facts = await readHookFacts(
-      { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
       {
-        env: { GIT_CONFIG_NOSYSTEM: value, GIT_CONFIG_SYSTEM: 'system.gitconfig' },
-        home: '/home/robin',
+        worktree: join(ctx.directory, 'repo'),
+        gitDir: join(ctx.directory, 'repo', '.git'),
+        commonDir: join(ctx.directory, 'repo', '.git'),
       },
       {
-        readText: (path) => Promise.resolve(configs[path] ?? null),
-        probeFile: () => Promise.resolve(false),
+        env: { GIT_CONFIG_NOSYSTEM: value, GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+        home: join(ctx.directory, 'home'),
       },
+      nodeHookFactsFiles,
       [],
     );
 
-    expect(facts?.hooksDirectory).toBe('/srv/harbor/.git/hooks');
+    expect(facts?.hooksDirectory).toBe(join(ctx.directory, 'repo', '.git', 'hooks'));
   },
 );
 
 test('it reads no hook facts from a system config with an includeIf', async () => {
-  const configs: Readonly<Record<string, string>> = {
-    '/etc/gitconfig': '[includeIf "gitdir:/srv/"]\n\tpath = /etc/gitconfig.srv\n',
-  };
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+
+  await writeFile(
+    join(ctx.directory, 'gitconfig'),
+    '[includeIf "gitdir:/srv/"]\n\tpath = shared.gitconfig\n',
+  );
 
   const facts = await readHookFacts(
-    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
-    { env: {}, home: '/home/robin' },
     {
-      readText: (path) => Promise.resolve(configs[path] ?? null),
-      probeFile: () => Promise.resolve(false),
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
     },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
     [],
   );
 
@@ -432,62 +463,69 @@ test('it reads no hook facts from a system config with an includeIf', async () =
 });
 
 test('it reads the hooks folder each git config file the caller names sets', async () => {
-  const configs: Readonly<Record<string, string>> = {
-    '/home/robin/.gitconfig': '[core]\n\thooksPath = /srv/user-hooks\n',
-    '/srv/harbor/quick.gitconfig': '[core]\n\thooksPath = checks\n',
-    '/srv/harbor/plain.gitconfig': '[user]\n\tname = robin\n',
-    '/srv/harbor/work.gitconfig': '[includeIf "gitdir:/srv/"]\n\tpath = hooks.config\n',
-  };
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+  await writeFile(join(ctx.directory, 'repo', 'quick.gitconfig'), '[core]\n\thooksPath = checks\n');
+  await writeFile(join(ctx.directory, 'plain.gitconfig'), '[user]\n\tname = robin\n');
+
+  await writeFile(
+    join(ctx.directory, 'repo', 'work.gitconfig'),
+    '[includeIf "gitdir:/srv/"]\n\tpath = hooks.config\n',
+  );
 
   const facts = await readHookFacts(
-    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
-    { env: {}, home: '/home/robin' },
     {
-      readText: (path) => Promise.resolve(configs[path] ?? null),
-      probeFile: () => Promise.resolve(false),
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
     },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
     [
       'quick.gitconfig',
-      '/srv/harbor/plain.gitconfig',
+      join(ctx.directory, 'plain.gitconfig'),
       '',
-      '/srv/missing.gitconfig',
+      join(ctx.directory, 'missing.gitconfig'),
       'work.gitconfig',
     ],
   );
 
-  expect(facts).toStrictEqual({
-    worktree: '/srv/harbor',
-    hooksDirectory: '/srv/user-hooks',
-    defaultHooksDirectory: '/srv/harbor/.git/hooks',
-    lefthookConfig: null,
-    layerHooks: { system: null, global: '/srv/user-hooks', repository: null },
-    configFileHooks: {
-      '/srv/harbor/quick.gitconfig': '/srv/harbor/checks',
-      '/srv/harbor/plain.gitconfig': null,
-      '': null,
-      '/srv/missing.gitconfig': null,
-    },
+  expect(facts?.configFileHooks).toStrictEqual({
+    [join(ctx.directory, 'repo', 'quick.gitconfig')]: join(ctx.directory, 'repo', 'checks'),
+    [join(ctx.directory, 'plain.gitconfig')]: null,
+    '': null,
+    [join(ctx.directory, 'missing.gitconfig')]: null,
   });
 });
 
 test('it leaves out a named git config file that cannot be read, and keeps the other facts', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+  await mkdir(join(ctx.directory, 'folder.gitconfig'));
+
   const facts = await readHookFacts(
-    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
-    { env: {}, home: '/home/robin' },
     {
-      readText: (path) =>
-        path === '/srv/locked.gitconfig'
-          ? Promise.reject(new Error('EACCES: permission denied'))
-          : Promise.resolve(null),
-      probeFile: () => Promise.resolve(false),
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    ['/srv/locked.gitconfig'],
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
+    [join(ctx.directory, 'folder.gitconfig')],
   );
 
   expect(facts).toStrictEqual({
-    worktree: '/srv/harbor',
-    hooksDirectory: '/srv/harbor/.git/hooks',
-    defaultHooksDirectory: '/srv/harbor/.git/hooks',
+    worktree: join(ctx.directory, 'repo'),
+    hooksDirectory: join(ctx.directory, 'repo', '.git', 'hooks'),
+    defaultHooksDirectory: join(ctx.directory, 'repo', '.git', 'hooks'),
     lefthookConfig: null,
     layerHooks: { system: null, global: null, repository: null },
     configFileHooks: {},
@@ -495,18 +533,35 @@ test('it leaves out a named git config file that cannot be read, and keeps the o
 });
 
 test("it reads the user config from the session's GIT_CONFIG_GLOBAL in place of the home configs", async () => {
-  const configs: Readonly<Record<string, string>> = {
-    '/home/robin/.gitconfig': '[core]\n\thooksPath = /srv/user-hooks\n',
-    '/srv/harbor/session.gitconfig': '[core]\n\thooksPath = /srv/session-hooks\n',
-  };
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+  await mkdir(join(ctx.directory, 'home'), { recursive: true });
+
+  await writeFile(
+    join(ctx.directory, 'home', '.gitconfig'),
+    '[core]\n\thooksPath = /srv/user-hooks\n',
+  );
+
+  await writeFile(
+    join(ctx.directory, 'repo', 'session.gitconfig'),
+    '[core]\n\thooksPath = /srv/session-hooks\n',
+  );
 
   const facts = await readHookFacts(
-    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
-    { env: { GIT_CONFIG_GLOBAL: 'session.gitconfig' }, home: '/home/robin' },
     {
-      readText: (path) => Promise.resolve(configs[path] ?? null),
-      probeFile: () => Promise.resolve(false),
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
     },
+    {
+      env: {
+        GIT_CONFIG_GLOBAL: 'session.gitconfig',
+        GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig'),
+      },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
     [],
   );
 
