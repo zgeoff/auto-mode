@@ -118,6 +118,12 @@ test.each([
   ],
   [`GIT_CONFIG_PARAMETERS="'core.hooksPath'" git push`, ['core.hooksPath']],
   ['GIT_CONFIG_PARAMETERS="$PARAMS" git push', ['core.hooksPath']],
+  [
+    `PARAMS="x' 'core.hooksPath=/tmp/none"; GIT_CONFIG_PARAMETERS="'user.name=$PARAMS'" git push`,
+    ['core.hooksPath'],
+  ],
+  [`GIT_CONFIG_PARAMETERS="'user.name'='$(whoami)'" gh stack push`, ['core.hooksPath']],
+  ['GIT_CONFIG_PARAMETERS="\'user.name=`id -un`\'" git commit -m wip', ['core.hooksPath']],
   [`GIT_CONFIG_PARAMETERS="'$KEY'='/tmp/none'" git push`, ['core.hooksPath']],
   [`GIT_CONFIG_PARAMETERS="'core.hooksPath'='$HOOKS'" gh stack push`, ['core.hooksPath']],
   [`GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" gh stack sync`, ['core.hooksPath']],
