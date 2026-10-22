@@ -645,6 +645,39 @@ test('it holds the bytes of named git config files read in parallel to the read 
   });
 });
 
+test('it counts the read budget in UTF-8 bytes, not characters', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+
+  await Promise.all(
+    Array.from({ length: 5 }, (_, part) =>
+      writeFile(join(ctx.directory, `accent-${part}.gitconfig`), '#é\n'.repeat(250_000)),
+    ),
+  );
+
+  const facts = await readHookFacts(
+    {
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
+    },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
+    Array.from({ length: 5 }, (_, part) => join(ctx.directory, `accent-${part}.gitconfig`)),
+  );
+
+  expect(facts?.configFileHooks).toStrictEqual({
+    [join(ctx.directory, 'accent-0.gitconfig')]: null,
+    [join(ctx.directory, 'accent-1.gitconfig')]: null,
+    [join(ctx.directory, 'accent-2.gitconfig')]: null,
+    [join(ctx.directory, 'accent-3.gitconfig')]: null,
+  });
+});
+
 test("it reads the user config from the session's GIT_CONFIG_GLOBAL in place of the home configs", async () => {
   const ctx = await setupTest();
 
