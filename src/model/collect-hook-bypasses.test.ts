@@ -72,30 +72,6 @@ test.each([
 });
 
 test.each([
-  'git commit -m "$MSG"',
-  'git commit -m "$(cat .scratch/message.txt)"',
-  'git commit -F "$MESSAGE_FILE"',
-  'git commit --author="$AUTHOR" -m wip',
-  'git commit -m"$MSG"',
-  'git commit -am"$MSG"',
-  'git push -o"$OPTION"',
-  // oxlint-disable-next-line no-template-curly-in-string -- the shell spelling, not a template
-  'git commit -m"${MSG}"',
-  'git commit --message="$(cat .scratch/message.txt)"',
-  "git commit -m \"$(cat <<'EOF'\nfix: don't (break) parsing\nEOF\n)\"",
-  'git commit -m wip -- "$FILE"',
-  'git push origin "feat/$NAME"',
-  'git push -o "$OPTION" origin feat/queue',
-  'git push --push-option "$OPTION"',
-  'git push -- origin "$BRANCH"',
-  'git status $PATHS',
-  'git -c user.name="$NAME" push',
-  'git log $RANGE',
-])('it finds no hidden git words in %s', (command) => {
-  expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual([]);
-});
-
-test.each([
   ['LEFTHOOK_CONFIG=other.yml git commit -m wip', ['LEFTHOOK_CONFIG']],
   ['LEFTHOOK_CONFIG=/tmp/empty.yml git push', ['LEFTHOOK_CONFIG']],
   ['LEFTHOOK_CONFIG=.lefthook.yml git push', ['LEFTHOOK_CONFIG']],
@@ -439,6 +415,25 @@ test.each([
   'export LEFTHOOK_EXCLUDE=test; LEFTHOOK_EXCLUDE=; git push',
   'export LEFTHOOK=0 && LEFTHOOK=1 && gh stack push',
   'LEFTHOOK_BIN=lefthook git push',
+  'git commit -m "$MSG"',
+  'git commit -m "$(cat .scratch/message.txt)"',
+  'git commit -F "$MESSAGE_FILE"',
+  'git commit --author="$AUTHOR" -m wip',
+  'git commit -m"$MSG"',
+  'git commit -am"$MSG"',
+  'git push -o"$OPTION"',
+  // oxlint-disable-next-line no-template-curly-in-string -- the shell spelling, not a template
+  'git commit -m"${MSG}"',
+  'git commit --message="$(cat .scratch/message.txt)"',
+  "git commit -m \"$(cat <<'EOF'\nfix: don't (break) parsing\nEOF\n)\"",
+  'git commit -m wip -- "$FILE"',
+  'git push origin "feat/$NAME"',
+  'git push -o "$OPTION" origin feat/queue',
+  'git push --push-option "$OPTION"',
+  'git push -- origin "$BRANCH"',
+  'git status $PATHS',
+  'git -c user.name="$NAME" push',
+  'git log $RANGE',
 ])('it finds no hook bypass in %s', (command) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual([]);
 });
