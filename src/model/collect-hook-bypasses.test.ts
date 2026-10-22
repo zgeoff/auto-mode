@@ -266,6 +266,45 @@ test.each([
   },
 );
 
+test.each([
+  'GIT_CONFIG_GLOBAL=/tmp/work.gitconfig git push',
+  'GIT_CONFIG_SYSTEM=$CONFIG git commit -m wip',
+  'GIT_CONFIG_NOSYSTEM=0 gh stack push',
+])('it finds no hook bypass in %s when the repository config sets the hooks folder', (command) => {
+  expect(
+    collectHookBypasses(command, '/srv/harbor', {
+      worktree: '/srv/harbor',
+      hooksDirectory: '/srv/checks',
+      defaultHooksDirectory: '/srv/harbor/.git/hooks',
+      lefthookConfig: null,
+      layerHooks: { system: null, global: null, repository: '/srv/checks' },
+      configFileHooks: {},
+    }),
+  ).toStrictEqual([]);
+});
+
+test.each([
+  ['GIT_CONFIG_NOSYSTEM=0 git push', []],
+  [
+    'GIT_CONFIG_GLOBAL=/tmp/work.gitconfig GIT_CONFIG_NOSYSTEM=0 git push',
+    ['GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_GLOBAL'],
+  ],
+])(
+  'it judges the system layer in %s only when the user config sets no hooks folder',
+  (command, expected) => {
+    expect(
+      collectHookBypasses(command, '/srv/harbor', {
+        worktree: '/srv/harbor',
+        hooksDirectory: '/srv/user-hooks',
+        defaultHooksDirectory: '/srv/harbor/.git/hooks',
+        lefthookConfig: null,
+        layerHooks: { system: null, global: '/srv/user-hooks', repository: null },
+        configFileHooks: {},
+      }),
+    ).toStrictEqual(expected);
+  },
+);
+
 test('it keeps the repository hooks folder over the one a named global git config sets', () => {
   expect(
     collectHookBypasses('GIT_CONFIG_GLOBAL=/tmp/quick.gitconfig git push', '/srv/harbor', {

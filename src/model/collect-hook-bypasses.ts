@@ -346,7 +346,11 @@ function isKeptConfigFiles(
     return false;
   }
 
-  const system = findSystemLayerHooks(reaching, facts);
+  // A layer that sets the hooks folder hides every layer git reads before it,
+  // so an unknown lower layer changes nothing.
+  if (facts.layerHooks.repository !== null) {
+    return facts.layerHooks.repository === facts.hooksDirectory;
+  }
 
   const global = findLayerHooks(
     findVariableValue(reaching, 'GIT_CONFIG_GLOBAL'),
@@ -354,12 +358,35 @@ function isKeptConfigFiles(
     facts,
   );
 
-  return (
-    system !== undefined &&
-    global !== undefined &&
-    (facts.layerHooks.repository ?? global ?? system ?? facts.defaultHooksDirectory) ===
-      facts.hooksDirectory
-  );
+  if (global !== null) {
+    return global === facts.hooksDirectory;
+  }
+
+  const system = findSystemLayerHooks(reaching, facts);
+
+  return system !== undefined && (system ?? facts.defaultHooksDirectory) === facts.hooksDirectory;
+}
+
+// undefined: a hooks folder the facts cannot tell.
+function findLayerHooks(
+  value: string | undefined,
+  sessionHooks: string | null,
+  facts: HookFacts,
+): string | null | undefined {
+  if (value === undefined) {
+    return sessionHooks;
+  }
+
+  return isResolvableWord(value)
+    ? facts.configFileHooks[resolveConfigFilePath(value, facts.worktree)]
+    : undefined;
+}
+
+function findVariableValue(
+  reaching: ReadonlyMap<string, string>,
+  name: string,
+): string | undefined {
+  return reaching.get(name)?.slice(name.length + 1);
 }
 
 // A session that skips the system config leaves its hooks folder unread, so
@@ -384,28 +411,6 @@ function findSystemLayerHooks(
   }
 
   return system === undefined ? undefined : findLayerHooks(system, null, facts);
-}
-
-function findVariableValue(
-  reaching: ReadonlyMap<string, string>,
-  name: string,
-): string | undefined {
-  return reaching.get(name)?.slice(name.length + 1);
-}
-
-// undefined: a hooks folder the facts cannot tell.
-function findLayerHooks(
-  value: string | undefined,
-  sessionHooks: string | null,
-  facts: HookFacts,
-): string | null | undefined {
-  if (value === undefined) {
-    return sessionHooks;
-  }
-
-  return isResolvableWord(value)
-    ? facts.configFileHooks[resolveConfigFilePath(value, facts.worktree)]
-    : undefined;
 }
 
 const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([
