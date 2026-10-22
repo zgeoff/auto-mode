@@ -1963,6 +1963,8 @@ test.each([
     'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none gh stack push',
     'core.hooksPath',
   ],
+  ['LEFTHOOK_BIN=/usr/bin/true git commit -m x', 'LEFTHOOK_BIN'],
+  [`GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" gh stack push`, 'core.hooksPath'],
 ])('it sends the hook bypass %s to Jev under Policy Tampering', async (command, bypass) => {
   const ctx = await setupTest();
 
@@ -2034,6 +2036,158 @@ test.each([
   expect(question.instructions).toInclude(
     `The pending action runs a git commit, a git push or a gh stack command that commits or pushes, with the repository's hooks or some of their steps turned off or replaced, through ${bypass}.`,
   );
+});
+
+test('it reads the global git config a push names to tell Jev it moves the hooks folder', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/feature',
+    '-b',
+    'feature',
+  ]);
+
+  await writeFile(
+    join(ctx.directory, 'repo', '.worktrees', 'feature', 'quick.gitconfig'),
+    '[core]\n\thooksPath = /srv/no-hooks\n',
+  );
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'feature'),
+      toolName: 'Bash',
+      toolInput: { command: 'GIT_CONFIG_GLOBAL=quick.gitconfig git push' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+
+  const questionSchema = z.object({ instructions: z.string() });
+  const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const questions = Object.values(requestSchema.parse(call[0]).questions);
+  const question = questions.find((entry) => entry.instructions.includes('### Policy Tampering\n'));
+
+  invariant(question, 'the request asks about Policy Tampering');
+
+  expect(question.instructions).toInclude('turned off or replaced, through GIT_CONFIG_GLOBAL.');
+});
+
+test('it reads the global git config a push names to send Jev no hook guidance when it keeps the hooks', async () => {
+  const ctx = await setupTest();
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  runGit(ctx.directory, [
+    '-C',
+    join(ctx.directory, 'repo'),
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/feature',
+    '-b',
+    'feature',
+  ]);
+
+  await writeFile(
+    join(ctx.directory, 'repo', '.worktrees', 'feature', 'ci.gitconfig'),
+    '[user]\n\tname = robin\n',
+  );
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo', '.worktrees', 'feature'),
+      toolName: 'Bash',
+      toolInput: { command: 'GIT_CONFIG_GLOBAL=ci.gitconfig git push' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+
+  const questionSchema = z.object({ instructions: z.string() });
+  const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const questions = Object.values(requestSchema.parse(call[0]).questions);
+  const question = questions.find((entry) => entry.instructions.includes('### Policy Tampering\n'));
+
+  invariant(question, 'the request asks about Policy Tampering');
+
+  expect(question.instructions).not.toInclude('Those hooks are the checks');
 });
 
 test('it reads the checkout hooks to send Jev no hook guidance for a push that keeps them', async () => {

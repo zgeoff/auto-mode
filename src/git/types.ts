@@ -13,6 +13,10 @@ export interface HookFacts {
   readonly worktree: string;
   readonly hooksDirectory: string;
   readonly lefthookConfig: string | null;
+
+  // Each GIT_CONFIG_GLOBAL file the action names, by its resolved path, to the
+  // hooks folder git runs with it. A file the reader cannot judge has no entry.
+  readonly globalConfigHooks: Readonly<Record<string, string>>;
 }
 
 // The file reads the hook reader makes. A missing file reads as null and

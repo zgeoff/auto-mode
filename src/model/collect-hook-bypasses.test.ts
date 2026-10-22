@@ -102,12 +102,34 @@ test.each([
     'LEFTHOOK_CONFIG=other.yml git -c core.hooksPath=/tmp/none push --no-verify',
     ['LEFTHOOK_CONFIG', 'core.hooksPath', '--no-verify'],
   ],
+  ['LEFTHOOK_BIN=/usr/bin/true git commit -m wip', ['LEFTHOOK_BIN']],
+  ['LEFTHOOK_BIN=./scripts/pass.sh git push', ['LEFTHOOK_BIN']],
+  ['LEFTHOOK_BIN=node_modules/.bin/lefthook-shim git push', ['LEFTHOOK_BIN']],
+  ['LEFTHOOK_BIN=/srv/other/node_modules/.bin/lefthook git push', ['LEFTHOOK_BIN']],
+  ['LEFTHOOK_BIN=$TOOL git push', ['LEFTHOOK_BIN']],
+  ['export LEFTHOOK_BIN=/bin/true && gh stack push', ['LEFTHOOK_BIN']],
+  [`GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" git push`, ['core.hooksPath']],
+  [
+    `GIT_CONFIG_PARAMETERS="'user.name=robin' 'core.hooksPath=/tmp/none'" git commit -m wip`,
+    ['core.hooksPath'],
+  ],
+  [`GIT_CONFIG_PARAMETERS="'core.hooksPath'" git push`, ['core.hooksPath']],
+  [`GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" gh stack sync`, ['core.hooksPath']],
+  [
+    `GIT_CONFIG_PARAMETERS="'core.hooksPath'='/srv/harbor/.git/hooks'" git -c core.hooksPath=/tmp/none push`,
+    ['core.hooksPath'],
+  ],
+  [
+    `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/srv/harbor/.git/hooks GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" git push`,
+    ['core.hooksPath'],
+  ],
 ])('it finds the hook bypass in %s run in a worktree with known hooks', (command, expected) => {
   expect(
     collectHookBypasses(command, '/srv/harbor/.worktrees/feat', {
       worktree: '/srv/harbor/.worktrees/feat',
       hooksDirectory: '/srv/harbor/.git/hooks',
       lefthookConfig: '/srv/harbor/.worktrees/feat/lefthook.yml',
+      globalConfigHooks: {},
     }),
   ).toStrictEqual(expected);
 });
@@ -129,12 +151,23 @@ test.each([
   'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/tmp/none git push',
   'GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none git push',
   'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/none git -c core.hooksPath=/srv/harbor/.git/hooks push',
+  'LEFTHOOK_BIN= git push',
+  'LEFTHOOK_BIN=lefthook git push',
+  'LEFTHOOK_BIN=node_modules/.bin/lefthook git commit -m wip',
+  'LEFTHOOK_BIN=/srv/harbor/.worktrees/feat/node_modules/lefthook/bin/index.js git push',
+  'LEFTHOOK_BIN=node_modules/.bun/lefthook-linux-x64@2.2.1/node_modules/lefthook-linux-x64/bin/lefthook gh stack push',
+  'LEFTHOOK_BIN=/bin/true git status',
+  `GIT_CONFIG_PARAMETERS="'core.hooksPath'='/srv/harbor/.git/hooks'" git push`,
+  `GIT_CONFIG_PARAMETERS="'user.name'='robin'" git push`,
+  'GIT_CONFIG_PARAMETERS="core.hooksPath=/tmp/none" git push',
+  `GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" git -c core.hooksPath=/srv/harbor/.git/hooks push`,
 ])('it finds no hook bypass in %s run in a worktree with known hooks', (command) => {
   expect(
     collectHookBypasses(command, '/srv/harbor/.worktrees/feat', {
       worktree: '/srv/harbor/.worktrees/feat',
       hooksDirectory: '/srv/harbor/.git/hooks',
       lefthookConfig: '/srv/harbor/.worktrees/feat/lefthook.yml',
+      globalConfigHooks: {},
     }),
   ).toStrictEqual([]);
 });
@@ -145,8 +178,49 @@ test('it counts any LEFTHOOK_CONFIG as another config when the worktree holds no
       worktree: '/srv/harbor',
       hooksDirectory: '/srv/harbor/.git/hooks',
       lefthookConfig: null,
+      globalConfigHooks: {},
     }),
   ).toStrictEqual(['LEFTHOOK_CONFIG']);
+});
+
+test.each([
+  ['GIT_CONFIG_GLOBAL=/tmp/quick.gitconfig git commit -m wip', ['GIT_CONFIG_GLOBAL']],
+  ['GIT_CONFIG_GLOBAL=/tmp/unread.gitconfig git push', ['GIT_CONFIG_GLOBAL']],
+  ['GIT_CONFIG_GLOBAL=$CONFIG git push', ['GIT_CONFIG_GLOBAL']],
+  ['GIT_CONFIG_GLOBAL=~/ci.gitconfig git push', ['GIT_CONFIG_GLOBAL']],
+  ['export GIT_CONFIG_GLOBAL=/tmp/quick.gitconfig; gh stack submit', ['GIT_CONFIG_GLOBAL']],
+  ['GIT_CONFIG_GLOBAL=/dev/null git -C /srv/other push', ['GIT_CONFIG_GLOBAL']],
+  ['GIT_CONFIG_GLOBAL=/dev/null', []],
+  ['GIT_CONFIG_GLOBAL=/dev/null git push', []],
+  ['GIT_CONFIG_GLOBAL= git commit -m wip', []],
+  ['GIT_CONFIG_GLOBAL=ci.gitconfig gh stack push', []],
+  ['GIT_CONFIG_GLOBAL=/tmp/quick.gitconfig git -c core.hooksPath=/srv/harbor/.git/hooks push', []],
+  ['GIT_CONFIG_GLOBAL=/tmp/quick.gitconfig git status', []],
+])(
+  'it finds the hooks folder that the global git config in %s leaves git with',
+  (command, expected) => {
+    expect(
+      collectHookBypasses(command, '/srv/harbor/.worktrees/feat', {
+        worktree: '/srv/harbor/.worktrees/feat',
+        hooksDirectory: '/srv/harbor/.git/hooks',
+        lefthookConfig: '/srv/harbor/.worktrees/feat/lefthook.yml',
+        globalConfigHooks: {
+          '': '/srv/harbor/.git/hooks',
+          '/dev/null': '/srv/harbor/.git/hooks',
+          '/srv/harbor/.worktrees/feat/ci.gitconfig': '/srv/harbor/.git/hooks',
+          '/tmp/quick.gitconfig': '/tmp/no-hooks',
+        },
+      }),
+    ).toStrictEqual(expected);
+  },
+);
+
+test.each([
+  ['LEFTHOOK_BIN=node_modules/.bin/lefthook git push', ['LEFTHOOK_BIN']],
+  ['LEFTHOOK_BIN=lefthook git push', []],
+  ['GIT_CONFIG_GLOBAL=/dev/null git push', ['GIT_CONFIG_GLOBAL']],
+])('it judges %s with the checkout unknown', (command, expected) => {
+  expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
 });
 
 test('it counts the repository hooks folder as another one when the checkout is unknown', () => {

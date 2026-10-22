@@ -1,4 +1,6 @@
-import { resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
+import { parseConfigParameters } from '../git/parse-config-parameters.ts';
+import { resolveGlobalConfigPath } from '../git/resolve-global-config-path.ts';
 import type { HookFacts } from '../git/types.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
@@ -159,6 +161,7 @@ const HOOK_SWITCH_NAMES = [
   'LEFTHOOK_EXCLUDE',
   'LEFTHOOK_SKIP',
   'LEFTHOOK_CONFIG',
+  'LEFTHOOK_BIN',
 ] as const;
 
 function collectHookSwitches(
@@ -177,9 +180,15 @@ function collectHookSwitches(
 
   const hooksPath = findHooksPath(reaching, config);
 
-  return hooksPath === undefined || isKeptHooksPath(hooksPath, facts)
+  if (hooksPath !== undefined) {
+    return isKeptHooksPath(hooksPath, facts) ? switches : [...switches, 'core.hooksPath'];
+  }
+
+  const globalConfig = reaching.get('GIT_CONFIG_GLOBAL')?.slice('GIT_CONFIG_GLOBAL='.length);
+
+  return globalConfig === undefined || isKeptGlobalConfig(globalConfig, facts)
     ? switches
-    : [...switches, 'core.hooksPath'];
+    : [...switches, 'GIT_CONFIG_GLOBAL'];
 }
 
 function findSwitchLabel(name: string, value: string, facts: HookFacts | null): string | null {
@@ -208,6 +217,10 @@ function findSwitchLabel(name: string, value: string, facts: HookFacts | null): 
     return name;
   }
 
+  if (name === 'LEFTHOOK_BIN' && !isKeptLefthookBinary(value, facts)) {
+    return name;
+  }
+
   return null;
 }
 
@@ -215,9 +228,29 @@ function isResolvableWord(value: string): boolean {
   return !isUnresolvedWord(value) && !value.startsWith('~');
 }
 
-// A `-c` or `--config-env` setting wins over the GIT_CONFIG_COUNT variables,
-// and within each source the last setting wins. A `--config-env` variable this
-// command does not set has a value the command text cannot show.
+// lefthook's hook script runs a non-empty LEFTHOOK_BIN in place of its own
+// lookup, which tries `lefthook` on PATH and then the worktree's packages. The
+// hook runs at the worktree root, so a relative path reads from there.
+const LEFTHOOK_PACKAGE_BINARY =
+  /^(?:\.(?:bun|pnpm)\/[^/]+\/node_modules\/)?(?:\.bin\/lefthook|lefthook\/bin\/index\.js|lefthook-[\da-z]+-[\da-z]+\/bin\/lefthook(?:\.exe)?|@evilmartians\/lefthook\/bin\/lefthook-[\da-z]+-[\da-z]+\/lefthook(?:\.exe)?|@evilmartians\/lefthook-installer\/bin\/lefthook)$/u;
+
+function isKeptLefthookBinary(value: string, facts: HookFacts | null): boolean {
+  if (value === '' || value === 'lefthook') {
+    return true;
+  }
+
+  if (facts === null || !isResolvableWord(value)) {
+    return false;
+  }
+
+  return LEFTHOOK_PACKAGE_BINARY.test(
+    relative(join(facts.worktree, 'node_modules'), resolve(facts.worktree, value)),
+  );
+}
+
+// git reads the GIT_CONFIG_COUNT variables, then GIT_CONFIG_PARAMETERS, then
+// each `-c` or `--config-env`, and the last setting wins. A `--config-env`
+// variable this command does not set has a value the command text cannot show.
 function findHooksPath(
   reaching: ReadonlyMap<string, string>,
   config: readonly GitConfigOption[],
@@ -240,8 +273,20 @@ function findHooksPath(
     return [word === undefined ? null : word.slice(value.length + 1)];
   });
 
-  if (fromOptions.length > 0) {
-    return fromOptions.at(-1);
+  // git refuses to run with a GIT_CONFIG_PARAMETERS it cannot parse, and a key
+  // with no value names no hooks folder.
+  const parameters = parseConfigParameters(
+    reaching.get('GIT_CONFIG_PARAMETERS')?.slice('GIT_CONFIG_PARAMETERS='.length) ?? '',
+  );
+
+  const fromParameters = (parameters ?? [])
+    .filter((parameter) => isHooksPathKey(parameter.key))
+    .map((parameter) => parameter.value);
+
+  const fromCommand = [...fromParameters, ...fromOptions];
+
+  if (fromCommand.length > 0) {
+    return fromCommand.at(-1);
   }
 
   const count = Number(reaching.get('GIT_CONFIG_COUNT')?.slice('GIT_CONFIG_COUNT='.length));
@@ -274,6 +319,16 @@ function isKeptHooksPath(value: string | null, facts: HookFacts | null): boolean
     facts !== null &&
     isResolvableWord(value) &&
     resolve(facts.worktree, value) === facts.hooksDirectory
+  );
+}
+
+// The GIT_CONFIG_GLOBAL file takes the place of the user's config, and the
+// repository's config still wins over it.
+function isKeptGlobalConfig(value: string, facts: HookFacts | null): boolean {
+  return (
+    facts !== null &&
+    isResolvableWord(value) &&
+    facts.globalConfigHooks[resolveGlobalConfigPath(value, facts.worktree)] === facts.hooksDirectory
   );
 }
 
