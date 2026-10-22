@@ -434,6 +434,11 @@ test.each([
   'git status $PATHS',
   'git -c user.name="$NAME" push',
   'git log $RANGE',
+  "git push origin '$BRANCH'",
+  "git push '--no-$CHECK'",
+  "git commit '-$SHORT' -m wip",
+  "git '$SUB' -m wip",
+  String.raw`git push origin \$BRANCH`,
 ])('it finds no hook bypass in %s', (command) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual([]);
 });
