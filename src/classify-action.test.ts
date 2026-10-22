@@ -1966,6 +1966,7 @@ test.each([
   ['LEFTHOOK_BIN=/usr/bin/true git commit -m x', 'LEFTHOOK_BIN'],
   [`GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" gh stack push`, 'core.hooksPath'],
   ['GIT_CONFIG_SYSTEM=$CONFIG git commit -m x', 'GIT_CONFIG_SYSTEM'],
+  ['GIT_CONFIG_GLOBAL=/dev/zero git push', 'GIT_CONFIG_GLOBAL'],
 ])('it sends the hook bypass %s to Jev under Policy Tampering', async (command, bypass) => {
   const ctx = await setupTest();
 
