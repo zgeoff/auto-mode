@@ -8,7 +8,7 @@ export interface Checkout {
 }
 
 // The hooks folder each git config layer sets, or null when it sets none.
-export interface ConfigLayerHooks {
+interface ConfigLayerHooks {
   readonly system: string | null;
   readonly global: string | null;
   readonly repository: string | null;
