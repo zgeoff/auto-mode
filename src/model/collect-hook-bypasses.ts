@@ -3,6 +3,7 @@ import { parseConfigParameters } from '../git/parse-config-parameters.ts';
 import { parseGitBoolean } from '../git/parse-git-boolean.ts';
 import { resolveConfigFilePath } from '../git/resolve-config-file-path.ts';
 import type { HookFacts } from '../git/types.ts';
+import { hasSplitExpansion } from '../shell/has-split-expansion.ts';
 import { hasUnquotedExpansion } from '../shell/has-unquoted-expansion.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
@@ -482,10 +483,11 @@ function findNoVerifyOption(
 
   while (index < args.length && args[index] !== '--') {
     const arg = args[index] ?? '';
+    let takesNextWord = false;
 
     // The shell splits an unquoted expansion into words that git reads as
     // options, and an expansion at the start of an option word can be one.
-    if (hasUnquotedExpansion(raws[index] ?? '') || /^(?:--[^=]*)?[$`]/u.test(arg)) {
+    if (hasSplitExpansion(raws[index] ?? '') || /^(?:--[^=]*)?[$`]/u.test(arg)) {
       isHidden = true;
     } else if (arg.startsWith('--')) {
       const [option = '', ...value] = arg.slice(2).split('=');
@@ -497,17 +499,14 @@ function findNoVerifyOption(
         found = null;
       }
 
-      const takesNextWord =
-        subcommand === 'commit'
+      takesNextWord =
+        value.length === 0 &&
+        (subcommand === 'commit'
           ? COMMIT_VALUED_LONG.has(findCommitOption(option) ?? '')
-          : PUSH_VALUED_LONG.has(option);
-
-      if (value.length === 0 && takesNextWord) {
-        index += 1;
-      }
-    } else if (subcommand === 'push' && arg === '-o') {
-      index += 1;
-    } else if (subcommand === 'commit' && arg.startsWith('-') && arg !== '-') {
+          : PUSH_VALUED_LONG.has(option));
+    } else if (subcommand === 'push') {
+      takesNextWord = arg === '-o';
+    } else if (arg.startsWith('-') && arg !== '-') {
       // On `git push`, `-n` is `--dry-run` and keeps the hooks.
       const cluster = parseCommitCluster(arg);
 
@@ -515,9 +514,13 @@ function findNoVerifyOption(
         found = '-n';
       }
 
-      if (cluster.takesNextWord) {
-        index += 1;
-      }
+      takesNextWord = cluster.takesNextWord;
+    }
+
+    // A value word stays one word unless the shell splits it.
+    if (takesNextWord) {
+      isHidden ||= hasSplitExpansion(raws[index + 1] ?? '');
+      index += 1;
     }
 
     index += 1;
