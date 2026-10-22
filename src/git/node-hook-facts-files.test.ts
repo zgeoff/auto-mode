@@ -18,14 +18,14 @@ test('it reads the text of a file', async () => {
 
   await writeFile(join(ctx.directory, 'config'), '[core]\n');
 
-  const text = await nodeHookFactsFiles.readText(join(ctx.directory, 'config'));
+  const text = await nodeHookFactsFiles.readText(join(ctx.directory, 'config'), 4_194_304);
 
   expect(text).toBe('[core]\n');
 });
 
 test('it reads a missing file as null', async () => {
   const ctx = await setupTest();
-  const text = await nodeHookFactsFiles.readText(join(ctx.directory, 'missing'));
+  const text = await nodeHookFactsFiles.readText(join(ctx.directory, 'missing'), 4_194_304);
 
   expect(text).toBeNull();
 });
@@ -35,7 +35,10 @@ test('it reads a path under a file as null', async () => {
 
   await writeFile(join(ctx.directory, 'config'), '');
 
-  const text = await nodeHookFactsFiles.readText(join(ctx.directory, 'config', 'nested'));
+  const text = await nodeHookFactsFiles.readText(
+    join(ctx.directory, 'config', 'nested'),
+    4_194_304,
+  );
 
   expect(text).toBeNull();
 });
@@ -43,20 +46,20 @@ test('it reads a path under a file as null', async () => {
 test('it rejects reading a folder', async () => {
   const ctx = await setupTest();
 
-  expect(nodeHookFactsFiles.readText(ctx.directory)).rejects.toThrowWithMessage(
+  expect(nodeHookFactsFiles.readText(ctx.directory, 4_194_304)).rejects.toThrowWithMessage(
     Error,
     /is not a regular file/u,
   );
 });
 
 test('it reads /dev/null as empty', async () => {
-  const text = await nodeHookFactsFiles.readText('/dev/null');
+  const text = await nodeHookFactsFiles.readText('/dev/null', 4_194_304);
 
   expect(text).toBe('');
 });
 
 test('it rejects a device that never ends', () => {
-  expect(nodeHookFactsFiles.readText('/dev/zero')).rejects.toThrowWithMessage(
+  expect(nodeHookFactsFiles.readText('/dev/zero', 4_194_304)).rejects.toThrowWithMessage(
     Error,
     /is not a regular file/u,
   );
@@ -68,7 +71,7 @@ test('it rejects a named pipe at once, with no writer', async () => {
   execFileSync('mkfifo', [join(ctx.directory, 'pipe.gitconfig')]);
 
   expect(
-    nodeHookFactsFiles.readText(join(ctx.directory, 'pipe.gitconfig')),
+    nodeHookFactsFiles.readText(join(ctx.directory, 'pipe.gitconfig'), 4_194_304),
   ).rejects.toThrowWithMessage(Error, /is not a regular file/u);
 });
 
@@ -78,7 +81,7 @@ test('it rejects a file larger than a git config it reads', async () => {
   await writeFile(join(ctx.directory, 'large.gitconfig'), Buffer.alloc(1_048_577, 0x23));
 
   expect(
-    nodeHookFactsFiles.readText(join(ctx.directory, 'large.gitconfig')),
+    nodeHookFactsFiles.readText(join(ctx.directory, 'large.gitconfig'), 4_194_304),
   ).rejects.toThrowWithMessage(Error, /larger than a git config/u);
 });
 
@@ -87,13 +90,23 @@ test('it reads a file at the size limit', async () => {
 
   await writeFile(join(ctx.directory, 'full.gitconfig'), Buffer.alloc(1_048_576, 0x23));
 
-  const text = await nodeHookFactsFiles.readText(join(ctx.directory, 'full.gitconfig'));
+  const text = await nodeHookFactsFiles.readText(join(ctx.directory, 'full.gitconfig'), 4_194_304);
 
   expect(text).toHaveLength(1_048_576);
 });
 
+test('it rejects a file larger than the bytes its caller has left', async () => {
+  const ctx = await setupTest();
+
+  await writeFile(join(ctx.directory, 'tail.gitconfig'), '[core]\n\tbare = false\n');
+
+  expect(
+    nodeHookFactsFiles.readText(join(ctx.directory, 'tail.gitconfig'), 8),
+  ).rejects.toThrowWithMessage(Error, /larger than a git config/u);
+});
+
 test('it rejects a file that holds more than its size shows', () => {
-  expect(nodeHookFactsFiles.readText('/proc/self/status')).rejects.toThrowWithMessage(
+  expect(nodeHookFactsFiles.readText('/proc/self/status', 4_194_304)).rejects.toThrowWithMessage(
     Error,
     /grew while this reader read it/u,
   );

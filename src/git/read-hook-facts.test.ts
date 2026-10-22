@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { buildCountingHookFactsFiles } from '../../test-utils/build-counting-hook-facts-files.ts';
 import { nodeHookFactsFiles } from './node-hook-facts-files.ts';
 import { readHookFacts } from './read-hook-facts.ts';
 
@@ -605,6 +606,76 @@ test('it leaves out a named git config file whose includes hold more bytes than 
   );
 
   expect(facts?.configFileHooks).toStrictEqual({});
+});
+
+test('it holds the bytes of named git config files read in parallel to the read budget', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+
+  await Promise.all(
+    Array.from({ length: 5 }, (_, part) =>
+      writeFile(join(ctx.directory, `part-${part}.gitconfig`), `${'#'.repeat(999_999)}\n`),
+    ),
+  );
+
+  const counting = buildCountingHookFactsFiles(nodeHookFactsFiles);
+
+  const facts = await readHookFacts(
+    {
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
+    },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    counting.files,
+    Array.from({ length: 5 }, (_, part) => join(ctx.directory, `part-${part}.gitconfig`)),
+  );
+
+  expect(counting.readStats()).toStrictEqual({ peakReads: 1, bytesRead: 4_000_000 });
+
+  expect(facts?.configFileHooks).toStrictEqual({
+    [join(ctx.directory, 'part-0.gitconfig')]: null,
+    [join(ctx.directory, 'part-1.gitconfig')]: null,
+    [join(ctx.directory, 'part-2.gitconfig')]: null,
+    [join(ctx.directory, 'part-3.gitconfig')]: null,
+  });
+});
+
+test('it counts the read budget in UTF-8 bytes, not characters', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+
+  await Promise.all(
+    Array.from({ length: 5 }, (_, part) =>
+      writeFile(join(ctx.directory, `accent-${part}.gitconfig`), '#é\n'.repeat(250_000)),
+    ),
+  );
+
+  const facts = await readHookFacts(
+    {
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
+    },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
+    Array.from({ length: 5 }, (_, part) => join(ctx.directory, `accent-${part}.gitconfig`)),
+  );
+
+  expect(facts?.configFileHooks).toStrictEqual({
+    [join(ctx.directory, 'accent-0.gitconfig')]: null,
+    [join(ctx.directory, 'accent-1.gitconfig')]: null,
+    [join(ctx.directory, 'accent-2.gitconfig')]: null,
+    [join(ctx.directory, 'accent-3.gitconfig')]: null,
+  });
 });
 
 test("it reads the user config from the session's GIT_CONFIG_GLOBAL in place of the home configs", async () => {
