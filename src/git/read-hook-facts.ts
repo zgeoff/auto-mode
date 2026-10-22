@@ -17,12 +17,29 @@ interface ConfigHooksPath {
 
 const UNKNOWN_CONFIG: ConfigHooksPath = { isKnown: false, hooksPath: null };
 
+// An include can name a file more than once, so a few small files can fan out
+// to thousands of reads. One budget covers every file this call reads.
+const MAX_CONFIG_READS = 64;
+const MAX_CONFIG_TOTAL_BYTES = 4_194_304;
+
+interface ConfigReader {
+  readonly home: string;
+  readonly files: HookFactsFiles;
+  readonly budget: { reads: number; bytes: number };
+}
+
 export async function readHookFacts(
   checkout: Checkout,
   host: Pick<HostEnvironment, 'env' | 'home'>,
   files: HookFactsFiles,
   configFiles: readonly string[],
 ): Promise<HookFacts | null> {
+  const reader: ConfigReader = {
+    home: host.home,
+    files,
+    budget: { reads: MAX_CONFIG_READS, bytes: MAX_CONFIG_TOTAL_BYTES },
+  };
+
   const xdgConfig = host.env['XDG_CONFIG_HOME'] ?? join(host.home, '.config');
   const sessionGlobalConfig = host.env['GIT_CONFIG_GLOBAL'];
   const sessionSystemConfig = host.env['GIT_CONFIG_SYSTEM'];
@@ -40,9 +57,9 @@ export async function readHookFacts(
       : [resolveConfigFilePath(sessionSystemConfig ?? '/etc/gitconfig', checkout.worktree)];
 
   const [repository, globals, systems] = await Promise.all([
-    readConfigHooksPath(join(checkout.commonDir, 'config'), host.home, 0, files),
-    Promise.all(globalPaths.map((path) => readConfigHooksPath(path, host.home, 0, files))),
-    Promise.all(systemPaths.map((path) => readConfigHooksPath(path, host.home, 0, files))),
+    readConfigHooksPath(join(checkout.commonDir, 'config'), 0, reader),
+    Promise.all(globalPaths.map((path) => readConfigHooksPath(path, 0, reader))),
+    Promise.all(systemPaths.map((path) => readConfigHooksPath(path, 0, reader))),
   ]);
 
   // A worktree's own config can set core.hooksPath, and git reads it only
@@ -58,7 +75,7 @@ export async function readHookFacts(
     [...new Set(configFiles.map((path) => resolveConfigFilePath(path, checkout.worktree)))].map(
       async (path) => ({
         path,
-        config: await readConfigHooksPath(path, host.home, 0, files).catch(() => UNKNOWN_CONFIG),
+        config: await readConfigHooksPath(path, 0, reader).catch(() => UNKNOWN_CONFIG),
       }),
     ),
   );
@@ -99,19 +116,30 @@ export async function readHookFacts(
 // git ignores an included file that is missing.
 async function readConfigHooksPath(
   path: string,
-  home: string,
   depth: number,
-  files: HookFactsFiles,
+  reader: ConfigReader,
 ): Promise<ConfigHooksPath> {
   if (path === '') {
     return { isKnown: true, hooksPath: null };
   }
 
-  const config = await files.readText(path);
+  if (reader.budget.reads === 0) {
+    return UNKNOWN_CONFIG;
+  }
+
+  reader.budget.reads -= 1;
+
+  const config = await reader.files.readText(path);
+
+  reader.budget.bytes -= config?.length ?? 0;
+
+  if (reader.budget.bytes < 0) {
+    return UNKNOWN_CONFIG;
+  }
 
   let hooksPath: string | null = null;
 
-  for (const entry of parseConfigEntries(config ?? '', { path, home, depth })) {
+  for (const entry of parseConfigEntries(config ?? '', { path, home: reader.home, depth })) {
     if (entry.kind === 'unknown') {
       return UNKNOWN_CONFIG;
     }
@@ -119,7 +147,7 @@ async function readConfigHooksPath(
     const value =
       entry.kind === 'hooks-path'
         ? { isKnown: true, hooksPath: entry.value }
-        : await readConfigHooksPath(entry.path, home, depth + 1, files);
+        : await readConfigHooksPath(entry.path, depth + 1, reader);
 
     if (!value.isKnown) {
       return value;

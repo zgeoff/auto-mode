@@ -61,7 +61,8 @@ that the system, user and repository git config files set, with the files they i
 git resolves it; the hooks folder each git config file the command names sets; and the first
 lefthook config at the worktree root. A path that names those exactly keeps the hooks and adds
 nothing. Any other path counts as a replacement. Every path counts when the checkout is unknown,
-when a conditional include or a worktree's own config may set the hooks folder, or when the command
+when a conditional include or a worktree's own config may set the hooks folder, when the config
+files and their includes take more reads or bytes than one call's read budget, or when the command
 may leave the checkout, through a directory change or a git directory override. An empty hooks
 folder runs no hooks, so it counts too.
 

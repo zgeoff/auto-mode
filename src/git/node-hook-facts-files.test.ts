@@ -92,6 +92,13 @@ test('it reads a file at the size limit', async () => {
   expect(text).toHaveLength(1_048_576);
 });
 
+test('it rejects a file that holds more than its size shows', () => {
+  expect(nodeHookFactsFiles.readText('/proc/self/status')).rejects.toThrowWithMessage(
+    Error,
+    /grew while this reader read it/u,
+  );
+});
+
 test('it probes a file that exists as present', async () => {
   const ctx = await setupTest();
 

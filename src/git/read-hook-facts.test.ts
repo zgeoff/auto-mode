@@ -538,6 +538,75 @@ test('it leaves out a named git config file that cannot be read, and keeps the o
   });
 });
 
+test('it leaves out a named git config file whose includes fan out past the read budget', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+
+  await Promise.all(
+    Array.from({ length: 5 }, (_, level) =>
+      writeFile(
+        join(ctx.directory, `level-${level}.gitconfig`),
+        `[include]\n\tpath = level-${level + 1}.gitconfig\n`.repeat(3),
+      ),
+    ),
+  );
+
+  await writeFile(
+    join(ctx.directory, 'level-5.gitconfig'),
+    '[core]\n\thooksPath = /srv/fan-out-hooks\n',
+  );
+
+  const facts = await readHookFacts(
+    {
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
+    },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
+    [join(ctx.directory, 'level-0.gitconfig')],
+  );
+
+  expect(facts?.configFileHooks).toStrictEqual({});
+});
+
+test('it leaves out a named git config file whose includes hold more bytes than the read budget', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+
+  await Promise.all(
+    Array.from({ length: 5 }, (_, part) =>
+      writeFile(join(ctx.directory, `part-${part}.gitconfig`), `${'#'.repeat(1_000_000)}\n`),
+    ),
+  );
+
+  await writeFile(
+    join(ctx.directory, 'parts.gitconfig'),
+    Array.from({ length: 5 }, (_, part) => `[include]\n\tpath = part-${part}.gitconfig\n`).join(''),
+  );
+
+  const facts = await readHookFacts(
+    {
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
+    },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
+    [join(ctx.directory, 'parts.gitconfig')],
+  );
+
+  expect(facts?.configFileHooks).toStrictEqual({});
+});
+
 test("it reads the user config from the session's GIT_CONFIG_GLOBAL in place of the home configs", async () => {
   const ctx = await setupTest();
 

@@ -66,7 +66,12 @@ async function readBoundedText(handle: FileHandle, path: string): Promise<string
     throw new Error(`${path} is not a regular file`);
   }
 
-  const buffer = Buffer.alloc(MAX_CONFIG_BYTES + 1);
+  if (stats.size > MAX_CONFIG_BYTES) {
+    throw new Error(`${path} is larger than a git config this reader reads`);
+  }
+
+  // One byte past the size shows a file that grew after the stat.
+  const buffer = Buffer.alloc(stats.size + 1);
   let total = 0;
 
   for (;;) {
@@ -79,8 +84,8 @@ async function readBoundedText(handle: FileHandle, path: string): Promise<string
     }
   }
 
-  if (total > MAX_CONFIG_BYTES) {
-    throw new Error(`${path} is larger than a git config this reader reads`);
+  if (total > stats.size) {
+    throw new Error(`${path} grew while this reader read it`);
   }
 
   return buffer.toString('utf8', 0, total);
