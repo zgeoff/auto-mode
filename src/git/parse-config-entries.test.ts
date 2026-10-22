@@ -59,6 +59,25 @@ test('it reads the line after a comment that ends in a backslash on its own', ()
   ).toStrictEqual([{ kind: 'hooks-path', value: '/tmp/no-hooks' }]);
 });
 
+test('it keeps the whitespace inside a quoted hooks folder', () => {
+  expect(
+    parseConfigEntries('[core]\n\thooksPath = "/srv/harbor/.git/hooks "\n', {
+      path: '/srv/harbor/.git/config',
+      home: '/home/robin',
+      depth: 0,
+    }),
+  ).toStrictEqual([{ kind: 'hooks-path', value: '/srv/harbor/.git/hooks ' }]);
+});
+
+test.each([
+  ['a file git refuses', '[core]\n\thooksPath = "open\n'],
+  ['a hooks folder key with no value', '[core]\n\thooksPath\n'],
+])('it reads %s as unknown', (_, config) => {
+  expect(
+    parseConfigEntries(config, { path: '/srv/harbor/.git/config', home: '/home/robin', depth: 0 }),
+  ).toStrictEqual([{ kind: 'unknown' }]);
+});
+
 test('it reads an includeIf as unknown', () => {
   expect(
     parseConfigEntries('[includeIf "gitdir:~/work/"]\n\tpath = work.config\n', {
