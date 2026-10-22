@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.0.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.0.0...auto-mode-v3.0.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **jev:** close two gaps the hook-bypass guard left ([#301](https://github.com/zgeoff/auto-mode/issues/301)) ([87fbd52](https://github.com/zgeoff/auto-mode/commit/87fbd528dc9f43bfea6788aaf98548cf9123879a))
+* **jev:** flag a git subcommand or options that a shell expansion hides ([#302](https://github.com/zgeoff/auto-mode/issues/302)) ([07a795a](https://github.com/zgeoff/auto-mode/commit/07a795ab8316ea526eee0e4b1cbb19be976d6d65))
+* **jev:** flag a swapped lefthook binary or git config as tampering ([#299](https://github.com/zgeoff/auto-mode/issues/299)) ([ea0bcc4](https://github.com/zgeoff/auto-mode/commit/ea0bcc48a3255e6de0148d5b5e51d82ab5f21c44))
+* **jev:** send a lefthook step exclusion to policy tampering ([#297](https://github.com/zgeoff/auto-mode/issues/297)) ([9395200](https://github.com/zgeoff/auto-mode/commit/9395200b97d563e3742b1d3fa6d88d82603a5705))
+* **jev:** send a replaced hooks config or folder to policy tampering ([#298](https://github.com/zgeoff/auto-mode/issues/298)) ([f436647](https://github.com/zgeoff/auto-mode/commit/f436647938af32f31b4fa998eaee6e6af76eb8de))
+* **judge:** let a misread clear a hard deny the classifier allowed ([#295](https://github.com/zgeoff/auto-mode/issues/295)) ([3ee5c91](https://github.com/zgeoff/auto-mode/commit/3ee5c916d871a703b1fe6ebb016ad17081a699b4))
+
 ## [3.0.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v2.0.2...auto-mode-v3.0.0) (2026-10-20)
 
 
