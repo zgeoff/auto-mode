@@ -114,6 +114,9 @@ test.each([
     ['core.hooksPath'],
   ],
   [`GIT_CONFIG_PARAMETERS="'core.hooksPath'" git push`, ['core.hooksPath']],
+  ['GIT_CONFIG_PARAMETERS="$PARAMS" git push', ['core.hooksPath']],
+  [`GIT_CONFIG_PARAMETERS="'$KEY'='/tmp/none'" git push`, ['core.hooksPath']],
+  [`GIT_CONFIG_PARAMETERS="'core.hooksPath'='$HOOKS'" gh stack push`, ['core.hooksPath']],
   [`GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" gh stack sync`, ['core.hooksPath']],
   [
     `GIT_CONFIG_PARAMETERS="'core.hooksPath'='/srv/harbor/.git/hooks'" git -c core.hooksPath=/tmp/none push`,
@@ -160,6 +163,7 @@ test.each([
   `GIT_CONFIG_PARAMETERS="'core.hooksPath'='/srv/harbor/.git/hooks'" git push`,
   `GIT_CONFIG_PARAMETERS="'user.name'='robin'" git push`,
   'GIT_CONFIG_PARAMETERS="core.hooksPath=/tmp/none" git push',
+  'GIT_CONFIG_PARAMETERS="$PARAMS" git -c core.hooksPath=/srv/harbor/.git/hooks push',
   `GIT_CONFIG_PARAMETERS="'core.hooksPath'='/tmp/none'" git -c core.hooksPath=/srv/harbor/.git/hooks push`,
 ])('it finds no hook bypass in %s run in a worktree with known hooks', (command) => {
   expect(

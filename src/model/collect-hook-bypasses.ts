@@ -273,15 +273,22 @@ function findHooksPath(
     return [word === undefined ? null : word.slice(value.length + 1)];
   });
 
-  // git refuses to run with a GIT_CONFIG_PARAMETERS it cannot parse, and a key
-  // with no value names no hooks folder.
-  const parameters = parseConfigParameters(
-    reaching.get('GIT_CONFIG_PARAMETERS')?.slice('GIT_CONFIG_PARAMETERS='.length) ?? '',
-  );
+  const parametersWord =
+    reaching.get('GIT_CONFIG_PARAMETERS')?.slice('GIT_CONFIG_PARAMETERS='.length) ?? '';
 
-  const fromParameters = (parameters ?? [])
-    .filter((parameter) => isHooksPathKey(parameter.key))
-    .map((parameter) => parameter.value);
+  const parameters = parseConfigParameters(parametersWord);
+
+  // git refuses to run with a GIT_CONFIG_PARAMETERS it cannot parse, but the
+  // shell expands a variable in it first, and a key with no value names no
+  // hooks folder.
+  const unknownParameters = isUnresolvedWord(parametersWord) ? [null] : [];
+
+  const fromParameters =
+    parameters === null
+      ? unknownParameters
+      : parameters
+          .filter((parameter) => isUnresolvedWord(parameter.key) || isHooksPathKey(parameter.key))
+          .map((parameter) => (isUnresolvedWord(parameter.key) ? null : parameter.value));
 
   const fromCommand = [...fromParameters, ...fromOptions];
 
