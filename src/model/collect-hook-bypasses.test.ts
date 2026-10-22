@@ -38,6 +38,9 @@ test.each([
   ['export LEFTHOOK_EXCLUDE=test && git push', ['LEFTHOOK_EXCLUDE']],
   ['export LEFTHOOK=0; gh stack submit', ['LEFTHOOK=0']],
   ['export LEFTHOOK_SKIP=; LEFTHOOK_SKIP=test; git push', ['LEFTHOOK_SKIP']],
+  ['LEFTHOOK_BIN=node_modules/.bin/lefthook git push', ['LEFTHOOK_BIN']],
+  ['GIT_CONFIG_GLOBAL=/dev/null git push', ['GIT_CONFIG_GLOBAL']],
+  ['GIT_CONFIG_NOSYSTEM=1 gh stack push', ['GIT_CONFIG_NOSYSTEM']],
 ])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
 });
@@ -276,15 +279,6 @@ test('it keeps the repository hooks folder over the one a named global git confi
   ).toStrictEqual([]);
 });
 
-test.each([
-  ['LEFTHOOK_BIN=node_modules/.bin/lefthook git push', ['LEFTHOOK_BIN']],
-  ['LEFTHOOK_BIN=lefthook git push', []],
-  ['GIT_CONFIG_GLOBAL=/dev/null git push', ['GIT_CONFIG_GLOBAL']],
-  ['GIT_CONFIG_NOSYSTEM=1 gh stack push', ['GIT_CONFIG_NOSYSTEM']],
-])('it judges %s with the checkout unknown', (command, expected) => {
-  expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
-});
-
 test('it counts the repository hooks folder as another one when the checkout is unknown', () => {
   expect(
     collectHookBypasses('git -c core.hooksPath=/srv/harbor/.git/hooks push', '/srv/harbor', null),
@@ -327,6 +321,7 @@ test.each([
   'export LEFTHOOK_EXCLUDE && git push',
   'export LEFTHOOK_EXCLUDE=test; LEFTHOOK_EXCLUDE=; git push',
   'export LEFTHOOK=0 && LEFTHOOK=1 && gh stack push',
+  'LEFTHOOK_BIN=lefthook git push',
 ])('it finds no hook bypass in %s', (command) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual([]);
 });
