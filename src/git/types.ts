@@ -32,7 +32,7 @@ export interface HookFacts {
 // The file reads the hook reader makes. A missing file reads as null and
 // probes as false; any other failure rejects.
 export interface HookFactsFiles {
-  readonly readText: (path: string) => Promise<string | null>;
+  readonly readText: (path: string, maxBytes: number) => Promise<string | null>;
   readonly probeFile: (path: string) => Promise<boolean>;
 }
 

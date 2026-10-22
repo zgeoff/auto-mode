@@ -26,6 +26,7 @@ interface ConfigReader {
   readonly home: string;
   readonly files: HookFactsFiles;
   readonly budget: { reads: number; bytes: number };
+  queue: Promise<void>;
 }
 
 export async function readHookFacts(
@@ -38,6 +39,7 @@ export async function readHookFacts(
     home: host.home,
     files,
     budget: { reads: MAX_CONFIG_READS, bytes: MAX_CONFIG_TOTAL_BYTES },
+    queue: Promise.resolve(),
   };
 
   const xdgConfig = host.env['XDG_CONFIG_HOME'] ?? join(host.home, '.config');
@@ -129,11 +131,9 @@ async function readConfigHooksPath(
 
   reader.budget.reads -= 1;
 
-  const config = await reader.files.readText(path);
+  const config = await readBudgetedText(path, reader);
 
-  reader.budget.bytes -= config?.length ?? 0;
-
-  if (reader.budget.bytes < 0) {
+  if (config === undefined) {
     return UNKNOWN_CONFIG;
   }
 
@@ -157,6 +157,31 @@ async function readConfigHooksPath(
   }
 
   return { isKnown: true, hooksPath };
+}
+
+// The reads run one at a time, each limited to the bytes the reads before it
+// left, so parallel reads never hold more than the budget between them.
+// undefined: a file past the budget.
+async function readBudgetedText(
+  path: string,
+  reader: ConfigReader,
+): Promise<string | null | undefined> {
+  const previous = reader.queue;
+  const turn = Promise.withResolvers<void>();
+
+  reader.queue = turn.promise;
+
+  await previous;
+
+  try {
+    const text = await reader.files.readText(path, reader.budget.bytes);
+
+    reader.budget.bytes -= Buffer.byteLength(text ?? '');
+
+    return reader.budget.bytes < 0 ? undefined : text;
+  } finally {
+    turn.resolve();
+  }
 }
 
 function findHooksDirectory(

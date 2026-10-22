@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { buildStubHookFactsFiles } from '../../test-utils/build-stub-hook-facts-files.ts';
 import { nodeHookFactsFiles } from './node-hook-facts-files.ts';
 import { readHookFacts } from './read-hook-facts.ts';
 
@@ -605,6 +606,38 @@ test('it leaves out a named git config file whose includes hold more bytes than 
   );
 
   expect(facts?.configFileHooks).toStrictEqual({});
+});
+
+test('it holds the bytes of named git config files read in parallel to the read budget', async () => {
+  const stub = buildStubHookFactsFiles({
+    '/srv/harbor/part-0.gitconfig': `${'#'.repeat(999_999)}\n`,
+    '/srv/harbor/part-1.gitconfig': `${'#'.repeat(999_999)}\n`,
+    '/srv/harbor/part-2.gitconfig': `${'#'.repeat(999_999)}\n`,
+    '/srv/harbor/part-3.gitconfig': `${'#'.repeat(999_999)}\n`,
+    '/srv/harbor/part-4.gitconfig': `${'#'.repeat(999_999)}\n`,
+  });
+
+  const facts = await readHookFacts(
+    { worktree: '/srv/harbor', gitDir: '/srv/harbor/.git', commonDir: '/srv/harbor/.git' },
+    { env: {}, home: '/home/robin' },
+    stub.files,
+    [
+      '/srv/harbor/part-0.gitconfig',
+      '/srv/harbor/part-1.gitconfig',
+      '/srv/harbor/part-2.gitconfig',
+      '/srv/harbor/part-3.gitconfig',
+      '/srv/harbor/part-4.gitconfig',
+    ],
+  );
+
+  expect(stub.readStats()).toStrictEqual({ peakReads: 1, bytesRead: 4_000_000 });
+
+  expect(facts?.configFileHooks).toStrictEqual({
+    '/srv/harbor/part-0.gitconfig': null,
+    '/srv/harbor/part-1.gitconfig': null,
+    '/srv/harbor/part-2.gitconfig': null,
+    '/srv/harbor/part-3.gitconfig': null,
+  });
 });
 
 test("it reads the user config from the session's GIT_CONFIG_GLOBAL in place of the home configs", async () => {
