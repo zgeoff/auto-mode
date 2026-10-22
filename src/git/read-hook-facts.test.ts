@@ -513,6 +513,31 @@ test("it reads the user config from the session's GIT_CONFIG_GLOBAL in place of 
   expect(facts?.hooksDirectory).toBe('/srv/session-hooks');
 });
 
+test('it reads the hooks folder a named git config file sets on its section header line', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'repo', '.git'), { recursive: true });
+  await writeFile(join(ctx.directory, 'quick.gitconfig'), '[core] hooksPath = /tmp/no-hooks\n');
+
+  const facts = await readHookFacts(
+    {
+      worktree: join(ctx.directory, 'repo'),
+      gitDir: join(ctx.directory, 'repo', '.git'),
+      commonDir: join(ctx.directory, 'repo', '.git'),
+    },
+    {
+      env: { GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig') },
+      home: join(ctx.directory, 'home'),
+    },
+    nodeHookFactsFiles,
+    [join(ctx.directory, 'quick.gitconfig')],
+  );
+
+  expect(facts?.configFileHooks).toStrictEqual({
+    [join(ctx.directory, 'quick.gitconfig')]: '/tmp/no-hooks',
+  });
+});
+
 test('it reads no hook facts from a worktree with its own config', async () => {
   const ctx = await setupTest();
 

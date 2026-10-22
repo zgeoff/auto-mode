@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import type { ConfigEntry } from './parse-config-entries.ts';
 import { parseConfigEntries } from './parse-config-entries.ts';
 
 test('it reads core.hooksPath and each include in file order', () => {
@@ -23,6 +24,39 @@ test('it reads core.hooksPath and each include in file order', () => {
     { kind: 'hooks-path', value: 'checks' },
     { kind: 'include', path: '/home/robin/.gitconfig.hooks' },
   ]);
+});
+
+test.each<[string, readonly ConfigEntry[]]>([
+  ['[core] hooksPath = /tmp/no-hooks', [{ kind: 'hooks-path', value: '/tmp/no-hooks' }]],
+  ['[core]hooksPath=/tmp/no-hooks', [{ kind: 'hooks-path', value: '/tmp/no-hooks' }]],
+  ['[Core] HooksPath = "/tmp/no hooks"', [{ kind: 'hooks-path', value: '/tmp/no hooks' }]],
+  ['[core "x"] hooksPath = /tmp/no-hooks', []],
+  ['[include] path = more.config', [{ kind: 'include', path: '/srv/harbor/.git/more.config' }]],
+  ['[includeIf "gitdir:/srv/"] path = more.config', [{ kind: 'unknown' }]],
+])('it reads the assignment on the section header line %s', (config, expected) => {
+  expect(
+    parseConfigEntries(config, { path: '/srv/harbor/.git/config', home: '/home/robin', depth: 0 }),
+  ).toStrictEqual(expected);
+});
+
+test('it joins a value that ends in a backslash with the next line', () => {
+  expect(
+    parseConfigEntries('[core]\n\thooksPath = /srv/harbor/.git/hooks\\\n-other\n', {
+      path: '/srv/harbor/.git/config',
+      home: '/home/robin',
+      depth: 0,
+    }),
+  ).toStrictEqual([{ kind: 'hooks-path', value: '/srv/harbor/.git/hooks-other' }]);
+});
+
+test('it reads the line after a comment that ends in a backslash on its own', () => {
+  expect(
+    parseConfigEntries('[core] ; shared \\\n\thooksPath = /tmp/no-hooks\n', {
+      path: '/srv/harbor/.git/config',
+      home: '/home/robin',
+      depth: 0,
+    }),
+  ).toStrictEqual([{ kind: 'hooks-path', value: '/tmp/no-hooks' }]);
 });
 
 test('it reads an includeIf as unknown', () => {

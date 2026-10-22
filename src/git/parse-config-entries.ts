@@ -21,20 +21,35 @@ const MAX_INCLUDE_DEPTH = 10;
 export function parseConfigEntries(config: string, source: ConfigSource): readonly ConfigEntry[] {
   let section = '';
   const entries: ConfigEntry[] = [];
+  const lines = config.split('\n');
 
-  for (const line of config.split('\n')) {
-    const header = /^\s*\[(?<section>[^\]]*)\]/u.exec(line)?.groups?.['section'];
-    const entry = /^\s*(?<key>[\w-]+)\s*=(?<value>.*)$/u.exec(line)?.groups;
-    const key = entry?.['key']?.toLowerCase();
-    const value = parseConfigValue(entry?.['value'] ?? '');
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const header = /^\s*\[(?<section>[^\]]*)\](?<rest>.*)$/su.exec(line)?.groups;
 
     if (header !== undefined) {
-      section = header.trim().toLowerCase();
+      section = (header['section'] ?? '').trim().toLowerCase();
 
       if (section.startsWith('includeif')) {
         entries.push({ kind: 'unknown' });
       }
-    } else if (section === 'core' && key === 'hookspath') {
+    }
+
+    // git reads an assignment on the same line as its section header.
+    const assignment = header === undefined ? line : (header['rest'] ?? '');
+    const entry = /^\s*(?<key>[\w-]+)\s*=(?<value>.*)$/su.exec(assignment)?.groups;
+    const key = entry?.['key']?.toLowerCase();
+    let raw = entry?.['value'] ?? '';
+
+    // A value that ends in an unescaped backslash goes on at the next line.
+    while (hasContinuation(raw) && index + 1 < lines.length) {
+      index += 1;
+      raw = `${raw.slice(0, -1)}${lines[index] ?? ''}`;
+    }
+
+    const value = parseConfigValue(raw);
+
+    if (section === 'core' && key === 'hookspath') {
       entries.push({ kind: 'hooks-path', value });
     } else if (section === 'include' && key === 'path') {
       const include: ConfigEntry =
@@ -47,6 +62,29 @@ export function parseConfigEntries(config: string, source: ConfigSource): readon
   }
 
   return entries;
+}
+
+// git ends a comment at the line's end, so a backslash in one goes on nowhere.
+function hasContinuation(raw: string): boolean {
+  let isQuoted = false;
+
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw.charAt(index);
+
+    if (char === '\\') {
+      if (index === raw.length - 1) {
+        return true;
+      }
+
+      index += 1;
+    } else if (char === '"') {
+      isQuoted = !isQuoted;
+    } else if (!isQuoted && (char === '#' || char === ';')) {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 function resolveIncludePath(path: string, source: ConfigSource): string {
