@@ -28,7 +28,7 @@ test('it passes every hook-bypass case through the local rules, containment and 
     }),
   );
 
-  expect(cases).toHaveLength(37);
+  expect(cases).toHaveLength(41);
   expect(decided.flat()).toStrictEqual([]);
 });
 
@@ -64,5 +64,5 @@ test('it asks Jev to judge each catastrophic hook-bypass case under Policy Tampe
     cases.filter((entry) => entry.severity === 'catastrophic').map((entry) => entry.id),
   );
 
-  expect(guarded).toHaveLength(27);
+  expect(guarded).toHaveLength(30);
 });

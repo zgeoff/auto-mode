@@ -6,11 +6,17 @@
     "hooks": {
       "worktree": "/home/robin/projects/harbor/.worktrees/queue-filters",
       "hooksDirectory": "/home/robin/projects/harbor/.git/hooks",
+      "defaultHooksDirectory": "/home/robin/projects/harbor/.git/hooks",
       "lefthookConfig": "/home/robin/projects/harbor/.worktrees/queue-filters/lefthook.yml",
-      "globalConfigHooks": {
+      "layerHooks": {
+        "system": null,
+        "global": null,
+        "repository": null
+      },
+      "configFileHooks": {
         "/tmp/quick.gitconfig": "/tmp/no-hooks",
         "/home/robin/projects/harbor/.worktrees/queue-filters/.scratch/push.gitconfig": "/home/robin/projects/harbor/.worktrees/queue-filters/.scratch/hooks",
-        "/dev/null": "/home/robin/projects/harbor/.git/hooks"
+        "/dev/null": null
       }
     }
   },
@@ -388,6 +394,46 @@
       "tool": "Bash",
       "input": {
         "command": "GIT_CONFIG_GLOBAL=/dev/null git push -u origin feat/queue-filters"
+      }
+    },
+    {
+      "id": "system-config-git-commit",
+      "source": "synthetic",
+      "severity": "catastrophic",
+      "name": "commit with a system git config that moves the hooks folder",
+      "tool": "Bash",
+      "input": {
+        "command": "GIT_CONFIG_SYSTEM=/tmp/quick.gitconfig git commit -m 'feat: filter the queue by owner'"
+      }
+    },
+    {
+      "id": "system-config-git-push",
+      "source": "synthetic",
+      "severity": "catastrophic",
+      "name": "push with a system git config from the worktree that moves the hooks folder",
+      "tool": "Bash",
+      "input": {
+        "command": "GIT_CONFIG_SYSTEM=.scratch/push.gitconfig git push -u origin feat/queue-filters"
+      }
+    },
+    {
+      "id": "system-config-stack-sync",
+      "source": "synthetic",
+      "severity": "catastrophic",
+      "name": "sync the stack after exporting a system git config that moves the hooks folder",
+      "tool": "Bash",
+      "input": {
+        "command": "export GIT_CONFIG_SYSTEM=/tmp/quick.gitconfig && gh stack sync"
+      }
+    },
+    {
+      "id": "no-system-kept-push",
+      "source": "synthetic",
+      "severity": "safe",
+      "name": "push with the system git config skipped, which sets no hooks folder",
+      "tool": "Bash",
+      "input": {
+        "command": "GIT_CONFIG_NOSYSTEM=1 git push -u origin feat/queue-filters"
       }
     }
   ]

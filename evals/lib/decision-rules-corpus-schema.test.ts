@@ -75,12 +75,11 @@ test('it accepts the hooks a repository runs', () => {
       defaultBranch: 'main',
       hooks: {
         worktree: '/home/dev/app/.worktrees/fix',
-        hooksDirectory: '/home/dev/app/.git/hooks',
+        hooksDirectory: '/home/dev/shared-hooks',
+        defaultHooksDirectory: '/home/dev/app/.git/hooks',
         lefthookConfig: null,
-        globalConfigHooks: {
-          '': '/home/dev/app/.git/hooks',
-          '/home/dev/ci.gitconfig': '/home/dev/ci-hooks',
-        },
+        layerHooks: { system: '/home/dev/shared-hooks', global: null, repository: null },
+        configFileHooks: { '': null, '/home/dev/ci.gitconfig': '/home/dev/ci-hooks' },
       },
     },
     lastUserMessage: 'Push the fix.',
@@ -108,8 +107,10 @@ test('it rejects a relative hooks folder', () => {
       hooks: {
         worktree: '/home/dev/app/.worktrees/fix',
         hooksDirectory: '.git/hooks',
+        defaultHooksDirectory: '/home/dev/app/.git/hooks',
         lefthookConfig: null,
-        globalConfigHooks: {},
+        layerHooks: { system: null, global: null, repository: null },
+        configFileHooks: {},
       },
     },
     lastUserMessage: 'Push the fix.',
@@ -130,7 +131,7 @@ test('it rejects a relative hooks folder', () => {
   });
 });
 
-test('it rejects a relative hooks folder for a global git config', () => {
+test('it rejects a relative hooks folder for a named git config file', () => {
   const result = decisionRulesCorpusSchema.safeParse({
     cwd: '/home/dev/app/.worktrees/fix',
     repository: {
@@ -139,8 +140,10 @@ test('it rejects a relative hooks folder for a global git config', () => {
       hooks: {
         worktree: '/home/dev/app/.worktrees/fix',
         hooksDirectory: '/home/dev/app/.git/hooks',
+        defaultHooksDirectory: '/home/dev/app/.git/hooks',
         lefthookConfig: null,
-        globalConfigHooks: { '/home/dev/ci.gitconfig': '.git/hooks' },
+        layerHooks: { system: null, global: null, repository: null },
+        configFileHooks: { '/home/dev/ci.gitconfig': '.git/hooks' },
       },
     },
     lastUserMessage: 'Push the fix.',
@@ -157,7 +160,7 @@ test('it rejects a relative hooks folder for a global git config', () => {
   });
 
   expect(result.error?.issues).toPartiallyContain({
-    path: ['repository', 'hooks', 'globalConfigHooks', '/home/dev/ci.gitconfig'],
+    path: ['repository', 'hooks', 'configFileHooks', '/home/dev/ci.gitconfig'],
   });
 });
 

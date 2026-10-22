@@ -61,8 +61,10 @@ test('it gives each case the hooks the corpus records for its repository', async
         hooks: {
           worktree: '/home/dev/app',
           hooksDirectory: '/home/dev/app/.git/hooks',
+          defaultHooksDirectory: '/home/dev/app/.git/hooks',
           lefthookConfig: '/home/dev/app/lefthook.yml',
-          globalConfigHooks: { '/home/dev/ci.gitconfig': '/home/dev/app/.git/hooks' },
+          layerHooks: { system: null, global: null, repository: null },
+          configFileHooks: { '/home/dev/ci.gitconfig': null },
         },
       },
       lastUserMessage: 'Push the branch.',
@@ -94,8 +96,10 @@ test('it gives each case the hooks the corpus records for its repository', async
         hooks: {
           worktree: '/home/dev/app',
           hooksDirectory: '/home/dev/app/.git/hooks',
+          defaultHooksDirectory: '/home/dev/app/.git/hooks',
           lefthookConfig: '/home/dev/app/lefthook.yml',
-          globalConfigHooks: { '/home/dev/ci.gitconfig': '/home/dev/app/.git/hooks' },
+          layerHooks: { system: null, global: null, repository: null },
+          configFileHooks: { '/home/dev/ci.gitconfig': null },
         },
       },
     },
