@@ -111,7 +111,13 @@ test('it reads the user core.hooksPath under home when the repository sets none'
       gitDir: join(ctx.directory, 'repo', '.git'),
       commonDir: join(ctx.directory, 'repo', '.git'),
     },
-    { env: { XDG_CONFIG_HOME: join(ctx.directory, 'xdg') }, home: join(ctx.directory, 'home') },
+    {
+      env: {
+        XDG_CONFIG_HOME: join(ctx.directory, 'xdg'),
+        GIT_CONFIG_SYSTEM: join(ctx.directory, 'gitconfig'),
+      },
+      home: join(ctx.directory, 'home'),
+    },
     nodeHookFactsFiles,
     [],
   );
