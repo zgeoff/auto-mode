@@ -41,11 +41,6 @@ test.each([
   ['LEFTHOOK_BIN=node_modules/.bin/lefthook git push', ['LEFTHOOK_BIN']],
   ['GIT_CONFIG_GLOBAL=/dev/null git push', ['GIT_CONFIG_GLOBAL']],
   ['GIT_CONFIG_NOSYSTEM=1 gh stack push', ['GIT_CONFIG_NOSYSTEM']],
-])('it finds the hook bypass in %s', (command, expected) => {
-  expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
-});
-
-test.each([
   ["git $SUB -m 'feat: filter the queue'", ['a subcommand']],
   ['git "$SUB" --no-verify -m wip', ['a subcommand']],
   ['git $(printf push)', ['a subcommand']],
@@ -72,7 +67,7 @@ test.each([
   ['git commit "-a$SHORT" -m wip', ['commit or push options']],
   ['git push "-$SHORT"', ['commit or push options']],
   ['git push --no-verify $FLAGS', ['--no-verify']],
-])('it finds the hidden git words in %s', (command, expected) => {
+])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
 });
 
