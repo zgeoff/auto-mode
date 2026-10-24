@@ -6,9 +6,6 @@ export interface StubStopSignals {
   readonly stop: () => void;
 }
 
-// Stands in for the process's SIGTERM and SIGINT: stop calls every callback
-// still subscribed, the way a delivered signal calls its listeners, and an
-// unsubscribe removes only its own callback, the way process.off does.
 export function buildStubStopSignals(): StubStopSignals {
   const listeners = new Set<() => void>();
 

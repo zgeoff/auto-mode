@@ -21,8 +21,6 @@ interface DecisionRequestOverrides extends Partial<Omit<DecisionRequest, 'state'
   readonly state?: StateOverrides;
 }
 
-// The client refuses an answer set that does not match the questions, so every
-// rule gets a question under its own key unless a test states the questions.
 export function buildMockDecisionRequest(
   overrides: DecisionRequestOverrides = {},
 ): DecisionRequest {

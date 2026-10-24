@@ -15,11 +15,9 @@ export const sampleRecordSchema = z
     requestHash: z.string().nullable(),
     answerHash: z.string().nullable(),
 
-    // The model that wrote the answer; a record from before the field has none.
+    // Some recorded samples hold none.
     model: z.string().min(1).nullable().optional(),
 
-    // Whether a judge reply came from a safety fallback; null for an answer the
-    // transport reports no fallback evidence for.
     fallback: z.boolean().nullable().optional(),
   })
   .readonly();

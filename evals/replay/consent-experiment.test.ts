@@ -15,9 +15,6 @@ async function setupTest() {
   return { resultsDir, corporaDir: resolve(import.meta.dirname, '../corpora') };
 }
 
-// The recorded baseline released control-11 and control-39 on every sample; the
-// containment check denies both before Jev sees them. The twins recording and
-// the judge need the results clone, so this replay reports them as not measured.
 test('it replays the public recordings into consent outcomes per stage and reports both controls by key', async () => {
   const ctx = await setupTest();
 

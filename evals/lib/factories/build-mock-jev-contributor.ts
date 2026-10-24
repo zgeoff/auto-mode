@@ -3,7 +3,6 @@ import type { JevReport } from '../jev-report-schema.ts';
 
 type JevContributor = JevReport['records'][number]['contributors'][number];
 
-// The probabilities must agree with the choice, so the default is a certain block.
 export function buildMockJevContributor(overrides: Partial<JevContributor> = {}): JevContributor {
   return {
     rule: faker.lorem.words(2),

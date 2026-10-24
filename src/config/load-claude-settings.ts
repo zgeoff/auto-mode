@@ -3,8 +3,6 @@ import * as z from 'zod';
 import { resolveClaudeConfigPath } from './resolve-claude-config-path.ts';
 import type { ClaudeRules, ClaudeSettings, HostEnvironment } from './types.ts';
 
-// The user's settings.json holds both the autoMode rules and the MCP approvals,
-// so one read serves both unless a configured path moves the rules elsewhere.
 export async function loadClaudeSettings(
   path: string | null | undefined,
   host: Readonly<HostEnvironment>,

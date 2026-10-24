@@ -101,8 +101,7 @@ test.each([
 );
 
 // The recording sends the shipped judge on the recorded Jev denies of nine
-// near-threshold cases; the eval sends the Jev deny alone, so each clearable
-// deny is taken to be the only rule that blocks.
+// near-threshold cases.
 test('it scores the live judge replies through the judge stage, clearing most low-doubt hard denies and confirming every catastrophic one', async () => {
   const tiers = await loadShippedRuleTiers();
   const policy = await loadPolicy({}, 'decision.md');

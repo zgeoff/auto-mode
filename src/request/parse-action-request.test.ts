@@ -58,7 +58,6 @@ test('it carries the session identity, the action and the task context', () => {
   });
 });
 
-// A null is not a refusal: the mod keeps the prompt Claude Code was about to show.
 test('it has nothing to say about a body the schema rejects', () => {
   expect(
     parseActionRequest({

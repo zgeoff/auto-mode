@@ -31,8 +31,6 @@ interface DecisionValidationBody {
 
 type DecisionReplyBody = DecisionResponse | DecisionRefusalBody | DecisionValidationBody;
 
-// Most suites want Jev to clear every rule, so a question with no answer set
-// gets a certain allow.
 export async function sendDecisionReply(
   info: Readonly<ResolverInfo>,
 ): Promise<HttpResponse<DecisionReplyBody>> {

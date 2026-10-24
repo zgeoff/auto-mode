@@ -119,8 +119,6 @@ function formatPrintf(format: string, args: readonly string[]): string {
   }).join('');
 }
 
-// The value is a bracketed list, or runs to the end of its line, a comma or a
-// brace, and a YAML block list follows on the lines after it.
 const SKIP_SETTING =
   /(?:^|[\s{,"'])(?<key>skip|exclude(?:_tags)?)["']?[ \t]*[:=][ \t]*(?<inline>\[[^\]\n]*\]|[^\n,}]*)(?<items>(?:\n[ \t]*-[^\n]*)*)/gu;
 
@@ -159,8 +157,6 @@ function collectSkipSettings(text: unknown): readonly string[] {
   });
 }
 
-// An Edit that keeps a setting as it was adds none, so each old setting
-// cancels one equal new setting.
 function hasNewSetting(old: readonly string[], text: unknown): boolean {
   const remaining = [...old];
 

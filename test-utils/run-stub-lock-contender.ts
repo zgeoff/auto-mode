@@ -5,9 +5,6 @@ import * as z from 'zod';
 import { loadJSONFile } from '../src/state/load-json-file.ts';
 import { updateJSONFile } from '../src/state/update-json-file.ts';
 
-// Stands in for a CLI process that adds one to a state file's count and logs
-// its turn under the lock. Its clock holds still, and its second reading, taken
-// once the lock is found held, waits until every contender reaches the barrier.
 const [statePath, logPath, label, barrierDir, startAt] = process.argv.slice(2);
 const contenders = Number(process.argv.at(7));
 

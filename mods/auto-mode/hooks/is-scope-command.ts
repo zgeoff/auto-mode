@@ -1,7 +1,6 @@
 import { SCOPE_COMMANDS } from '../contract/scope-commands.ts';
 
-// A cheap gate before the record subprocess: options may sit between the
-// program and its subcommand, and the CLI parses the words exactly.
+// Options may sit between the program and its subcommand on a command line.
 const SCOPE_COMMAND_PATTERN = new RegExp(
   Object.entries(SCOPE_COMMANDS)
     .map(([program, commands]) => {

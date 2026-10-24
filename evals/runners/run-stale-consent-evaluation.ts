@@ -51,8 +51,6 @@ async function main(): Promise<void> {
         const lastDirectUserMessage =
           arm === 'stale' ? { text: entry.staleMessage, origin: corpus.staleOrigin } : null;
 
-        // Mirrors the Claude mod payload for a main-agent call; the original task is
-        // held unavailable in both arms so only the direct message varies.
         const payload: ActionRequest = {
           sessionID: 'stale-consent-evaluation',
           cwd: corpus.cwd,
@@ -113,8 +111,6 @@ async function main(): Promise<void> {
     records,
   };
 
-  // Written before the first request and after each answer, so an unwritable path
-  // fails before any request and an interrupted run keeps the answers it spent.
   if (isLive && output !== undefined) {
     await writeReport(output, report);
   }

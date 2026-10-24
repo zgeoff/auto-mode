@@ -35,8 +35,6 @@ interface CLIIO {
   readonly runtime: Readonly<Runtime>;
   readonly subscribeToStopSignals: (onStop: () => void) => () => void;
 
-  // The program and script that run this CLI, so a run can start the judge
-  // server; without it, each judge review starts its own process.
   readonly judgeServerCommand?: readonly [string, ...string[]] | undefined;
 }
 
@@ -58,8 +56,6 @@ Options:
   --evaluation-deadline <unix-ms>  With --jev-only: share the helper and API deadline
 `;
 
-// Every command takes every flag; a flag a command does not read changes
-// nothing.
 const CLI_ARGS = {
   classifier: { type: 'string' },
   rules: { type: 'string' },
@@ -76,8 +72,6 @@ interface CLIParams {
   readonly args: typeof CLI_ARGS;
 }
 
-// What a command runs, given the flags and the words after its name, and the
-// exit code it resolves to.
 type CommandRun = (
   io: Readonly<CLIIO>,
   values: Readonly<CLIValues>,
@@ -106,7 +100,7 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
               : await runCommand(io, ctx.values, [
                   ...ctx.positionals.slice(ctx.commandPath.length),
 
-                  // a word after `--` may start with a dash, and it is an argument too
+                  // the parser puts each word after `--` in rest, never in the positionals
                   ...ctx.rest,
                 ]);
         },
@@ -119,8 +113,7 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
     name: 'auto-mode',
     args: CLI_ARGS,
 
-    // A command line with no command before `--` takes its command from the first word after it,
-    // which the parser leaves unread.
+    // The parser leaves every word after `--` unread, a command name included.
     run: async (ctx) => {
       exitCode = await runCommandAfterTerminator(io, ctx.values, ctx.rest);
     },
@@ -145,8 +138,6 @@ export async function runCLI(argv: readonly string[], io: Readonly<CLIIO>): Prom
   return exitCode;
 }
 
-// A run that fails before the classifier starts still exits 0, so the mod
-// keeps the prompt instead of reading a failure.
 async function runClassification(
   io: Readonly<CLIIO>,
   values: Readonly<CLIValues>,
@@ -165,8 +156,7 @@ async function runClassification(
   }
 }
 
-// Nothing tells the server that its agent session ended, so it ends after this
-// long without a review, and a finished session leaves no judge process behind.
+// Nothing tells the server that its agent session ended.
 const JUDGE_IDLE_MS = 900_000;
 
 interface RunOptions {
@@ -279,8 +269,6 @@ function printWarnings(stderr: Readonly<OutputStream>, warnings: readonly string
   }
 }
 
-// A Claude Code judge reaches the session's judge server when the CLI knows the
-// command that runs itself; a Messages API judge needs no process of its own.
 function buildJudgeServerSession(
   io: Readonly<CLIIO>,
   config: Readonly<Config>,
@@ -339,8 +327,6 @@ async function printPrompt(io: Readonly<CLIIO>, values: Readonly<CLIValues>): Pr
   return 0;
 }
 
-// Writes nothing on stdout: a record is not a verdict, and a failure costs the
-// session only the scope it would have gained.
 async function runRecord(io: Readonly<CLIIO>): Promise<number> {
   const raw = await io.stdin();
 
@@ -381,8 +367,6 @@ function printModPath(io: Readonly<CLIIO>): Promise<number> {
   }
 }
 
-// The server loads the Agent SDK, which a run that reaches a warm server never
-// needs, so it loads only here.
 async function runJudgeServer(
   io: Readonly<CLIIO>,
   socketPath: string | undefined,

@@ -1,5 +1,3 @@
-// The patterns both the identifier scan and the rewriter read, so a value the
-// scan finds is the value the rewriter replaces.
 export type IdentifierClass = 'user' | 'host' | 'owner' | 'repo' | 'branch';
 
 export const HOME_PATH = /\/(?<base>home|Users)\/(?<user>[^/\s"'`:;|&<>()]+)/gu;

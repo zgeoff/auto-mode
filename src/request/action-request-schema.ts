@@ -26,8 +26,6 @@ const decisionContextSchema = z.strictObject({
   omittedTaskContext: z.array(omissionSchema),
 });
 
-// The mod and the CLI ship together, so the request is strict: a request from a
-// mismatched mod is no request, and the mod keeps the manual approval.
 export const actionRequestSchema = z.strictObject({
   sessionID: z.string().min(1),
   toolUseID: z.string().min(1).optional(),

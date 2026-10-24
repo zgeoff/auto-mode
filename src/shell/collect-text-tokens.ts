@@ -10,8 +10,6 @@ export interface TextTokens {
   readonly unclosedAt: number | null;
 }
 
-// What one `$(` read added to its level, and the first construct in it that
-// never closes, when none was found before it.
 interface CommandSubstitutionScan {
   readonly end: number;
   readonly isUnterminated: boolean;
@@ -19,9 +17,6 @@ interface CommandSubstitutionScan {
   readonly unclosedAt: number | null;
 }
 
-// Every helper reads and updates the state of one scan, so each closes over
-// it. `literals` holds the offsets read as plain characters, and `unclosedAt`
-// the first construct that never closes.
 export function collectTextTokens(text: string, literalOffsets: readonly number[]): TextTokens {
   const literals: ReadonlySet<number> = new Set(literalOffsets);
 
@@ -49,8 +44,6 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
     return { result, substitutions: inner.substitutions };
   };
 
-  // At a level with a closer, `end` is the offset of that closer, or -1 when
-  // the text ends first.
   const collectTokens = (
     start: number,
     isArithmeticStart = false,
@@ -136,6 +129,8 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         continue;
       }
 
+      // Inside `(( … ))`, up to its closing word, a `<<` shifts bits and opens
+      // no heredoc, even after a `&` or `|` there.
       const opensHeredoc = (operator === '<<' || operator === '<<-') && arithmeticDepth <= 0;
       const redirect = parseRedirect(word.end, operator, opensHeredoc);
 
@@ -151,8 +146,6 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
         return { tokens, end: -1 };
       }
 
-      // Inside `(( … ))`, up to its closing word, a `<<` shifts bits and opens
-      // no heredoc, even after a `&` or `|` there.
       if (opensHeredoc && redirect.raw !== '') {
         heredocs.push(buildHeredoc(redirect.raw, operator === '<<-', index));
       }
@@ -167,9 +160,9 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
     return { tokens, end: level.closer === null ? index : -1 };
   };
 
-  // A word ends at whitespace or at an operator outside quotes. A substitution
-  // or `${…}` expansion stays inside the word it starts in, so `$(…)#L1` holds
-  // no comment, while a `#` right after a grouping parenthesis starts one.
+  // A substitution or `${…}` expansion stays inside the word it starts in, so
+  // `$(…)#L1` holds no comment, while a `#` right after a grouping parenthesis
+  // starts one.
   const parseWord = (start: number): ScannedWord => {
     let value = '';
     let paren: WordParen | null = null;
@@ -294,8 +287,6 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
     return { value, end: level.limit, isUnterminated: true };
   };
 
-  // `$(…)` and backticks run a command, whose body joins the level's
-  // substitutions; `${…}` holds parameter text that can hold either.
   const parseExpansion = (
     index: number,
     isInDoubleQuotes: boolean,
@@ -313,6 +304,7 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
       return parseCommandSubstitution(index, bodyStart);
     }
 
+    // `${…}` runs nothing itself, but its parameter text can hold a substitution.
     if (text.startsWith('${', index)) {
       return collectExpansionBody(index, -1, getParameterEnd(index + 2, isInDoubleQuotes));
     }
@@ -320,9 +312,6 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
     return null;
   };
 
-  // A `$(` read depends only on its offset and the level's limit, so a second
-  // read replays the first. Without the replay, each ambiguous `$((` reads its
-  // body twice and nested ones double the scan per level.
   const parseCommandSubstitution = (
     index: number,
     bodyStart: number,
@@ -466,9 +455,6 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
     return -1;
   };
 
-  // The target is the next word. A target stops short at an unquoted parenthesis,
-  // so `(echo x > out)` writes `out`, while the redirection still takes the
-  // whole word. A process substitution runs its body as a command.
   const parseRedirect = (
     start: number,
     operator: string,
@@ -514,6 +500,8 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
       return { target: null, raw: '', end: index, isUnterminated: false };
     }
 
+    // A target stops short at an unquoted parenthesis, so `(echo x > out)`
+    // writes `out`, while the redirection still takes the whole word.
     return {
       target: word.paren === null ? word.value : word.value.slice(0, word.paren.value),
       raw: word.paren === null ? word.raw : word.raw.slice(0, word.paren.raw),
@@ -576,14 +564,12 @@ export function collectTextTokens(text: string, literalOffsets: readonly number[
   return { tokens, substitutions: top.substitutions, hasSubstitution, unclosedAt };
 }
 
-// One level of nesting: the top level, a `$(…)` body, or a heredoc body. The
-// balance counts only the grouping parentheses read at this level, so a quoted
-// or nested parenthesis never ends an arithmetic command.
 interface Level {
   readonly substitutions: string[];
   readonly limit: number;
   readonly closer: ')' | null;
   depth: number;
+
   balance: number;
 }
 

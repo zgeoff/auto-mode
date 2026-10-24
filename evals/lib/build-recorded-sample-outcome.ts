@@ -1,8 +1,6 @@
 import type { StageOutcome } from './define-experiment.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
-// A sample recorded by an earlier run replays as the outcome that run scored,
-// with the model and latency it recorded.
 export function buildRecordedSampleOutcome(
   record: Readonly<SampleRecord>,
   model: string,

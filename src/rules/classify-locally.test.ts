@@ -75,8 +75,6 @@ test.each([
   });
 });
 
-// A chain is only as allowable as its least obvious part, and the reported
-// exception should name the part that needed one.
 test('it reports the exception that carried the chain, not the first one', () => {
   const payload = buildMockActionRequest({
     toolName: 'Bash',
@@ -90,8 +88,6 @@ test('it reports the exception that carried the chain, not the first one', () =>
   });
 });
 
-// Each of these resembles an allowed case and is not one. Getting any wrong is
-// a silent unwatched delete, so they are listed individually.
 test.each([
   ['rm -rf /', 'outside the tree'],
   ['rm -rf ~', 'a home directory'],
@@ -116,8 +112,6 @@ test.each([
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
 
-// The local tier allows a command by name only when its arguments cannot make
-// it run another command, write a file or ref, or change the machine.
 test.each([
   ['env rm -rf /tmp/other', 'env runs its arguments'],
   ['cat a | env sh -c "rm -rf /tmp/other"', 'env runs a shell inside a pipeline'],
@@ -226,8 +220,6 @@ test('it escalates a removal whose partly quoted operand names an absolute path 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
 
-// A substitution, a redirection, or an unbalanced quote can hide an effect the
-// command text does not show.
 test.each([
   'echo $(rm -rf /)',
   'echo `whoami`',

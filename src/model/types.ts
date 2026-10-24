@@ -8,8 +8,6 @@ export interface ModelOutcome {
   readonly note: string;
   readonly unavailable?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
-
-  // Only a Jev deny carries the evidence the judge reviews.
   readonly review?: JudgeEvidence;
 }
 
@@ -20,8 +18,7 @@ export interface ModelOptions extends EvaluationOptions {
 
 export type DecisionChoice = 'allow' | 'block';
 
-// The recorded evaluation reports hold ask answers, and a replay of them reads
-// this wider set.
+// The recorded evaluation reports hold ask answers.
 export type RecordedDecisionChoice = DecisionChoice | 'ask';
 
 interface DecisionQuestion<Choice extends string = DecisionChoice> {

@@ -1,7 +1,6 @@
 import { CLI_LIMITS } from '../../mods/auto-mode/contract/cli-limits.ts';
 import type { ProviderConfig } from './config.ts';
 
-// The generic Messages API kind names no model, so an entry of this kind must.
 export const MESSAGES_DEFAULTS: Omit<ProviderConfig, 'model'> = {
   protocol: 'messages',
   baseURL: 'https://api.anthropic.com',
@@ -33,8 +32,7 @@ const SPARK_PROVIDER: ProviderConfig = {
   timeoutMs: 45_000,
 };
 
-// The judge runs Claude through the local `claude` login, so it needs no API
-// key. A cold Claude Code start takes 2-4 s before the model answers.
+// The judge runs Claude through the local `claude` login, so it needs no API key.
 const CLAUDE_CODE_JUDGE: ProviderConfig = {
   protocol: 'claude-code',
   baseURL: 'https://api.anthropic.com',

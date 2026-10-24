@@ -1,9 +1,6 @@
 import { isAbsolute, join, normalize } from 'node:path';
 import { isUnresolvedWord } from './is-unresolved-word.ts';
 
-// A target built from a variable, a substitution, or another user's home
-// cannot be resolved from the command text alone, nor can a relative one
-// when the directory is unknown.
 export function resolveShellPath(
   directory: string | null,
   path: string,

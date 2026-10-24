@@ -16,9 +16,6 @@ export interface ConfigSource {
 const MAX_INCLUDE_DEPTH = 10;
 const UNKNOWN_ENTRY: ConfigEntry = { kind: 'unknown' };
 
-// git reads a relative include path from the including file's folder. An
-// includeIf's condition goes unjudged, so it is unknown, as are an include past
-// git's depth, a key with no value, and a file git refuses.
 export function parseConfigEntries(config: string, source: ConfigSource): readonly ConfigEntry[] {
   const variables = parseGitConfig(config);
 
@@ -47,6 +44,7 @@ export function parseConfigEntries(config: string, source: ConfigSource): readon
   });
 }
 
+// git reads a relative include path from the including file's folder.
 function resolveIncludePath(path: string, source: ConfigSource): string {
   return path.startsWith('~/')
     ? join(source.home, path.slice(2))

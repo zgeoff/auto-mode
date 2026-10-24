@@ -9,9 +9,6 @@ export interface LoadedCorpus<T> {
   readonly textHash: string;
 }
 
-// A committed corpus or evaluation report, named from the repository root. The
-// evaluation scripts hash a corpus as its parsed JSON, so a formatter pass keeps
-// the hash; the containment twins are hashed as the file's own bytes.
 export async function loadCorpus<Schema extends z.ZodType>(
   path: string,
   schema: Schema,
@@ -22,6 +19,9 @@ export async function loadCorpus<Schema extends z.ZodType>(
 
   return {
     data: schema.parse(raw),
+
+    // The evaluation scripts hash a corpus as its parsed JSON, so a formatter pass
+    // keeps the hash; the containment twins are hashed as the file's own bytes.
     hash: toHash(JSON.stringify(raw)),
     textHash: toHash(text),
   };

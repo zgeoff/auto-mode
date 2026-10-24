@@ -1318,8 +1318,6 @@ test('it sends an in-scope edit to the model tier when the user configured deny 
   });
 });
 
-// Containment, the scope sources, Jev's repository evidence and its MCP
-// project lookup each read the checkout; the action walks up to `.git` once.
 test('it walks up to the checkout once for an action that reaches Jev', async () => {
   const ctx = await setupTest();
 

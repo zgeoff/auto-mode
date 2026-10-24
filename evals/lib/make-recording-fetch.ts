@@ -8,9 +8,6 @@ export interface RecordingFetchOptions {
   readonly onSend?: () => void;
 }
 
-// A runner hands this to sendDecision: each attempt is reported before it goes
-// out, a redirect is never followed into a second request, and a copy of each
-// response stays readable after the client has consumed the original.
 export function makeRecordingFetch(
   sendFetch: SendFetch,
 

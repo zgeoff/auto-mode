@@ -27,9 +27,6 @@ interface LiveProcess {
   cleared: Promise<void>;
 }
 
-// One process answers every review, so only the first pays its start. Each
-// review starts from a cleared conversation, because one review's evidence must
-// never reach the next.
 export function startJudgeSession(env: Readonly<Record<string, string | undefined>>): JudgeSession {
   let live: LiveProcess | null = null;
   let queue: Promise<void> = Promise.resolve();
@@ -74,8 +71,7 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
 
       current.reviews += 1;
 
-      // A refusal fallback swaps the session's model for every later turn, so the
-      // next review starts a process on the configured model instead.
+      // A refusal fallback swaps the session's model for every later turn.
       if (turn.sessionFallback) {
         stop();
       } else {
@@ -106,8 +102,6 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
 
         return await runReview(model, request, signal);
       } finally {
-        // A review that gave up while queued still holds its place, so the
-        // reviews behind it keep their order.
         void waitThenRelease(previous, turn.resolve);
       }
     },
@@ -115,8 +109,7 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
   };
 }
 
-// Claude Code writes each reply as one stream-json line, and the judge server
-// holds the process for the whole agent session, so the cap bounds each line.
+// Claude Code writes each reply as one stream-json line.
 const MAX_LINE_BYTES = 1024 * 1024;
 
 interface TurnWaiter {
@@ -302,8 +295,7 @@ const PROVIDER_SWITCHES = new Set([
   'CLAUDE_CODE_USE_FOUNDRY',
 ]);
 
-// A session pointed at another provider passes its endpoint and key in these
-// variables, and the judge must reach Claude through the claude login instead.
+// Claude Code reads another provider's endpoint and key from these variables.
 function buildChildEnv(
   env: Readonly<Record<string, string | undefined>>,
 ): Record<string, string | undefined> {
@@ -323,15 +315,11 @@ async function readMessages(
     for await (const message of stream) {
       onMessage(message);
     }
-  } catch {
-    // A process that exits or fails ends the stream; the stop that follows
-    // rejects the review it was answering.
-  }
+  } catch {}
 
   onEnd();
 }
 
-// A failed clear ends the process, and the next review then starts a new one.
 async function sendClear(
   send: (text: string) => Promise<Readonly<Turn>>,
   stop: () => void,
@@ -343,8 +331,6 @@ async function sendClear(
   }
 }
 
-// The usage and the stop count are parsed apart from the result, so a malformed
-// one keeps a readable reply on the configured model.
 const MODEL_USAGE = z.record(z.string(), z.object({ outputTokens: z.number() }));
 const SAFETY_STOPS = z.object({ safety_stops: z.number() });
 
@@ -370,9 +356,9 @@ function buildReply(
   };
 }
 
-// A safety stop makes Claude Code answer on a fallback model, so the reply's model
-// comes from the usage. A background model writes fewer output tokens than the
-// reply, and a model with none wrote no part of it.
+// A safety stop makes Claude Code answer on a fallback model. A background model
+// writes fewer output tokens than the reply, and a model with none wrote no part
+// of it.
 function pickAnsweringModel(
   usage: Readonly<z.output<typeof MODEL_USAGE>> | undefined,
   requested: string,
@@ -384,8 +370,7 @@ function pickAnsweringModel(
 }
 
 // A model alias resolves to a canonical model ID in the usage, so a reply's model
-// cannot show a fallback by name. A safety stop does; without the count, a model
-// that wrote nothing beside the one that wrote the reply does.
+// cannot show a fallback by name.
 function isFallbackReply(
   usage: Readonly<z.output<typeof MODEL_USAGE>> | undefined,
   stops: number | undefined,

@@ -1,7 +1,5 @@
 import type { ModVerdict } from '../contract/types.ts';
 
-// The CLI ships with this mod, so any other shape is a mismatched or broken CLI,
-// and only an exact verdict may replace the prompt.
 export function parseDecision(stdout: string): ModVerdict | null {
   let body: unknown;
 

@@ -14,7 +14,6 @@ async function setupTest() {
 
   onTestFinished(() => rm(tempDir, { recursive: true, force: true }));
 
-  // A run is written only into a clone of the results repository.
   const resultsDir = await realpath(tempDir);
 
   runGit(resultsDir, ['init', '-q', '-b', 'main']);

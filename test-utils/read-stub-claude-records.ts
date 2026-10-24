@@ -14,7 +14,6 @@ const stubClaudeRecordSchema = z.object({
 
 export type StubClaudeRecord = z.infer<typeof stubClaudeRecordSchema>;
 
-// The lines run-stub-claude.ts appends to STUB_CLAUDE_RECORD, one per review.
 export async function readStubClaudeRecords(recordPath: string): Promise<StubClaudeRecord[]> {
   const recorded = await readFile(recordPath, 'utf8');
 

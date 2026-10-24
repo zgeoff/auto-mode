@@ -40,8 +40,6 @@ export type ScopeEvent =
   | { readonly kind: 'branch'; readonly name: string; readonly directory: string }
   | { readonly kind: 'pull-request'; readonly directory: string; readonly head: string | null };
 
-// A branch name means nothing outside its repository, so the session keeps
-// each branch with the git directory its checkouts share.
 export interface SessionBranch {
   readonly name: string;
   readonly commonDir: string;

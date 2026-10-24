@@ -2,9 +2,6 @@ import * as z from 'zod';
 
 const hashSchema = z.string().regex(/^[0-9a-f]{16}$/u);
 
-// Versions 3 to 6: 4 adds the judge stage and field, 5 the agent hash, 6 the
-// grant field. The diagnostics, judge and grant fields pass unchecked: no
-// measurement reads them and no result keeps them.
 export const actionLogRecordSchema = z
   .strictObject({
     schemaVersion: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6)]),
@@ -35,6 +32,7 @@ export const actionLogRecordSchema = z
       .readonly()
       .nullable(),
     escalation: z.boolean(),
+
     diagnostics: z.unknown(),
     judge: z.unknown().optional(),
     grant: z.unknown().optional(),

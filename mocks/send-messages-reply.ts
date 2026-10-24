@@ -27,8 +27,6 @@ const requestSchema = z.strictObject({
   messages: z.array(messageSchema).min(1),
 }) satisfies z.ZodType<MessagesRequest>;
 
-// No generated text is a safe default verdict, so a request that finds the
-// queue empty fails loudly with the API's own error shape.
 export async function sendMessagesReply(
   info: Readonly<ResolverInfo>,
 ): Promise<HttpResponse<MessagesResponse | MessagesErrorBody>> {

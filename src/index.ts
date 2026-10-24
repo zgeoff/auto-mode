@@ -20,8 +20,6 @@ export interface ClassifyOptions extends Omit<RuntimeClassifyOptions, 'runtime' 
   readonly stderr?: Readonly<OutputStream> | undefined;
 }
 
-// A library caller has no cli.ts to build a runtime, so the library entry
-// reads the process's own for a caller that passes none.
 export function classifyAction(
   request: ActionRequest,
   config: Config,

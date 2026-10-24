@@ -22,8 +22,6 @@ export function planDenialBudget(
     return { verdict, state: { ...state, consecutive: 0, lastDenied: null }, escalation: false };
   }
 
-  // The prompt that writing nothing keeps is where the human answers, and the
-  // next request can only arrive after that answer, so the counts reset here.
   if (state.consecutive >= budget.consecutive || state.session >= budget.perSession) {
     return { verdict: null, state: EMPTY_DENIAL_STATE, escalation: true };
   }

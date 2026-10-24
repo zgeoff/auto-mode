@@ -54,8 +54,7 @@ test('it appends private correlated records without action, task, credential, or
 
   const text = await readFile(path, 'utf8');
 
-  // Each hash is the first 16 hex digits of `printf <id> | sha256sum`; the main
-  // agent's hash is its session's.
+  // Each hash is the first 16 hex digits of `printf <id> | sha256sum`.
   expect(
     text
       .trim()

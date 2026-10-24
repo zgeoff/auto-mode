@@ -18,8 +18,6 @@ export interface AnonymiseResult {
   readonly cases: number;
 }
 
-// The corpus is built and scanned in a private temp dir and copied to the out
-// dir only after the scan passes, so a missed secret never lands in a checkout.
 export async function writeAnonymisedCorpus(
   request: Readonly<AnonymiseRequest>,
 ): Promise<AnonymiseResult> {

@@ -7,9 +7,6 @@ export interface DesignEffect {
   readonly effectiveEvents: number;
 }
 
-// The case-clustered variance of the rate over the independent-sample variance,
-// held at 1 or more. Where either is zero or undefined, as at a rate of 0 or 1,
-// it is the mean samples per case, so every case counts once.
 export function buildDesignEffect(observations: readonly ClusteredObservation[]): DesignEffect {
   const total = observations.length;
   const clustered = buildClusteredStandardError(observations);

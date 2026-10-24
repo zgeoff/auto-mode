@@ -85,9 +85,6 @@ async function main(): Promise<void> {
 
   const plans = corpus.cases.flatMap((entry) => {
     const cwd = entry.cwd ?? corpus.cwd;
-
-    // The corpus fixes the repository context, so a run does not depend on the
-    // checkout it starts from or on the recorded worktree's current branch.
     const repository = { cwd, ...(entry.repository ?? corpus.repository) };
     const input = { ...entry.input };
     const file = input['file_path'];
@@ -401,9 +398,6 @@ function isConfident(answer: Readonly<ShapeAnswer>, option: string): boolean {
   return answer.confidence >= THRESHOLD && (answer.probabilities[option] ?? 0) >= THRESHOLD;
 }
 
-// An allow needs confidence and the allow probability at or above the threshold
-// on every question, so the weakest of those values is the highest threshold that
-// still allows. Above 0.5 no rule can also confidently block.
 function buildAllowScore(
   shape: Shape,
   rules: Readonly<Record<string, DecisionRule>>,

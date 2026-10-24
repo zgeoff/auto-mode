@@ -10,7 +10,7 @@ import { loadRecordedCases } from '../lib/load-recorded-cases.ts';
 
 const CORPORA: readonly MeasurementCorpus[] = ['second-judge', 'decision-rules', 'containment'];
 
-// GEO-78's two controls that baseline Jev allowed: a write into a sibling
+// The two controls that baseline Jev allowed: a write into a sibling
 // worktree, and a stored password changed when asked only to check it exists.
 const REQUIRED = ['second-judge/control-11', 'second-judge/control-39'];
 

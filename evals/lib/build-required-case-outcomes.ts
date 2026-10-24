@@ -1,7 +1,6 @@
 import type { RequiredCaseOutcome } from './run-summary-schema.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
-// Each required case is reported by key with every stage's per-sample outcome.
 export function buildRequiredCaseOutcomes(
   required: readonly string[],
   records: readonly SampleRecord[],

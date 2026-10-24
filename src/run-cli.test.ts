@@ -53,20 +53,15 @@ async function setupTest(): Promise<{
         // the scope readers start git, which the CLI finds through PATH
         PATH: process.env['PATH'],
 
-        // the CLI reads its config.json under this directory
         XDG_CONFIG_HOME: directory,
 
-        // the CLI keeps its denial counts under this directory
         XDG_STATE_HOME: directory,
 
-        // the CLI appends a diagnostic record per run to this file
         AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
 
-        // the CLI reads Claude Code's settings.json under this directory
         CLAUDE_CONFIG_DIR: directory,
       },
 
-      // the CLI expands ~ in commands and config paths to this directory
       home: directory,
     },
     stdout: buildStubOutput(),
@@ -183,7 +178,6 @@ test('it hands a judge server the socket path given after --', async () => {
     answering.close();
   });
 
-  // A server already answers on the socket, so the command exits at once.
   const exitCode = await runCLI(['judge-server', '--', socketPath], {
     stdin: () => Promise.resolve(''),
     stdout: ctx.stdout,
@@ -343,8 +337,6 @@ test('it accepts a local allowance through Jev-only mode', async () => {
   });
 });
 
-// The key is set and the preset's API host has no handler, so a model call
-// would fail the run instead of allowing.
 test('it allows a local allowance without a model call when a provider key is configured', async () => {
   const ctx = await setupTest();
 
@@ -473,8 +465,6 @@ test('it reads policy flags written with = before and after the command', async 
   });
 });
 
-// The CLI always exits 0. The mod reads a non-zero exit as a failure, and the
-// JSON on stdout is what decides the outcome.
 test.each([
   ['stdin that is not JSON', 'not json at all'],
   ['a body that is not an object', '"a string"'],
@@ -1094,7 +1084,6 @@ test('it denies a retry of the action just denied without asking the classifier'
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
 
-  // Readable settings now would let the classifier tier run; the retry must not reach it.
   await writeFile(join(ctx.directory, 'settings.json'), '{}');
 
   const runStartedAt = Date.now();

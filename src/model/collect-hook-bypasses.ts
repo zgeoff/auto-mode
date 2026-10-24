@@ -15,9 +15,6 @@ import { toWordValues } from '../shell/to-word-values.ts';
 import { findNoVerifyOption } from './find-no-verify-option.ts';
 import { HIDDEN_GIT_WORDS } from './hidden-git-words.ts';
 
-// Each switch is a fixed label, never the command's own text, because the
-// labels reach the classifier's trusted instructions. Without the checkout's
-// facts, any hooks folder or lefthook config counts as another one.
 export function collectHookBypasses(
   command: string,
   cwd: string,
@@ -186,7 +183,6 @@ const CONFIG_FILE_VARIABLES = [
   'GIT_CONFIG_GLOBAL',
 ] as const;
 
-// null config: git's options the command text cannot tell.
 function collectHookSwitches(
   reaching: ReadonlyMap<string, string>,
   config: readonly GitConfigOption[] | null,
@@ -407,7 +403,6 @@ function isKeptConfigFiles(
   return system !== undefined && (system ?? facts.defaultHooksDirectory) === facts.hooksDirectory;
 }
 
-// undefined: a hooks folder the facts cannot tell.
 function findLayerHooks(
   value: string | undefined,
   sessionHooks: string | null,

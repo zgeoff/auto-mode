@@ -10,9 +10,6 @@ export interface ProcessState {
 // the read with ESRCH, not ENOENT.
 const GONE_CODES = new Set(['ENOENT', 'ESRCH']);
 
-// procfs fixes /proc/<pid>/stat: after the parenthesised command name, the
-// first field is the state and the twentieth the start time, which tells a
-// reused process ID apart from the process a test started.
 export async function loadProcessState(
   pid: number,
   procDir = '/proc',
@@ -30,6 +27,9 @@ export async function loadProcessState(
     throw error;
   }
 
+  // procfs fixes /proc/<pid>/stat: after the parenthesised command name, the
+  // first field is the state and the twentieth the start time, which tells a
+  // reused process ID apart from the process a test started.
   const [state, ...rest] = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
   const startTime = rest.at(18);
 

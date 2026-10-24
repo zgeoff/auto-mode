@@ -178,8 +178,6 @@ function buildRate(
   };
 }
 
-// A gating answer counts as a confident allow only when it would pass the 0.8
-// threshold on its own.
 function pickOutcome(record: SummaryRecord, measure: 'verdict' | 'gating'): string {
   if (measure === 'verdict') {
     return record.status;
@@ -258,8 +256,6 @@ function collectCellSummaries(records: readonly SummaryRecord[]) {
       .map((record) => record.gating?.[2])
       .filter((value) => value !== undefined);
 
-    // An ask means at least one rule is not a confident allow at the 0.8 threshold;
-    // these are the rules that held each ask.
     const askHolders: Record<string, number> = {};
 
     for (const record of selected.filter((entry) => entry.status === 'ask')) {

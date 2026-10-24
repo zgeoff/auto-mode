@@ -1,6 +1,5 @@
 import { splitShellTokens } from './split-shell-tokens.ts';
 
-// Offsets index the command, end exclusive.
 export interface ShellSegment {
   readonly text: string;
   readonly start: number;
@@ -29,8 +28,6 @@ export function splitShellCommand(command: string): {
     }
   }
 
-  // Substitution, process substitution, and output redirection can each hide
-  // an effect the segment text does not show.
   const hasUnparsedConstruct =
     scanned.hasSubstitution ||
     scanned.isUnterminated ||

@@ -24,8 +24,6 @@ export interface AnonymisedCorpus {
   readonly cases: readonly AnonymisedCase[];
 }
 
-// The salt keys every placeholder, so one corpus maps a value to one
-// placeholder while a corpus built with another salt cannot be joined to it.
 export function buildAnonymisedCorpus(
   actions: readonly CapturedAction[],
   salt: string,
@@ -50,9 +48,6 @@ export function buildAnonymisedCorpus(
   };
 }
 
-// No pattern removes a person's words, so the text of each field that holds
-// what a person typed becomes a placeholder, which a reader replaces with
-// invented text.
 const MESSAGE_FIELDS = new Set(['originalUserTask', 'delegatedTask', 'lastDirectUserMessage']);
 
 function collectMessages(value: unknown, key: string | null): string[] {

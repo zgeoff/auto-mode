@@ -27,7 +27,6 @@ export interface EvalCommandIO {
   readonly now: () => Date;
 }
 
-// Exit 2 is a usage error, exit 1 a refusal or failure.
 export async function runEvalCommand(
   argv: readonly string[],
   io: Readonly<EvalCommandIO>,
@@ -254,7 +253,6 @@ function parseCount(
   return Number(value);
 }
 
-// Runs go under the clone's root, so a directory inside the clone is refused too.
 async function resolveResultsDir(option: string | null, repoRoot: string): Promise<string | null> {
   if (option === null) {
     return null;

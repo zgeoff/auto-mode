@@ -24,10 +24,6 @@ const SAMPLES = 3;
 const THRESHOLD = 0.8;
 const MAX_REQUESTS_PER_STAGE = 500;
 const VARIANTS = ['baseline', 'guidance'] as const;
-
-// The GEO-78 second judges, whose reports live in legacy/ in the results clone.
-// The shipped judge reviews this corpus through the infrastructure-failures
-// experiment instead.
 const RECORDED_JUDGES = ['claude', 'glm', 'spark', 'claude-code'] as const;
 
 async function main(): Promise<void> {
@@ -120,7 +116,6 @@ async function runJevStage(
     corpusHash: corpus.corpusHash,
   } as const;
 
-  // Sample-major order spreads each case's samples across the run.
   for (let sample = 1; sample <= SAMPLES; sample += 1) {
     for (const entry of corpus.cases) {
       const request = buildEvaluationRequest(entry, policy, corpus.configuredRules, guidance);
@@ -170,7 +165,6 @@ async function runJevStage(
               ];
         });
 
-        // A threshold sweep needs every rule's P(block), confident allows included.
         const blockProbabilities = Object.fromEntries(
           Object.entries(request.rules).map(([id, rule]) => [
             rule.source === 'shipped' ? rule.name : id,

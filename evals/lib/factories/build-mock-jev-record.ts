@@ -3,8 +3,6 @@ import type { JevReport } from '../jev-report-schema.ts';
 
 type JevRecord = JevReport['records'][number];
 
-// A record's answers must reproduce its status, so the default is one rule
-// that Jev allowed with certainty: an allow with no contributors.
 export function buildMockJevRecord(overrides: Partial<JevRecord> = {}): JevRecord {
   return {
     case: faker.string.alphanumeric(8),

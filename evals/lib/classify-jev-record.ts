@@ -3,9 +3,7 @@ import type { JevReport } from './jev-report-schema.ts';
 
 type JevRecord = JevReport['records'][number];
 
-// A recorded Jev report keeps only the answers short of a confident allow, so
-// the class comes from its status and those answers. A failed request has none.
-// A record with every rule's P(block) gives the highest of them, as a live run does.
+// A recorded Jev report keeps only the answers short of a confident allow.
 export function classifyJevRecord(record: Readonly<JevRecord>): JevClass | null {
   if (record.status === 'failure') {
     return null;

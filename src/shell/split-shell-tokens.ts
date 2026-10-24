@@ -8,9 +8,6 @@ export interface ShellTokens {
   readonly isUnterminated: boolean;
 }
 
-// The one shell scanner. A quote or substitution that never closes stops the
-// tokens, but the bodies are read again with it as one literal character, so
-// a later substitution is not lost.
 export function splitShellTokens(text: string): ShellTokens {
   const scanned = collectTextTokens(text, []);
   const literals: number[] = [];

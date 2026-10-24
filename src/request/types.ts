@@ -8,8 +8,8 @@ type DeepReadonly<T> = T extends readonly (infer Item)[]
     ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
     : T;
 
-// The contract types equal the schema input, which a type test asserts; a type
-// read from the schema itself would inline zod's declarations into dist/index.d.ts.
+// A type read from the schema itself would inline zod's declarations into
+// dist/index.d.ts.
 export type DecisionContext = DeepReadonly<ModContext>;
 
 export type ActionRequest = DeepReadonly<Omit<ModRequest, 'context'>> & {

@@ -2,9 +2,6 @@ import type { Experiment, Recording } from './define-experiment.ts';
 
 export type ActiveStage<Case> = Experiment<Case>['stages'][number];
 
-// A recorded run replays each stage that can, runs each stage that sends
-// nothing, and names each stage that would have to send as not measured. A live
-// run sends the recording's live stages instead of replaying them.
 export interface PickedStages<Case> {
   readonly active: readonly ActiveStage<Case>[];
   readonly dropped: readonly string[];

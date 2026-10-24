@@ -53,8 +53,6 @@ export function classifyLocally(payload: ActionRequest): LocalVerdict {
       return ESCALATE;
     }
 
-    // A chain is only as allowable as its least-obvious part, and the reason
-    // reported should name the part that needed an exception.
     if (verdict !== 'Read-only actions') {
       exception = verdict;
     }
@@ -64,16 +62,14 @@ export function classifyLocally(payload: ActionRequest): LocalVerdict {
 }
 
 function classifySegment(text: string, cwd: string): string | null {
-  // An input redirection reads a target the rules never see, and Bash opens a
-  // socket for `< /dev/tcp/host/port`.
+  // Bash opens a socket for `< /dev/tcp/host/port`.
   if (splitShellTokens(text).tokens.some((token) => token.kind === 'redirect')) {
     return null;
   }
 
   const words = splitWords(text);
 
-  // splitCommandWords drops a leading assignment and a wrapper such as env or
-  // sudo. Either one changes what runs, so a segment it shortens passes on.
+  // A leading assignment or a wrapper such as env or sudo changes what runs.
   if (words.length === 0 || splitCommandWords(text).length !== words.length) {
     return null;
   }
@@ -113,16 +109,12 @@ interface ShellWord {
   readonly value: string;
 }
 
-// The words as written and with their quotes removed. A quoted program name
-// matches no allowlist entry, because the raw word is what is matched.
 function splitWords(text: string): readonly ShellWord[] {
   return splitShellTokens(text).tokens.flatMap((token) =>
     token.kind === 'word' ? [{ raw: token.raw, value: token.value }] : [],
   );
 }
 
-// A tilde expands only at the start of a word or after `=` or `:`, so the
-// literal `HEAD~1` stays readable.
 function hasShellExpansion(raw: string): boolean {
   let quote: "'" | '"' | null = null;
   let previous = '';
@@ -147,6 +139,8 @@ function hasShellExpansion(raw: string): boolean {
 }
 
 function isExpansionCharacter(char: string, previous: string): boolean {
+  // A tilde expands only at the start of a word or after `=` or `:`, so the
+  // literal `HEAD~1` stays readable.
   if (char === '~') {
     return previous === '' || previous === '=' || previous === ':';
   }
@@ -154,9 +148,6 @@ function isExpansionCharacter(char: string, previous: string): boolean {
   return '{}*?[]()!'.includes(char) || /\s/u.test(char);
 }
 
-// Reads the arguments as getopt does, except that a value word starting with a
-// dash is read as an option, so a wrong value list can only make a call pass
-// on, never allow one.
 function hasUnsafeOption(args: readonly string[], unsafe: Readonly<UnsafeOptions>): boolean {
   if (args.some((arg) => unsafe.words?.includes(arg) === true)) {
     return true;
@@ -180,6 +171,7 @@ function hasUnsafeOption(args: readonly string[], unsafe: Readonly<UnsafeOptions
         return true;
       }
 
+      // getopt would take a value word that starts with a dash as the value.
       if (option.takesNextWord && !isOptionWord(args[index + 1] ?? '-')) {
         index += 1;
       }
@@ -247,8 +239,8 @@ function classifyGit(args: readonly string[], cwd: string): string | null {
     : null;
 }
 
-// splitGitCommand gives a value to `-C` and `-c` alone, so another global that
-// takes one, such as `--work-tree status`, would hide the subcommand git runs.
+// A git global option such as `--work-tree` takes the next word as its value, so
+// in `--work-tree status` the word `status` is not the subcommand git runs.
 function hasOnlySafeGitGlobals(globals: readonly string[]): boolean {
   let index = 0;
 
@@ -309,9 +301,6 @@ function classifyRemove(args: readonly ShellWord[], cwd: string): string | null 
   return 'Regenerable output';
 }
 
-// An operand quoted whole or not at all, with no whitespace, is the one shape
-// the path check reads; a partly quoted one such as `"/a b"/node_modules`
-// names a path the check would misplace.
 function isPlainOperand(word: Readonly<ShellWord>): boolean {
   const isWhole = [word.value, `'${word.value}'`, `"${word.value}"`].includes(word.raw);
 

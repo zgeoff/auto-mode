@@ -3,8 +3,6 @@ import type { RecordedStage } from './load-recorded-cases.ts';
 
 const VARIANTS = ['baseline', 'guidance'] as const;
 
-// The GEO-78 Jev answers alone, so a live run sends the shipped judge each deny
-// they hold, in place of a recorded second judge.
 export function buildSecondJudgeJevRecordings(): Record<string, readonly RecordedStage[]> {
   return Object.fromEntries(
     VARIANTS.map((variant) => [

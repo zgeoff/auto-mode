@@ -15,7 +15,7 @@ interface Cursor {
 
 // The grammar follows git's config.c: one pass over the characters, with a
 // section header, a key and a value each read as git reads them. git refuses
-// a whole file that breaks the grammar, so this returns null for one.
+// a whole file that breaks the grammar.
 export function parseGitConfig(text: string): readonly ConfigVariable[] | null {
   const cursor: Cursor = {
     text: text.startsWith(BYTE_ORDER_MARK) ? text.slice(1) : text,

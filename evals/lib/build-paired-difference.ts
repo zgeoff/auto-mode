@@ -6,9 +6,7 @@ export interface PairedDifference {
   readonly standardError: number | null;
 }
 
-// Each case becomes its mean over its samples in each run; the difference b - a
-// is taken per shared case, so the case is the unit and repeated samples of one
-// case count once. Fewer than two shared cases leave the error undefined.
+// Repeated samples of one case are not independent, so the case is the unit.
 export function buildPairedDifference(
   runA: readonly ClusteredObservation[],
   runB: readonly ClusteredObservation[],

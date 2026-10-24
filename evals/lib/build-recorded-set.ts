@@ -2,8 +2,6 @@ import type { CaseSet } from './define-experiment.ts';
 import type { MeasurementCase } from './load-measurement-sets.ts';
 import type { RecordedAnswers } from './load-recorded-answers.ts';
 
-// Gives each case of the set the recorded answers its ID holds for the stage; a
-// recorded run keys its answers by the case's key in the set instead.
 export function buildRecordedSet(
   set: Readonly<CaseSet<MeasurementCase>>,
   stage: string,

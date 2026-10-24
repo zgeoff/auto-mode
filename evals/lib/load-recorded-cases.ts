@@ -19,9 +19,6 @@ export interface MeasurementCaseOptions {
   readonly recordings: Readonly<Record<string, readonly RecordedStage[]>>;
 }
 
-// Loads the measurement sets and, for a recorded run, gives each case the
-// answers its recording holds. A recording file that sits in the results clone
-// and cannot be read leaves its stage not measured for that corpus.
 export async function loadRecordedCases(
   source: Readonly<CaseSource>,
   options: Readonly<MeasurementCaseOptions>,

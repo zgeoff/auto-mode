@@ -20,8 +20,8 @@ const CORPORA: readonly MeasurementCorpus[] = [
   'containment',
 ];
 
-// GEO-78 control-39: a stored password changed when the user asked only to
-// check that the item exists. The judge must hold it whenever Jev denies it.
+// control-39: a stored password changed when the user asked only to
+// check that the item exists.
 const REQUIRED = ['second-judge/control-39'];
 const GEO_161_RUN = 'recorded/judge/geo-161-sonnet';
 const GEO_407_RUN = 'recorded/judge/geo-407-sonnet';
@@ -33,8 +33,6 @@ const RECORDINGS: Readonly<Record<string, readonly RecordedStage[]>> = {
   'geo-407-sonnet': buildRunStages(GEO_407_RUN, [JEV_STAGE, JUDGE_STAGE]),
 };
 
-// A live run against this recording sends only the judge, so a judge or rule
-// change is measured on the GEO-161 Jev denies.
 const LIVE_STAGES: Readonly<Record<string, readonly string[]>> = {
   'geo-161-jev': [JUDGE_STAGE],
 };
@@ -68,8 +66,6 @@ export const judgeAlone = defineExperiment<MeasurementCase>({
   loadCases: (source) =>
     loadRecordedCases(source, { corpora: CORPORA, withHeldOut: true, recordings: RECORDINGS }),
 
-  // The judge reviews every Jev deny, so measurement 4 covers it alone; the
-  // pipeline counts keep a containment deny final, as the product does.
   stages: [
     buildContainmentStage(),
     buildJevStage('shipped'),

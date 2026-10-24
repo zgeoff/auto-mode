@@ -1,9 +1,8 @@
 import { hasExpansion } from './has-expansion.ts';
 import { splitShellTokens } from './split-shell-tokens.ts';
 
-// The shell splits only what an expansion outside quotes produces. A
-// substitution's body can hold quotes of its own, so the scanner's bodies drop
-// out before the word's own quotes are read.
+// The shell splits only what an expansion outside quotes produces, and a
+// substitution's body can hold quotes of its own.
 export function hasSplitExpansion(raw: string): boolean {
   const scanned = splitShellTokens(raw);
 

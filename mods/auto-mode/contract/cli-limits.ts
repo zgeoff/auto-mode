@@ -1,14 +1,8 @@
 const KEY_COMMAND_MS = 5000;
 const JEV_MS = 5000;
 const JUDGE_MS = 120_000;
-
-// Node start, the config and scope reads, and the action log, none of which
-// waits on the network.
 const STARTUP_MS = 5000;
 
-// The CLI stops each step of one `run` at its limit. The worst case runs Jev
-// and the judge twice, on a named containment deny and on Jev's deny, each
-// after its own key command.
 export const CLI_LIMITS = {
   keyCommandMs: KEY_COMMAND_MS,
   jevMs: JEV_MS,

@@ -20,7 +20,6 @@ async function setupTest() {
 
   const repo = join(root, 'app');
 
-  // every recorded worktree and branch needs a checkout with a commit under HEAD
   runGit(root, ['init', '-q', '-b', 'main', repo]);
   runGit(root, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
 

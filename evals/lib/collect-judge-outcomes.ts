@@ -3,9 +3,6 @@ import type { SampleRecord } from './sample-record-schema.ts';
 
 const SOURCES = ['recorded', 'synthetic'] as const;
 
-// Measurement 4, the judge alone: overturns over the denies it scored, the
-// catastrophic cases it overturned on any sample, and its failures over every
-// deny it was sent. Latency is in the run's stage latency.
 export function collectJudgeOutcomes(
   records: readonly SampleRecord[],
   stage: string,

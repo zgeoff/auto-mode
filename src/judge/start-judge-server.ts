@@ -20,8 +20,6 @@ export interface JudgeServerOptions {
   readonly idleMs: number;
 }
 
-// One server holds one agent session's judge process warm between prompted
-// calls. It resolves null when another server already answers on the socket.
 export async function startJudgeServer(
   options: Readonly<JudgeServerOptions>,
 ): Promise<JudgeServer | null> {
@@ -87,9 +85,8 @@ export async function startJudgeServer(
     void runConnection(socket);
   });
 
-  // The listener starts under a short private name, below the socket path's
-  // length limit, and a rename publishes it in one step. Two servers that
-  // start together never remove each other's listener: the last rename wins.
+  // A Unix socket path has a short length limit, and a rename replaces the path
+  // in one step.
   const listenPath = join(dirname(options.socketPath), `j-${randomBytes(4).toString('hex')}`);
 
   await startListening(server, listenPath);
@@ -130,7 +127,6 @@ function isAnswering(socketPath: string): Promise<boolean> {
   });
 }
 
-// A server that another replaced leaves the newer socket in place.
 async function removeOwnSocket(
   socketPath: string,
   ino: number | null,
@@ -147,15 +143,11 @@ async function removeOwnSocket(
 
 const MAX_REQUEST_BYTES = 4_194_304;
 
-// The review stops at the judge's own limit, and when the client goes away,
-// because a review nobody waits for only delays the next one.
 async function runReview(socket: Socket, session: JudgeSession): Promise<void> {
   const controller = new AbortController();
 
   let answered = false;
 
-  // A client keeps its side open until the answer arrives, so its end, as much
-  // as its close, means nobody waits for the review.
   const stopUnanswered = (): void => {
     if (!answered) {
       controller.abort();

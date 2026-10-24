@@ -1,7 +1,5 @@
 import type { Experiment } from './define-experiment.ts';
 
-// A run limited to named cases keeps the order of the full run's keys, and a
-// key the experiment lacks fails before any request.
 export function pickCaseKeys<Case>(
   experiment: Readonly<Experiment<Case>>,
   available: readonly string[],

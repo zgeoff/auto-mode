@@ -4,8 +4,6 @@ import { caseLabelsSchema } from './case-labels-schema.ts';
 import { loadCaseKeys } from './load-case-keys.ts';
 import { loadCorpus } from './load-corpus.ts';
 
-// Reads a corpus folder's labels.json and rejects one that does not label exactly
-// the corpus's cases under the corpus's own key.
 export async function loadCaseLabels(corpusDir: string): Promise<CaseLabels> {
   const [labels, corpusKeys] = await Promise.all([
     loadCorpus(join(corpusDir, 'labels.json'), caseLabelsSchema),

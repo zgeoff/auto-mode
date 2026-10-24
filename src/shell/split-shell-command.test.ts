@@ -68,7 +68,6 @@ test('it drops the empty text an operator leaves behind', () => {
   });
 });
 
-// An operator inside quotes is an argument, not a chain.
 test('it leaves an operator inside double quotes alone', () => {
   expect(splitShellCommand('echo "a && b"')).toStrictEqual({
     segments: [{ text: 'echo "a && b"', start: 0, end: 13 }],
@@ -90,8 +89,6 @@ test('it reads an escaped operator as text', () => {
   });
 });
 
-// Each of these can hide an effect the segment text does not show, so the
-// caller declines to judge locally rather than guessing.
 test.each([
   ['command substitution', 'rm -rf $(cat target.txt)', 24],
   ['a backtick', 'rm -rf `cat target.txt`', 23],
@@ -107,7 +104,6 @@ test.each([
   });
 });
 
-// A substitution inside single quotes does not expand, so it hides nothing.
 test('it reads a substitution inside single quotes as plain text', () => {
   expect(splitShellCommand("echo '$(cat .env)'")).toStrictEqual({
     segments: [{ text: "echo '$(cat .env)'", start: 0, end: 18 }],

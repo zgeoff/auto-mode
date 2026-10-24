@@ -1,7 +1,6 @@
 import { faker } from '@faker-js/faker';
 import type { JevReport } from '../jev-report-schema.ts';
 
-// Each record is one evaluated sample, which a test adds for its scenario.
 export function buildMockJevReport(overrides: Partial<JevReport> = {}): JevReport {
   return {
     variant: 'baseline',

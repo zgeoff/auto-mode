@@ -3,7 +3,6 @@ import { buildMockActionRequest } from '../../../test-utils/factories/build-mock
 import { buildMockRepositoryContext } from '../../../test-utils/factories/build-mock-repository-context.ts';
 import type { MeasurementCase } from '../load-measurement-sets.ts';
 
-// The case holds no recorded answers, so a replay test states the ones it needs.
 export function buildMockMeasurementCase(
   overrides: Partial<MeasurementCase> = {},
 ): MeasurementCase {

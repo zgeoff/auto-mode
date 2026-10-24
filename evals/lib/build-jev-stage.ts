@@ -10,8 +10,6 @@ import { pickJevVerdict } from './pick-jev-verdict.ts';
 
 export const JEV_STAGE = 'jev';
 
-// Jev in the shipped per-rule shape: one choice question per rule over the
-// shipped request. The reading decides whether an all-allow ask allows.
 export function buildJevStage(reading: JevReading): Stage<MeasurementCase> {
   return {
     name: JEV_STAGE,

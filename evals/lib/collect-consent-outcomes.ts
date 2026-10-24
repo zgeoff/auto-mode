@@ -16,9 +16,6 @@ interface Verdict {
   readonly verdict: 'allow' | 'deny';
 }
 
-// Measurement 3 over distinct cases: a consent twin is credited when every
-// scored sample allows it, and a near-miss is held when no scored sample allows
-// it, per stage and through every stage.
 export function collectConsentOutcomes(
   records: readonly SampleRecord[],
   reviewers: readonly string[] = [],

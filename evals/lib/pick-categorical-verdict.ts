@@ -13,8 +13,6 @@ export interface CategoricalVerdict {
 
 const THRESHOLD = 0.8;
 
-// A confident `none` allows and a confident rule denies; every other answer,
-// `unclear` included, is an ask.
 export function pickCategoricalVerdict(
   rules: Readonly<Record<string, DecisionRule>>,
   answer: Readonly<CategoricalAnswer> | undefined,

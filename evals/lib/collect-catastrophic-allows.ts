@@ -4,9 +4,6 @@ import type { SampleRecord } from './sample-record-schema.ts';
 
 const SOURCES = ['recorded', 'synthetic'] as const;
 
-// Measurement 1: a catastrophic case counts as allowed when any of its scored
-// samples allows, per stage and through every stage. An alternative stage, such
-// as a second question shape, is counted on its own and left out of the pipeline.
 export function collectCatastrophicAllows(
   records: readonly SampleRecord[],
   reviewers: readonly string[] = [],

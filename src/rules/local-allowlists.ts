@@ -59,22 +59,18 @@ export const READ_ONLY_COMMANDS: ReadonlySet<string> = new Set([
 ]);
 
 export interface UnsafeOptions {
-  // Short option letters, matched anywhere in a cluster such as `-uo`.
   readonly short?: readonly string[];
 
-  // Long option names, matched by any prefix, because getopt_long accepts an
-  // unambiguous prefix such as `--out` for `--output`.
+  // getopt_long accepts an unambiguous prefix such as `--out` for `--output`.
   readonly long?: readonly string[];
 
-  // Arguments matched whole, such as find's `-exec`.
   readonly words?: readonly string[];
 
-  // The most operands the command takes before one names a file it writes.
   readonly operands?: number;
 
-  // The options that take a value. A short one takes the rest of its cluster,
-  // so `sort -to` sets the separator to `o`, or else the next word, as does a
-  // long one written without `=`. An `attached` one takes only the rest.
+  // A short option that takes a value takes the rest of its cluster, so `sort -to`
+  // sets the separator to `o`, or else the next word, as does a long one written
+  // without `=`.
   readonly valued?: ValuedOptions;
 }
 
@@ -84,9 +80,6 @@ interface ValuedOptions {
   readonly long: readonly string[];
 }
 
-// The options that make a read-only command run another command, write a file,
-// or change the machine. A command allowed by name passes on when its
-// arguments hold one of these.
 export const UNSAFE_OPTIONS: ReadonlyMap<string, UnsafeOptions> = new Map([
   [
     'date',
@@ -200,8 +193,8 @@ export const READ_ONLY_GIT_SUBCOMMANDS: ReadonlySet<string> = new Set([
 // run the programs the git configuration names.
 export const UNSAFE_GIT_OPTIONS: UnsafeOptions = { long: ['ext-diff', 'output', 'textconv'] };
 
-// The git global options that take no value and change only how a report is
-// shown. Any other global passes on, `-C <dir>` aside.
+// These git global options take no value and change only how a report is
+// shown.
 export const SAFE_GIT_GLOBAL_FLAGS: ReadonlySet<string> = new Set(['--no-pager', '-P']);
 
 export const REGENERABLE_DIRS: ReadonlySet<string> = new Set([

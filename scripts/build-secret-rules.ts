@@ -143,7 +143,6 @@ function buildRulePattern(id: string, source: string): SecretPattern {
 function buildPattern(source: string): SecretPattern {
   const translated = toJSRegExpSource(source);
 
-  // A pattern that fails to compile stops the build here.
   const compiled = new RegExp(translated.source, translated.flags);
 
   return { source: translated.source, flags: compiled.flags, engine: 'js' };
@@ -362,7 +361,6 @@ function parseFilterTerm(term: string): FilterTerm | 'token-ratio' | null {
     : { kind: 'matches', field, patterns: items.map((item) => buildPattern(item)), negate };
 }
 
-// Items are backtick raw strings or double-quoted strings, comma separated.
 function splitListItems(text: string): string[] | null {
   const items: string[] = [];
   const item = /\s*(?:`(?<raw>[^`]*)`|(?<quoted>"(?:[^"\\]|\\.)*"))\s*(?:,|$)/uy;

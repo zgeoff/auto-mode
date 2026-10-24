@@ -15,8 +15,6 @@ export interface CappedRunResult {
   readonly failedToStart: boolean;
 }
 
-// Runs a child in its own process group, so an abort or an output over the
-// cap kills everything the child started, not the child alone.
 export function runCapped(
   file: string,
   args: readonly string[],

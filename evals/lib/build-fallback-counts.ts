@@ -1,9 +1,6 @@
 import type { FallbackCount } from './run-summary-schema.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
-// A model alias resolves to a canonical model ID, so a fallback is the one the
-// transport flagged, never a name that differs from the stage's model. A reply
-// to a request that named another model is a model change, not a fallback.
 export function buildFallbackCounts(
   records: readonly SampleRecord[],
   models: Readonly<Record<string, string>>,
@@ -20,6 +17,8 @@ export function buildFallbackCounts(
       return [];
     }
 
+    // A model alias resolves to a canonical model ID, so a model name that differs
+    // from the stage's model is no sign of a fallback.
     const fallbacks = answered.flatMap((record) =>
       record.fallback === true && typeof record.model === 'string' ? [record.model] : [],
     );

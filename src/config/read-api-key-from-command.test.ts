@@ -175,8 +175,6 @@ test('it limits a key helper to the shared deadline', async () => {
   expect(timer.timeout).toHaveBeenCalledExactlyOnceWith(100);
 });
 
-// The stand-in timer never runs AbortSignal.timeout, so this helper can stop
-// only on the real timer.
 test('it stops a key helper on the real timer at the shared deadline', async () => {
   const startedAt = performance.now();
 

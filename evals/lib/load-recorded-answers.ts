@@ -35,9 +35,6 @@ const releasesSchema = replaySamplesSchema.extend({
   source: z.object({ model: z.string() }),
 });
 
-// Reads one recorded report into answers by case ID and zero-based sample. A
-// report in the results clone is absent when no clone is named, which the
-// caller reports as not measured.
 export interface RecordedDirs {
   readonly corporaDir: string;
   readonly resultsDir: string | null;

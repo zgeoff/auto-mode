@@ -6,8 +6,6 @@ interface ActionRequestOverrides extends Partial<Omit<ActionRequest, 'decisionCo
   readonly decisionContext?: Parameters<typeof buildMockDecisionContext>[0] | undefined;
 }
 
-// Each tool has its own input shape, so merging a tool input override would leak
-// the default Bash command into another tool's input.
 export function buildMockActionRequest(overrides: ActionRequestOverrides = {}): ActionRequest {
   const { decisionContext, ...rest } = overrides;
 
@@ -16,6 +14,7 @@ export function buildMockActionRequest(overrides: ActionRequestOverrides = {}): 
     toolUseID: `toolu_${faker.string.alphanumeric(24)}`,
     cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     toolName: 'Bash',
+
     toolInput: { command: faker.git.commitMessage() },
     ...rest,
   };

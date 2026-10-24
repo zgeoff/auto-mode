@@ -6,9 +6,6 @@ export interface CategoricalQuestion {
   readonly criteria: Readonly<Record<string, string>>;
 }
 
-// One choice question over the shipped request state: an option per rule, then
-// `none` and `unclear`. A shipped rule points to its text in state.policy; a
-// configured rule carries its text inline.
 export function buildCategoricalQuestions(
   baseline: DecisionRequest,
 ): Record<string, CategoricalQuestion> {

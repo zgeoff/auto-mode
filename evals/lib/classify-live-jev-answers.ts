@@ -9,9 +9,8 @@ export type JevClass =
       readonly pBlock: number;
     };
 
-// A live answer set gets the shipped two-choice combiner's verdict. Recorded
-// three-choice answers keep the combiner they were recorded under, so replays
-// classify them from the recorded report instead.
+// Live answers only: recorded three-choice answers keep the combiner they were
+// recorded under, so replays classify them from the recorded report instead.
 export function classifyLiveJevAnswers(request: DecisionRequest, result: DecisionResult): JevClass {
   const verdict = pickDecisionVerdict(request, result, DEFAULT_BLOCK_THRESHOLD);
   const answers = Object.keys(request.rules).map((id) => result.answers[id]);

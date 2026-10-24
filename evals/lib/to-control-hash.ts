@@ -1,8 +1,6 @@
 import type { DecisionRequest } from 'auto-mode/eval';
 import { toHash } from './to-hash.ts';
 
-// The hash leaves out the last direct user message, and the marked guidance
-// suffix when one is named, so two arms of one action hash the same.
 export function toControlHash(request: DecisionRequest, markGuidance?: string): string {
   const taskContext = request.state.taskContext;
   const guidance = request.state.answerGuidance;

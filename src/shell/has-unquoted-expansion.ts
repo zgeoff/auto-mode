@@ -1,5 +1,3 @@
-// Inside double quotes, a substitution or a braced expansion can open quotes
-// of its own, which this scan cannot follow, so it counts as unquoted.
 export function hasUnquotedExpansion(raw: string): boolean {
   let quote: 'single' | 'ansi' | 'double' | null = null;
 
@@ -16,6 +14,8 @@ export function hasUnquotedExpansion(raw: string): boolean {
     } else if (char === '\\') {
       index += 1;
     } else if (char === '`' || (char === '$' && (next === '(' || next === '{'))) {
+      // Inside double quotes, a substitution or a braced expansion can open
+      // quotes of its own.
       return true;
     } else if (char === '"') {
       quote = quote === 'double' ? null : 'double';

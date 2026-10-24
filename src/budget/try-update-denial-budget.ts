@@ -4,9 +4,6 @@ import type { DenialPlan } from './plan-denial-budget.ts';
 import type { DenialState } from './types.ts';
 import { updateDenialState } from './update-denial-state.ts';
 
-// A plan that changes no count, such as a defer's, takes no lock and writes
-// nothing. A lock or write failure keeps the verdict and plans from the read
-// taken before the lock, so this call's count can be lost but never doubled.
 export async function tryUpdateDenialBudget(
   stderr: Readonly<OutputStream>,
   path: string,

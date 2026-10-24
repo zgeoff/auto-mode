@@ -16,8 +16,6 @@ import {
 } from './identifier-patterns.ts';
 import type { Groups, IdentifierClass } from './identifier-patterns.ts';
 
-// Names that carry the shape of an action rather than who ran it; replacing
-// them would hide the structure the corpus exists to keep.
 const STRUCTURAL_NAMES = new Set([
   'main',
   'master',
@@ -181,7 +179,6 @@ const BRANCH_PATTERNS = [
   /\bbranch\s+(?:-[dDmMf]+\s+)+(?<branch>[^\s;&|'"]+)/gu,
   /\s--(?:head|base)[=\s]+(?<branch>[^\s;&|'"]+)/gu,
 
-  // Sentence punctuation after a worktree in prose ends its name.
   /\.worktrees\/(?<branch>[^/\s"',;:()]+?)(?=[.!?]*(?:[/\s"',;:()]|$))/gu,
 ];
 
@@ -253,8 +250,7 @@ function collectForgePath(groups: Groups): Identifier[] {
     : [];
 }
 
-// Top-level and private suffixes that mark a dotted name as a host; a file
-// extension wins over a suffix, so `install.sh` and `README.md` stay names.
+// Some file extensions, such as `sh` and `md`, are top-level domains as well.
 const HOST_SUFFIXES = new Set([
   'com',
   'net',
@@ -328,9 +324,6 @@ function toBranchName(ref: string): string {
   return ref.replace(/^\+/u, '').replace(/^refs\/heads\//u, '');
 }
 
-// Prose and file content mention `git push` and the words after it, and every
-// name collected here is replaced wherever it appears, so only a shell
-// command, the value of a `command` field, names the branches it pushes.
 function collectCommands(value: unknown, key: string | null): string[] {
   if (typeof value === 'string') {
     return key === 'command' ? [value] : [];
@@ -347,8 +340,6 @@ function collectCommands(value: unknown, key: string | null): string[] {
   return [];
 }
 
-// The shell layer keeps a `\<newline>` inside its word, and the rewriter
-// matches the text as written, so a branch name split by one gives two names.
 const LINE_CONTINUATION = '\\\n';
 
 // A substitution or a shell's heredoc script runs its own commands, so each is
@@ -415,8 +406,6 @@ const COMMAND_PREFIXES = new Set([
 
 const VALUED_PREFIX_OPTIONS = new Set(['-u', '-g', '-n', '-I']);
 
-// The shell layer keeps a grouping bracket on the word beside it, where it
-// would stick to a branch name, and a wrapper's options come before the program.
 function toProgramWords(words: readonly string[]): readonly string[] {
   const command = words
     .map((word) => word.replaceAll(/[(){}]/gu, ''))

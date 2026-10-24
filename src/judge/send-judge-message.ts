@@ -8,9 +8,6 @@ import type { JudgeMessageReply, JudgeSession } from './types.ts';
 export interface JudgeTransport {
   readonly apiKey: string | null;
   readonly env: Readonly<Record<string, string | undefined>>;
-
-  // A caller that judges more than once holds a session, so its later reviews
-  // reuse the judge process; without one, each review starts and stops its own.
   readonly session?: JudgeSession | undefined;
 }
 
@@ -47,8 +44,6 @@ async function sendToAgentSDK(
     return transport.session.review(provider.model, request, signal);
   }
 
-  // The Agent SDK loads only for a review without a session, so a CLI run
-  // that reaches a warm judge server never parses it.
   const sessionModule = await import('./start-judge-session.ts');
 
   const session = sessionModule.startJudgeSession(transport.env);

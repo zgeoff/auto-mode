@@ -10,8 +10,6 @@ type ModRequestOverrides = Omit<
   readonly context?: Parameters<typeof buildMockDecisionContext>[0];
 };
 
-// The body the mod writes to the CLI's stdin: an action request whose task
-// context sits under `context`.
 export function buildMockModRequest(
   overrides: ModRequestOverrides = {},
 ): z.input<typeof actionRequestSchema> {

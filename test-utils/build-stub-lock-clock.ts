@@ -11,8 +11,6 @@ export interface StubLockClock extends LockClock {
   readonly waited: Promise<void>;
 }
 
-// A lock clock whose wait returns at once. It moves the time forward by each wait
-// only when told to, so a test of many writers can keep the time still.
 export function buildStubLockClock(options: Readonly<StubLockClockOptions>): StubLockClock {
   let now = options.startAt;
   const waited = Promise.withResolvers<void>();

@@ -4,9 +4,6 @@ export interface StubCheckoutReader {
   readonly readCheckout: (path: string) => Promise<Checkout | null>;
 }
 
-// Stands in for git's checkout lookup: a path is the worktree of its own
-// checkout, whose git directory is the one listed for the path, or the
-// fallback for a path not listed. With neither, the path is in no checkout.
 export function buildStubCheckoutReader(
   commonDirs: Readonly<Record<string, string>>,
   fallback: string | null = null,

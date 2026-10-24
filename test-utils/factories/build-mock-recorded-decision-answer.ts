@@ -2,8 +2,6 @@ import type { DecisionAnswer, RecordedDecisionChoice } from '../../src/model/typ
 
 type RecordedDecisionAnswer = DecisionAnswer<RecordedDecisionChoice>;
 
-// A recorded report holds the three-choice distribution, so the default puts
-// the whole mass on the choice and zero on the other two.
 export function buildMockRecordedDecisionAnswer(
   overrides: Partial<RecordedDecisionAnswer> = {},
 ): RecordedDecisionAnswer {
@@ -13,6 +11,8 @@ export function buildMockRecordedDecisionAnswer(
     type: 'choice',
     choice,
     confidence: 1,
+
+    // a recorded report holds the three-choice distribution
     probabilities: { allow: 0, block: 0, ask: 0, [choice]: 1 },
     ...overrides,
   };

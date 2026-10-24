@@ -44,8 +44,6 @@ export interface LiveUseResult {
   readonly summary: LiveUseSummary;
 }
 
-// The log path stays out of the summary: it can hold a user name, and the log
-// hash already identifies the input.
 export async function runLiveUse(options: Readonly<LiveUseOptions>): Promise<LiveUseResult> {
   const log = await loadActionLog(options.logPath, options.since);
 

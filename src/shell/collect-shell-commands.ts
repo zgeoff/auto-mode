@@ -9,8 +9,6 @@ export interface ShellCommand {
   readonly writeTargets: readonly string[];
 }
 
-// One entry per segment, with the directory it runs in and the files its
-// output redirections write. A `cd` moves the directory of every later entry.
 export function collectShellCommands(
   command: string,
   cwd: string | null,
@@ -26,8 +24,7 @@ export function collectShellCommands(
     const words = splitCommandWords(segment.text);
     const entry = { words, directory, writeTargets: collectWriteTargets(segment.text) };
 
-    // A `cd` inside a pipeline runs in a subshell, and the segments do not
-    // keep their separators, so a pipe leaves the directory unknown.
+    // A `cd` inside a pipeline runs in a subshell.
     if (words[0] === 'cd') {
       directory = hasPipe ? null : resolveShellPath(directory, words[1] ?? home, home);
     }

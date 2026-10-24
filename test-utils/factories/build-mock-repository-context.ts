@@ -6,8 +6,6 @@ interface RepositoryContextOverrides extends Partial<Omit<RepositoryContext, 'ta
   readonly taskScope?: Parameters<typeof buildMockTaskScopeSummary>[0];
 }
 
-// The task scope is empty because each entry hands the task ownership of a
-// target, which a test grants on purpose.
 export function buildMockRepositoryContext(
   overrides: RepositoryContextOverrides = {},
 ): RepositoryContext {

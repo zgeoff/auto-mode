@@ -13,8 +13,6 @@ const stateSchema = z.strictObject({
     .nullable(),
 });
 
-// A missing or unreadable file starts the session from zero; the budget then
-// errs toward more denials before a prompt, never toward an allow.
 export function loadDenialState(path: string): Promise<DenialState> {
   return loadJSONFile(path, stateSchema, EMPTY_DENIAL_STATE);
 }

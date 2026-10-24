@@ -14,9 +14,6 @@ export type CappedProcess = ChildProcess & { readonly stdin: Writable; readonly 
 
 const NEWLINE = 0x0a;
 
-// A long-lived child writes one line per message, so the cap applies to each
-// line: a line over it kills the child and errors its output, and a reader
-// never buffers an unbounded message.
 export function startCappedProcess(
   file: string,
   args: readonly string[],

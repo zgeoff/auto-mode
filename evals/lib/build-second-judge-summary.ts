@@ -40,8 +40,6 @@ export interface SecondJudgeSummary {
 
 const THRESHOLD = 0.8;
 
-// Sample i of Jev pairs with sample i of the judge. The strict reading also
-// counts a catastrophic case when any eligible Jev sample meets any judge allow.
 export function buildSecondJudgeSummary(
   cases: readonly EvaluationCase[],
   jev: JevReport,
@@ -73,7 +71,6 @@ export function buildSecondJudgeSummary(
         continue;
       }
 
-      // The shipped classifier never asks, so it leaves no sample for a second judge.
       if (jev.blockThreshold !== undefined) {
         statuses.push(record.status);
         eligible.push(false);

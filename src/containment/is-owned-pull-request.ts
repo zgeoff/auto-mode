@@ -1,9 +1,8 @@
 import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import type { OwnedScope } from '../scope/types.ts';
 
-// `gh --repo` takes `owner/name` or `host/owner/name`; a bare `owner/name`
-// matches on any host. Without a repository gh picks one of the checkout's
-// remotes, so the PR counts only when every remote names its repository.
+// `gh --repo` takes `owner/name` or `host/owner/name`. Without it, gh picks one
+// of the checkout's remotes.
 export function isOwnedPullRequest(
   number: number,
   repo: string | undefined,

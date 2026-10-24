@@ -18,7 +18,7 @@ interface ConfigHooksPath {
 const UNKNOWN_CONFIG: ConfigHooksPath = { isKnown: false, hooksPath: null };
 
 // An include can name a file more than once, so a few small files can fan out
-// to thousands of reads. One budget covers every file this call reads.
+// to thousands of reads.
 const MAX_CONFIG_READS = 64;
 const MAX_CONFIG_TOTAL_BYTES = 4_194_304;
 
@@ -65,7 +65,7 @@ export async function readHookFacts(
   ]);
 
   // A worktree's own config can set core.hooksPath, and git reads it only
-  // under an extension this reader does not check.
+  // under the worktreeConfig extension.
   const hasWorktreeConfig = await files.probeFile(join(checkout.gitDir, 'config.worktree'));
 
   if (hasWorktreeConfig || [repository, ...globals, ...systems].some((config) => !config.isKnown)) {
@@ -115,7 +115,6 @@ export async function readHookFacts(
   };
 }
 
-// git ignores an included file that is missing.
 async function readConfigHooksPath(
   path: string,
   depth: number,
@@ -139,6 +138,7 @@ async function readConfigHooksPath(
 
   let hooksPath: string | null = null;
 
+  // git ignores an included file that is missing.
   for (const entry of parseConfigEntries(config ?? '', { path, home: reader.home, depth })) {
     if (entry.kind === 'unknown') {
       return UNKNOWN_CONFIG;
@@ -159,9 +159,6 @@ async function readConfigHooksPath(
   return { isKnown: true, hooksPath };
 }
 
-// The reads run one at a time, each limited to the bytes the reads before it
-// left, so parallel reads never hold more than the budget between them.
-// undefined: a file past the budget.
 async function readBudgetedText(
   path: string,
   reader: ConfigReader,

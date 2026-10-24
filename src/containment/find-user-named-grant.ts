@@ -10,9 +10,6 @@ export interface GrantContext {
   readonly protectedBranches?: readonly string[] | undefined;
 }
 
-// A name is necessary and never sufficient: "port the formatter from the
-// export-csv worktree" names a source to read. The judge decides whether the
-// message asks for this action, so this only finds the word that names each target.
 export function findUserNamedGrant(
   findings: readonly ScopeFinding[],
   message: string,
@@ -34,8 +31,6 @@ export function findUserNamedGrant(
   return named.length === 0 ? null : named;
 }
 
-// A quoted or backticked span stays whole, so a path that holds a space can
-// still name its target.
 function splitMessageWords(message: string): string[] {
   const quoted = [...message.matchAll(/(?<quote>["'`])(?<text>[^"'`\n]+?)\k<quote>/gu)].map(
     (match) => match.groups?.['text'] ?? '',
@@ -98,9 +93,6 @@ function findPullRequestWord(number: number, words: readonly string[]): string |
   return null;
 }
 
-// A directory names the paths below it only inside one worktree, so naming the
-// main checkout never names the worktrees nested in its .worktrees folder, and
-// naming the home directory names nothing.
 function findPathWord(path: string, words: readonly string[], home: string): string | null {
   const worktree = findWorktreeName(path);
 

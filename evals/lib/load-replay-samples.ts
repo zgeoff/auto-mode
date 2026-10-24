@@ -9,7 +9,6 @@ export interface ReplaySample {
   readonly released: boolean;
 }
 
-// Pairs each committed replay sample with the decision-rules case it replays.
 export async function loadReplaySamples(
   corpusPath: string,
   replayPath: string,

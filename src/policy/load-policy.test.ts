@@ -29,8 +29,6 @@ test.each(['decision.md', 'judge.md'] as const)(
   },
 );
 
-// The splice is the product, so its shape is pinned. A section that moves,
-// disappears, or arrives is a change to what Jev reads.
 test('it assembles the shipped decision framework in a fixed order', async () => {
   const prompt = await loadPolicy({}, 'decision.md');
 
@@ -85,8 +83,6 @@ test('it puts the rules where the marker was', async () => {
   expect(prompt).toBe('before\n\nRULES\n\nafter\n');
 });
 
-// A classifier file with no marker would silently drop every rule, which reads
-// as a policy that blocks nothing. Fail loudly instead.
 test('it refuses a classifier file that has nowhere to put the rules', async () => {
   const ctx = await setupTest();
 

@@ -34,8 +34,6 @@ export function buildRecordedDecision(
       ] as const,
   );
 
-  // A verdict reads only the rules and their answers, and a replay builds one
-  // per recorded sample, so the rest of the request stays empty.
   return {
     request: {
       state: {

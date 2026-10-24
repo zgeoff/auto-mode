@@ -1,8 +1,6 @@
 import { lstat } from 'node:fs/promises';
 import { dirname, join, parse } from 'node:path';
 
-// The one walk up to the nearest `.git`: the directory that holds the entry,
-// and the entry's path. The walk stops after the stop directory.
 export async function readGitEntry(
   start: string,
   stopDir: string = parse(start).root,
@@ -24,8 +22,6 @@ export async function readGitEntry(
 
 const ABSENT_CODES = new Set(['ENOENT', 'ENOTDIR']);
 
-// An entry that exists but cannot be read counts as present, so the walk
-// never passes a checkout it cannot read to reach the one above it.
 async function probeEntry(path: string): Promise<boolean> {
   try {
     await lstat(path);

@@ -36,9 +36,9 @@ test('it reads the state and start time of a process in uninterruptible sleep', 
   expect(state).toStrictEqual({ state: 'D', startTime: '165670795' });
 });
 
-// The kernel hands out process IDs below pid_max, so that number never names a
-// process.
 test('it reads nothing for a process ID no process holds', async () => {
+  // The kernel hands out process IDs below pid_max, so that number never names a
+  // process.
   const pidMax = await readFile('/proc/sys/kernel/pid_max', 'utf8');
   const state = await loadProcessState(Number(pidMax));
 

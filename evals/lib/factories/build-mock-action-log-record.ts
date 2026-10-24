@@ -1,8 +1,6 @@
 import { faker } from '@faker-js/faker';
 import type { ActionLogRecord } from '../action-log-record-schema.ts';
 
-// A final record of an allowed action decided by Jev. A deny, an escalation or a
-// started record changes what the measures count, so a test opts into each.
 export function buildMockActionLogRecord(
   overrides: Partial<ActionLogRecord> = {},
 ): ActionLogRecord {

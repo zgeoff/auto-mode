@@ -5,8 +5,6 @@ export interface StubTimeout {
   readonly emitTimeout: (call: number) => void;
 }
 
-// AbortSignal.timeout aborts with a TimeoutError DOMException, so a stub timer
-// aborts with the same reason and code that reads it sees what production sees.
 export function buildStubTimeout(): StubTimeout {
   const timers = new Map<number, AbortController>();
 
@@ -33,6 +31,8 @@ export function buildStubTimeout(): StubTimeout {
       return getTimer(calls).signal;
     }),
     emitTimeout: (call) => {
+      // AbortSignal.timeout aborts with this TimeoutError DOMException, and code that
+      // reads the reason must see what production sees.
       getTimer(call).abort(new DOMException('The operation timed out.', 'TimeoutError'));
     },
   };

@@ -22,9 +22,6 @@ async function main(): Promise<void> {
   const repoRoot = resolve(import.meta.dirname, '..');
   const runtime = readRuntime();
   const host = runtime.host;
-
-  // One run holds one judge session, as an agent session holds one judge
-  // server, so the run measures the warm process the mod reaches.
   let judgeSession: JudgeSession | undefined;
 
   process.exitCode = await runEvalCommand(process.argv.slice(2), {
@@ -60,8 +57,6 @@ async function main(): Promise<void> {
 
       assertShippedJevConfig(config);
 
-      // A run that replays Jev and sends only the judge needs no Jev credential,
-      // so the key resolves on the first Jev request.
       let pendingKey: Promise<string | null> | null = null;
 
       const requireKey = async (): Promise<string> => {

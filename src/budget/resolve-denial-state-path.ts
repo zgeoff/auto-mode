@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import type { ActionRequest } from '../request/types.ts';
 
-// A subagent keeps its own count, so the key is the session and the agent.
 export function resolveDenialStatePath(request: Readonly<ActionRequest>, stateDir: string): string {
   const agentID = request.decisionContext?.agentID ?? '';
 

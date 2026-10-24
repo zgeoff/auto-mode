@@ -1,7 +1,6 @@
 import { faker } from '@faker-js/faker';
 import type { JudgeReport } from '../judge-report-schema.ts';
 
-// Each record is one judged sample, which a test adds for its scenario.
 export function buildMockJudgeReport(overrides: Partial<JudgeReport> = {}): JudgeReport {
   return {
     preset: faker.lorem.slug(1),

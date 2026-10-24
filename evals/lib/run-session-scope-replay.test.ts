@@ -12,7 +12,6 @@ async function setupTest(): Promise<{ readonly stateDir: string; readonly atcRec
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  // The replay reads each session's atc record from here; an absent file is a session without one.
   await mkdir(join(directory, 'atc'));
 
   return { stateDir: join(directory, 'state'), atcRecordDir: join(directory, 'atc') };

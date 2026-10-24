@@ -2,8 +2,6 @@ import { toRepositorySlug } from '../git/to-repository-slug.ts';
 import type { AtcSessionRecord } from './load-atc-session-record.ts';
 import type { ScopeFacts } from './types.ts';
 
-// A branch name means nothing outside its repository, so a branch counts only
-// when the path atc names for it shares the action's git directory.
 export function buildAtcScopeFacts(
   record: AtcSessionRecord,
   isInRepository: (path: string) => boolean,
