@@ -11,8 +11,6 @@ export function buildMockProviderConfig(overrides: Partial<ProviderConfig> = {})
     reasoning: false,
     maxTokens: 3000,
     timeoutMs: 5000,
-
-    // the limits match the Jev preset
     ...overrides,
   };
 }
