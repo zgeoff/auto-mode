@@ -66,12 +66,11 @@ export async function tryWriteRequestCapture(
   }
 }
 
+// O_NOFOLLOW makes a link planted at the path fail the write instead of
+// redirecting it.
 async function writeOwnerFile(path: string, text: string, flag: number): Promise<void> {
   const handle = await open(
     path,
-
-    // O_NOFOLLOW makes a link planted at the path fail the write instead of
-    // redirecting it.
     constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | flag,
     0o600,
   );

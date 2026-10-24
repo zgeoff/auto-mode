@@ -7,6 +7,7 @@ import type { JudgeSession } from './types.ts';
 
 export interface JudgeServerTarget {
   readonly socketPath: string;
+
   readonly command: readonly [string, ...string[]];
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly timeoutMs: number;

@@ -27,10 +27,11 @@ export function collectShellScripts(command: string): ShellScript[] {
       );
 
       const range = segments[segment];
-      const descriptor = range === undefined ? null : findScriptDescriptor(range.text);
 
       // The outer shell expands an unquoted body before the inner one reads
       // it, and the output of a substitution can be any script text.
+      const descriptor = range === undefined ? null : findScriptDescriptor(range.text);
+
       const isScript =
         range !== undefined &&
         descriptor !== null &&

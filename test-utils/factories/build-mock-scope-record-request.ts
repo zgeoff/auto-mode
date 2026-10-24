@@ -9,7 +9,6 @@ export function buildMockScopeRecordRequest(
     cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     startedAt: faker.date.recent().getTime(),
     command: faker.lorem.words(3),
-
     resultText: '',
     ...overrides,
   };

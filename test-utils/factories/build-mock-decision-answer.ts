@@ -7,7 +7,6 @@ export function buildMockDecisionAnswer(overrides: Partial<DecisionAnswer> = {})
     type: 'choice',
     choice,
     confidence: 1,
-
     probabilities: { allow: 0, block: 0, [choice]: 1 },
     ...overrides,
   };

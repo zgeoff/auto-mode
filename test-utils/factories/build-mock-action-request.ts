@@ -14,7 +14,6 @@ export function buildMockActionRequest(overrides: ActionRequestOverrides = {}): 
     toolUseID: `toolu_${faker.string.alphanumeric(24)}`,
     cwd: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     toolName: 'Bash',
-
     toolInput: { command: faker.git.commitMessage() },
     ...rest,
   };

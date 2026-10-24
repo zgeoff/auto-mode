@@ -61,9 +61,9 @@ export function findNoVerifyOption(
           ? COMMIT_VALUED_LONG.has(findCommitOption(option) ?? '')
           : PUSH_VALUED_LONG.has(option));
     } else if (subcommand === 'push') {
-      // On `git push`, `-n` is `--dry-run` and keeps the hooks.
       takesNextWord = arg === '-o';
     } else if (arg.startsWith('-') && arg !== '-') {
+      // On `git push`, `-n` is `--dry-run` and keeps the hooks.
       const cluster = parseCommitCluster(arg);
 
       if (cluster.hasNoVerify) {

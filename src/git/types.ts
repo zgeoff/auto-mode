@@ -41,7 +41,6 @@ interface CheckoutHead {
 export interface CheckoutFacts {
   readonly cwd: string;
   readonly checkout: Checkout | null;
-
   readonly head: CheckoutHead | null;
   readonly remotes: readonly ScopeRemote[];
 }

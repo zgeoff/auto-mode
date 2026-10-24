@@ -28,7 +28,6 @@ export function buildMockDecisionContext(
       originalUserTask === null
         ? null
         : { text: faker.lorem.sentence(), origin: 'composer', ...originalUserTask },
-
     delegatedTask:
       delegatedTask === undefined || delegatedTask === null
         ? null

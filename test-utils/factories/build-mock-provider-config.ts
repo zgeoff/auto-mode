@@ -4,17 +4,15 @@ import type { ProviderConfig } from '../../src/config/config.ts';
 export function buildMockProviderConfig(overrides: Partial<ProviderConfig> = {}): ProviderConfig {
   return {
     protocol: 'system-one',
-
     baseURL: 'https://decision.test',
     model: faker.lorem.slug(2),
-
     apiKeyEnv: 'AUTO_MODE_UNSET_TEST_KEY',
     apiKeyCommand: undefined,
     reasoning: false,
-
-    // the limits match the Jev preset
     maxTokens: 3000,
     timeoutMs: 5000,
+
+    // the limits match the Jev preset
     ...overrides,
   };
 }

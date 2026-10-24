@@ -8,6 +8,7 @@ import type { JudgeMessageReply, JudgeSession } from './types.ts';
 export interface JudgeTransport {
   readonly apiKey: string | null;
   readonly env: Readonly<Record<string, string | undefined>>;
+
   readonly session?: JudgeSession | undefined;
 }
 

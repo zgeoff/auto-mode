@@ -569,7 +569,6 @@ interface Level {
   readonly limit: number;
   readonly closer: ')' | null;
   depth: number;
-
   balance: number;
 }
 

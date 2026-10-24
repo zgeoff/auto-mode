@@ -8,6 +8,7 @@ export interface ModelOutcome {
   readonly note: string;
   readonly unavailable?: boolean;
   readonly diagnostics?: DecisionDiagnostics;
+
   readonly review?: JudgeEvidence;
 }
 

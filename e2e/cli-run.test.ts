@@ -52,20 +52,26 @@ async function setupTest(): Promise<{
 
     env: {
       PATH: process.env['PATH'],
+
       HOME: directory,
+
       XDG_CONFIG_HOME: directory,
+
       XDG_STATE_HOME: directory,
+
       AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
+
       CLAUDE_CONFIG_DIR: directory,
     },
   };
+
+  // The recording's cwd is /repo, which may exist on the host, so the test moves it
+  // into the temp root.
 }
 
 test('it allows a recorded mod request for regenerable output under node', async () => {
   const ctx = await setupTest();
 
-  // The recording's cwd is /repo, which may exist on the host, so the test moves it
-  // into the temp root.
   const payload = { ...readFixture('mod-request-regenerable'), cwd: ctx.repo };
 
   const result = await Bun.$`${ctx.node} ${ctx.cli} run --local-only < ${Response.json(payload)}`

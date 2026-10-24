@@ -9,7 +9,6 @@ export function buildMockRecordedDecisionResult(
 ): RecordedDecisionResult {
   return {
     model: faker.lorem.slug(2),
-
     answers: { rule_0: buildMockRecordedDecisionAnswer({ choice: 'allow', confidence: 1 }) },
     inputTokens: faker.number.int({ min: 1, max: 10_000 }),
     requestBytes: faker.number.int({ min: 1, max: 100_000 }),

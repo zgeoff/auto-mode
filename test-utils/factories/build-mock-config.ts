@@ -16,15 +16,12 @@ export function buildMockConfig(overrides: ConfigOverrides = {}): Config {
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
-
     claudeSettingsPath: null,
-
     blockThreshold: 0.2,
     warnings: [],
     ...rest,
     provider: buildMockProviderConfig(provider),
     judge: judge === undefined || judge === null ? null : buildMockProviderConfig(judge),
-
     denialBudget: { consecutive: 3, perSession: 20, ...denialBudget },
     scopeSources: {
       cwd: { kind: 'cwd' },

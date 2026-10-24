@@ -67,7 +67,6 @@ type StageRun<Case> = {
 export interface Stage<Case> {
   readonly name: string;
   readonly sends: boolean;
-
   readonly reviews?: string;
   readonly run: StageRun<Case>;
   readonly replay?: StageRun<Case>;
@@ -114,7 +113,6 @@ export interface LoadedCases<Case> {
 export interface Recording {
   readonly name: string;
   readonly description: string;
-
   readonly liveStages?: readonly string[];
 }
 

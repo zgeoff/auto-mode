@@ -43,10 +43,15 @@ async function setupTest(): Promise<{
 
     env: {
       PATH: process.env['PATH'],
+
       HOME: directory,
+
       XDG_CONFIG_HOME: directory,
+
       XDG_STATE_HOME: directory,
+
       AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
+
       CLAUDE_CONFIG_DIR: directory,
     },
   };

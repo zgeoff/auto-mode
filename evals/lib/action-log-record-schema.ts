@@ -32,7 +32,6 @@ export const actionLogRecordSchema = z
       .readonly()
       .nullable(),
     escalation: z.boolean(),
-
     diagnostics: z.unknown(),
     judge: z.unknown().optional(),
     grant: z.unknown().optional(),
