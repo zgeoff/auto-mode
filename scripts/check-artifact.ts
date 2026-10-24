@@ -31,10 +31,15 @@ async function main() {
       TYPESAFE_API_KEY: '',
     };
 
+    // A version manager's node shim reads its config and its trust records from the XDG
+    // directories, which the artifact runs with moved, so it runs the binary the shim resolves to.
+    const resolved = await Bun.$`node -p process.execPath`.quiet().text();
+
+    const node = resolved.trim();
     const cli = join(import.meta.dirname, '..', 'dist', 'cli.js');
     const payload = buildRequest('Read', { file_path: '/repo/file.ts' });
 
-    const local = await Bun.$`node ${cli} run < ${new Response(payload)}`
+    const local = await Bun.$`${node} ${cli} run < ${new Response(payload)}`
       .env(env)
       .quiet()
       .nothrow();
@@ -47,7 +52,10 @@ async function main() {
 
     const edit = buildRequest('Write', { file_path: '/repo/file.ts', content: 'green' });
 
-    const bypass = await Bun.$`node ${cli} run < ${new Response(edit)}`.env(env).quiet().nothrow();
+    const bypass = await Bun.$`${node} ${cli} run < ${new Response(edit)}`
+      .env(env)
+      .quiet()
+      .nothrow();
 
     if (bypass.exitCode !== 0 || bypass.stdout.toString() !== expected) {
       throw new Error('Node artifact did not allow an in-scope edit through the edit bypass');
@@ -62,7 +70,7 @@ async function main() {
     ] as const) {
       const request = buildRequest(toolName, toolInput);
 
-      const missingKey = await Bun.$`node ${cli} run < ${new Response(request)}`
+      const missingKey = await Bun.$`${node} ${cli} run < ${new Response(request)}`
         .env(env)
         .quiet()
         .nothrow();
