@@ -32,6 +32,8 @@ async function setupTest(): Promise<{
   const node = resolved.trim();
   const nodeDirectory = dirname(node);
 
+  // The package's prepare script links the evals package and installs git
+  // hooks, which a pack of the built artifact does not need.
   const packed: unknown =
     await Bun.$`${join(nodeDirectory, 'npm')} pack --json --ignore-scripts --pack-destination ${directory}`
       .cwd(root)
