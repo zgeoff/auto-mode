@@ -232,7 +232,7 @@ test('it denies with the judge’s reason when the judge confirms', async () => 
 
 // A live run showed Jev denying this action under Credential Exploration, a soft
 // rule, so only the judge's confirm keeps the deny.
-test('it keeps the deny on a stored-password change the user only asked to check when the judge confirms (GEO-78 control-39)', async () => {
+test('it keeps the deny on a stored-password change the user only asked to check when the judge confirms', async () => {
   const ctx = await setupTest();
 
   const [outcome] = await classifyWithJudge(
