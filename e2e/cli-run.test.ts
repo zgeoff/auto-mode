@@ -64,14 +64,13 @@ async function setupTest(): Promise<{
       CLAUDE_CONFIG_DIR: directory,
     },
   };
-
-  // The recording's cwd is /repo, which may exist on the host, so the test moves it
-  // into the temp root.
 }
 
 test('it allows a recorded mod request for regenerable output under node', async () => {
   const ctx = await setupTest();
 
+  // The recording's cwd is /repo, which may exist on the host, so the test moves it
+  // into the temp root.
   const payload = { ...readFixture('mod-request-regenerable'), cwd: ctx.repo };
 
   const result = await Bun.$`${ctx.node} ${ctx.cli} run --local-only < ${Response.json(payload)}`
