@@ -62,8 +62,6 @@ Evaluation reports live in the private zgeoff/auto-mode-evals repository, not he
   a new `src/` folder joins one in the same PR that adds it.
 - Never add an `oxlint-disable-next-line zgeoff/import-zones` comment to make an import pass. Change
   the import, or change the zones in a PR that reviews the boundary.
-- [`e2e/import-zones.test.ts`](e2e/import-zones.test.ts) checks that each boundary still fails a
-  forbidden import.
 - A hooks module imports only its own plugin's files, by relative path, and `claude-code`. Claude
   Code refuses a package import, its own package included.
 
