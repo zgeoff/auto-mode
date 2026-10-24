@@ -81,7 +81,7 @@
     "@types/node": "26.6.5",
     "@zgeoff/bun-test-extended": "0.2.1",
     "@zgeoff/format-codemod": "0.3.2",
-    "@zgeoff/oxlint-config": "0.6.4",
+    "@zgeoff/oxlint-config": "0.7.0",
     "@zgeoff/skill-gate": "0.2.7",
     "gunshi": "1.0.0-rc.1",
     "knip": "6.41.0",
