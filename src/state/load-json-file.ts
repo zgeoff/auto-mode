@@ -1,8 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type * as z from 'zod';
 
-// A missing, unreadable or malformed file reads as the fallback, so a caller
-// picks the value its own check errs toward.
 export async function loadJSONFile<S extends z.ZodType, F>(
   path: string,
   schema: S,

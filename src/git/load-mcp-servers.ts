@@ -50,8 +50,6 @@ export async function loadMCPServers(
 
   const projectFile = await loadJSONFile(join(projectDir, '.mcp.json'), projectFileSchema, null);
 
-  // Only approvals kept outside the repository count, so a checkout cannot
-  // approve the servers its own .mcp.json declares.
   const approvals = [settings, project].filter((entry) => entry !== undefined && entry !== null);
 
   const isDisabled = (name: string) =>
@@ -88,8 +86,6 @@ const TRANSPORTS: Readonly<Record<string, MCPServerFact['transport']>> = {
   ws: 'ws',
 };
 
-// Each entry is read field by field, so a credential in `env`, `headers` or
-// `args` is never parsed into the result.
 const serverSchema = z.looseObject({ type: z.string().optional(), url: z.string().optional() });
 
 function buildServerFacts(
@@ -119,8 +115,8 @@ function buildServerFacts(
   });
 }
 
-// A URL can carry a token in its user info, path or query, so only the host
-// leaves the machine; an unexpanded `${VAR}` host is unknown, not a host.
+// A URL can carry a token in its user info, path or query, and an unexpanded
+// `${VAR}` host names no real host.
 function findEndpointHost(url: string): string | null {
   const parsed = URL.parse(url);
 

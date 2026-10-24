@@ -24,8 +24,6 @@ const CONFIG_FIELDS = [
   'live',
 ] as const;
 
-// Each measurement shows both runs' counts with their denominators and intervals,
-// then the paired per-case difference b - a over the cases both runs scored.
 export function formatComparison(runA: Readonly<ComparedRun>, runB: Readonly<ComparedRun>): string {
   const configA = runA.run.summary.config;
   const configB = runB.run.summary.config;
@@ -72,8 +70,6 @@ export function formatComparison(runA: Readonly<ComparedRun>, runB: Readonly<Com
   return `${lines.join('\n')}\n`;
 }
 
-// A run from before the case filter holds no cases field, which matches a run
-// of every case.
 function formatField(value: unknown): string {
   if (typeof value === 'object' && value !== null) {
     return JSON.stringify(sortKeys(value));
@@ -83,6 +79,7 @@ function formatField(value: unknown): string {
     return String(value);
   }
 
+  // Some recorded runs hold no cases field, and each of them ran every case.
   return 'null';
 }
 

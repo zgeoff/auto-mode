@@ -3,9 +3,6 @@ import type { SampleRecord } from './sample-record-schema.ts';
 
 const SOURCES = ['recorded', 'synthetic'] as const;
 
-// Measurement 5: every stage run that sent a request or replayed a recorded
-// answer is one request, and one that could not be scored is an infrastructure
-// failure. A deterministic stage sends nothing, so it has no requests.
 export function collectInfrastructureFailures(
   records: readonly SampleRecord[],
 ): MeasurementObservations[] {

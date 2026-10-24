@@ -16,8 +16,6 @@ export interface TaskScopeRequest {
   readonly readCheckout?: CheckoutReader | undefined;
 }
 
-// The union of every configured source. The checkout supplies the facts no
-// source decides: the current branch, the default branch, and the remotes.
 export async function loadTaskScope(
   request: Readonly<TaskScopeRequest>,
   sources: Readonly<Record<string, ScopeSource>>,

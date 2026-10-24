@@ -8,13 +8,11 @@ export interface ResultsClone {
   readonly root: string;
 }
 
-// Paths are compared after resolving symlinks, so a link into the public
-// repository cannot pass for a results clone. The clone is recognised by its
-// origin remote, or by the README title and manifest a fork or mirror keeps.
 export async function requireResultsClone(
   directory: string,
   publicRoot: string,
 ): Promise<ResultsClone> {
+  // A symlink into the public repository would otherwise pass for a results clone.
   const real = await realpath(directory).catch(() => {
     throw new Error(`The results directory does not exist: ${directory}`);
   });

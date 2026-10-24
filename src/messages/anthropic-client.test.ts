@@ -50,8 +50,8 @@ test('it posts to the Messages endpoint with the key and version headers', async
   });
 });
 
-// The policy is identical on every call, so it is the cache prefix and carries
-// cache_control. Losing that marker costs full price on every call.
+// Without cache_control, the Messages API bills the prompt prefix at full price
+// on every call.
 test('it marks the system prompt for caching', async () => {
   const received = mock<(body: unknown) => void>();
 
@@ -310,7 +310,6 @@ test('it rejects with the timeout when its timeout signal fires', () => {
   expect(response).rejects.toMatchObject({ name: 'TimeoutError' });
 });
 
-// The configured base URL may or may not carry a trailing slash.
 test('it reaches the same endpoint whether the base URL ends in a slash', async () => {
   const received = mock<(url: string) => void>();
 

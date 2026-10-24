@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
 import * as z from 'zod';
 
-// MSW cannot reach a spawned gh, so a test runs this script in its place. Like
-// gh, it exits 1 with gh's GraphQL message for a pull request it does not hold.
+// MSW cannot reach a spawned gh, so a test runs this script in its place.
 const pullRequestsSchema = z.array(
   z.strictObject({
     repository: z.string(),
@@ -42,6 +41,7 @@ const pull = pullRequestsSchema
   .find((entry) => entry.repository === repository && String(entry.number) === number);
 
 if (pull === undefined) {
+  // gh exits 1 with this GraphQL message for a pull request it cannot find
   process.stderr.write(
     `GraphQL: Could not resolve to a PullRequest with the number of ${number ?? ''}. (repository.pullRequest)\n`,
   );

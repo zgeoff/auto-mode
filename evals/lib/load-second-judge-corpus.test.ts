@@ -9,7 +9,6 @@ async function setupTest() {
 
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
-  // the loader reads its three files from these two directories under the root
   await mkdir(join(root, 'evals', 'corpora', 'second-judge'), { recursive: true });
   await mkdir(join(root, 'evals', 'corpora', 'answer-guidance'), { recursive: true });
 

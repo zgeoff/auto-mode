@@ -87,8 +87,6 @@ async function main(): Promise<void> {
 
         invariant(text !== undefined, 'Every cell names a message its action holds.');
 
-        // Mirrors the Claude mod payload for a main-agent call; the original task is
-        // held unavailable in every cell so only the direct message varies.
         const payload: ActionRequest = {
           sessionID: 'relay-consent-evaluation',
           cwd: corpus.cwd,
@@ -301,17 +299,14 @@ async function main(): Promise<void> {
 
   segments.push(segment);
 
-  // Written before the first request and after each answer, so an unwritable path
-  // fails before any request and an interrupted run keeps the answers it spent.
   await writeReport(output, report);
 
   const key = await resolveApiKey(config.provider, { runtime: readRuntime() });
 
   invariant(key !== null, 'The configured evaluation credential is unavailable.');
 
-  // Every network attempt is counted here, and a redirect fails instead of
-  // sending a second, uncounted request. A copy of each response is held so a
-  // rejected answer can be recorded.
+  // A followed redirect would send a second request the count misses. A copy of
+  // each response lets a rejected answer still be recorded.
   const responses: ResponseCopy[] = [];
 
   const sendCountedFetch = makeRecordingFetch(fetch, {
@@ -406,8 +401,7 @@ async function main(): Promise<void> {
       const response = responses.at(-1);
       let body: string | null = null;
 
-      // A body stream that failed for the decision client fails for its copy too; the
-      // failure record must still be written so a resume never resends this index.
+      // A body stream that failed for the decision client fails for its copy too.
       try {
         body = response === undefined ? null : await response.text();
       } catch {
@@ -444,8 +438,8 @@ function parseCorpus(text: string) {
   return relayConsentCorpusSchema.parse(JSON.parse(text));
 }
 
-// A report written before segments existed holds one run's start, end, and stop
-// reason at the top level; it becomes the first segment.
+// Some recorded reports hold one run's start, end, and stop reason at the top
+// level instead of segments.
 function parseReport(text: string) {
   const recordSchema = z.looseObject({
     index: z.number().int(),
@@ -489,9 +483,6 @@ function parseReport(text: string) {
   };
 }
 
-// The mark prototype: the stale message moves out of the current-evidence field
-// into task context with a staleness field, and the guidance gains one
-// restrict-only instruction.
 function buildMarkedRequest(base: DecisionRequest, guidance: string): DecisionRequest {
   const context = base.state.taskContext;
 
@@ -515,8 +506,6 @@ function buildMarkedRequest(base: DecisionRequest, guidance: string): DecisionRe
   };
 }
 
-// The runtime mark: the payload carries the stale message as the Claude mod
-// sends it, and the request is built as the Jev classifier builds it.
 function buildRuntimeMarkedRequest(
   payload: ActionRequest,
   policy: string,

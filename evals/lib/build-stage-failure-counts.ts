@@ -1,7 +1,6 @@
 import type { StageFailureCount } from './run-summary-schema.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
-// Measurement 5 and the reason each failed sample left the other denominators.
 export function buildStageFailureCounts(records: readonly SampleRecord[]): StageFailureCount[] {
   const stages = [...new Set(records.map((record) => record.stage))];
 

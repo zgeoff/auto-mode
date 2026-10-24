@@ -6,9 +6,6 @@ import { buildWilsonInterval } from './build-wilson-interval.ts';
 import type { MeasurementObservations } from './define-experiment.ts';
 import type { MeasurementCount } from './run-summary-schema.ts';
 
-// Distinct-case counts get the rule-of-three bound at zero events. Counts over
-// actions or requests repeat cases, so their intervals are taken over the
-// effective sample size the case-clustered design effect leaves.
 export function buildMeasurementCounts(
   groups: readonly MeasurementObservations[],
 ): MeasurementCount[] {
@@ -25,6 +22,9 @@ export function buildMeasurementCounts(
 
     const isCases = group.unit === 'cases';
     const clustered = buildClusteredStandardError(clusteredObservations);
+
+    // Actions and requests repeat cases, so their intervals use the effective
+    // sample size the case-clustered design effect leaves.
     const effect = isCases ? null : buildDesignEffect(clusteredObservations);
     const intervalEvents = effect === null ? events : effect.effectiveEvents;
     const intervalTotal = effect === null ? total : effect.effectiveTotal;

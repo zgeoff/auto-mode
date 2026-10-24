@@ -6,7 +6,6 @@ export interface Interval {
 // The two-sided 95% normal quantile.
 const Z_SCORE = 1.959963984540054;
 
-// A proportion with no observations is bounded by nothing but [0, 1].
 export function buildWilsonInterval(events: number, total: number): Interval {
   if (total === 0) {
     return { lower: 0, upper: 1 };

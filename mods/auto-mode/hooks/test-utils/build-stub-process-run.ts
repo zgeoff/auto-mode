@@ -38,8 +38,8 @@ export function buildStubProcessRun(outcome: ProcessRunOutcome): StubProcessRun 
   };
 }
 
-// The CLI reads one JSON object on stdin; any other body, JSON or not, is recorded
-// as no request, so the stub never throws in place of the host.
+// A throw here would reach the unit as a host failure, so a body that is not
+// one JSON object records no request.
 function parseRequest(stdin: string): Readonly<Record<string, unknown>> | undefined {
   let body: unknown;
 

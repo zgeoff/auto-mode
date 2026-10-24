@@ -17,7 +17,6 @@ const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([
   'trailer',
 ]);
 
-// The push options that take the next word as their value.
 const PUSH_VALUED_LONG: ReadonlySet<string> = new Set([
   'exec',
   'push-option',
@@ -94,9 +93,9 @@ function isExpandedOption(arg: string, subcommand: 'commit' | 'push'): boolean {
   return /^(?:--[^=]*)?[$`]/u.test(arg) || short.test(arg);
 }
 
-// The commit options that take no value. git reads a long option from any
-// prefix that names one option alone, and an exact name wins over a longer
-// one, so `--mess` is `--message` and `--all` is not `--allow-empty`.
+// git reads a long option from any prefix that names one option alone, and an
+// exact name wins over a longer one, so `--mess` is `--message` and `--all` is
+// not `--allow-empty`.
 const COMMIT_FLAG_LONG: ReadonlySet<string> = new Set([
   'ahead-behind',
   'all',
@@ -146,9 +145,8 @@ interface CommitCluster {
   readonly takesNextWord: boolean;
 }
 
-// The commit options that take a value, so the value word is not read as an
-// option. A short one takes the rest of its cluster, or else the next word;
-// `-u` and `-S` take only the rest.
+// A short commit option that takes a value takes the rest of its cluster, or
+// else the next word; `-u` and `-S` take only the rest.
 const COMMIT_VALUED_SHORT = 'CFcmt';
 const COMMIT_ATTACHED_SHORT = 'Su';
 

@@ -41,8 +41,6 @@ export async function classifyWithJev(
   }
 
   try {
-    // A library caller builds its own config, which the config file's check
-    // never sees, so the classifier refuses a kind that only judges.
     const lane = pickClassifierLane(config.provider);
 
     if (lane.kind === 'refused') {

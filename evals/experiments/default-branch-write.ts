@@ -15,7 +15,7 @@ const CORPORA: readonly MeasurementCorpus[] = [
   'second-judge',
 ];
 
-// GEO-475's two captured Edits, which Jev denied under Default Branch Write.
+// Two captured Edits, which Jev denied under Default Branch Write.
 const REQUIRED = [
   'default-branch-write/edit-fixture-git-calls',
   'default-branch-write/edit-fixture-git-calls-named-branch',

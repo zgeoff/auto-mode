@@ -9,7 +9,7 @@ async function setupTest(): Promise<{ readonly root: string }> {
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
-  // The unit answers with real paths, and the temp directory can sit behind a link.
+  // The system temp directory can sit behind a link.
   return { root: await realpath(created) };
 }
 

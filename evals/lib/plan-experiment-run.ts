@@ -28,14 +28,9 @@ export interface PlanInput {
   readonly seed: number;
   readonly recorded: readonly string[];
 
-  // The stage runs known to send, when replayed answers settle them before the
-  // run; a sending stage's run left out of the list adds no request.
   readonly sending?: readonly string[];
 }
 
-// The plan is every case × sample × stage in a seeded order of (case, sample)
-// units, minus the stage runs a resumed run already recorded. Only a stage that
-// sends adds requests, and only for a listed run when the input lists them.
 export function planExperimentRun(input: Readonly<PlanInput>): ExperimentPlan {
   const ordered = sortSeeded(
     input.caseKeys.flatMap((caseKey) =>
@@ -83,7 +78,6 @@ export function buildStageRunKey(caseKey: string, sample: number, stage: string)
   return JSON.stringify([caseKey, sample, stage]);
 }
 
-// A Fisher-Yates shuffle over indices, drawn from the seeded generator.
 function sortSeeded<T>(items: readonly T[], seed: number): T[] {
   const random = makeSeededRandom(seed);
   const order = items.map((_, index) => index);

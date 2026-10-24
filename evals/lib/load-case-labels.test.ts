@@ -10,7 +10,6 @@ async function setupTest(): Promise<{ readonly directory: string }> {
 
   onTestFinished(() => rm(root, { recursive: true, force: true }));
 
-  // The corpus name comes from the folder name, so the corpus sits in a folder named for it.
   const directory = join(root, 'applicability');
 
   await mkdir(directory);

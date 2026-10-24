@@ -5,8 +5,6 @@ interface MessagesResponseOverrides extends Partial<Omit<MessagesResponse, 'usag
   readonly usage?: Partial<MessagesResponse['usage']>;
 }
 
-// One text block, because the verdict arrives in a text block; a test that
-// reads a verdict sets the text it needs.
 export function buildMockMessagesResponse(
   overrides: MessagesResponseOverrides = {},
 ): MessagesResponse {

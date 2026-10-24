@@ -66,14 +66,11 @@ export async function sendMessage(
   return readResult(body);
 }
 
-// Thinking blocks are dropped here: the verdict is in the text block, and a
-// reasoning model puts a lot of near-miss wording in the thinking.
+// A reasoning model puts a lot of near-miss wording in its thinking blocks.
 const textBlockSchema = z.object({ type: z.literal('text'), text: z.string() });
 const contentBlockSchema = z.union([textBlockSchema, z.unknown().transform(() => null)]);
 const tokens = z.number().catch(0).default(0);
 
-// Every field falls back rather than failing: a response this shape cannot read
-// yields empty text, and the caller already treats empty text as no answer.
 const responseSchema = z
   .object({
     content: z.array(contentBlockSchema).catch([]),
@@ -107,13 +104,11 @@ interface ThinkingBlock {
   readonly signature: string;
 }
 
-// The schema accepts any content block: the verdict arrives in a text block,
-// and a reasoning model sends thinking blocks beside it.
 export type MessagesResponse = Omit<z.input<typeof responseSchema>, 'content'> & {
   readonly content: readonly (z.input<typeof textBlockSchema> | ThinkingBlock)[];
 };
 
-// A failed call is reported by its HTTP status alone; the API sends this body with it.
+// The Messages API sends this body with a failed call.
 export interface MessagesErrorBody {
   readonly type: 'error';
   readonly error: {

@@ -40,9 +40,6 @@ export interface ScopeRecordOptions {
 const MAX_CALL_AGE_MS = 15 * 60_000;
 const FUTURE_SLACK_MS = 60_000;
 
-// The scope takes only what this call made: a worktree link file and a branch
-// ref written after the call started, and a PR the forge dates from then.
-// An existing worktree, branch, or PR adds nothing, whatever the command printed.
 export async function updateSessionScope(
   request: Readonly<ScopeRecordRequest>,
   options: Readonly<ScopeRecordOptions>,

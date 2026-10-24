@@ -6,7 +6,7 @@ export function resolveShippedPolicyDir(
   stopDir: string = parse(startDir).root,
 ): string {
   // tsdown flattens dist/ while the source stays nested, so a fixed `..` count
-  // is right for only one of the two layouts. Walk up instead.
+  // is right for only one of the two layouts.
   let directory = startDir;
 
   for (;;) {

@@ -5,8 +5,8 @@ import type { RecordedStage } from './load-recorded-cases.ts';
 const VARIANTS = ['baseline', 'guidance'] as const;
 const JUDGES = ['glm', 'spark', 'claude-code'] as const;
 
-// GEO-78 recorded each Jev variant once and each judge once over the asks
-// either variant made eligible, so a recording pairs one variant with one judge.
+// Each Jev variant and each judge was recorded once over the asks either
+// variant made eligible, so a recording pairs one variant with one judge.
 export function buildSecondJudgeRecordings(): Record<string, readonly RecordedStage[]> {
   return Object.fromEntries(
     VARIANTS.flatMap((variant) =>

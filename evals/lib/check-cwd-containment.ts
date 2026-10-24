@@ -9,7 +9,6 @@ export interface RecordedCall {
   readonly cwd: string;
 }
 
-// Checks a recorded call against the scope its cwd checkout gave it.
 export async function checkCwdContainment(
   call: Readonly<RecordedCall>,
   repository: Readonly<RecordedRepository>,

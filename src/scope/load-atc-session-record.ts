@@ -37,8 +37,6 @@ export type AtcRecordLoad =
   | { readonly kind: 'record'; readonly record: AtcSessionRecord }
   | { readonly kind: 'malformed'; readonly diagnostic: string };
 
-// atc removes the file when it forgets a session, so a missing file is a
-// session without a record; anything else that fails is worth one line.
 export async function loadAtcSessionRecord(
   location: string | undefined,
   sessionID: string | undefined,
@@ -59,6 +57,7 @@ export async function loadAtcSessionRecord(
   try {
     raw = await readFile(location, 'utf8');
   } catch (error) {
+    // atc removes the file when it forgets a session.
     return isMissing(error)
       ? { kind: 'absent' }
       : { kind: 'malformed', diagnostic: `atc session record unreadable: ${location}` };

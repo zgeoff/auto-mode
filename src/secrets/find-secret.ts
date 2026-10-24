@@ -150,8 +150,6 @@ function* collectMatches(pattern: Readonly<SecretPattern>, text: string): Genera
   }
 }
 
-// A window opens at each occurrence of its start text and closes before the
-// newline its pattern cannot cross; overlapping windows merge.
 function collectWindows(
   pattern: Readonly<SecretPattern>,
   text: string,

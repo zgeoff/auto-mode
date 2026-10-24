@@ -11,15 +11,13 @@ export interface LoadedRun {
   readonly tornLine: string | null;
 }
 
-// A run interrupted before its first sample has a summary and no samples.jsonl. A
-// run interrupted mid-append ends in a line that is not JSON: that line is dropped
-// and returned, so its stage run is planned again. Any other bad line fails.
 export async function loadRun(runDir: string): Promise<LoadedRun> {
   const summaryText = await readFile(join(runDir, 'summary.json'), 'utf8');
 
   const summary = runSummarySchema.parse(JSON.parse(summaryText));
 
   const text = await readFile(join(runDir, 'samples.jsonl'), 'utf8').catch((error: unknown) => {
+    // A run interrupted before its first sample has a summary and no samples.jsonl.
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       return '';
     }
@@ -29,6 +27,8 @@ export async function loadRun(runDir: string): Promise<LoadedRun> {
 
   const lines = text.split('\n').filter((line) => line !== '');
   const last = lines.at(-1);
+
+  // A run interrupted mid-append ends in a line that is not JSON.
   const tornLine = last !== undefined && !text.endsWith('\n') && !isJSON(last) ? last : null;
   const complete = tornLine === null ? lines : lines.slice(0, -1);
   const records = complete.map((line) => sampleRecordSchema.parse(JSON.parse(line)));

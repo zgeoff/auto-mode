@@ -9,8 +9,6 @@ interface AtcSessionRecordOverrides extends Partial<Omit<AtcSessionRecord, 'scop
   };
 }
 
-// The format and version identify the record; the lists beyond the workspace
-// grant ownership, so each starts empty.
 export function buildMockAtcSessionRecord(
   overrides: AtcSessionRecordOverrides = {},
 ): AtcSessionRecord {

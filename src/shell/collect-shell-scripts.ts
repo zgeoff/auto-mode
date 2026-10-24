@@ -9,9 +9,6 @@ export interface ShellScript {
   readonly segment: number;
 }
 
-// The commands a shell command runs that its own segments do not show: each
-// substitution body, and each heredoc body a shell reads as its script. A
-// script names the segment that runs it, counted as the shell split counts.
 export function collectShellScripts(command: string): ShellScript[] {
   const segments = splitShellCommand(command).segments;
   const tokens = splitShellTokens(command).tokens;
@@ -55,9 +52,6 @@ const VALUE_OPTIONS: ReadonlySet<string> = new Set(['--rcfile', '--init-file', '
 
 const VALUE_OPTION_GROUP = /^[-+][^-]*[oO]$/u;
 
-// The descriptor a shell reads its script from, or null when it runs a `-c`
-// string or a script file that is no open descriptor. With `-s` the arguments
-// after the options are positional parameters, and the script comes from input.
 function findScriptDescriptor(segment: string): string | null {
   const [program = '', ...args] = splitCommandWords(segment);
 
@@ -85,6 +79,8 @@ function findScriptDescriptor(segment: string): string | null {
       return readsInput ? '0' : findPathDescriptor(arg);
     }
 
+    // With `-s` the arguments after the options are positional parameters, and
+    // the script comes from input.
     readsInput ||= /^-[^-]*s/u.test(arg);
     index += VALUE_OPTIONS.has(arg) || VALUE_OPTION_GROUP.test(arg) ? 2 : 1;
   }
@@ -98,7 +94,6 @@ const STANDARD_PATHS: ReadonlyMap<string, string> = new Map([
   ['/dev/stderr', '2'],
 ]);
 
-// A path that opens a descriptor the shell already holds, as that descriptor.
 function findPathDescriptor(path: string): string | null {
   const descriptor = /^\/(?:dev|proc\/self)\/fd\/(?<number>\d+)$/u.exec(path)?.groups?.['number'];
 
@@ -109,9 +104,8 @@ function findPathDescriptor(path: string): string | null {
   return STANDARD_PATHS.get(path) ?? null;
 }
 
-// The redirection that feeds a descriptor, as the offset where it starts, or
-// null when none does. Redirections apply in order, `<&3` copies whatever
-// descriptor 3 holds at that point, and a process substitution is a word.
+// Redirections apply in order, `<&3` copies whatever descriptor 3 holds at that
+// point, and a process substitution is a word.
 function findDescriptorSource(
   tokens: ShellTokens['tokens'],
   start: number,

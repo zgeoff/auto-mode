@@ -107,7 +107,6 @@ test('#loadConfig refuses a config file it cannot read', async () => {
   ).rejects.toThrowWithMessage(Error, 'auto-mode configuration unreadable');
 });
 
-// A broken config must not quietly run a policy the user did not write.
 test('#loadConfig refuses a config that is not JSON', async () => {
   const ctx = await setupTest();
 

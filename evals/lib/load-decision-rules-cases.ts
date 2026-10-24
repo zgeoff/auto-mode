@@ -15,7 +15,6 @@ export interface DecisionRulesCase {
   };
 }
 
-// Gives a case that carries no cwd or repository of its own the corpus-wide ones.
 export async function loadDecisionRulesCases(path: string): Promise<DecisionRulesCase[]> {
   const corpus = await loadCorpus(path, decisionRulesCorpusSchema);
 

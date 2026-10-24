@@ -13,8 +13,6 @@ export interface ActionLog {
   readonly unreadableLines: number;
 }
 
-// An error names a record number and field paths only, so no log content
-// reaches the output.
 export async function loadActionLog(path: string, since: string | null): Promise<ActionLog> {
   const bytes = await readFile(path);
 

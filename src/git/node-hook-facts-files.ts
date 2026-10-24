@@ -3,8 +3,6 @@ import type { FileHandle } from 'node:fs/promises';
 import { access, open } from 'node:fs/promises';
 import type { HookFactsFiles } from './types.ts';
 
-// The pending command names some of these paths, so a read never waits on a
-// writer and never holds more than a hand-written git config would need.
 const MAX_CONFIG_BYTES = 1_048_576;
 
 export const nodeHookFactsFiles: HookFactsFiles = {
@@ -57,13 +55,12 @@ function isMissingFileError(error: unknown): boolean {
   );
 }
 
-// The checks run on the open handle, so a path swapped after the open cannot
-// pass them.
 async function readBoundedText(
   handle: FileHandle,
   path: string,
   maxBytes: number,
 ): Promise<string> {
+  // A stat by path would read whatever file was swapped in after the open.
   const stats = await handle.stat();
 
   if (!stats.isFile()) {

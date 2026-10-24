@@ -7,8 +7,6 @@ import { isToolInput } from './is-tool-input.ts';
 import { parseDecision } from './parse-decision.ts';
 import type { ModOn, ModOptions, PromptContext } from './types.ts';
 
-// The record may look up a created PR's head branch with gh, which the CLI
-// bounds at 5 seconds.
 const RECORD_TIMEOUT_MS = 8000;
 
 export function register(on: ModOn, options: ModOptions): void {

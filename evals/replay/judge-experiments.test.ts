@@ -21,8 +21,6 @@ async function setupTest() {
   return { resultsDir, corporaDir: resolve(import.meta.dirname, '../corpora') };
 }
 
-// The judge replies live in the results clone, so without it only the public
-// Jev answers replay: the baseline run had one invalid response in 285 requests.
 test('it replays the public judge-alone Jev answers and reports the judge and the held-out set as not measured without the results clone', async () => {
   const ctx = await setupTest();
 

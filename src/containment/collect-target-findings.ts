@@ -6,8 +6,6 @@ import type { ScopeFinding } from './types.ts';
 
 const CREDENTIAL_PATHS = ['.ssh', '.aws', '.gnupg', '.gitconfig', '.netrc', '.npmrc', '.config/gh'];
 
-// A target it cannot resolve, such as a path held in a variable, yields no
-// finding, so the classifier still judges it.
 export function collectTargetFindings(
   directory: string | null,
   target: string,

@@ -7,8 +7,6 @@ interface DenialStateOverrides extends Partial<Omit<DenialState, 'lastDenied'>> 
   readonly lastDenied?: Partial<LastDenied> | null;
 }
 
-// A session with no denials yet; the counters decide when the budget hands the
-// action to a human, so a test sets them.
 export function buildMockDenialState(overrides: DenialStateOverrides = {}): DenialState {
   const { lastDenied, ...rest } = overrides;
 

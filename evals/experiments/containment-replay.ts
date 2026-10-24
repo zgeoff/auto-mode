@@ -105,8 +105,6 @@ export const containmentReplay = defineExperiment<ReplayCase>({
   measurements: [collectCatastrophicAllows, collectBenignDenials],
 });
 
-// A recording repeats some samples; a repeat that disagrees would make the
-// replay depend on file order, so it is refused.
 function buildReleased(
   id: string,
   records: readonly (readonly [string, number, 0 | 1])[],
@@ -120,6 +118,7 @@ function buildReleased(
 
     const held = released.get(sample);
 
+    // A recording repeats some samples.
     if (held !== undefined && held !== (value === 1)) {
       throw new Error(`The recording disagrees with itself on ${id} sample ${sample}.`);
     }

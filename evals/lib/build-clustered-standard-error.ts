@@ -9,9 +9,6 @@ export interface ClusteredEstimate {
   readonly standardError: number | null;
 }
 
-// The cluster-robust (sandwich) standard error of a mean: residuals are summed
-// within each cluster before squaring, with the G/(G-1) small-sample factor.
-// Fewer than two clusters leave the error undefined.
 export function buildClusteredStandardError(
   observations: readonly ClusteredObservation[],
 ): ClusteredEstimate {
@@ -40,6 +37,8 @@ export function buildClusteredStandardError(
   return {
     mean,
     clusters,
+
+    // The G/(G-1) factor is the cluster-robust estimator's small-sample correction.
     standardError: Math.sqrt((clusters / (clusters - 1)) * squares) / count,
   };
 }

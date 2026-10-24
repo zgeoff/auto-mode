@@ -67,7 +67,6 @@ async function main(): Promise<void> {
   const corpus = await loadSecondJudgeCorpus(root);
   const loaded = await loadScopedCases(root, set, args.values);
 
-  // A case the detector does not flag sends the same request as a run without evidence.
   const cases = evidence
     ? loaded.cases.filter(
         (item) => collectScopeFindings(toScopeAction(item.entry), item.scope).length > 0,
@@ -120,7 +119,6 @@ async function main(): Promise<void> {
     corpusHash: loaded.hash,
   } as const;
 
-  // Sample-major order spreads each case's samples across the run.
   for (let sample = 1; sample <= SAMPLES; sample += 1) {
     for (const item of cases) {
       const entry = item.entry;

@@ -8,16 +8,16 @@ export interface LabelledCase<Case> {
   readonly case: Case;
 }
 
-// The judge's user message; the run's judge policy is its system prompt.
 export interface JudgeRequest {
   readonly user: string;
 }
 
-// The fallback flag holds the transport's evidence that a safety stop moved the
-// reply off the requested model, which an alias keeps the model name from showing.
 export interface JudgeReply {
   readonly model: string;
   readonly text: string;
+
+  // A safety stop can move a reply off the requested model, and an alias keeps
+  // the model name from showing it.
   readonly fallback: boolean;
 }
 
@@ -28,7 +28,6 @@ export interface StageContext {
   readonly policy: string;
   readonly configuredRules: ClaudeRules;
 
-  // The records this run already holds for the case and sample, from the earlier stages.
   readonly previous: readonly SampleRecord[];
   readonly send: (request: Readonly<DecisionRequest>) => Promise<DecisionResult>;
   readonly sendWithChoices: (
@@ -38,9 +37,6 @@ export interface StageContext {
   readonly sendJudge: (request: Readonly<JudgeRequest>) => Promise<JudgeReply>;
 }
 
-// A recorded answer replaces the request a stage would send: its own bytes are
-// hashed, and its latency and model are the ones the recording holds. A
-// recording that kept no latency leaves it null rather than zero.
 interface RecordedAnswer {
   readonly answer: unknown;
   readonly latencyMs: number | null;
@@ -68,8 +64,6 @@ type StageRun<Case> = {
   run(entry: Readonly<LabelledCase<Case>>, context: Readonly<StageContext>): Promise<StageOutcome>;
 }['run'];
 
-// A stage that sends may also replay a recording. A stage that reviews another
-// sends only for that stage's denies, so its planned requests are an upper bound.
 export interface Stage<Case> {
   readonly name: string;
   readonly sends: boolean;
@@ -99,7 +93,6 @@ export interface CaseSource {
   readonly recording: string | null;
 }
 
-// A set is one labelled corpus: a public corpus, or the held-out set in the results clone.
 export interface CaseSet<Case> {
   readonly corpus: string;
   readonly directory: string;
@@ -117,8 +110,6 @@ export interface LoadedCases<Case> {
   readonly notMeasured: readonly string[];
 }
 
-// A recording with live stages lets a live run send those stages and replay the
-// rest, so a new stage is measured on the same upstream answers.
 export interface Recording {
   readonly name: string;
   readonly description: string;

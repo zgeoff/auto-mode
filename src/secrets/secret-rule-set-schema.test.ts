@@ -80,8 +80,6 @@ test('it rejects a pattern for an engine the scanner does not run', () => {
   });
 });
 
-// A field the scanner does not read is a generator change the scanner has not
-// caught up with, so it fails the check instead of passing unread.
 test('it rejects a rule that carries a field the scanner does not read', () => {
   const payload = {
     source: { repository: 'https://example.com/rules', version: 'v1.0.0', commit: 'abc123' },

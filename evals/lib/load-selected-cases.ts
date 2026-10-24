@@ -11,9 +11,6 @@ export interface SelectedCases<Case> {
   readonly labelsHashes: readonly (readonly [string, string])[];
 }
 
-// Each set's labels must cover its corpus; the experiment then picks the cases
-// it measures by label, and its loader must hold each one. A key is qualified by
-// its corpus, so two corpora may reuse a case name.
 export async function loadSelectedCases<Case>(
   experiment: Readonly<Experiment<Case>>,
   sets: readonly Readonly<CaseSet<Readonly<Case>>>[],

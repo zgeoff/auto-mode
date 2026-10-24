@@ -152,8 +152,6 @@ function findExclusion(path: string): string | null {
   return EXCLUDED_NAMES.find(([pattern]) => pattern.test(name))?.[1] ?? null;
 }
 
-// A path outside every worktree keeps its whole spelling, so that a link from
-// an excluded directory such as `~/.claude` stays excluded.
 function toWorktreePath(path: string, worktrees: readonly string[]): string {
   const worktree = findWorktree(path, worktrees);
 

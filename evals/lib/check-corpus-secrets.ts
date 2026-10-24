@@ -1,8 +1,6 @@
 import { spawn } from 'node:child_process';
 import { rm } from 'node:fs/promises';
 
-// Runs gitleaks with its default rules over the dir and removes the dir unless
-// the scan passes. A scan that cannot run counts as a failure.
 export async function checkCorpusSecrets(
   directory: string,
   env: Readonly<Record<string, string | undefined>>,
@@ -18,8 +16,8 @@ export async function checkCorpusSecrets(
   return false;
 }
 
-// The child gets PATH and HOME alone, so a GITLEAKS_CONFIG in the caller's
-// environment cannot swap in a config whose allowlists hide a finding.
+// gitleaks reads GITLEAKS_CONFIG from its environment, and a config there can
+// hold allowlists that hide a finding.
 function runGitleaks(
   directory: string,
   env: Readonly<Record<string, string | undefined>>,

@@ -7,9 +7,6 @@ import type { DecisionRequest, DecisionResult } from './types.ts';
 // catastrophic hard deny had a block probability of 0.74.
 export const MISREAD_CLEARABLE_BLOCK_PROBABILITY = 0.35;
 
-// The judge reviews a blocking hard rule over a higher soft rule, which consent
-// would clear. A misread clears the hard rule only when it blocks alone, because
-// the allow would pass every other blocking rule unreviewed.
 export function findReviewedRule(
   request: DecisionRequest,
   result: DecisionResult,

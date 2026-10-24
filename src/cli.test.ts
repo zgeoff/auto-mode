@@ -38,14 +38,11 @@ async function setupTest() {
 
   const runtime = z.object({ node: z.string(), version: z.string() }).parse(resolved);
 
-  // The published artifact claims node 24 as the oldest node it supports.
   invariant(
     runtime.version.startsWith('24.'),
     `node 24 runs this suite, not node ${runtime.version}`,
   );
 
-  // The key helper reports on this socket once it runs and holds its key back,
-  // so the CLI waits mid-evaluation and no request leaves the host.
   const socketPath = join(directory, 'ready.sock');
   const report = Promise.withResolvers<string>();
 
@@ -74,19 +71,14 @@ async function setupTest() {
       // the CLI starts git for the task scope, which it finds through PATH
       PATH: process.env['PATH'],
 
-      // the home the CLI falls back to for its config and state
       HOME: directory,
 
-      // the CLI reads its config.json under this directory
       XDG_CONFIG_HOME: directory,
 
-      // the CLI keeps its denial counts under this directory
       XDG_STATE_HOME: directory,
 
-      // the CLI appends a diagnostic record per run to this file
       AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
 
-      // the CLI reads Claude Code's settings.json under this directory
       CLAUDE_CONFIG_DIR: directory,
     },
   };

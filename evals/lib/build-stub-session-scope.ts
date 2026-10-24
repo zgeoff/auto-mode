@@ -7,9 +7,6 @@ export interface ScopeRecording {
   readonly pullRequestHeads: Readonly<Record<string, string>>;
 }
 
-// Stands in for the checkout and the forge that confirm what a recorded call
-// made: every event the call claims is new, a worktree holds the branch the
-// recording names for it, and a PR is the first one the call printed.
 export function buildStubSessionScope(
   event: Readonly<ScopeEvent>,
   resultText: string,

@@ -22,20 +22,13 @@ export interface JudgeStageOptions {
   // reviewing another reading's denies has no recording to replay.
   readonly replaysRecording: boolean;
 
-  // Measurement 4 reviews every Jev deny, even one an earlier stage already
-  // denied, so the judge alone is measured on all of them.
   readonly reviewsEveryJevDeny?: boolean;
 
-  // A stage measured beside Jev, such as a second question shape, is not in
-  // the shipped pipeline, so its deny never keeps a Jev deny from the judge.
   readonly alternatives?: readonly string[];
 }
 
 const REASON_TEXT_MAX_CHARS = 400;
 
-// The judge overturns or confirms a Jev deny no other stage made, so a
-// containment deny stays final. It reads the shipped judge's request, reply
-// parser and verdict; an unreadable reply is not scorable, never an allow.
 export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<MeasurementCase> {
   const stage: Stage<MeasurementCase> = {
     name: JUDGE_STAGE,
@@ -162,8 +155,6 @@ function findJevDeny(
 
   const rule = Object.values(request.rules).find((candidate) => candidate.name === name);
 
-  // A recorded deny under a rule the shipped policy dropped is a deny the
-  // judge never sees, so the run reports it rather than skipping it unseen.
   if (rule === undefined) {
     return { status: 'not-scorable', reason: 'jev-rule-not-shipped' };
   }

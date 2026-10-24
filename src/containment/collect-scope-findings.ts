@@ -24,9 +24,6 @@ const FILE_WRITE_TOOLS: ReadonlySet<string> = new Set([
   'NotebookEdit',
 ]);
 
-// Reads the action only, never the filesystem. A target it cannot resolve,
-// such as a path held in a variable, yields no finding, so the classifier
-// still judges it.
 export function collectScopeFindings(
   action: Readonly<ScopeAction>,
   scope: Readonly<OwnedScope>,
@@ -50,8 +47,6 @@ export function collectScopeFindings(
       : []),
   ];
 
-  // Two merges share a target and differ in their grant, so a finding with
-  // another grant, or with none, stays for the grant check.
   return findings.filter(
     (finding, index) =>
       findings.findIndex(
@@ -96,8 +91,6 @@ function collectToolFindings(
     : [{ kind: 'remote-write', target: action.tool }];
 }
 
-// A substitution or a shell's heredoc script runs commands of its own, so the
-// check reads each one from the directory its segment runs in.
 function collectCommandFindings(
   command: string,
   context: Readonly<ProgramContext>,
@@ -140,8 +133,6 @@ function collectCommandFindings(
   return findings;
 }
 
-// One flag per segment: whether a pipe joins it to the segment before it. The
-// segments are the runs of tokens between separators, as the shell split cuts them.
 function collectPipedSegments(command: string): boolean[] {
   const piped: boolean[] = [];
   let separator: string | null = null;
@@ -282,9 +273,6 @@ const RECORD_LAUNCHERS: ReadonlySet<string> = new Set([
   'yarn',
 ]);
 
-// The mod alone reports finished calls; a record the agent sends is a claim
-// on scope it did not make. A leading option belongs to a wrapper the shell
-// reader stripped, such as `env -i`, so the words after it may run auto-mode.
 function collectRecordFindings(name: string, args: readonly string[]): ScopeFinding[] {
   const words = [name, ...args];
 
@@ -302,9 +290,6 @@ function collectRecordFindings(name: string, args: readonly string[]): ScopeFind
 
 const XARGS_VALUE_OPTIONS = new Set(['-I', '-J', '-L', '-n', '-P', '-s', '-d', '-E']);
 
-// A branch list that only drops names, piped into `git branch -d`, deletes
-// branches no one named. A list that selects names by a pattern goes to the
-// classifier, and so does a filter the check cannot read.
 function isBranchSweep(entries: readonly ShellCommand[], piped: readonly boolean[]): boolean {
   const deleter = entries.at(-1)?.words ?? [];
 

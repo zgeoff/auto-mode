@@ -15,9 +15,6 @@ interface DecisionContextOverrides extends Partial<
   readonly lastDirectUserMessage?: Partial<DirectUserMessage> | null;
 }
 
-// The main agent with no delegated task and no direct user message: each of
-// those changes which evidence the classifier treats as consent, so a test opts
-// into them. The original task is arbitrary context.
 export function buildMockDecisionContext(
   overrides: DecisionContextOverrides = {},
 ): DecisionContext {

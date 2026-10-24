@@ -33,9 +33,6 @@ export interface LiveUseMeasures {
 
 const ALL_STAGES = 'all';
 
-// A task is one agent's actions, so a subagent counts apart from the session that
-// spawned it. A record before version 5 holds no agent hash, so its task is the
-// whole session, subagents included.
 export function buildLiveUseMeasures(records: readonly ActionLogRecord[]): LiveUseMeasures {
   const finals = records
     .map((record, index) => ({ record, index }))
@@ -117,6 +114,8 @@ type TaskKeySource =
   | Pick<TaskOutcome, 'sessionHash' | 'agentHash'>;
 
 function getTaskKey(source: TaskKeySource): string {
+  // A record of schema version 4 or lower holds no agent hash, so its task is
+  // the whole session, subagents included.
   return source.agentHash ?? source.sessionHash;
 }
 
@@ -150,8 +149,6 @@ function toRounded(value: number): number {
   return Math.round(value * 10_000) / 10_000;
 }
 
-// Every stage shares one denominator, all actions, so the per-stage rates sum to
-// the all-stages rate. Actions repeat within a task, so the task is the cluster.
 function buildDenialGroups(finals: readonly ActionLogRecord[]): MeasurementObservations[] {
   const stages = [
     ...new Set(
@@ -167,6 +164,7 @@ function buildDenialGroups(finals: readonly ActionLogRecord[]): MeasurementObser
     source: 'recorded',
     unit: 'actions',
     observations: finals.map((record) => ({
+      // Actions repeat within a task, so the task is the cluster.
       caseKey: getTaskKey(record),
       event:
         record.verdict === 'deny' &&

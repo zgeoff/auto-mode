@@ -5,9 +5,6 @@ import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
 import type { ScopeEvent } from './types.ts';
 
-// Reads only the command text. An event is a claim the command may have made
-// something; the caller confirms each one against the checkout before the
-// session's scope takes it.
 export function collectScopeEvents(command: string, cwd: string, home: string): ScopeEvent[] {
   return collectShellCommands(command, cwd, home).flatMap((entry) => {
     const [name, ...args] = entry.words;

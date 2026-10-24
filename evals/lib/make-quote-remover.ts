@@ -34,8 +34,6 @@ function toWindowKey(words: readonly Word[]): string {
 
 const EDGE_PUNCTUATION = /^[^\p{L}\p{N}]*(?<core>.*?)[^\p{L}\p{N}]*$/su;
 
-// Punctuation at either end of a word stays out of its key, so a quote inside
-// quotation marks or at the end of a sentence still matches the message.
 function splitWords(text: string): Word[] {
   return [...text.matchAll(/\S+/gu)].flatMap((match) => {
     const core = EDGE_PUNCTUATION.exec(match[0])?.groups?.['core'] ?? '';

@@ -20,9 +20,6 @@ const VALUED_GLOBALS: ReadonlySet<string> = new Set([
   '--namespace',
 ]);
 
-// Reads git's global options: `-C` moves the directory git runs in, and `-c`
-// and `--config-env` set a config value, in order. The arguments left start at
-// the subcommand.
 export function splitGitCommand(
   args: readonly string[],
   directory: string | null,

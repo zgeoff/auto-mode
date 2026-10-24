@@ -1,8 +1,6 @@
 import { join, matchesGlob } from 'node:path';
 import type { OwnedScope } from '../scope/types.ts';
 
-// A worktree nested under another, as `.worktrees/<name>` is, belongs to its own
-// task: being inside the parent checkout does not put it in the parent's scope.
 export function isInScope(
   path: string,
   scope: Readonly<OwnedScope>,

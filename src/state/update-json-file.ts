@@ -88,17 +88,12 @@ function hasErrorCode(error: unknown, code: string): boolean {
   return error instanceof Error && 'code' in error && error.code === code;
 }
 
-// An update finishes in milliseconds; a lock older than this belongs to a
-// process that died holding it.
 const STALE_LOCK_MS = 10_000;
 
 function isStale(file: Readonly<Pick<Stats, 'mtimeMs'>>, clock: Readonly<LockClock>): boolean {
   return clock.now() - file.mtimeMs > STALE_LOCK_MS;
 }
 
-// A marker named for the stale lock's inode and mtime admits one process, and
-// the rename swaps its lock in without leaving the path empty. A dead taker's
-// marker goes stale; the next process claims the next generation instead.
 async function claimStaleLock(
   lock: string,
   staged: string,

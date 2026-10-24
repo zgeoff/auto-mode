@@ -1,7 +1,6 @@
 import { join } from 'node:path';
 import { resolveXDGDir } from 'auto-mode/eval';
 
-// The same resolution the CLI applies when it writes the log.
 export function resolveActionLogPath(
   env: Readonly<Record<string, string | undefined>>,
   home: string,

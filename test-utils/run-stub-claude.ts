@@ -3,8 +3,7 @@ import { createInterface } from 'node:readline';
 import * as z from 'zod';
 
 // MSW cannot reach a spawned claude, so this stands in for the `claude` the
-// Agent SDK drives over stream-json. Its controls avoid the ANTHROPIC_ prefix,
-// which the judge removes from the child environment.
+// Agent SDK drives over stream-json.
 const recordPath = process.env['STUB_CLAUDE_RECORD'];
 
 // An environment string cannot hold a reply past the kernel's argument limit,

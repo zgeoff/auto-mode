@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 
-// The child outlives this process: it leads its own group, so the mod's kill of
-// this run's group leaves it alone, and nothing of it holds this process open.
+// A detached child leads its own process group, so a kill of this process's
+// group leaves it alone.
 export function startDetachedProcess(
   file: string,
   args: readonly string[],

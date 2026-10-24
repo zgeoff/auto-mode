@@ -34,8 +34,8 @@ export const jevReportSchema = z
     model: z.string(),
     threshold: z.literal(0.8),
 
-    // A report written before the runners took the shipped verdict has none, and
-    // its statuses come from the retired confidence combiner.
+    // Some recorded reports hold none, and their statuses come from a confidence
+    // combiner that no runner uses.
     blockThreshold: probabilitySchema.optional(),
     samplesPerCase: z.literal(3),
     requestsSent: z.number().int(),

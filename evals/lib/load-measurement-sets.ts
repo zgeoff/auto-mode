@@ -15,7 +15,6 @@ import type { SampleRecord } from './sample-record-schema.ts';
 
 type MCPServerFacts = NonNullable<Parameters<typeof buildDecisionRequest>[2]['mcpServers']>;
 
-// A recorded answer for one sample of one stage, in the form its report kept.
 export type RecordedSample =
   | {
       readonly kind: 'jev-record';
@@ -30,7 +29,6 @@ export type RecordedSample =
     }
   | { readonly kind: 'sample'; readonly record: SampleRecord; readonly model: string };
 
-// Zero-based sample index to the recorded answer of that sample.
 export type RecordedSamples = Readonly<Record<number, RecordedSample>>;
 
 export interface MeasurementCase {
@@ -40,10 +38,8 @@ export interface MeasurementCase {
   readonly repository: RepositoryContext;
   readonly mcpServers: MCPServerFacts;
 
-  // The configured rules a corpus fixes for its cases; null takes the run's own.
   readonly configuredRules: ClaudeRules | null;
 
-  // Stage name to the recorded answers a replay returns.
   readonly recorded: Readonly<Record<string, RecordedSamples>>;
 }
 
@@ -62,9 +58,6 @@ export interface MeasurementSets {
 
 const HELD_OUT = 'held-out';
 
-// Each corpus becomes one set of cases that can build a live request, run the
-// containment check, and take recorded answers. The held-out set lives only in
-// the results clone; a run without it says so instead of counting it as empty.
 export async function loadMeasurementSets(
   corporaDir: string,
   resultsDir: string | null,
@@ -224,8 +217,6 @@ function buildCase(
   };
 }
 
-// A decision-rules case may leave out its message, cwd, repository and MCP
-// servers, and takes the corpus-wide ones; a relative file path is joined to the cwd.
 async function loadDecisionRulesFile(path: string): Promise<Record<string, MeasurementCase>> {
   const text = await readFile(path, 'utf8');
 

@@ -9,9 +9,6 @@ export interface CorpusHashes {
   readonly labelsHash: string;
 }
 
-// Each file is hashed as its parsed JSON, so a formatter pass keeps the hashes.
-// Inputs are further files the experiment reads, named relative to the corpora
-// directory, such as recorded answers.
 export async function loadCorpusHashes(
   corpusDir: string,
   inputs: readonly string[],

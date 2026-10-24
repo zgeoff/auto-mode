@@ -1,9 +1,6 @@
 import type { StageLatency } from './run-summary-schema.ts';
 import type { SampleRecord } from './sample-record-schema.ts';
 
-// Every request a stage sent or replayed counts, failures included, because a
-// timeout is latency the action waits through; a recording without latency does
-// not. A percentile is the nearest rank.
 export function buildStageLatency(records: readonly SampleRecord[]): StageLatency[] {
   const stages = [...new Set(records.map((record) => record.stage))];
 

@@ -228,8 +228,6 @@ test('it builds the same request from the same input', async () => {
   );
 });
 
-// The classifier walks the rules in this order and the first block in a tier
-// wins, and a reader sees each question's options in this order.
 test('it orders shipped rules before configured ones and each question as allow or block', () => {
   const request = buildDecisionRequest(
     buildMockActionRequest(),

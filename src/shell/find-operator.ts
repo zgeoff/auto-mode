@@ -1,6 +1,5 @@
 export const SEPARATORS = ['&&', '||', ';', '|', '&', '\n'];
 
-// Longest first, so `>>` is read before `>`.
 export const REDIRECTS = [
   '&>>',
   '&>',

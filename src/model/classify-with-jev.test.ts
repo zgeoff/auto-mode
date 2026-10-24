@@ -22,8 +22,8 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  // The repository readers walk up from the cwd to the nearest .git, so a
-  // repository here keeps that walk inside the temp tree.
+  // The host may hold a .git above the temp root, which a walk up from the cwd
+  // would otherwise reach.
   runGit(directory, ['init', '--quiet']);
 
   return { directory };
@@ -2014,8 +2014,6 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
   expect(sentBytes).toHaveBeenCalledExactlyOnceWith(outcome.diagnostics.requestBytes);
 });
 
-// The stand-in timer never runs AbortSignal.timeout; the handler below never
-// answers, so only that real default timer can end the request.
 test('it times out on the provider deadline with the real timer', async () => {
   const ctx = await setupTest();
 

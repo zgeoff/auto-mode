@@ -22,8 +22,6 @@ export interface ProgramContext {
   readonly scratchPaths: readonly string[];
 }
 
-// Reads one program call through its table entry. A program the table does not
-// list writes nothing the check can name, so the classifier judges it.
 export function collectProgramFindings(
   name: string,
   args: readonly string[],
@@ -87,8 +85,6 @@ interface ProgramCall {
   } | null;
 }
 
-// A directory option moves the directory the program runs in, as `git -C`
-// does, so every later relative path resolves against it.
 function splitProgramCall(
   entry: Readonly<ProgramEntry>,
   words: readonly string[],
@@ -130,6 +126,8 @@ function splitProgramCall(
 
       for (const option of split.options) {
         if (directoryOptions.includes(option.name)) {
+          // A directory option such as `git -C` moves the directory the program
+          // runs in, so every later relative path resolves against it.
           directory = resolveShellPath(directory, option.value ?? '', home);
         }
       }
@@ -355,7 +353,6 @@ function collectRoleFindings(
   }
 
   if (role === 'refspec') {
-    // The checkout's current branch is known only for the action's own cwd.
     const current = context.directory === context.cwd ? scope.currentBranch : null;
 
     return targets.flatMap((refspec) => collectRefspecFindings(refspec, current, scope));
@@ -412,8 +409,6 @@ interface NamedFindingOptions {
   readonly context: Readonly<EntryContext>;
 }
 
-// The roles that yield the rule's own finding, or nothing when the target is
-// one the task owns or one that writes nothing.
 function collectNamedFindings(
   role: NamedRole,
   rule: Readonly<WriteRule>,
@@ -473,8 +468,6 @@ function isLocalUpload(words: readonly string[]): boolean {
   return hosts.length > 0 && hosts.every((host) => LOCAL_HOSTS.has(host));
 }
 
-// A remote command that is one read-only program, with no shell operators or
-// newlines, changes nothing on the host. A call with no host runs nothing.
 function isRemoteRead(words: readonly string[], reads: readonly string[]): boolean {
   const [host, ...remote] = words;
 
@@ -528,7 +521,6 @@ function collectPullRequestFindings(
     : [options.finding];
 }
 
-// A REST path on an owned pull request or its issue passes, unless it merges.
 function collectForgeFindings(
   rule: Readonly<WriteRule>,
   path: string,

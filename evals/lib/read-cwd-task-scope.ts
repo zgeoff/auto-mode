@@ -22,7 +22,6 @@ export async function readCwdTaskScope(
     branch: repository.branch,
     stateDir: '',
 
-    // Only the atc source writes a diagnostic, and this reads the cwd source alone.
     stderr: { write: () => true },
   });
 

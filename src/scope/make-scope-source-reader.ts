@@ -10,8 +10,6 @@ import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
 import type { ScopeFacts, ScopeSourceContext, ScopeSourceReader } from './types.ts';
 import { EMPTY_SCOPE_FACTS } from './types.ts';
 
-// Each source answers from the action's context alone and never throws: a
-// source with nothing to say contributes no facts.
 export function makeScopeSourceReader(
   source: Readonly<ScopeSource>,
   readSourceCheckout: CheckoutReader = readCheckout,

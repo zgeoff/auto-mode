@@ -43,8 +43,8 @@ export interface RunEnvironment {
   readonly judgePolicy: string;
   readonly configuredRules: ClaudeRules;
 
-  // The model each judge request names. A claude -p reply can come from a
-  // fallback model, so the reply's own model cannot stand for the stage's.
+  // A claude -p reply can come from a fallback model, so the reply's own model
+  // cannot stand for the stage's.
   readonly judgeModel: string | null;
   readonly send: SendRequest | null;
   readonly sendWithChoices: SendWithChoices | null;
@@ -83,8 +83,6 @@ interface Exchange {
   fallback: boolean | null;
 }
 
-// Without live mode a plan that needs a model request stops at the plan; a plan of
-// deterministic stages and recorded answers alone runs, because it sends nothing.
 export async function runExperiment<Case>(
   experiment: Readonly<Experiment<Case>>,
   options: Readonly<RunOptions>,
@@ -217,7 +215,6 @@ export async function runExperiment<Case>(
       );
     }
 
-    // Rewritten whole, so the next append starts on a line of its own.
     await writeFile(
       join(runDir, 'samples.jsonl'),
       records.map((record) => `${JSON.stringify(record)}\n`).join(''),
@@ -231,8 +228,6 @@ export async function runExperiment<Case>(
       dropped: stages.dropped,
     });
 
-  // Written before the first stage runs, so an unwritable results directory fails
-  // before any request and an interrupted run can be resumed.
   await writeReport(join(runDir, 'summary.json'), buildCurrentSummary(null));
 
   const spent = { requests: 0 };
@@ -344,8 +339,6 @@ export async function runExperiment<Case>(
       const requestedModel = recorded?.model ?? exchange.requestedModel ?? responseModel;
       const checked = checkModel(outcome, models[stage.name] ?? null, requestedModel);
 
-      // The first request names the stage's model; writing it at once keeps it for a
-      // resume after an interruption, which would otherwise accept any model.
       if (models[stage.name] === undefined && requestedModel !== null) {
         models[stage.name] = requestedModel;
 
@@ -381,8 +374,6 @@ export async function runExperiment<Case>(
   return { kind: 'completed', plan, runDir, summary };
 }
 
-// A dirty tree has no commit that names its code, so a resume could not tell
-// whether the records it adds come from the same code.
 function requireCleanResume(previous: Readonly<RunConfig>): void {
   if (previous.dirtyTree) {
     throw new Error(
@@ -391,9 +382,6 @@ function requireCleanResume(previous: Readonly<RunConfig>): void {
   }
 }
 
-// A replayed answer is known before the run, so each unit runs once with sends
-// that only note the attempt. After a unit's first send its later records are
-// unknown, so each later stage that sends counts as sending.
 interface SendingRunOptions extends RunOptions {
   readonly records: readonly SampleRecord[];
   readonly models: Readonly<Record<string, string>>;
@@ -500,8 +488,6 @@ function getActiveStage<Case>(
   return stage;
 }
 
-// A decision request that fails, times out, or returns an invalid answer is an
-// infrastructure failure: the sample is recorded and leaves the other denominators.
 async function tryRunStage(run: () => Promise<StageOutcome>): Promise<StageOutcome> {
   try {
     return await run();
@@ -525,9 +511,6 @@ interface CheckedOutcome {
   readonly reason: string | null;
 }
 
-// An answer to a request that named another model than the stage's first is not
-// scored. A fallback reply to a request on the stage's model is scored, and the
-// summary counts it by the model its record holds.
 function checkModel(
   outcome: Readonly<StageOutcome>,
   stageModel: string | null,

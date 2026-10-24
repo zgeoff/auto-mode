@@ -15,8 +15,6 @@ export interface JudgedVerdictOptions {
   readonly misreadClears?: boolean | undefined;
 }
 
-// A held overturn keeps the deny, and the judge's reason argues for the allow,
-// so the agent reads the template reason, or the held reason given, instead.
 export function buildJudgedVerdict(
   rule: Pick<DecisionRule, 'name' | 'tier' | 'source'>,
   basis: DenyBasis,

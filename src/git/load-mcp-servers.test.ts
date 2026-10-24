@@ -13,14 +13,12 @@ async function setupTest() {
 
   const repo = join(directory, 'repo');
 
-  // The project lookup walks up to the nearest checkout, so the cwd sits in one.
   await mkdir(join(repo, '.git'), { recursive: true });
 
   return { directory, repo };
 }
 
-// `claude mcp add` in Claude Code 2.1.301 wrote both fixtures' servers, and the
-// approval lists name its project entry's fields, so a renamed field drops a server.
+// `claude mcp add` in Claude Code 2.1.301 wrote both fixtures' servers.
 test('it reads every scope from the files that Claude Code writes', async () => {
   const ctx = await setupTest();
 

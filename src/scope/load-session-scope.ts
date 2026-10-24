@@ -19,8 +19,6 @@ const sessionScopeSchema = z.strictObject({
   pullRequests: z.array(pullRequestSchema),
 });
 
-// A missing or unreadable file is a session that has created nothing yet; the
-// containment check then errs toward a deny, never toward an allow.
 export function loadSessionScope(path: string): Promise<SessionScope> {
   return loadJSONFile(path, sessionScopeSchema, EMPTY_SESSION_SCOPE);
 }

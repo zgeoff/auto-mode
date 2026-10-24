@@ -1,7 +1,5 @@
 import type { ScopeFinding } from './types.ts';
 
-// The containment doc's program table section defines every field below and
-// how the reader interprets it.
 export type OptionPattern = string | RegExp;
 
 export type OperandSelector =

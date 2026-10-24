@@ -48,7 +48,6 @@ test('it files the same rules under the same tiers as the shipped policy', async
   );
 });
 
-// The harm is spliced mid-sentence and the clearing condition ends the reason.
 test('it states each harm as a clause without a closing period', () => {
   expect(Object.values(DENY_REASONS).map((entry) => entry.harm)).toSatisfyAll(
     (harm: string) => harm.trim() !== '' && !harm.endsWith('.'),

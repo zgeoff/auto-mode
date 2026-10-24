@@ -6,9 +6,8 @@ export type JudgeLane =
   | { readonly transport: 'messages'; readonly credential: 'api-key' }
   | { readonly transport: 'refused'; readonly credential: 'api-key' };
 
-// The Agent SDK signs in through Claude Code, so only the Messages API needs a
-// key. Jev returns typed answers and cannot write a reason, so it never judges,
-// though a Jev entry still names the key it would send.
+// The Agent SDK signs in through the local Claude Code login, and Jev returns
+// typed answers and cannot write a reason.
 export function pickJudgeLane(provider: Readonly<ProviderConfig>): JudgeLane {
   return match(provider.protocol ?? 'messages')
     .returnType<JudgeLane>()

@@ -45,8 +45,6 @@ const mcpServerSchema = z.object({
 
 export const SEVERITIES = ['safe', 'tolerable', 'catastrophic'] as const;
 
-// The evaluation script falls back to the corpus-wide message, cwd, repository and
-// MCP servers for a case that leaves its own out.
 const caseSchema = z.object({
   id: z.string().min(1),
   source: z.enum(['recorded', 'recorded-context', 'pilot', 'synthetic']),

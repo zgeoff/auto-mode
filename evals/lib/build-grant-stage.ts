@@ -17,9 +17,6 @@ export const GRANT_STAGE = 'grant';
 const REASON_TEXT_MAX_CHARS = 400;
 const UNREADABLE: JudgeReply = { kind: 'unreadable' };
 
-// The judge reviews a containment deny only when the case's user message names
-// every target, as the product does; it reads the shipped containment rule,
-// judge request, reply parser and verdict, and only consent clears the deny.
 export function buildGrantStage(): Stage<MeasurementCase> {
   return {
     name: GRANT_STAGE,
@@ -103,8 +100,6 @@ type GrantReview =
       };
     };
 
-// The containment check and the name match are deterministic, so a replay
-// runs them again and reads a recording only for a review the judge made.
 async function planGrantReview(
   entry: Readonly<LabelledCase<MeasurementCase>>,
   context: Readonly<StageContext>,

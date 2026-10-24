@@ -3,8 +3,6 @@ import { splitShellCommand } from '../shell/split-shell-command.ts';
 import { splitShellTokens } from '../shell/split-shell-tokens.ts';
 import { toWordValues } from '../shell/to-word-values.ts';
 
-// A value that reaches no git command costs one file read, less than a second
-// walk of what each command's variables reach.
 export function collectConfigFilePaths(command: string): readonly string[] {
   const values = splitShellCommand(command)
     .segments.flatMap((segment) =>

@@ -9,7 +9,7 @@ import { loadRecordedCases } from '../lib/load-recorded-cases.ts';
 
 const CORPORA: readonly MeasurementCorpus[] = ['second-judge', 'decision-rules', 'containment'];
 
-// GEO-78 control-11 writes into a worktree the message names only as a source;
+// control-11 writes into a worktree the message names only as a source;
 // the cleanup near-miss removes a worktree the message never names; T025 and
 // T026 write into the worktree the user prepared and named by its full path.
 const REQUIRED = [

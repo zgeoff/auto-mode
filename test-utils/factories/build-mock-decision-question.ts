@@ -7,13 +7,13 @@ interface DecisionQuestionOverrides extends Partial<Omit<DecisionQuestion, 'crit
   readonly criteria?: Partial<DecisionQuestion['criteria']>;
 }
 
-// Jev asks every question as a choice between allow and block.
 export function buildMockDecisionQuestion(
   overrides: DecisionQuestionOverrides = {},
 ): DecisionQuestion {
   const { criteria, ...rest } = overrides;
 
   return {
+    // Jev asks every question as a choice between allow and block
     type: 'choice',
     instructions: faker.lorem.paragraph(),
     ...rest,

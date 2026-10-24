@@ -13,9 +13,6 @@ export interface TaskScopeInput {
   readonly facts: readonly ScopeFacts[];
 }
 
-// No source can hand a task the default branch, a configured protected branch,
-// or a conventional default name when the default is unknown. A PR belongs to
-// the task while its head branch does.
 export function buildTaskScope(input: Readonly<TaskScopeInput>): OwnedScope {
   const merged = mergeScopeFacts(input.facts);
 

@@ -4,9 +4,6 @@ import type { JudgeReply } from './types.ts';
 
 const JSON_FENCE = /^```(?:json)?\s*(?<body>[\s\S]*?)\s*```$/u;
 
-// A list that skips, adds or reorders a rule could pin one rule's verdict on
-// another, so it leaves every review unreadable. A single deny also reads the
-// one-verdict reply that the recorded evaluation answers hold.
 export function parseJudgeReplies(text: string, rules: readonly string[]): readonly JudgeReply[] {
   const unreadable = rules.map((): JudgeReply => ({ kind: 'unreadable' }));
   const trimmed = text.trim();
@@ -16,6 +13,7 @@ export function parseJudgeReplies(text: string, rules: readonly string[]): reado
     parseJSON(body) ?? parseJSON(getTrailingReviews(body)),
   );
 
+  // The recorded evaluation answers hold one-verdict replies.
   if (!parsed.success) {
     return rules.length === 1 ? [parseJudgeReply(text)] : unreadable;
   }
@@ -53,8 +51,7 @@ const VERDICT_TAG = /<\s*\/?\s*(?:verdict|basis|reason)\b[^>]*>/iu;
 const CLOSING_FENCE = /\s*```\s*$/u;
 
 // On a long case the judge often writes prose or a stray tool-call fragment
-// first. Only an object that ends the reply, in a fence or bare, after no
-// verdict tag, is the answer, so one quoted inside a tagged reason never is.
+// before its answer.
 function getTrailingReviews(text: string): string {
   const body = text.replace(CLOSING_FENCE, '');
   const start = body.search(REVIEWS_START);

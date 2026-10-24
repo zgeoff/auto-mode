@@ -18,9 +18,7 @@ export function buildRepositoryContext(facts: Readonly<CheckoutFacts>): Reposito
   };
 }
 
-// A remote URL can hold a token as its user info, and the request leaves the
-// machine, so only the host and path go into it; a URL that does not parse is
-// left out rather than sent with what it might hold.
+// A remote URL can hold a token as its user info.
 function normalizeRemoteURL(url: string): string | null {
   if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(url)) {
     const parsed = URL.parse(url);

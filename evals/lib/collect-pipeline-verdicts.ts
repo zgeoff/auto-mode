@@ -10,9 +10,6 @@ export interface PipelineVerdict {
   readonly verdict: 'allow' | 'deny';
 }
 
-// A sample passes when every deciding stage allowed it, or a reviewer overturned
-// a deny no final stage made. A sample any stage could not score has no
-// pipeline verdict.
 export function collectPipelineVerdicts(
   records: readonly SampleRecord[],
   reviewers: readonly string[] = [],

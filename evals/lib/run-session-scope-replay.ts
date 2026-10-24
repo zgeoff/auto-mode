@@ -21,9 +21,6 @@ export interface SessionScopeReplay {
 // Every recorded checkout shares one repository.
 const COMMON_DIR = '/replay/repository.git';
 
-// Replays the recorded sessions in order: each call records what it made in its
-// session's scope file, and each corpus action is checked against its cwd, that
-// file, and the atc record `<atcRecordDir>/<session>.json` when one exists.
 export async function runSessionScopeReplay(
   replay: Readonly<SessionScopeReplay>,
 ): Promise<Map<string, ContainmentDeny | null>> {
@@ -90,8 +87,7 @@ async function checkSessionContainment(
     atcRecordPath: join(replay.atcRecordDir, `${sessionName}.json`),
     atcSessionID: sessionName,
 
-    // The atc source writes a diagnostic only for a malformed record, and the
-    // recorded atc records are well formed.
+    // The recorded atc records are well formed.
     stderr: { write: () => true },
   };
 

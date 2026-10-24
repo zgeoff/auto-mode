@@ -1,8 +1,6 @@
 import { faker } from '@faker-js/faker';
 import type { ProviderConfig } from '../../src/config/config.ts';
 
-// The base URL is the host the default MSW handlers answer, and the key
-// variable is one no test environment sets; the limits match the Jev preset.
 export function buildMockProviderConfig(overrides: Partial<ProviderConfig> = {}): ProviderConfig {
   return {
     protocol: 'system-one',

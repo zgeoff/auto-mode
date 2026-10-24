@@ -1,9 +1,6 @@
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 
-// Stands in for an apiKeyCommand helper that starts a child and prints its key
-// after the delay its second argument names (30 s by default). It reports both
-// process IDs on the socket its first argument names, for a test of stopping.
 const socketPath = process.argv.at(2);
 const printDelayMs = Number(process.argv.at(3) ?? 30_000);
 

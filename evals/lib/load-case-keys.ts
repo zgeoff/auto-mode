@@ -83,7 +83,6 @@ interface RelayConsentCases {
   readonly cells: Readonly<Record<'risky' | 'safe', readonly { readonly id: string }[]>>;
 }
 
-// The relay-consent runner pairs each action with every cell of its own label.
 function buildRelayConsentKeys(corpus: RelayConsentCases): string[] {
   return corpus.actions.flatMap((action) => {
     const cells = corpus.cells[action.label];
@@ -96,7 +95,6 @@ interface StaleConsentPairs {
   readonly pairs: readonly { readonly pair: number }[];
 }
 
-// The stale-consent runner sends every pair once with its stale message and once without.
 function buildStaleConsentKeys(corpus: StaleConsentPairs): string[] {
   return corpus.pairs.flatMap((entry) => {
     const pair = String(entry.pair);

@@ -56,8 +56,6 @@ export function makeStringRewriter(
       ? null
       : new RegExp(`(?<![A-Za-z0-9])(?:${names.join('|')})(?![A-Za-z0-9])`, 'giu');
 
-  // The URL pass runs first because it drops a password in the user info
-  // whole, which a token pass would otherwise split from its URL.
   const steps: readonly Rewriter[] = [
     (text) =>
       buildReplacedText(text, URL_AUTHORITY, (_match, groups) => {
@@ -175,8 +173,6 @@ export function makeStringRewriter(
 const PLACEHOLDER =
   /(?<placeholder>(?:user|host|owner|repo|branch|token|email|session|tool|agent|message)-[0-9a-f]{8})/u;
 
-// A placeholder is split out before each pass, so no later pass rewrites a
-// value an earlier one already replaced.
 function buildReplacedText(
   text: string,
   pattern: Readonly<RegExp>,

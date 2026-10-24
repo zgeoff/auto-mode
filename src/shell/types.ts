@@ -1,6 +1,3 @@
-// A word keeps its raw text beside its value with the quotes removed. A
-// backslash keeps the character after it out of every operator, and both stay
-// in the value. Offsets index the scanned text, end exclusive.
 export type ShellToken =
   | {
       readonly kind: 'word';
@@ -38,7 +35,6 @@ export type ShellToken =
       readonly end: number;
     };
 
-// The first unquoted parenthesis, as an offset into the value and the raw text.
 export interface WordParen {
   readonly value: number;
   readonly raw: number;

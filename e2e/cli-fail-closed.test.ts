@@ -28,8 +28,8 @@ async function setupTest(): Promise<{
 
   const repo = join(directory, 'repo');
 
-  // The checkout search walks up from the cwd and would stop at any .git
-  // above the temp root, so the repo is a checkout of its own.
+  // The host may hold a .git above the temp root, which a walk up from the cwd
+  // would otherwise reach.
   runGit(directory, ['init', '-q', '-b', 'main', repo]);
 
   // A version manager's node shim reads its config under the user's HOME, which
@@ -41,7 +41,6 @@ async function setupTest(): Promise<{
 
   const runtime = z.object({ node: z.string(), version: z.string() }).parse(resolved);
 
-  // The published artifact claims node 24 as the oldest node it supports.
   invariant(
     runtime.version.startsWith('24.'),
     `node 24 runs this suite, not node ${runtime.version}`,
@@ -53,24 +52,17 @@ async function setupTest(): Promise<{
     directory,
     repo,
 
-    // No API key reaches the child, so no run can reach a model.
     env: {
-      // the CLI starts git for the task scope, which it finds through PATH
       PATH: process.env['PATH'],
 
-      // the home the CLI falls back to for its config and state
       HOME: directory,
 
-      // the CLI reads its config.json under this directory
       XDG_CONFIG_HOME: directory,
 
-      // the CLI keeps its denial counts under this directory
       XDG_STATE_HOME: directory,
 
-      // the CLI appends a diagnostic record per run to this file
       AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
 
-      // the CLI reads Claude Code's settings.json under this directory
       CLAUDE_CONFIG_DIR: directory,
     },
   };

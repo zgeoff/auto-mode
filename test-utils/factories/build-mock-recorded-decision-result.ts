@@ -4,8 +4,6 @@ import { buildMockRecordedDecisionAnswer } from './build-mock-recorded-decision-
 
 type RecordedDecisionResult = DecisionResult<RecordedDecisionChoice>;
 
-// One certain allow on the first shipped rule: the answers decide the verdict,
-// so a test that needs another verdict states its answers.
 export function buildMockRecordedDecisionResult(
   overrides: Partial<RecordedDecisionResult> = {},
 ): RecordedDecisionResult {

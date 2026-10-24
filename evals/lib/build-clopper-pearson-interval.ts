@@ -2,9 +2,8 @@ import type { Interval } from './build-wilson-interval.ts';
 
 const ALPHA = 0.05;
 
-// The exact interval as beta quantiles, which also takes the fractional counts a
-// design effect leaves: the lower bound is Beta(x, n - x + 1) at 2.5% and the
-// upper bound Beta(x + 1, n - x) at 97.5%.
+// Beta quantiles rather than a binomial sum, so the fractional counts a design
+// effect leaves still give an interval.
 export function buildClopperPearsonInterval(events: number, total: number): Interval {
   if (total === 0) {
     return { lower: 0, upper: 1 };
@@ -36,7 +35,6 @@ function getQuantile(alphaShape: number, betaShape: number, target: number): num
   return (low + high) / 2;
 }
 
-// I_x(α, β) by its continued fraction, taken on the side where it converges fast.
 function buildRegularizedBeta(x: number, alphaShape: number, betaShape: number): number {
   if (x <= 0) {
     return 0;
@@ -54,6 +52,8 @@ function buildRegularizedBeta(x: number, alphaShape: number, betaShape: number):
       betaShape * Math.log1p(-x),
   );
 
+  // The continued fraction converges fast only below this point; above it,
+  // I_x(α, β) = 1 - I_(1-x)(β, α).
   if (x < (alphaShape + 1) / (alphaShape + betaShape + 2)) {
     return (front * buildBetaFraction(x, alphaShape, betaShape)) / alphaShape;
   }
@@ -93,7 +93,6 @@ const FRACTION_STEPS = 300;
 const FRACTION_EPSILON = 1e-15;
 const TINY = 1e-300;
 
-// The modified Lentz evaluation of the incomplete beta continued fraction.
 function buildBetaFraction(x: number, alphaShape: number, betaShape: number): number {
   let lentzC = 1;
   let lentzD = 1 - ((alphaShape + betaShape) * x) / (alphaShape + 1);

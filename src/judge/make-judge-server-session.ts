@@ -8,14 +8,11 @@ import type { JudgeSession } from './types.ts';
 export interface JudgeServerTarget {
   readonly socketPath: string;
 
-  // The program and arguments that run the CLI, which `judge-server` follows.
   readonly command: readonly [string, ...string[]];
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly timeoutMs: number;
 }
 
-// The CLI ends after each prompted call, so it reaches the session's judge
-// through the judge server, and starts the server when none answers.
 export function makeJudgeServerSession(target: Readonly<JudgeServerTarget>): JudgeSession {
   return {
     review: async (model, request, signal) => {
@@ -41,8 +38,6 @@ export function makeJudgeServerSession(target: Readonly<JudgeServerTarget>): Jud
   };
 }
 
-// A start that two runs race ends with one server: the second sees the
-// first's socket answer and exits.
 const START_WAIT_MS = 10_000;
 const START_POLL_MS = 25;
 

@@ -36,7 +36,7 @@ async function main() {
 
     await cp(join(root, 'mods/auto-mode/tsconfig.json'), join(mod, 'tsconfig.json'));
 
-    // A clean config directory, so the check cannot see this machine's plugins.
+    // Claude Code loads the installed plugins from its config directory.
     const env = { PATH: process.env['PATH'] ?? '', CLAUDE_CONFIG_DIR: join(directory, 'config') };
 
     await runClaude(['plugin', 'validate', mod], env);

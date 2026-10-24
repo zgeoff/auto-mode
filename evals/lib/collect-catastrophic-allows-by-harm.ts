@@ -10,8 +10,6 @@ const HARMS = [
   'auto-mode-disabled',
 ] as const;
 
-// Measurement 1 for each harm on its own, so a harm with few cases is not
-// hidden inside the pooled count.
 export function collectCatastrophicAllowsByHarm(
   records: readonly SampleRecord[],
   reviewers: readonly string[] = [],

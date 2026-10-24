@@ -7,15 +7,10 @@ export type JudgeReply =
   | { readonly kind: 'overturn'; readonly basis: OverturnBasis; readonly reason: string }
   | { readonly kind: 'unreadable' };
 
-// Which overturns of a soft rule allow the action: only those the last direct
-// user message consents to, or misreads of the rule as well.
 export type JudgeOverturns = 'consent' | 'any';
 
 export type JudgeStatus = 'confirmed' | 'overturned' | 'held' | 'failed';
 
-// The model is the one that wrote the reply, which a safety fallback makes
-// another model than the configured one. `warm` holds whether a judge process
-// an earlier review started answered this one; null for a Messages API judge.
 export interface JudgeMessageReply {
   readonly text: string;
   readonly model: string;
@@ -24,9 +19,6 @@ export interface JudgeMessageReply {
   readonly warm: boolean | null;
 }
 
-// A judge session reviews one request at a time and keeps its process between
-// reviews; the CLI reaches one through the judge server, a library caller holds
-// one in process.
 export interface JudgeSession {
   readonly review: (
     model: string,
@@ -44,8 +36,7 @@ export interface JudgeDiagnostics {
   readonly overturnBasis: OverturnBasis | null;
   readonly model: string;
 
-  // The model that wrote the reply, which a safety fallback makes differ from
-  // the configured one; null when no reply came back.
+  // A safety fallback can answer on another model than the configured one.
   readonly answeringModel: string | null;
   readonly safetyStops: number | null;
   readonly warm: boolean | null;

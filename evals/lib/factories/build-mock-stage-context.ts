@@ -1,7 +1,5 @@
 import type { StageContext } from '../define-experiment.ts';
 
-// Each sender rejects, so a stage that sends where the test expected none fails
-// loudly; a test that sends passes the sender its scenario answers with.
 export function buildMockStageContext(overrides: Partial<StageContext> = {}): StageContext {
   return {
     seed: 1,

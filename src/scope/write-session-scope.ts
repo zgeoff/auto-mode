@@ -4,8 +4,7 @@ import { loadSessionScope } from './load-session-scope.ts';
 import { mergeSessionScope } from './merge-session-scope.ts';
 import type { SessionScope } from './types.ts';
 
-// Subagents of one session record in parallel CLI processes, so the merge runs
-// under the state file lock.
+// Subagents of one session record in parallel CLI processes.
 export async function writeSessionScope(
   path: string,
   added: Readonly<SessionScope>,

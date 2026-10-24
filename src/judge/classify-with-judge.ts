@@ -31,8 +31,6 @@ export interface JudgeOptions extends EvaluationOptions {
   readonly judgeSession?: JudgeSession | undefined;
 }
 
-// The judge fails closed: no key, no policy, a timeout, a failed call or an
-// unreadable review all keep a deny with its template reason.
 export async function classifyWithJudge(
   payload: ActionRequest,
   evidence: readonly JudgeEvidence[],
@@ -105,17 +103,12 @@ export async function classifyWithJudge(
     );
 
     failure = null;
-  } catch {
-    // The failure names the step that threw, and every deny keeps its reason.
-  }
+  } catch {}
 
   const elapsedMs = Math.round(performance.now() - start);
 
   return evidence.map((entry, index) => {
     const reply = replies[index] ?? null;
-
-    // The task scope is a fact the judge cannot read better than the check
-    // did, so only consent clears a containment finding.
     const overturns = entry.containment === undefined ? options.overturns : 'consent';
 
     const verdict = buildJudgedVerdict(entry.rule, entry.basis, reply, {

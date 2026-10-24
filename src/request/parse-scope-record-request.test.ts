@@ -13,7 +13,6 @@ test('it accepts a record request from the mod', () => {
   expect(parseScopeRecordRequest(body)).toStrictEqual(body);
 });
 
-// A null records nothing: the session keeps only the scope it already had.
 test('it gives no record request for a body the schema rejects', () => {
   expect(
     parseScopeRecordRequest({

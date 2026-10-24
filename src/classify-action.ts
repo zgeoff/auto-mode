@@ -64,8 +64,6 @@ export interface ClassifyOptions extends EvaluationOptions {
   readonly actionLog?: boolean;
   readonly stderr: Readonly<OutputStream>;
 
-  // A caller that classifies more than one action passes a judge session, so
-  // the judge process stays warm between them.
   readonly judgeSession?: JudgeSession | undefined;
 }
 
@@ -133,8 +131,6 @@ async function classifyWithBudget(
           status: 'deny',
         };
 
-  // The plan reads the counts again under the lock, after the classifier,
-  // which can take seconds, so a parallel call in the same session keeps its count.
   const plan = await tryUpdateDenialBudget(options.stderr, statePath, (state) =>
     planDenialBudget(
       state,
@@ -168,8 +164,6 @@ interface StageFacts {
   readonly grant: PendingGrant | null;
 }
 
-// What a stage reads: the action, the run, and the facts the stages before it
-// passed on.
 interface StageContext extends StageFacts {
   readonly request: ActionRequest;
   readonly config: Config;
@@ -187,8 +181,6 @@ async function classifyStages(
     config,
     options,
 
-    // Every stage reads the checkout through one finder, which walks up from a
-    // directory once per action.
     readCheckout: makeOnceCheckoutReader(options.runtime.readCheckout),
     claudeSettings: options.claudeSettings,
     hasConfiguredDenies: false,
@@ -210,8 +202,6 @@ async function classifyStages(
   return { ...reviewed, verdict: buildGuidedVerdict(reviewed.verdict, guidance) };
 }
 
-// A stage's verdict travels with the note and diagnostics the action log
-// records, and a Jev deny also carries the evidence the judge reviews.
 type StageOutcome = ActionOutcome & { readonly review?: JudgeEvidence };
 
 type StageDecision =
@@ -222,9 +212,6 @@ interface Stage {
   readonly decide: (ctx: Readonly<StageContext>) => StageDecision | Promise<StageDecision>;
 }
 
-// The first stage that decides ends the run. The read-only allow comes before
-// the task scope loads, and the regenerable-output allow after the containment
-// check, because it deletes files.
 const STAGES: readonly Stage[] = [
   { decide: classifyClaudeSettings },
   { decide: classifyReadOnly },
@@ -238,7 +225,6 @@ interface FinalStage {
   readonly decide: (ctx: Readonly<StageContext>) => Promise<StageOutcome>;
 }
 
-// Jev decides every action the stages before it pass on.
 const FINAL_STAGE: FinalStage = { decide: classifyJev };
 
 async function runStages(ctx: StageContext): Promise<StageOutcome> {
@@ -348,14 +334,9 @@ async function classifyContainment(ctx: Readonly<StageContext>): Promise<StageDe
     };
   }
 
-  // The grant clears the scope finding alone: the call still meets Jev, and
-  // the judge reviews the grant and any Jev deny in one call, so a hard rule or
-  // a secret in the content still denies it.
   return { kind: 'pass', facts: { checkout, scope, grant: { evidence: grant, note } } };
 }
 
-// A scope that cannot be read leaves the action to the classifier, the same as
-// a target the containment check cannot resolve.
 async function tryLoadTaskScope(
   request: Readonly<{
     sessionID: string;
@@ -384,8 +365,6 @@ async function tryLoadTaskScope(
   }
 }
 
-// The judge reviews a containment deny only when the current direct user
-// message names every target, and never in a run that skips the models.
 async function loadGrantEvidence(
   ctx: Readonly<StageContext>,
   facts: Readonly<{
@@ -412,7 +391,6 @@ async function loadGrantEvidence(
     return null;
   }
 
-  // A rule that cannot be read leaves no review to run, so the deny stands.
   const text = await readContainmentRule().catch(() => null);
 
   if (text === null) {
@@ -430,8 +408,6 @@ async function loadGrantEvidence(
   };
 }
 
-// Only a regenerable-output allow is left by now, and it deletes files, so it
-// stands only once a task scope has cleared it.
 function classifyRegenerable(ctx: Readonly<StageContext>): StageDecision {
   if (ctx.local.kind === 'allow' && ctx.scope !== null) {
     return { kind: 'decided', outcome: buildLocalAllow(ctx.local.exception) };
@@ -440,7 +416,6 @@ function classifyRegenerable(ctx: Readonly<StageContext>): StageDecision {
   return { kind: 'pass' };
 }
 
-// A configured deny entry is the user's own rule, and only Jev reads it.
 async function classifyEditBypass(ctx: Readonly<StageContext>): Promise<StageDecision> {
   if (ctx.hasConfiguredDenies || ctx.scope === null) {
     return { kind: 'pass' };
@@ -497,9 +472,6 @@ async function classifyJev(ctx: Readonly<StageContext>): Promise<StageOutcome> {
   };
 }
 
-// One judge call reviews the user-named grant and the Jev deny together, so a
-// prompted call never waits on two judge processes. Without either, the
-// outcome stands as it is.
 async function classifyWithGrant(
   ctx: Readonly<StageContext>,
   decided: StageOutcome,
@@ -559,8 +531,6 @@ async function classifyWithGrant(
   };
 }
 
-// A verdict must still reach the mod when the guidance file is missing, or the
-// CLI exits without one and the prompt comes back.
 async function tryReadDenialGuidance(): Promise<string | null> {
   try {
     return await readDenialGuidance();

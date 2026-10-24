@@ -119,8 +119,6 @@ const denialBudgetSchema = z.strictObject({
   perSession: z.number().int().positive().optional(),
 });
 
-// Registry values stay unknown here so one bad entry drops alone instead of
-// failing the file; each entry is parsed on its own below.
 const configFileSchema = z.strictObject({
   classifiers: z.record(text, z.unknown()).optional(),
   scopeSources: z.record(text, z.unknown()).optional(),
@@ -243,9 +241,6 @@ function buildConfig(json: unknown, path: string, home: string): Config {
   };
 }
 
-// A registry without the cwd source leaves the task without the worktree it
-// works in, and a glob over `.worktrees` hands every task each other's
-// worktrees; both are legal, so they warn rather than drop.
 function collectScopeWarnings(entries: Readonly<Record<string, ScopeSource>> | null): string[] {
   if (entries === null) {
     return [];
@@ -306,8 +301,6 @@ const classifierEntrySchema = z.strictObject({
   timeoutMs: positive.optional(),
 });
 
-// A credential in the file would sit in plain text beside the rest of the
-// config, so only references (an env var or a command) are accepted.
 const CREDENTIAL_KEYS = new Set(['apiKey', 'key', 'token', 'secret']);
 
 type KindDefaults = Omit<ProviderConfig, 'model'> & { readonly model?: string };
