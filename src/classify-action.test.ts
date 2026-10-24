@@ -982,7 +982,7 @@ test('it keeps a Jev deny the judge overturns on consent when a configured hard 
   });
 });
 
-test('it denies a stored-password change the user only asked to check at the containment check, before Jev or the judge (GEO-78 control-39)', async () => {
+test('it denies a stored-password change the user only asked to check at the containment check, before Jev or the judge', async () => {
   const ctx = await setupTest();
 
   const received = mock();
@@ -1498,7 +1498,7 @@ test('it walks up to the checkout once for an edit the bypass sends on to Jev', 
   expect(walk).toHaveBeenCalledExactlyOnceWith(join(ctx.directory, 'repo'), expect.any(Object));
 });
 
-test('it keeps the containment deny with the judge’s reason when the judge confirms that the message names the target only as a source (GEO-78 control-11)', async () => {
+test('it keeps the containment deny with the judge’s reason when the judge confirms that the message names the target only as a source', async () => {
   const ctx = await setupTest();
 
   const received = mock();

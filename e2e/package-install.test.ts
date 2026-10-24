@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { existsSync } from 'node:fs';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 
@@ -25,13 +25,20 @@ async function setupTest(): Promise<{
 
   const directory = await realpath(created);
 
+  // A version manager's node shim reads its config under the user's HOME, which
+  // the children do not get, so they run the binaries the shim resolves to.
+  const resolved = await Bun.$`node -p process.execPath`.quiet().text();
+
+  const node = resolved.trim();
+  const nodeDirectory = dirname(node);
+
   // The package's prepare script links the evals package and installs git
   // hooks, which a pack of the built artifact does not need.
   const packed: unknown =
-    await Bun.$`npm pack --json --ignore-scripts --pack-destination ${directory}`
+    await Bun.$`${join(nodeDirectory, 'npm')} pack --json --ignore-scripts --pack-destination ${directory}`
       .cwd(root)
       .env({
-        PATH: process.env['PATH'],
+        PATH: `${nodeDirectory}${delimiter}${process.env['PATH'] ?? ''}`,
         HOME: directory,
         npm_config_cache: join(directory, 'npm-cache'),
       })
@@ -46,12 +53,8 @@ async function setupTest(): Promise<{
 
   await Bun.$`tar -xzf ${join(directory, tarball.filename)} -C ${directory}`.quiet();
 
-  // A version manager's node shim reads its config under the user's HOME, which
-  // the child does not get, so the child runs the binary the shim resolves to.
-  const node = await Bun.$`node -p process.execPath`.quiet().text();
-
   return {
-    node: node.trim(),
+    node,
     packageDir: join(directory, 'package'),
     files: tarball.files.map((file) => file.path),
     env: { PATH: process.env['PATH'], HOME: directory },
