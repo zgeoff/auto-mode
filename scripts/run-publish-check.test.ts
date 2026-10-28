@@ -281,6 +281,61 @@ test('the entry point exits 1 and writes publish=false when the dispatch fails',
   );
 });
 
+test('the entry point writes publish=false and exits 0 when every release tag is on npm', async () => {
+  const ctx = await setupTest();
+
+  const origin = join(ctx.directory, 'origin.git');
+  const work = join(ctx.directory, 'work');
+  const bin = join(ctx.directory, 'bin');
+
+  runGit(ctx.directory, ['init', '--quiet', '--bare', origin]);
+  runGit(ctx.directory, ['init', '--quiet', work]);
+
+  await writeFile(join(work, 'package.json'), '{"name":"widget","version":"2.4.0"}\n');
+
+  runGit(work, ['add', 'package.json']);
+  runGit(work, ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
+  runGit(work, ['tag', 'widget-v2.4.0']);
+  runGit(work, ['remote', 'add', 'origin', origin]);
+  runGit(work, ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
+
+  await mkdir(bin);
+
+  await writeFile(
+    join(bin, 'npm'),
+    `#!/bin/sh\nprintf '%s' '{"versions":["2.3.0","2.4.0"],"dist-tags":{"latest":"2.4.0"}}'\n`,
+  );
+
+  await writeFile(join(bin, 'gh'), '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_CALLS"\n');
+  await chmod(join(bin, 'npm'), 0o755);
+  await chmod(join(bin, 'gh'), 0o755);
+
+  const result = await Bun.$`${process.execPath} ${ctx.script}`
+    .cwd(work)
+    .env({
+      PATH: `${bin}:${process.env['PATH'] ?? ''}`,
+      HOME: ctx.directory,
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GITHUB_OUTPUT: join(ctx.directory, 'output'),
+      GITHUB_REPOSITORY: 'octo/widget',
+      GH_CALLS: join(ctx.directory, 'gh-calls'),
+      CAN_PUBLISH_HERE: 'true',
+    })
+    .quiet()
+    .nothrow();
+
+  const output = await readFile(join(ctx.directory, 'output'), 'utf8');
+  const dispatched = await Bun.file(join(ctx.directory, 'gh-calls')).exists();
+
+  expect(result.exitCode).toBe(0);
+  expect(output).toBe('publish=false\n');
+  expect(dispatched).toBe(false);
+
+  expect(result.stdout.toString()).toBe(
+    'publish check: no widget release tag newer than 2.4.0 is missing from npm\n',
+  );
+});
+
 test('the entry point exits 2 when GITHUB_OUTPUT is not set', async () => {
   const ctx = await setupTest();
 
