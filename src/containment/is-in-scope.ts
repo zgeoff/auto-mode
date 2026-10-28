@@ -26,5 +26,7 @@ export function isInScope(
 }
 
 function isUnder(path: string, root: string): boolean {
-  return path === root || path.startsWith(`${root}/`);
+  const prefix = root.endsWith('/') ? root : `${root}/`;
+
+  return path === root || path.startsWith(prefix);
 }

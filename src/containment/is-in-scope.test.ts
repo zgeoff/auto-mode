@@ -26,6 +26,10 @@ test.each([
   ).toBe(expected);
 });
 
+test('it reads every path as in scope when the owned path is the filesystem root', () => {
+  expect(isInScope('/srv/notes/x.md', buildMockOwnedScope({ paths: ['/'] }), [])).toBe(true);
+});
+
 test('it keeps a worktree nested under an owned checkout out of its scope', () => {
   expect(
     isInScope('/repo/.worktrees/other/x.ts', buildMockOwnedScope({ worktrees: ['/repo'] }), []),
