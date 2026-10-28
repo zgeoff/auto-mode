@@ -64,7 +64,9 @@ asks the user to name.
 
 auto-mode reads the file and never writes it. A missing file, or no `AUTO_MODE_SCOPE_FILE`, adds
 nothing. A file that is not JSON, holds another version, or holds a field the format does not define
-adds nothing either, and auto-mode prints one line to stderr that names the first field it refused.
+adds nothing either, and auto-mode prints one line to stderr. The line names the field it refused
+when it can, such as `replyChannels.0.recipient` or a misspelt key, and otherwise names only the
+file.
 
 ## Writing the file from a launcher
 

@@ -138,7 +138,7 @@ test('it gives a diagnostic naming the field for a scope file of another version
   });
 });
 
-test('it gives a diagnostic for a key the format does not define', async () => {
+test('it gives a diagnostic naming a key the format does not define', async () => {
   const ctx = await setupTest();
 
   const path = join(ctx.directory, 'scope.json');
@@ -151,6 +151,43 @@ test('it gives a diagnostic for a key the format does not define', async () => {
       replyChannel: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
     }),
   );
+
+  const loaded = await loadScopeFile(path);
+
+  expect(loaded).toStrictEqual({
+    kind: 'malformed',
+    diagnostic: `scope file ignored: replyChannel does not match version 1: ${path}`,
+  });
+});
+
+test('it gives a diagnostic naming a key the format does not define inside an entry', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    path,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead', urgent: true }],
+    }),
+  );
+
+  const loaded = await loadScopeFile(path);
+
+  expect(loaded).toStrictEqual({
+    kind: 'malformed',
+    diagnostic: `scope file ignored: replyChannels.0.urgent does not match version 1: ${path}`,
+  });
+});
+
+test('it gives a diagnostic naming only the file when the file is not a JSON object', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'scope.json');
+
+  await writeFile(path, JSON.stringify(['/srv/notes']));
 
   const loaded = await loadScopeFile(path);
 

@@ -84,7 +84,13 @@ export async function loadScopeFile(location: string | undefined): Promise<Scope
 
   if (!result.success) {
     const [issue] = result.error.issues;
-    const field = issue === undefined ? 'file' : issue.path.join('.') || 'file';
+
+    const refused =
+      issue?.code === 'unrecognized_keys'
+        ? [...issue.path, ...issue.keys.slice(0, 1)]
+        : issue?.path;
+
+    const field = refused?.join('.') || 'file';
 
     return {
       kind: 'malformed',
