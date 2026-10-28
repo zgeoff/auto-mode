@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.0...auto-mode-v3.1.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* run the skill-gate hook with bun --no-install ([#331](https://github.com/zgeoff/auto-mode/issues/331)) ([1b13da1](https://github.com/zgeoff/auto-mode/commit/1b13da145913e095c8eb528c0201b1f726faebf1))
+
 ## [3.1.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.0.1...auto-mode-v3.1.0) (2026-10-28)
 
 
