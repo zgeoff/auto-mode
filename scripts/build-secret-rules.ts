@@ -151,25 +151,102 @@ function escapeSelfMatch(id: string, pattern: SecretPattern): SecretPattern {
     return pattern;
   }
 
-  const char = pattern.source.charAt(match.index);
-
   invariant(
-    /^[\da-z]$/iu.test(char) && !isEscaped(pattern.source, match.index),
-    `${id} matches its own source at a character a class cannot hold`,
+    isLiteralAtom(pattern.source, match.index),
+    `${id} matches its own source at a character that is not a literal atom`,
   );
 
   const escaped = {
     ...pattern,
-    source: `${pattern.source.slice(0, match.index)}[${char}]${pattern.source.slice(match.index + 1)}`,
+    source: `${pattern.source.slice(0, match.index)}[${pattern.source.charAt(match.index)}]${pattern.source.slice(match.index + 1)}`,
   };
 
   invariant(
-    findPatternMatch(escaped, escaped.source) === null &&
-      findPatternMatch(escaped, match.text) !== null,
-    `${id} still matches its own source, or no longer matches the text it matched`,
+    findPatternMatch(escaped, escaped.source) === null,
+    `${id} still matches its own source after the escape`,
+  );
+
+  const kept = findPatternMatch(escaped, pattern.source);
+
+  invariant(
+    kept?.index === match.index && kept.text === match.text,
+    `${id} no longer matches the text it matched before the escape`,
   );
 
   return escaped;
+}
+
+// A letter or digit is a literal atom only when it starts a token of its own.
+// A token that is not one, such as a class, an escape, a quantifier's braces or
+// a group's prefix, may run longer than its syntax, which only refuses more.
+function isLiteralAtom(source: string, index: number): boolean {
+  if (!/^[\da-z]$/iu.test(source.charAt(index))) {
+    return false;
+  }
+
+  let start = 0;
+  let end = getTokenEnd(source, start);
+
+  while (end <= index) {
+    start = end;
+    end = getTokenEnd(source, start);
+  }
+
+  return start === index && end === index + 1;
+}
+
+function getTokenEnd(source: string, start: number): number {
+  const char = source.charAt(start);
+  const next = source.charAt(start + 1);
+
+  if (char === '\\' && next === 'Q') {
+    const quoteEnd = source.indexOf(String.raw`\E`, start + 2);
+
+    return quoteEnd === -1 ? source.length : quoteEnd + 2;
+  }
+
+  if (char === '\\' && /^[\dckpPux]$/u.test(next)) {
+    return start + 2 + (/^[\w{}<>]*/u.exec(source.slice(start + 2))?.[0].length ?? 0);
+  }
+
+  if (char === '\\') {
+    return start + 2;
+  }
+
+  if (char === '[') {
+    return getClassEnd(source, start);
+  }
+
+  if (char === '{') {
+    const braceEnd = source.indexOf('}', start);
+
+    return braceEnd === -1 ? source.length : braceEnd + 1;
+  }
+
+  if (char === '(' && next === '?') {
+    const prefixEnd = /[:)>=!]/u.exec(source.slice(start + 2));
+
+    return prefixEnd === null ? source.length : start + 2 + prefixEnd.index + 1;
+  }
+
+  return start + 1;
+}
+
+function getClassEnd(source: string, start: number): number {
+  let index = start + 1;
+
+  index += source[index] === '^' ? 1 : 0;
+  index += source[index] === ']' ? 1 : 0;
+
+  for (; index < source.length; index += 1) {
+    if (source[index] === '\\') {
+      index += 1;
+    } else if (source[index] === ']') {
+      return index + 1;
+    }
+  }
+
+  return source.length;
 }
 
 function findPatternMatch(
