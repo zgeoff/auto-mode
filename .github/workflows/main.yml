@@ -18,12 +18,13 @@ permissions:
   contents: read
 
 jobs:
-  # Keyed by ref, and a run at a tag never cancels, so neither a push to main
-  # nor a second dispatch at the same tag cancels the checks of a publish run.
+  # Keyed by ref, so a push to main never cancels the checks of a publish run
+  # dispatched at a release tag. A newer dispatch at the same tag cancels the
+  # older one's checks and publishes in its place.
   checks:
     concurrency:
       group: checks-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+      cancel-in-progress: true
     uses: ./.github/workflows/checks.yml
 
   # The shared job opens or updates the release PR, merges it once its checks

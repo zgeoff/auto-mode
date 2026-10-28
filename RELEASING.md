@@ -22,8 +22,9 @@ OIDC npm publish step in `.github/workflows/main.yml`. No npm token lives in CI.
    so only a run at the tagged commit publishes.
 
 A newer push to `main` cancels the older run's checks and nothing else. The release, dispatch and
-publish jobs never cancel. The checks of a run at a tag sit in a group of their own and never
-cancel, so neither a push nor a second dispatch at the same tag stops them.
+publish jobs never cancel. The checks of a run at a tag sit in a group of their own, so no push
+cancels them. A second dispatch at the same tag cancels the first one's checks, and the second run
+publishes in its place.
 
 A tag older than npm's `latest` never publishes on its own, because `npm publish` moves `latest` to
 the version it publishes. To ship one, publish it by hand under another dist-tag.
