@@ -1,26 +1,8 @@
-import { expect, onTestFinished, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { expect, test } from 'bun:test';
 import { buildStubProgram } from '../test-utils/build-stub-program.ts';
 import { runPublishCheck } from './run-publish-check.ts';
 
-async function setupTest(): Promise<{ readonly directory: string }> {
-  const directory = await mkdtemp(join(tmpdir(), 'publish-check-'));
-
-  onTestFinished(() => rm(directory, { recursive: true, force: true }));
-
-  return { directory };
-}
-
-test('it dispatches a run at a release tagged after the checked-out commit', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(
-    join(ctx.directory, 'package.json'),
-    JSON.stringify({ name: 'widget', version: '2.3.0' }),
-  );
-
+test('it dispatches a run at a release tagged after the checked-out commit', () => {
   const program = buildStubProgram({
     'git rev-parse HEAD': [{ exitCode: 0, stdout: 'beef01\n', stderr: '' }],
     'npm view widget versions dist-tags --json': [
@@ -43,10 +25,11 @@ test('it dispatches a run at a release tagged after the checked-out commit', asy
   });
 
   const actions = runPublishCheck({
-    cwd: ctx.directory,
-    env: {},
+    name: 'widget',
     repository: 'octo/widget',
     canPublishHere: false,
+    cwd: '/repo',
+    env: {},
     runProgram: program,
   });
 
@@ -71,18 +54,11 @@ test('it dispatches a run at a release tagged after the checked-out commit', asy
       '-f',
       'republish=true',
     ],
-    { cwd: ctx.directory, env: {} },
+    { cwd: '/repo', env: {} },
   );
 });
 
-test('it publishes the release at its own tag when the run can publish', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(
-    join(ctx.directory, 'package.json'),
-    JSON.stringify({ name: 'widget', version: '2.4.0' }),
-  );
-
+test('it publishes the release at its own tag when the run can publish', () => {
   const program = buildStubProgram({
     'git rev-parse HEAD': [{ exitCode: 0, stdout: 'c0ffee\n', stderr: '' }],
     'npm view widget versions dist-tags --json': [
@@ -98,10 +74,11 @@ test('it publishes the release at its own tag when the run can publish', async (
   });
 
   const actions = runPublishCheck({
-    cwd: ctx.directory,
-    env: {},
+    name: 'widget',
     repository: 'octo/widget',
     canPublishHere: true,
+    cwd: '/repo',
+    env: {},
     runProgram: program,
   });
 
@@ -114,14 +91,7 @@ test('it publishes the release at its own tag when the run can publish', async (
   ]);
 });
 
-test('it fails the dispatch that gh refuses', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(
-    join(ctx.directory, 'package.json'),
-    JSON.stringify({ name: 'widget', version: '2.4.0' }),
-  );
-
+test('it fails the dispatch that gh refuses', () => {
   const program = buildStubProgram({
     'git rev-parse HEAD': [{ exitCode: 0, stdout: 'c0ffee\n', stderr: '' }],
     'npm view widget versions dist-tags --json': [
@@ -140,10 +110,11 @@ test('it fails the dispatch that gh refuses', async () => {
   });
 
   const actions = runPublishCheck({
-    cwd: ctx.directory,
-    env: {},
+    name: 'widget',
     repository: 'octo/widget',
     canPublishHere: false,
+    cwd: '/repo',
+    env: {},
     runProgram: program,
   });
 
@@ -156,36 +127,14 @@ test('it fails the dispatch that gh refuses', async () => {
   ]);
 });
 
-test('it throws on a package.json that has no name', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(join(ctx.directory, 'package.json'), JSON.stringify({ version: '2.4.0' }));
-
+test('it throws when git cannot read the checked-out commit', () => {
   expect(() =>
     runPublishCheck({
-      cwd: ctx.directory,
-      env: {},
+      name: 'widget',
       repository: 'octo/widget',
       canPublishHere: true,
-      runProgram: buildStubProgram({}),
-    }),
-  ).toThrow();
-});
-
-test('it throws when git cannot read the checked-out commit', async () => {
-  const ctx = await setupTest();
-
-  await writeFile(
-    join(ctx.directory, 'package.json'),
-    JSON.stringify({ name: 'widget', version: '2.4.0' }),
-  );
-
-  expect(() =>
-    runPublishCheck({
-      cwd: ctx.directory,
+      cwd: '/repo',
       env: {},
-      repository: 'octo/widget',
-      canPublishHere: true,
       runProgram: buildStubProgram({
         'git rev-parse HEAD': [
           { exitCode: 128, stdout: '', stderr: 'fatal: not a git repository' },

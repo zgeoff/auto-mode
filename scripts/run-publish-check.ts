@@ -7,13 +7,14 @@ import type { RunProgram } from './run-program.ts';
 import { runProgram } from './run-program.ts';
 
 export interface PublishCheckOptions {
-  readonly cwd: string;
-  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly name: string;
 
   // owner/name, as GITHUB_REPOSITORY holds it.
   readonly repository: string;
 
   readonly canPublishHere: boolean;
+  readonly cwd: string;
+  readonly env: Readonly<Record<string, string | undefined>>;
   readonly runProgram: RunProgram;
 }
 
@@ -21,8 +22,6 @@ export interface PublishCheckOptions {
 // failed stays pending, so each later push dispatches it again.
 export function runPublishCheck(options: Readonly<PublishCheckOptions>): PublishAction[] {
   const run = { cwd: options.cwd, env: options.env };
-  const text = readFileSync(join(options.cwd, 'package.json'), 'utf8');
-  const manifest = manifestSchema.parse(JSON.parse(text));
   const head = options.runProgram(['git', 'rev-parse', 'HEAD'], run);
 
   if (head.exitCode !== 0) {
@@ -30,15 +29,15 @@ export function runPublishCheck(options: Readonly<PublishCheckOptions>): Publish
   }
 
   const actions = pickPublishActions({
-    name: manifest.name,
+    name: options.name,
     head: head.stdout.trim(),
     canPublishHere: options.canPublishHere,
     registry: options.runProgram(
-      ['npm', 'view', manifest.name, 'versions', 'dist-tags', '--json'],
+      ['npm', 'view', options.name, 'versions', 'dist-tags', '--json'],
       run,
     ),
     tagListing: options.runProgram(
-      ['git', 'ls-remote', '--tags', 'origin', `refs/tags/${manifest.name}-v*`],
+      ['git', 'ls-remote', '--tags', 'origin', `refs/tags/${options.name}-v*`],
       run,
     ),
   });
@@ -47,8 +46,6 @@ export function runPublishCheck(options: Readonly<PublishCheckOptions>): Publish
     action.kind === 'dispatch' ? runPublishDispatch(options, action) : action,
   );
 }
-
-const manifestSchema = z.object({ name: z.string() });
 
 function runPublishDispatch(
   options: Readonly<PublishCheckOptions>,
@@ -80,6 +77,8 @@ function runPublishDispatch(
   return action;
 }
 
+const manifestSchema = z.object({ name: z.string() });
+
 function runCLI(): void {
   const output = process.env['GITHUB_OUTPUT'];
   const repository = process.env['GITHUB_REPOSITORY'];
@@ -92,11 +91,16 @@ function runCLI(): void {
     return;
   }
 
+  const cwd = process.cwd();
+  const text = readFileSync(join(cwd, 'package.json'), 'utf8');
+  const manifest = manifestSchema.parse(JSON.parse(text));
+
   const actions = runPublishCheck({
-    cwd: process.cwd(),
-    env: process.env,
+    name: manifest.name,
     repository,
     canPublishHere: process.env['CAN_PUBLISH_HERE'] === 'true',
+    cwd,
+    env: process.env,
     runProgram,
   });
 
