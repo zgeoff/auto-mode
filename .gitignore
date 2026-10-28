@@ -17,6 +17,7 @@ Thumbs.db
 
 # agent scratch
 .reviews
+.scratch
 .claude
 !/.claude/
 /.claude/*

@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
+import { RE2JS } from 're2js';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import type {
@@ -132,12 +133,128 @@ const CURL_WINDOW = { start: 'curl', maxNewlines: 11 };
 
 function buildRulePattern(id: string, source: string): SecretPattern {
   if (!RE2_RULES.has(id)) {
-    return buildPattern(source);
+    return escapeSelfMatch(id, buildPattern(source));
   }
 
   const window = source.startsWith(String.raw`\bcurl\b`) ? { window: CURL_WINDOW } : {};
 
-  return { source, flags: '', engine: 're2', ...window };
+  return escapeSelfMatch(id, { source, flags: '', engine: 're2', ...window });
+}
+
+// A secret scanner that runs the same rule over the published bundle reads a
+// pattern that matches its own source as a leak, so the first character of
+// that match moves into a one-character class, which matches the same text.
+function escapeSelfMatch(id: string, pattern: SecretPattern): SecretPattern {
+  const match = findPatternMatch(pattern, pattern.source);
+
+  if (match === null) {
+    return pattern;
+  }
+
+  invariant(
+    isLiteralAtom(pattern.source, match.index),
+    `${id} matches its own source at a character that is not a literal atom`,
+  );
+
+  const escaped = {
+    ...pattern,
+    source: `${pattern.source.slice(0, match.index)}[${pattern.source.charAt(match.index)}]${pattern.source.slice(match.index + 1)}`,
+  };
+
+  invariant(
+    findPatternMatch(escaped, escaped.source) === null,
+    `${id} still matches its own source after the escape`,
+  );
+
+  return escaped;
+}
+
+// A letter or digit is a literal atom only when it starts a token of its own.
+// A token that is not one, such as a class, an escape, a quantifier's braces or
+// a group's prefix, may run longer than its syntax, which only refuses more.
+function isLiteralAtom(source: string, index: number): boolean {
+  if (!/^[\da-z]$/iu.test(source.charAt(index))) {
+    return false;
+  }
+
+  let start = 0;
+  let end = getTokenEnd(source, start);
+
+  while (end <= index) {
+    start = end;
+    end = getTokenEnd(source, start);
+  }
+
+  return start === index && end === index + 1;
+}
+
+function getTokenEnd(source: string, start: number): number {
+  const char = source.charAt(start);
+  const next = source.charAt(start + 1);
+
+  if (char === '\\' && next === 'Q') {
+    const quoteEnd = source.indexOf(String.raw`\E`, start + 2);
+
+    return quoteEnd === -1 ? source.length : quoteEnd + 2;
+  }
+
+  if (char === '\\' && /^[\dckpPux]$/u.test(next)) {
+    return start + 2 + (/^[\w{}<>]*/u.exec(source.slice(start + 2))?.[0].length ?? 0);
+  }
+
+  if (char === '\\') {
+    return start + 2;
+  }
+
+  if (char === '[') {
+    return getClassEnd(source, start);
+  }
+
+  if (char === '{') {
+    const braceEnd = source.indexOf('}', start);
+
+    return braceEnd === -1 ? source.length : braceEnd + 1;
+  }
+
+  if (char === '(' && next === '?') {
+    const prefixEnd = /[:)>=!]/u.exec(source.slice(start + 2));
+
+    return prefixEnd === null ? source.length : start + 2 + prefixEnd.index + 1;
+  }
+
+  return start + 1;
+}
+
+function getClassEnd(source: string, start: number): number {
+  let index = start + 1;
+
+  index += source[index] === '^' ? 1 : 0;
+  index += source[index] === ']' ? 1 : 0;
+
+  for (; index < source.length; index += 1) {
+    if (source[index] === '\\') {
+      index += 1;
+    } else if (source[index] === ']') {
+      return index + 1;
+    }
+  }
+
+  return source.length;
+}
+
+function findPatternMatch(
+  pattern: SecretPattern,
+  text: string,
+): { index: number; text: string } | null {
+  if (pattern.engine === 're2') {
+    const matcher = RE2JS.compile(pattern.source).matcher(text);
+
+    return matcher.find() ? { index: matcher.start(), text: matcher.group() ?? '' } : null;
+  }
+
+  const match = new RegExp(pattern.source, pattern.flags).exec(text);
+
+  return match === null ? null : { index: match.index, text: match[0] };
 }
 
 function buildPattern(source: string): SecretPattern {

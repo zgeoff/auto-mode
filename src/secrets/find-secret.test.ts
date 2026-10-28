@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { Buffer } from 'node:buffer';
 import { findSecret } from './find-secret.ts';
 
 // Each fake secret is joined at runtime so that the repository's own secret
@@ -10,6 +11,17 @@ test('it finds a provider token and names the rule that matched it', () => {
     rule: 'github-pat',
     secret: token,
   });
+});
+
+test('it finds a short-lived Bedrock API key', () => {
+  const prefix = `bedrock-api-key-${Buffer.from('bedrock.amazonaws.com').toString('base64')}`;
+
+  expect(
+    findSecret({
+      text: `AWS_BEARER_TOKEN_BEDROCK=${prefix}Lz9BY3Rpb249Q2FsbFdpdGhCZWFyZXJUb2tlbg`,
+      path: 'src/a.ts',
+    }),
+  ).toStrictEqual({ rule: 'aws-amazon-bedrock-api-key-short-lived', secret: prefix });
 });
 
 test('it drops a match that the rule filter marks as low entropy', () => {

@@ -46,10 +46,12 @@ The rule set is Betterleaks' own, compiled from its rule file into a bundled Typ
 script in the repo, because the CLI runs under node with bundled dependencies and cannot ship the
 Betterleaks binary. The build writes the same compiled rules to the package as
 `dist/secret-rules.json`, so a tool outside auto-mode scans with the rules auto-mode scans with.
-Rules that backtrack badly on hostile input run on a linear-time regex engine instead of V8's. The
-CLI loads the rule set only for a file edit that reaches the bypass, so every other call starts
-without it. The scan never sends a match to its provider to validate it, because validation would
-send the secret to a third party.
+When a rule's pattern matches its own text, the script writes the first matched character as a
+one-character class, which matches the same strings, so a secret scan of the installed package finds
+no secret in the rule set. Rules that backtrack badly on hostile input run on a linear-time regex
+engine instead of V8's. The CLI loads the rule set only for a file edit that reaches the bypass, so
+every other call starts without it. The scan never sends a match to its provider to validate it,
+because validation would send the secret to a third party.
 
 The bypass scans a Write or NotebookEdit call as its whole new content, and an Edit call in the file
 it produces: the bypass reads the current file, applies the replacement, and scans the lines around
