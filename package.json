@@ -71,7 +71,6 @@
     "lint:files": "oxlint --no-error-on-unmatched-pattern",
     "test:related": "bun scripts/run-related-tests.ts",
     "check:publish": "bun scripts/run-publish-check.ts",
-    "release:merge": "bun scripts/run-release-merge.ts",
     "check:commits": "bun scripts/run-commits-check.ts",
     "check:local-paths": "bun scripts/run-local-paths-check.ts",
     "check:test-timeouts": "bun scripts/run-test-timeouts-check.ts",
