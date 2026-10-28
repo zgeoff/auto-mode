@@ -5,6 +5,8 @@ export interface OutputStream {
   readonly write: (text: string) => unknown;
 }
 
+export type TextFileReader = (path: string) => Promise<string>;
+
 export interface HostEnvironment {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly home: string;
@@ -17,6 +19,7 @@ export interface Runtime {
   readonly timeout: (timeoutMs: number) => AbortSignal;
   readonly fetch: (url: string, init: Readonly<RequestInit>) => Promise<Response>;
   readonly readCheckout: CheckoutReader;
+  readonly readTextFile: TextFileReader;
 }
 
 export interface ClaudeRules {

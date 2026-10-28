@@ -1,6 +1,6 @@
-import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import * as z from 'zod';
+import type { TextFileReader } from '../config/types.ts';
 
 const name = z.string().min(1);
 const path = name.refine(isAbsolute, 'an absolute path').transform((value) => resolve(value));
@@ -53,7 +53,10 @@ export type ScopeFileLoad =
   | { readonly kind: 'scope'; readonly scope: ScopeFile }
   | { readonly kind: 'malformed'; readonly diagnostic: string };
 
-export async function loadScopeFile(location: string | undefined): Promise<ScopeFileLoad> {
+export async function loadScopeFile(
+  location: string | undefined,
+  readTextFile: TextFileReader,
+): Promise<ScopeFileLoad> {
   if (location === undefined || location === '') {
     return { kind: 'absent' };
   }
@@ -65,7 +68,7 @@ export async function loadScopeFile(location: string | undefined): Promise<Scope
   let raw: string;
 
   try {
-    raw = await readFile(location, 'utf8');
+    raw = await readTextFile(location);
   } catch (error) {
     return isMissing(error)
       ? { kind: 'absent' }

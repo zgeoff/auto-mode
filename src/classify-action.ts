@@ -19,6 +19,7 @@ import type {
   EvaluationOptions,
   HostEnvironment,
   OutputStream,
+  TextFileReader,
 } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { ContainmentDeny } from './containment/check-containment.ts';
@@ -308,7 +309,13 @@ async function classifyContainment(ctx: Readonly<StageContext>): Promise<StageDe
   }).catch(() => null);
 
   const scope = await tryLoadTaskScope(
-    { sessionID: request.sessionID, cwd: request.cwd, checkout, readCheckout: ctx.readCheckout },
+    {
+      sessionID: request.sessionID,
+      cwd: request.cwd,
+      checkout,
+      readCheckout: ctx.readCheckout,
+      readTextFile: ctx.options.runtime.readTextFile,
+    },
     ctx.config,
     host,
     ctx.options.stderr,
@@ -345,6 +352,7 @@ async function tryLoadTaskScope(
     cwd: string;
     checkout: CheckoutFacts | null;
     readCheckout: CheckoutReader;
+    readTextFile: TextFileReader;
   }>,
   config: Readonly<Config>,
   host: Readonly<HostEnvironment>,

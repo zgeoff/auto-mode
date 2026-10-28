@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { readTextFile } from '../../src/config/read-text-file.ts';
 import type { ScopeSourceReader } from '../../src/scope/types.ts';
 
 type ScopeSourceContext = Parameters<ScopeSourceReader>[0];
@@ -18,6 +19,7 @@ export function buildMockScopeSourceContext(
     branch: faker.git.branch(),
     stateDir: `/${faker.system.directoryPath().replaceAll(/^\/+/gu, '')}`,
     stderr: { write: () => true },
+    readTextFile,
     ...overrides,
   };
 }

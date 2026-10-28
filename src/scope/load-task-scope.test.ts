@@ -6,6 +6,7 @@ import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
 import { runGit } from '../../test-utils/run-git.ts';
+import { readTextFile } from '../config/read-text-file.ts';
 import { loadTaskScope } from './load-task-scope.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {
@@ -39,7 +40,12 @@ test('it owns the linked worktree that holds the cwd, its branch, and the remote
   await mkdir(join(worktree, 'src'));
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: join(worktree, 'src'), stateDir: join(ctx.directory, 'state') },
+    {
+      sessionID: 'session-1',
+      cwd: join(worktree, 'src'),
+      stateDir: join(ctx.directory, 'state'),
+      readTextFile,
+    },
     { cwd: { kind: 'cwd' } },
     buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },
@@ -75,7 +81,12 @@ test('it owns the main checkout but not its default branch', async () => {
   ]);
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.directory, 'state') },
+    {
+      sessionID: 'session-1',
+      cwd: repo,
+      stateDir: join(ctx.directory, 'state'),
+      readTextFile,
+    },
     { cwd: { kind: 'cwd' } },
     buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },
@@ -103,7 +114,12 @@ test('it owns only the cwd when git directory overrides hide the checkout', asyn
   runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.directory, 'state') },
+    {
+      sessionID: 'session-1',
+      cwd: repo,
+      stateDir: join(ctx.directory, 'state'),
+      readTextFile,
+    },
     { cwd: { kind: 'cwd' } },
     buildMockHostEnvironment({ env: { GIT_DIR: join(repo, '.git') }, home: ctx.directory }),
     { write: mock() },
@@ -160,7 +176,12 @@ test('it unites the sources and owns the PRs whose head branch and repository ar
   await writeFile(path, JSON.stringify(recorded));
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir },
+    {
+      sessionID: 'session-1',
+      cwd: repo,
+      stateDir,
+      readTextFile,
+    },
     {
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
@@ -206,7 +227,12 @@ test('it reads no session scope when the registry has no session source', async 
   await writeFile(path, JSON.stringify(buildMockSessionScope({ worktrees: ['/elsewhere'] })));
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir },
+    {
+      sessionID: 'session-1',
+      cwd: repo,
+      stateDir,
+      readTextFile,
+    },
     { cwd: { kind: 'cwd' } },
     buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },
@@ -255,7 +281,12 @@ test('it owns the atc record that the host environment names, from the main chec
   );
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.directory, 'state') },
+    {
+      sessionID: 'session-1',
+      cwd: repo,
+      stateDir: join(ctx.directory, 'state'),
+      readTextFile,
+    },
     { atc: { kind: 'atc' } },
     buildMockHostEnvironment({
       env: { ATC_SESSION_RECORD: recordPath, ATC_SESSION_ID: 'atc-1' },
@@ -310,7 +341,12 @@ test('it unites the scope file and the atc record that the host environment name
   );
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.directory, 'state') },
+    {
+      sessionID: 'session-1',
+      cwd: repo,
+      stateDir: join(ctx.directory, 'state'),
+      readTextFile,
+    },
     { launcher: { kind: 'launcher' }, atc: { kind: 'atc' } },
     buildMockHostEnvironment({
       env: {
@@ -371,7 +407,12 @@ test('it never owns a recorded branch of another repository', async () => {
   await writeFile(path, JSON.stringify(recorded));
 
   const scope = await loadTaskScope(
-    { sessionID: 'session-1', cwd: repo, stateDir },
+    {
+      sessionID: 'session-1',
+      cwd: repo,
+      stateDir,
+      readTextFile,
+    },
     { session: { kind: 'session' } },
     buildMockHostEnvironment({ env: {}, home: ctx.directory }),
     { write: mock() },

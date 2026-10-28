@@ -23,6 +23,7 @@ export async function readCwdTaskScope(
     stateDir: '',
 
     stderr: { write: () => true },
+    readTextFile: () => Promise.reject(new Error('a recording reads no file')),
   });
 
   return buildTaskScope({

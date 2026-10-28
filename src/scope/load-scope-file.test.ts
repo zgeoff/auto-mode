@@ -2,6 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readTextFile } from '../config/read-text-file.ts';
 import { loadScopeFile } from './load-scope-file.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {
@@ -31,7 +32,7 @@ test('it reads every field of a version 1 scope file', async () => {
     }),
   );
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'scope',
@@ -55,7 +56,7 @@ test('it reads a scope file that holds only its format and version as an empty s
 
   await writeFile(path, JSON.stringify({ format: 'auto-mode.scope', version: 1 }));
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'scope',
@@ -71,24 +72,45 @@ test('it reads a scope file that holds only its format and version as an empty s
   });
 });
 
+test('it reads the scope file through the reader its caller passes', async () => {
+  const loaded = await loadScopeFile('/run/launcher/scope.json', () =>
+    Promise.resolve(
+      JSON.stringify({ format: 'auto-mode.scope', version: 1, paths: ['/srv/notes'] }),
+    ),
+  );
+
+  expect(loaded).toStrictEqual({
+    kind: 'scope',
+    scope: {
+      format: 'auto-mode.scope',
+      version: 1,
+      paths: ['/srv/notes'],
+      worktrees: [],
+      branches: [],
+      pullRequests: [],
+      replyChannels: [],
+    },
+  });
+});
+
 test.each([
   ['no', undefined],
   ['an empty', ''],
 ])('it reports no scope file when the session names %s path', async (_label, location) => {
-  const loaded = await loadScopeFile(location);
+  const loaded = await loadScopeFile(location, readTextFile);
 
   expect(loaded).toStrictEqual({ kind: 'absent' });
 });
 
 test('it reports no scope file when the file is missing', async () => {
   const ctx = await setupTest();
-  const loaded = await loadScopeFile(join(ctx.directory, 'scope.json'));
+  const loaded = await loadScopeFile(join(ctx.directory, 'scope.json'), readTextFile);
 
   expect(loaded).toStrictEqual({ kind: 'absent' });
 });
 
 test('it gives a diagnostic for a scope file path that is not absolute', async () => {
-  const loaded = await loadScopeFile('scope.json');
+  const loaded = await loadScopeFile('scope.json', readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',
@@ -103,7 +125,7 @@ test('it gives a diagnostic for a scope file path it cannot read', async () => {
 
   await mkdir(path);
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({ kind: 'malformed', diagnostic: `scope file unreadable: ${path}` });
 });
@@ -115,7 +137,7 @@ test('it gives a diagnostic for a scope file that is not JSON', async () => {
 
   await writeFile(path, '{ not json');
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',
@@ -130,7 +152,7 @@ test('it gives a diagnostic naming the field for a scope file of another version
 
   await writeFile(path, JSON.stringify({ format: 'auto-mode.scope', version: 2 }));
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',
@@ -152,7 +174,7 @@ test('it gives a diagnostic naming a key the format does not define', async () =
     }),
   );
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',
@@ -174,7 +196,7 @@ test('it gives a diagnostic naming a key the format does not define inside an en
     }),
   );
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',
@@ -189,7 +211,7 @@ test('it gives a diagnostic naming only the file when the file is not a JSON obj
 
   await writeFile(path, JSON.stringify(['/srv/notes']));
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',
@@ -207,7 +229,7 @@ test('it gives a diagnostic for an owned path that is not absolute', async () =>
     JSON.stringify({ format: 'auto-mode.scope', version: 1, paths: ['/srv/notes', 'notes'] }),
   );
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',
@@ -229,7 +251,7 @@ test('it gives a diagnostic for a reply channel with no recipient', async () => 
     }),
   );
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',
@@ -251,7 +273,7 @@ test('it gives a diagnostic for a branch with no repo when the file declares no 
     }),
   );
 
-  const loaded = await loadScopeFile(path);
+  const loaded = await loadScopeFile(path, readTextFile);
 
   expect(loaded).toStrictEqual({
     kind: 'malformed',

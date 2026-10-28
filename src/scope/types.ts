@@ -1,4 +1,4 @@
-import type { HostEnvironment, OutputStream } from '../config/types.ts';
+import type { HostEnvironment, OutputStream, TextFileReader } from '../config/types.ts';
 
 export interface ScopePullRequest {
   readonly number: number;
@@ -58,6 +58,7 @@ export interface ScopeSourceContext {
   readonly atcRecordPath?: string | undefined;
   readonly atcSessionID?: string | undefined;
   readonly scopeFilePath?: string | undefined;
+  readonly readTextFile: TextFileReader;
   readonly stderr: Readonly<OutputStream>;
 }
 

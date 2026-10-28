@@ -28,6 +28,12 @@ test('it sends requests through the real fetch', async () => {
   expect(response.status).toBe(200);
 });
 
+test('it reads a file from disk as UTF-8 text', async () => {
+  const text = await readRuntime().readTextFile(import.meta.path);
+
+  expect(text).toInclude("test('it reads a file from disk as UTF-8 text'");
+});
+
 test('it finds no checkout above the filesystem root', async () => {
   const checkout = await readRuntime().readCheckout('/', {});
 

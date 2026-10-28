@@ -54,7 +54,7 @@ async function readLauncherScopeFacts(
   context: Readonly<ScopeSourceContext>,
   readSourceCheckout: CheckoutReader,
 ): Promise<ScopeFacts> {
-  const loaded = await loadScopeFile(context.scopeFilePath);
+  const loaded = await loadScopeFile(context.scopeFilePath, context.readTextFile);
 
   if (loaded.kind === 'malformed') {
     context.stderr.write(`auto-mode: ${loaded.diagnostic}\n`);
