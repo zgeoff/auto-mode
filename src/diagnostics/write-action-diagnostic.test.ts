@@ -339,6 +339,54 @@ test('it replaces a quoted credential that JSON escaping would hide from the sec
   });
 });
 
+test('it replaces a quoted credential inside an array of the logged input', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+  const credential = ['k9Xq2LmP', 'z8Rt4Wv7'].join('');
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      cwd: '/work/repo',
+      toolName: 'mcp__runner__run_steps',
+      toolInput: {
+        steps: [
+          'make build',
+          `curl https://api.example.com -H "Authorization: Bearer ${credential}"`,
+        ],
+      },
+    }),
+    {
+      invocationID: 'i',
+      status: 'deny',
+      verdict: 'deny',
+      decidingStage: 'judge',
+      judge: {
+        status: 'held',
+        overturnBasis: 'misread',
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        answeringModel: 'claude-haiku-5-5',
+        safetyStops: null,
+        warm: false,
+        rule: 'Data Exfiltration',
+        tier: 'hard',
+        elapsedMs: 1400,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  expect(z.object({ action: z.unknown() }).parse(JSON.parse(text)).action).toStrictEqual({
+    tool: 'mcp__runner__run_steps',
+    cwd: '/work/repo',
+    input: String.raw`{"steps":["make build","curl https://api.example.com -H \"Authorization: Bearer [secret]\""]}`,
+  });
+});
+
 test('it logs no input when a secret is left after the redaction passes', async () => {
   const ctx = await setupTest();
 
