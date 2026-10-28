@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
-import { pickPublishActions } from './pick-publish-actions.ts';
+import { pickPublishAction } from './pick-publish-action.ts';
 
-test('it publishes a tag newer than latest when the tag is the commit of a run that can publish', () => {
+test('it publishes the oldest pending tag when it is the commit of a run that can publish', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'c0ffee',
       canPublishHere: true,
@@ -18,18 +18,17 @@ test('it publishes a tag newer than latest when the tag is the commit of a run t
         stderr: '',
       },
     }),
-  ).toStrictEqual([
-    {
-      kind: 'publish',
-      tag: 'widget-v2.4.0',
-      reason: "widget@2.4.0 is missing from npm, and widget-v2.4.0 is this run's commit",
-    },
-  ]);
+  ).toStrictEqual({
+    kind: 'publish',
+    tag: 'widget-v2.4.0',
+    reason:
+      "widget@2.4.0 is the oldest release missing from npm, and widget-v2.4.0 is this run's commit",
+  });
 });
 
-test('it dispatches a run at a tag whose commit is not the checkout', () => {
+test('it dispatches a run at the oldest pending tag when its commit is not the checkout', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'beef01',
       canPublishHere: true,
@@ -40,18 +39,17 @@ test('it dispatches a run at a tag whose commit is not the checkout', () => {
       },
       tagListing: { exitCode: 0, stdout: 'c0ffee\trefs/tags/widget-v2.4.0\n', stderr: '' },
     }),
-  ).toStrictEqual([
-    {
-      kind: 'dispatch',
-      tag: 'widget-v2.4.0',
-      reason: 'widget@2.4.0 is missing from npm, so a run at widget-v2.4.0 (c0ffee) publishes it',
-    },
-  ]);
+  ).toStrictEqual({
+    kind: 'dispatch',
+    tag: 'widget-v2.4.0',
+    reason:
+      'widget@2.4.0 is the oldest release missing from npm, so a run at widget-v2.4.0 (c0ffee) publishes it',
+  });
 });
 
 test('it dispatches a run at the tag from a run that cannot publish, even at the tagged commit', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'c0ffee',
       canPublishHere: false,
@@ -62,21 +60,20 @@ test('it dispatches a run at the tag from a run that cannot publish, even at the
       },
       tagListing: { exitCode: 0, stdout: 'c0ffee\trefs/tags/widget-v2.4.0\n', stderr: '' },
     }),
-  ).toStrictEqual([
-    {
-      kind: 'dispatch',
-      tag: 'widget-v2.4.0',
-      reason: 'widget@2.4.0 is missing from npm, so a run at widget-v2.4.0 (c0ffee) publishes it',
-    },
-  ]);
+  ).toStrictEqual({
+    kind: 'dispatch',
+    tag: 'widget-v2.4.0',
+    reason:
+      'widget@2.4.0 is the oldest release missing from npm, so a run at widget-v2.4.0 (c0ffee) publishes it',
+  });
 });
 
-test('it dispatches every pending tag in version order, an earlier failed release included', () => {
+test('it hands a run at a newer pending tag to the older pending tag, so latest never moves back', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
-      head: 'beef01',
-      canPublishHere: false,
+      head: 'd00d00',
+      canPublishHere: true,
       registry: {
         exitCode: 0,
         stdout: '{"versions":["2.3.0"],"dist-tags":{"latest":"2.3.0"}}',
@@ -88,23 +85,17 @@ test('it dispatches every pending tag in version order, an earlier failed releas
         stderr: '',
       },
     }),
-  ).toStrictEqual([
-    {
-      kind: 'dispatch',
-      tag: 'widget-v2.4.0',
-      reason: 'widget@2.4.0 is missing from npm, so a run at widget-v2.4.0 (c0ffee) publishes it',
-    },
-    {
-      kind: 'dispatch',
-      tag: 'widget-v2.10.0',
-      reason: 'widget@2.10.0 is missing from npm, so a run at widget-v2.10.0 (d00d00) publishes it',
-    },
-  ]);
+  ).toStrictEqual({
+    kind: 'dispatch',
+    tag: 'widget-v2.4.0',
+    reason:
+      'widget@2.4.0 is the oldest release missing from npm, so a run at widget-v2.4.0 (c0ffee) publishes it',
+  });
 });
 
 test('it leaves a tag older than latest that never reached npm', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'c0ffee',
       canPublishHere: true,
@@ -119,14 +110,15 @@ test('it leaves a tag older than latest that never reached npm', () => {
         stderr: '',
       },
     }),
-  ).toStrictEqual([
-    { kind: 'skip', reason: 'no widget release tag newer than 2.5.0 is missing from npm' },
-  ]);
+  ).toStrictEqual({
+    kind: 'skip',
+    reason: 'no widget release tag newer than 2.5.0 is missing from npm',
+  });
 });
 
 test('it reads the commit of an annotated tag from its peeled ref', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'c0ffee',
       canPublishHere: true,
@@ -141,18 +133,17 @@ test('it reads the commit of an annotated tag from its peeled ref', () => {
         stderr: '',
       },
     }),
-  ).toStrictEqual([
-    {
-      kind: 'publish',
-      tag: 'widget-v2.4.0',
-      reason: "widget@2.4.0 is missing from npm, and widget-v2.4.0 is this run's commit",
-    },
-  ]);
+  ).toStrictEqual({
+    kind: 'publish',
+    tag: 'widget-v2.4.0',
+    reason:
+      "widget@2.4.0 is the oldest release missing from npm, and widget-v2.4.0 is this run's commit",
+  });
 });
 
 test('it ignores a tag of another package or with a version that is not a release', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'c0ffee',
       canPublishHere: true,
@@ -167,14 +158,15 @@ test('it ignores a tag of another package or with a version that is not a releas
         stderr: '',
       },
     }),
-  ).toStrictEqual([
-    { kind: 'skip', reason: 'no widget release tag newer than 2.3.0 is missing from npm' },
-  ]);
+  ).toStrictEqual({
+    kind: 'skip',
+    reason: 'no widget release tag newer than 2.3.0 is missing from npm',
+  });
 });
 
 test('it fails when npm cannot reach the registry', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'c0ffee',
       canPublishHere: true,
@@ -185,35 +177,31 @@ test('it fails when npm cannot reach the registry', () => {
       },
       tagListing: { exitCode: 0, stdout: 'c0ffee\trefs/tags/widget-v2.4.0\n', stderr: '' },
     }),
-  ).toStrictEqual([
-    {
-      kind: 'fail',
-      reason:
-        'npm view widget failed: exit 1: npm error code ECONNREFUSED\n{"error":{"code":"ECONNREFUSED"}}',
-    },
-  ]);
+  ).toStrictEqual({
+    kind: 'fail',
+    reason:
+      'npm view widget failed: exit 1: npm error code ECONNREFUSED\n{"error":{"code":"ECONNREFUSED"}}',
+  });
 });
 
 test('it fails when npm answers without a latest version', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'c0ffee',
       canPublishHere: true,
       registry: { exitCode: 0, stdout: '{"versions":["2.3.0"],"dist-tags":{}}', stderr: '' },
       tagListing: { exitCode: 0, stdout: 'c0ffee\trefs/tags/widget-v2.4.0\n', stderr: '' },
     }),
-  ).toStrictEqual([
-    {
-      kind: 'fail',
-      reason: 'npm view widget failed: exit 0: {"versions":["2.3.0"],"dist-tags":{}}',
-    },
-  ]);
+  ).toStrictEqual({
+    kind: 'fail',
+    reason: 'npm view widget failed: exit 0: {"versions":["2.3.0"],"dist-tags":{}}',
+  });
 });
 
 test('it fails when git cannot list the remote tags', () => {
   expect(
-    pickPublishActions({
+    pickPublishAction({
       name: 'widget',
       head: 'c0ffee',
       canPublishHere: true,
@@ -228,11 +216,9 @@ test('it fails when git cannot list the remote tags', () => {
         stderr: "fatal: 'origin' does not appear to be a git repository",
       },
     }),
-  ).toStrictEqual([
-    {
-      kind: 'fail',
-      reason:
-        "git ls-remote for widget tags failed: exit 128: fatal: 'origin' does not appear to be a git repository",
-    },
-  ]);
+  ).toStrictEqual({
+    kind: 'fail',
+    reason:
+      "git ls-remote for widget tags failed: exit 128: fatal: 'origin' does not appear to be a git repository",
+  });
 });

@@ -1,8 +1,8 @@
 import { appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as z from 'zod';
-import type { PublishAction } from './pick-publish-actions.ts';
-import { pickPublishActions } from './pick-publish-actions.ts';
+import type { PublishAction } from './pick-publish-action.ts';
+import { pickPublishAction } from './pick-publish-action.ts';
 import type { RunProgram } from './run-program.ts';
 import { runProgram } from './run-program.ts';
 
@@ -20,7 +20,7 @@ export interface PublishCheckOptions {
 
 // The check reads every release tag, not the release this run tagged: a release whose publish run
 // failed stays pending, so each later push dispatches it again.
-export function runPublishCheck(options: Readonly<PublishCheckOptions>): PublishAction[] {
+export function runPublishCheck(options: Readonly<PublishCheckOptions>): PublishAction {
   const run = { cwd: options.cwd, env: options.env };
   const head = options.runProgram(['git', 'rev-parse', 'HEAD'], run);
 
@@ -28,7 +28,7 @@ export function runPublishCheck(options: Readonly<PublishCheckOptions>): Publish
     throw new Error(`git rev-parse HEAD failed: ${head.stderr.trim()}`);
   }
 
-  const actions = pickPublishActions({
+  const action = pickPublishAction({
     name: options.name,
     head: head.stdout.trim(),
     canPublishHere: options.canPublishHere,
@@ -42,9 +42,7 @@ export function runPublishCheck(options: Readonly<PublishCheckOptions>): Publish
     ),
   });
 
-  return actions.map((action) =>
-    action.kind === 'dispatch' ? runPublishDispatch(options, action) : action,
-  );
+  return action.kind === 'dispatch' ? runPublishDispatch(options, action) : action;
 }
 
 function runPublishDispatch(
@@ -95,7 +93,7 @@ function runCLI(): void {
   const text = readFileSync(join(cwd, 'package.json'), 'utf8');
   const manifest = manifestSchema.parse(JSON.parse(text));
 
-  const actions = runPublishCheck({
+  const action = runPublishCheck({
     name: manifest.name,
     repository,
     canPublishHere: process.env['CAN_PUBLISH_HERE'] === 'true',
@@ -104,15 +102,13 @@ function runCLI(): void {
     runProgram,
   });
 
-  for (const action of actions) {
-    const stream = action.kind === 'fail' ? process.stderr : process.stdout;
+  const stream = action.kind === 'fail' ? process.stderr : process.stdout;
 
-    stream.write(`publish check: ${action.reason}\n`);
-  }
+  stream.write(`publish check: ${action.reason}\n`);
 
-  appendFileSync(output, `publish=${actions.some((action) => action.kind === 'publish')}\n`);
+  appendFileSync(output, `publish=${action.kind === 'publish'}\n`);
 
-  process.exitCode = actions.some((action) => action.kind === 'fail') ? 1 : 0;
+  process.exitCode = action.kind === 'fail' ? 1 : 0;
 }
 
 if (import.meta.main) {

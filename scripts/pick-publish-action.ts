@@ -29,56 +29,56 @@ const registrySchema = z.object({
   'dist-tags': z.object({ latest: z.string() }),
 });
 
-// Only a tag newer than npm's latest is pending: npm publish moves latest to the version it
-// publishes, so an older tag that never shipped stays for a person to publish under another tag.
-export function pickPublishActions(facts: Readonly<PublishFacts>): PublishAction[] {
+// npm publish moves latest to the version it publishes, so releases publish oldest first: a tag
+// that is not the oldest pending one waits, and a tag older than latest that never shipped stays
+// for a person to publish under another dist-tag.
+export function pickPublishAction(facts: Readonly<PublishFacts>): PublishAction {
   const registry = registrySchema.safeParse(parseJSON(facts.registry.stdout));
 
   if (facts.registry.exitCode !== 0 || !registry.success) {
-    return [
-      { kind: 'fail', reason: `npm view ${facts.name} failed: ${formatOutput(facts.registry)}` },
-    ];
+    return {
+      kind: 'fail',
+      reason: `npm view ${facts.name} failed: ${formatOutput(facts.registry)}`,
+    };
   }
 
   if (facts.tagListing.exitCode !== 0) {
-    return [
-      {
-        kind: 'fail',
-        reason: `git ls-remote for ${facts.name} tags failed: ${formatOutput(facts.tagListing)}`,
-      },
-    ];
+    return {
+      kind: 'fail',
+      reason: `git ls-remote for ${facts.name} tags failed: ${formatOutput(facts.tagListing)}`,
+    };
   }
 
   const latest = registry.data['dist-tags'].latest;
 
   const published = new Set(registry.data.versions);
 
-  const pending = collectReleaseTags(facts.name, facts.tagListing.stdout).filter(
+  const oldest = collectReleaseTags(facts.name, facts.tagListing.stdout).find(
     (release) => !published.has(release.version) && Bun.semver.order(release.version, latest) > 0,
   );
 
-  if (pending.length === 0) {
-    return [
-      {
-        kind: 'skip',
-        reason: `no ${facts.name} release tag newer than ${latest} is missing from npm`,
-      },
-    ];
+  if (oldest === undefined) {
+    return {
+      kind: 'skip',
+      reason: `no ${facts.name} release tag newer than ${latest} is missing from npm`,
+    };
   }
 
-  return pending.map((release) =>
-    facts.canPublishHere && release.commit === facts.head
-      ? {
-          kind: 'publish',
-          tag: release.tag,
-          reason: `${facts.name}@${release.version} is missing from npm, and ${release.tag} is this run's commit`,
-        }
-      : {
-          kind: 'dispatch',
-          tag: release.tag,
-          reason: `${facts.name}@${release.version} is missing from npm, so a run at ${release.tag} (${release.commit}) publishes it`,
-        },
-  );
+  const spec = `${facts.name}@${oldest.version}`;
+
+  if (facts.canPublishHere && oldest.commit === facts.head) {
+    return {
+      kind: 'publish',
+      tag: oldest.tag,
+      reason: `${spec} is the oldest release missing from npm, and ${oldest.tag} is this run's commit`,
+    };
+  }
+
+  return {
+    kind: 'dispatch',
+    tag: oldest.tag,
+    reason: `${spec} is the oldest release missing from npm, so a run at ${oldest.tag} (${oldest.commit}) publishes it`,
+  };
 }
 
 function parseJSON(text: string): unknown {

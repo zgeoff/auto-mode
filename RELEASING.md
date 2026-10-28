@@ -13,21 +13,25 @@ OIDC npm publish step in `.github/workflows/main.yml`. No npm token lives in CI.
    versions but not the package's own, so the bump leaves it valid.
 3. The same job merges the release pull request once its checks pass, and tags the merge
    `auto-mode-vX.Y.Z` with a GitHub release.
-4. The `release-dispatch` job lists the `auto-mode-v*` tags. For each tag whose version is newer
-   than npm's `latest` and missing from npm, it dispatches `main.yml` at the tag with
+4. The `release-dispatch` job lists the `auto-mode-v*` tags and picks the oldest one whose version
+   is newer than npm's `latest` and missing from npm. It dispatches `main.yml` at that tag with
    `republish=true`. Every push run does this, so each later push dispatches again a release whose
    publish run failed.
 5. In the dispatched run, the `release-publish` job waits for that run's checks, then runs
    `npm publish --provenance` under OIDC. npm provenance records the run's own commit as the source,
    so only a run at the tagged commit publishes.
+6. After the publish, the same job dispatches a run at the next pending tag, if one exists.
+
+Releases publish oldest first, because `npm publish` moves `latest` to the version it publishes. A
+run at a newer pending tag publishes nothing and dispatches a run at the oldest one instead.
 
 A newer push to `main` cancels the older run's checks and nothing else. The release, dispatch and
 publish jobs never cancel. The checks of a run at a tag sit in a group of their own, so no push
 cancels them. A second dispatch at the same tag cancels the first one's checks, and the second run
 publishes in its place.
 
-A tag older than npm's `latest` never publishes on its own, because `npm publish` moves `latest` to
-the version it publishes. To ship one, publish it by hand under another dist-tag.
+A tag older than npm's `latest` never publishes on its own. To ship one, publish it by hand under
+another dist-tag.
 
 ## One-time setup
 

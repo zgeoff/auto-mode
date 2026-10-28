@@ -53,8 +53,8 @@ jobs:
 
   # npm provenance records the run's own commit as the package's source, and
   # the release tag lands on a commit after this run's, so a push run never
-  # publishes: it dispatches a publish run at each release tag newer than
-  # npm's latest. It needs no checks job, so a newer push that cancels this
+  # publishes: it dispatches a publish run at the oldest release tag newer
+  # than npm's latest. It needs no checks job, so a newer push that cancels this
   # run's checks loses no release, and it waits for the release job so that
   # the tag the release job makes is there to read.
   release-dispatch:
@@ -87,7 +87,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Dispatch a publish run at each unpublished tag
+      - name: Dispatch a publish run at the oldest unpublished tag
         env:
           GH_TOKEN: ${{ github.token }}
           CAN_PUBLISH_HERE: 'false'
@@ -152,3 +152,12 @@ jobs:
       - name: Publish
         if: steps.publish-check.outputs.publish == 'true'
         run: npm publish ./*.tgz --provenance --access public
+
+      # Releases publish oldest first, so a newer pending tag waits for this
+      # one; once it is on npm, the next pending tag gets its run.
+      - name: Dispatch a publish run at the next unpublished tag
+        if: steps.publish-check.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CAN_PUBLISH_HERE: 'false'
+        run: bun run check:publish
