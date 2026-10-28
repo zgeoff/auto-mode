@@ -80,6 +80,24 @@ test('it prints the mod directory of the installed package under node', async ()
   });
 });
 
+test('it ships a package in which a gitleaks scan with the default rules finds no leak', async () => {
+  const ctx = await setupTest();
+
+  const result =
+    await Bun.$`gitleaks dir --no-banner --redact --log-level error --exit-code 1 --ignore-gitleaks-allow --gitleaks-ignore-path ${ctx.packageDir} --report-format json --report-path - ${ctx.packageDir}`
+      .env(ctx.env)
+      .quiet()
+      .nothrow();
+
+  const finding = z.object({ RuleID: z.string(), File: z.string(), StartLine: z.number() });
+  const findings = z.array(finding).parse(JSON.parse(result.stdout.toString()));
+
+  expect({
+    exitCode: result.exitCode,
+    findings: findings.map((entry) => `${entry.RuleID} ${entry.File}:${entry.StartLine}`),
+  }).toStrictEqual({ exitCode: 0, findings: [] });
+});
+
 test('it ships the mod and the secret rule set in the package', async () => {
   const ctx = await setupTest();
 

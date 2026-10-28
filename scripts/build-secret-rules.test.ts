@@ -110,3 +110,80 @@ test('it writes the rule set as a module that exports it under its type', async 
     },
   });
 });
+
+test.each([
+  ['example-literal', { source: '[e]xm-literal-key', flags: '', engine: 'js' }],
+  ['ebay-client-id', { source: '[e]xm-literal-key', flags: '', engine: 're2' }],
+])(
+  'it escapes the %s pattern that matches its own source, so a scan of the bundle passes it',
+  async (id, pattern) => {
+    const ctx = await setupTest();
+
+    const out = join(ctx.directory, 'betterleaks-rules.ts');
+
+    await writeFile(
+      join(ctx.directory, 'betterleaks.toml'),
+      [
+        `prefilter = '''matchesAny(finding["path"], [\`\\.lock$\`])'''`,
+        `filter = '''entropy(finding["secret"]) <= 3.0'''`,
+        '',
+        '[[rules]]',
+        `id = "${id}"`,
+        `regex = '''exm-literal-key'''`,
+        'keywords = ["exm-literal-"]',
+        '',
+      ].join('\n'),
+    );
+
+    await writeFile(join(ctx.directory, 'LICENSE'), 'MIT License\n\nExample notice.\n');
+
+    const result = Bun.spawnSync(
+      [
+        process.execPath,
+        join(import.meta.dirname, 'build-secret-rules.ts'),
+        '--config',
+        join(ctx.directory, 'betterleaks.toml'),
+        '--license',
+        join(ctx.directory, 'LICENSE'),
+        '--version',
+        'v0.0.1',
+        '--commit',
+        'abc123',
+        '--out',
+        out,
+      ],
+      { env: { PATH: process.env['PATH'] } },
+    );
+
+    const exported: unknown = await import(out);
+
+    invariant(typeof exported === 'object' && exported !== null, 'the output is a module');
+
+    expect(result.exitCode).toBe(0);
+
+    expect({ ...exported }).toStrictEqual({
+      BETTERLEAKS_RULES: {
+        source: {
+          repository: 'https://github.com/betterleaks/betterleaks',
+          version: 'v0.0.1',
+          commit: 'abc123',
+        },
+        notice: 'MIT License\n\nExample notice.\n',
+        prefilter: [{ source: String.raw`\.lock$`, flags: '', engine: 'js' }],
+        filter: [{ kind: 'entropy', op: '<=', value: 3 }],
+        rules: [
+          {
+            id,
+            pattern,
+            path: null,
+            keywords: ['exm-literal-'],
+            secretGroup: 0,
+            filter: [],
+            report: true,
+          },
+        ],
+        unported: [],
+      },
+    });
+  },
+);
