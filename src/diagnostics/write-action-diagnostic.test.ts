@@ -2,6 +2,7 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { faker } from '@faker-js/faker';
 import * as z from 'zod';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
@@ -62,7 +63,7 @@ test('it appends private correlated records without action, task, credential, or
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 6,
+      schemaVersion: 7,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -76,9 +77,10 @@ test('it appends private correlated records without action, task, credential, or
       diagnostics: null,
       judge: null,
       grant: null,
+      action: null,
     },
     {
-      schemaVersion: 6,
+      schemaVersion: 7,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -92,6 +94,7 @@ test('it appends private correlated records without action, task, credential, or
       diagnostics: null,
       judge: null,
       grant: null,
+      action: null,
     },
   ]);
 
@@ -178,13 +181,19 @@ test('it creates the record file readable by its owner only', async () => {
   expect(info.mode & 0o777).toBe(0o600);
 });
 
-test('it records the judge diagnostics of an overturned deny', async () => {
+test('it records the judge diagnostics and the action of an overturned deny', async () => {
   const ctx = await setupTest();
 
   const path = join(ctx.directory, 'actions.jsonl');
 
   await writeActionDiagnostic(
-    buildMockActionRequest({ sessionID: 's', toolUseID: undefined }),
+    buildMockActionRequest({
+      sessionID: 's',
+      toolUseID: undefined,
+      cwd: '/work/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'git push origin main' },
+    }),
     {
       invocationID: 'i',
       status: 'allow',
@@ -211,7 +220,7 @@ test('it records the judge diagnostics of an overturned deny', async () => {
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 6,
+    schemaVersion: 7,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -236,6 +245,233 @@ test('it records the judge diagnostics of an overturned deny', async () => {
       elapsedMs: 2400,
     },
     grant: null,
+    action: { tool: 'Bash', cwd: '/work/repo', input: '{"command":"git push origin main"}' },
+  });
+});
+
+// Each fake secret is joined at runtime so that the repository's own secret
+// scan does not read it as a leak.
+test('it replaces each secret in the logged input of a held deny', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+  const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2Rl'].join('');
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      cwd: '/work/repo',
+      toolName: 'Bash',
+      toolInput: { command: `GH_TOKEN=${token} gh release create v1.2.0` },
+    }),
+    {
+      invocationID: 'i',
+      status: 'deny',
+      verdict: 'deny',
+      decidingStage: 'judge',
+      judge: {
+        status: 'held',
+        overturnBasis: 'misread',
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        answeringModel: 'claude-haiku-5-5',
+        safetyStops: null,
+        warm: false,
+        rule: 'Publish and Release',
+        tier: 'hard',
+        elapsedMs: 1800,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  expect(z.object({ action: z.unknown() }).parse(JSON.parse(text)).action).toStrictEqual({
+    tool: 'Bash',
+    cwd: '/work/repo',
+    input: '{"command":"GH_TOKEN=[secret] gh release create v1.2.0"}',
+  });
+});
+
+test('it replaces a quoted credential that JSON escaping would hide from the secret rules', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+  const credential = ['k9Xq2LmP', 'z8Rt4Wv7'].join('');
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      cwd: '/work/repo',
+      toolName: 'Bash',
+      toolInput: {
+        command: `curl https://api.example.com -H "Authorization: Bearer ${credential}"`,
+      },
+    }),
+    {
+      invocationID: 'i',
+      status: 'deny',
+      verdict: 'deny',
+      decidingStage: 'judge',
+      judge: {
+        status: 'confirmed',
+        overturnBasis: null,
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        answeringModel: 'claude-haiku-5-5',
+        safetyStops: null,
+        warm: false,
+        rule: 'Data Exfiltration',
+        tier: 'hard',
+        elapsedMs: 1600,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  expect(z.object({ action: z.unknown() }).parse(JSON.parse(text)).action).toStrictEqual({
+    tool: 'Bash',
+    cwd: '/work/repo',
+    input: String.raw`{"command":"curl https://api.example.com -H \"Authorization: Bearer [secret]\""}`,
+  });
+});
+
+test('it replaces a quoted credential inside an array of the logged input', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+  const credential = ['k9Xq2LmP', 'z8Rt4Wv7'].join('');
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      cwd: '/work/repo',
+      toolName: 'mcp__runner__run_steps',
+      toolInput: {
+        steps: [
+          'make build',
+          `curl https://api.example.com -H "Authorization: Bearer ${credential}"`,
+        ],
+      },
+    }),
+    {
+      invocationID: 'i',
+      status: 'deny',
+      verdict: 'deny',
+      decidingStage: 'judge',
+      judge: {
+        status: 'held',
+        overturnBasis: 'misread',
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        answeringModel: 'claude-haiku-5-5',
+        safetyStops: null,
+        warm: false,
+        rule: 'Data Exfiltration',
+        tier: 'hard',
+        elapsedMs: 1400,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  expect(z.object({ action: z.unknown() }).parse(JSON.parse(text)).action).toStrictEqual({
+    tool: 'mcp__runner__run_steps',
+    cwd: '/work/repo',
+    input: String.raw`{"steps":["make build","curl https://api.example.com -H \"Authorization: Bearer [secret]\""]}`,
+  });
+});
+
+test('it logs no input when a secret is left after the redaction passes', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+
+  const tokens = Array.from({ length: 51 }, () =>
+    ['ghp', '_', faker.string.alphanumeric(36)].join(''),
+  );
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      cwd: '/work/repo',
+      toolName: 'Bash',
+      toolInput: { command: `printf '%s\\n' ${tokens.join(' ')} > tokens.txt` },
+    }),
+    {
+      invocationID: 'i',
+      status: 'deny',
+      verdict: 'deny',
+      decidingStage: 'judge',
+      judge: {
+        status: 'confirmed',
+        overturnBasis: null,
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        answeringModel: 'claude-haiku-5-5',
+        safetyStops: null,
+        warm: false,
+        rule: 'Secret Persistence',
+        tier: 'hard',
+        elapsedMs: 1700,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  expect(z.object({ action: z.unknown() }).parse(JSON.parse(text)).action).toStrictEqual({
+    tool: 'Bash',
+    cwd: '/work/repo',
+    input: null,
+  });
+});
+
+test('it cuts the logged input of a reviewed grant to 2000 characters', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      cwd: '/work/repo',
+      toolName: 'Write',
+      toolInput: { file_path: '/work/other/notes.md', content: 'a'.repeat(3000) },
+    }),
+    {
+      invocationID: 'i',
+      status: 'deny',
+      verdict: 'deny',
+      decidingStage: 'containment',
+      grant: {
+        status: 'confirmed',
+        overturnBasis: null,
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        answeringModel: 'claude-haiku-5-5',
+        safetyStops: null,
+        warm: false,
+        rule: 'Outside Task Scope',
+        tier: 'soft',
+        elapsedMs: 1500,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  expect(z.object({ action: z.unknown() }).parse(JSON.parse(text)).action).toStrictEqual({
+    tool: 'Write',
+    cwd: '/work/repo',
+    input: `{"file_path":"/work/other/notes.md","content":"${'a'.repeat(1953)}`,
   });
 });
 
@@ -255,7 +491,7 @@ test('it records no action hash for a request without a tool use id', async () =
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 6,
+    schemaVersion: 7,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -269,6 +505,7 @@ test('it records no action hash for a request without a tool use id', async () =
     diagnostics: null,
     judge: null,
     grant: null,
+    action: null,
   });
 });
 
@@ -336,7 +573,7 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 6,
+    schemaVersion: 7,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -350,5 +587,6 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
     diagnostics: null,
     judge: null,
     grant: null,
+    action: null,
   });
 });

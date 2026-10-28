@@ -204,9 +204,74 @@ test('it rejects an agent identifier that is not a 16-digit hash', () => {
   expect(result.error?.issues).toPartiallyContain({ path: ['agentHash'] });
 });
 
-test('it rejects a schema version other than 3 to 6', () => {
+test('it accepts a version 7 record with the logged action', () => {
+  const payload = {
+    schemaVersion: 7,
+    time: '2026-10-01T10:00:04.000Z',
+    invocationID: 'invocation-4',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'deny',
+    verdict: 'deny',
+    decidingStage: 'judge',
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: { status: 'held', rule: 'Audit Tampering' },
+    grant: null,
+    action: { tool: 'Bash', cwd: '/work/repo', input: '{"command":"git merge origin/main"}' },
+  } as const;
+
+  expect(actionLogRecordSchema.safeParse(payload).data).toStrictEqual(payload);
+});
+
+test('it rejects a version 7 record without the action field', () => {
   const result = actionLogRecordSchema.safeParse({
     schemaVersion: 7,
+    time: '2026-10-01T10:00:04.000Z',
+    invocationID: 'invocation-4',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+    grant: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['action'] });
+});
+
+test('it rejects the action field on a version 6 record', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 6,
+    time: '2026-10-01T10:00:03.000Z',
+    invocationID: 'invocation-3',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+    grant: null,
+    action: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['action'] });
+});
+
+test('it rejects a schema version other than 3 to 7', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 8,
     time: '2026-10-01T10:00:00.000Z',
     invocationID: 'invocation-1',
     sessionHash: 'ad9ef8a88622d2c9',

@@ -4,19 +4,20 @@ Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/act
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
 an empty string to disable the file. A failed diagnostic write does not change the verdict. Records
-carry `schemaVersion` 6. A version 5 record lacks the `grant` field, a version 4 record also lacks
-the `agentHash` field, a version 3 record also lacks the `judge` field and the `judge` stage, a
-version 2 record also lacks the three budget fields below, and a version 1 record in an older file
-also carries `harness` and `event`.
+carry `schemaVersion` 7. A version 6 record lacks the `action` field, a version 5 record also lacks
+the `grant` field, a version 4 record also lacks the `agentHash` field, a version 3 record also
+lacks the `judge` field and the `judge` stage, a version 2 record also lacks the three budget fields
+below, and a version 1 record in an older file also carries `harness` and `event`.
 
-The records exclude commands, paths, prompts, configuration contents, credentials, provider
-responses, and exception text. Configured and replacement rules use question identifiers; only
-shipped rules retain their public names. Session, agent and action identifiers use the first 16
-hexadecimal characters of SHA-256. Hash a recorded tool-call identifier to find its `actionHash`.
-For a subagent, `agentHash` hashes the session identifier and the subagent identifier joined by a
-NUL character, so each subagent gets its own value. The main agent has no subagent identifier, and
-its `agentHash` equals its `sessionHash`, the key an earlier record holds, so a session that spans
-the change of version keeps one key for its main agent.
+The records exclude prompts, configuration contents, credentials, provider responses, and exception
+text. They exclude commands and paths too, except in the `action` field of a record that holds a
+judge review. Configured and replacement rules use question identifiers; only shipped rules retain
+their public names. Session, agent and action identifiers use the first 16 hexadecimal characters of
+SHA-256. Hash a recorded tool-call identifier to find its `actionHash`. For a subagent, `agentHash`
+hashes the session identifier and the subagent identifier joined by a NUL character, so each
+subagent gets its own value. The main agent has no subagent identifier, and its `agentHash` equals
+its `sessionHash`, the key an earlier record holds, so a session that spans the change of version
+keeps one key for its main agent.
 
 For Jev, `diagnostics.status` distinguishes `allow`, `deny`, `failure`, `timeout`, and `cancelled`.
 `stage` identifies credential resolution, evidence preparation, the request, or a validated
@@ -55,6 +56,12 @@ When the judge reviewed a containment deny whose every target the last direct us
 otherwise it is `null`. A `confirmed`, `held` or `failed` review leaves `decidingStage` at
 `containment`. An `overturned` review clears the finding, so the call goes on and a later stage
 decides it, and that stage's `judge` record can sit beside the `grant` record.
+
+When `judge` or `grant` holds a review, `action` holds the action it reviewed, so you can tie a held
+or confirmed deny to its command; otherwise it is `null`. `tool` is the tool name and `cwd` the
+working directory. `input` is the tool input as JSON, with each secret the secret rules find
+replaced by `[secret]`, cut to its first 2000 characters. It is `null` when a secret is still left
+after the replacement. Hash the session identifier to find the session's `sessionHash`.
 
 Each final record also measures the task, so escalations can be counted per agent:
 

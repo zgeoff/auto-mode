@@ -66,12 +66,21 @@ rather than the judge's, because the judge's reason argues for the allow.
 
 One hard deny can clear. When Jev itself chose allow for a hard rule from the rule list, its block
 probability sits at or under a fixed bound halfway between the shipped threshold and an even split,
-and no other rule blocks the call, the evidence marks that deny as one a misread may clear, and the
-judge framework lets the judge overturn it as a misread. The bound keeps the case to a deny that
-only Jev's doubt produced: in the recorded judge runs, every hard deny under it was a safe action,
-and every catastrophic hard deny scored far above it. A soft rule that also blocks keeps the hard
-deny final, because an allow would pass that soft rule without a review. The configuration that
-accepts consent alone holds this overturn too, like every misread.
+and every other rule that blocks the call is a soft rule from the rule list that Jev doubted the
+same way, the evidence marks that deny as one a misread may clear. The judge framework then lets the
+judge overturn it as a misread. The bound keeps the case to a deny that only Jev's doubt produced:
+in the recorded judge runs, every hard deny under it was a safe action, and every catastrophic hard
+deny scored far above it.
+
+An allow passes the other blocking rules without a review of their own, so the framework lets the
+judge overturn the marked deny only when no rule in the list covers the action, a soft rule Jev
+doubted included. Three kinds of other blocking rule keep the hard deny final:
+
+- a second hard rule, which a misread of the first never clears;
+- a configured entry, which the judge's rule list does not hold;
+- a soft rule that Jev chose to block or scored above the bound, which is more than Jev's doubt.
+
+The configuration that accepts consent alone holds this overturn too, like every misread.
 
 A confirmed reason reaches the agent behind a fixed prefix that holds the rule name, flattened to
 one line and cut at a word boundary to a bounded length, so a long judgement never floods the

@@ -5,6 +5,8 @@ import type { HostEnvironment, OutputStream } from '../config/types.ts';
 import type { JudgeDiagnostics } from '../judge/types.ts';
 import type { DecisionDiagnostics } from '../model/types.ts';
 import type { ActionRequest, Verdict } from '../request/types.ts';
+import { buildSecretFreeText } from '../secrets/build-secret-free-text.ts';
+import { findSecret } from '../secrets/find-secret.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
 import type { DecidingStage } from '../types.ts';
 
@@ -44,9 +46,10 @@ export async function writeActionDiagnostic(
   // The main agent keys on the session alone, as a record of schema version 4
   // or lower does, so a session whose log holds both versions stays one agent.
   const agentKey = agentID === null ? payload.sessionID : `${payload.sessionID}\0${agentID}`;
+  const isReviewed = entry.judge !== undefined || entry.grant !== undefined;
 
   const record = {
-    schemaVersion: 6,
+    schemaVersion: 7,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
     sessionHash: toHash(payload.sessionID),
@@ -60,6 +63,7 @@ export async function writeActionDiagnostic(
     diagnostics: entry.diagnostics ?? null,
     judge: entry.judge ?? null,
     grant: entry.grant ?? null,
+    action: isReviewed ? buildLoggedAction(payload) : null,
   };
 
   try {
@@ -72,4 +76,65 @@ export async function writeActionDiagnostic(
 
 function toHash(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 16);
+}
+
+const LOGGED_INPUT_MAX_CHARS = 2000;
+
+interface LoggedAction {
+  readonly tool: string;
+  readonly cwd: string;
+  readonly input: string | null;
+}
+
+function buildLoggedAction(payload: ActionRequest): LoggedAction {
+  const redacted = buildSecretFreeValue(payload.toolInput);
+  const input = JSON.stringify(redacted);
+
+  return {
+    tool: payload.toolName,
+    cwd: payload.cwd,
+    input:
+      hasSecret(redacted) || findSecret({ text: input, path: null }) !== null
+        ? null
+        : input.slice(0, LOGGED_INPUT_MAX_CHARS),
+  };
+}
+
+// JSON escaping hides a quoted credential from the secret rules, so each
+// string is scanned as written before the input is serialized.
+function buildSecretFreeValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return buildSecretFreeText(value, () => '[secret]');
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item: unknown) => buildSecretFreeValue(item));
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]: [string, unknown]) => [
+        key,
+        buildSecretFreeValue(item),
+      ]),
+    );
+  }
+
+  return value;
+}
+
+function hasSecret(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return findSecret({ text: value, path: null }) !== null;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item: unknown) => hasSecret(item));
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.values(value).some((item: unknown) => hasSecret(item));
+  }
+
+  return false;
 }
