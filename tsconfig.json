@@ -12,6 +12,7 @@
     "mods/auto-mode/contract/**/*.ts",
     "scripts/**/*.ts",
     "test-setup.ts",
+    "release-please-config.test.ts",
     "*.config.ts",
     "*.config.js"
   ],
