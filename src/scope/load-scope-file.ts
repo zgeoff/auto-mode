@@ -93,7 +93,7 @@ export async function loadScopeFile(
         ? [...issue.path, ...issue.keys.slice(0, 1)]
         : issue?.path;
 
-    const field = refused?.join('.') || 'file';
+    const field = refused === undefined || refused.length === 0 ? 'file' : refused.join('.');
 
     return {
       kind: 'malformed',
