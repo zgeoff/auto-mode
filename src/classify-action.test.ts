@@ -2667,6 +2667,8 @@ test('it asks Jev about a message to a recipient that no reply channel lists', a
   );
 
   expect(outcome.decidingStage).toBe('jev');
+  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+  expect(outcome.status).toBe('allow');
   expect(received).toHaveBeenCalledOnce();
 });
 
@@ -2714,6 +2716,8 @@ test('it asks Jev about a message to a reply-channel recipient that carries a se
   );
 
   expect(outcome.decidingStage).toBe('jev');
+  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+  expect(outcome.status).toBe('allow');
   expect(received).toHaveBeenCalledOnce();
 });
 
