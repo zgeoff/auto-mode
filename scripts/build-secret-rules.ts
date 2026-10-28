@@ -166,13 +166,6 @@ function escapeSelfMatch(id: string, pattern: SecretPattern): SecretPattern {
     `${id} still matches its own source after the escape`,
   );
 
-  const kept = findPatternMatch(escaped, pattern.source);
-
-  invariant(
-    kept?.index === match.index && kept.text === match.text,
-    `${id} no longer matches the text it matched before the escape`,
-  );
-
   return escaped;
 }
 

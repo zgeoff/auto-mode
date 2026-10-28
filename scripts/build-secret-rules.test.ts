@@ -112,12 +112,31 @@ test('it writes the rule set as a module that exports it under its type', async 
 });
 
 test.each([
-  ['_token', 'example-token matches its own source at a character that is not a literal atom'],
-  ['[ab].*', 'example-token matches its own source at a character that is not a literal atom'],
-  ['a|b', 'example-token still matches its own source after the escape'],
+  [
+    'example-token',
+    '_token',
+    'example-token matches its own source at a character that is not a literal atom',
+  ],
+  [
+    'example-token',
+    '[ab].*',
+    'example-token matches its own source at a character that is not a literal atom',
+  ],
+  ['example-token', 'a|b', 'example-token still matches its own source after the escape'],
+  [
+    'ebay-client-id',
+    '_token',
+    'ebay-client-id matches its own source at a character that is not a literal atom',
+  ],
+  [
+    'ebay-client-id',
+    '[ab].*',
+    'ebay-client-id matches its own source at a character that is not a literal atom',
+  ],
+  ['ebay-client-id', 'a|b', 'ebay-client-id still matches its own source after the escape'],
 ])(
-  'it refuses to write the %s pattern, which matches its own source and has no safe escape',
-  async (regex, message) => {
+  'it refuses to write the %s rule with the %s pattern, which matches its own source and has no safe escape',
+  async (id, regex, message) => {
     const ctx = await setupTest();
 
     const out = join(ctx.directory, 'betterleaks-rules.ts');
@@ -129,7 +148,7 @@ test.each([
         `filter = '''entropy(finding["secret"]) <= 3.0'''`,
         '',
         '[[rules]]',
-        'id = "example-token"',
+        `id = "${id}"`,
         `regex = '''${regex}'''`,
         '',
       ].join('\n'),
