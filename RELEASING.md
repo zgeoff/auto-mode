@@ -39,7 +39,8 @@ the App, release pull requests are still created but you merge them by hand.
 
 1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App, or reuse `zgeoff-release`.
    Any homepage URL. Uncheck "Active" under Webhook.
-2. Repository permissions: Contents read and write, Pull requests read and write. Save, then install
+2. Repository permissions: Contents read and write, Pull requests read and write, Checks read. The
+   shared release job reads the release pull request's checks before it merges. Save, then install
    the App on `zgeoff/auto-mode`.
 3. Generate a private key, which downloads a `.pem`. In the repository settings add:
    - Actions variable `RELEASE_APP_ID` — the App's client ID
