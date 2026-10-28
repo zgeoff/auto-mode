@@ -16,7 +16,11 @@ test('it unites the facts of every source and drops the default branch any sourc
           branches: ['feat/b', 'main'],
           pullRequests: [{ number: 4, head: 'feat/b', repository: 'github.com/dev/app' }],
         }),
-        buildMockScopeFacts({ pathGlobs: ['/scratch/**'] }),
+        buildMockScopeFacts({
+          pathGlobs: ['/scratch/**'],
+          paths: ['/srv/notes'],
+          replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+        }),
       ],
     }),
   ).toStrictEqual({
@@ -27,6 +31,8 @@ test('it unites the facts of every source and drops the default branch any sourc
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     pullRequests: [{ number: 4, repository: 'github.com/dev/app' }],
     pathGlobs: ['/scratch/**'],
+    paths: ['/srv/notes'],
+    replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
   });
 });
 
@@ -49,6 +55,8 @@ test('it owns no protected branch name when the default branch is unknown', () =
     remotes: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -79,6 +87,8 @@ test('it owns no configured protected branch, nor its PRs, even when the default
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     pullRequests: [{ number: 8, repository: 'github.com/dev/app' }],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -109,6 +119,8 @@ test('it owns no PR whose head branch is outside the scope or whose repository i
     remotes: [{ name: 'origin', url: 'https://github.com/dev/app.git' }],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -138,5 +150,7 @@ test('it keeps a PR whose repository a checkout remote names', () => {
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     pullRequests: [{ number: 12, repository: 'github.com/dev/app' }],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });

@@ -10,6 +10,8 @@ test('it builds a default owned scope', () => {
     remotes: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -28,5 +30,7 @@ test('it applies overrides on top of the defaults', () => {
     remotes: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });

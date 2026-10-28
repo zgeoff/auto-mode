@@ -155,11 +155,11 @@ auto-mode and record, such as a rename, runs nothing and gets no finding.
 
 ## What counts as in scope
 
-A path is in scope when it lies in a worktree the task owns, in a path glob the configuration lists,
-or in the scratch space every task owns. A worktree under the `.worktrees` folder of another, as
-`.worktrees/<name>` sits inside the main checkout, belongs to its own task, so being inside the
-parent checkout never puts it in the parent's scope. Any other checkout nested inside an owned
-worktree counts as part of that worktree here, and the
+A path is in scope when it lies in a worktree the task owns, in a path the launcher scope file
+lists, in a path glob the configuration lists, or in the scratch space every task owns. A worktree
+under the `.worktrees` folder of another, as `.worktrees/<name>` sits inside the main checkout,
+belongs to its own task, so being inside the parent checkout never puts it in the parent's scope.
+Any other checkout nested inside an owned worktree counts as part of that worktree here, and the
 [edit bypass](./edit-bypass.md#which-target-counts) sends an edit into it to Jev.
 
 A branch is in scope when the task scope lists it, and the default branch and the configured

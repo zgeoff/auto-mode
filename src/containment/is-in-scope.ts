@@ -8,6 +8,7 @@ export function isInScope(
 ): boolean {
   if (
     scratchPaths.some((entry) => isUnder(path, entry)) ||
+    scope.paths.some((owned) => isUnder(path, owned)) ||
     scope.pathGlobs.some((glob) => matchesGlob(path, glob))
   ) {
     return true;

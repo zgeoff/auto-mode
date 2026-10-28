@@ -4,10 +4,11 @@ import { decisionAnswers } from './mocks/decision-answers.ts';
 import { messagesReplies } from './mocks/messages-replies.ts';
 import { server } from './mocks/node.ts';
 
-// A git hook exports the GIT_* names and an atc session the ATC_* ones. This
-// clears them for in-process reads and node:child_process children only: a
-// Bun.spawn or Bun.$ child still gets the startup environment.
+// A git hook, an atc session and a launcher export these. This clears them for
+// in-process reads and node:child_process children only: a Bun.spawn or Bun.$
+// child still gets the startup environment.
 for (const name of [
+  'AUTO_MODE_SCOPE_FILE',
   'ATC_SESSION_RECORD',
   'ATC_SESSION_ID',
   'ATC_SOCKET',

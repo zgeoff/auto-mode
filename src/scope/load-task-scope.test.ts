@@ -53,6 +53,8 @@ test('it owns the linked worktree that holds the cwd, its branch, and the remote
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -87,6 +89,8 @@ test('it owns the main checkout but not its default branch', async () => {
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -113,6 +117,8 @@ test('it owns only the cwd when git directory overrides hide the checkout', asyn
     remotes: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -172,6 +178,8 @@ test('it unites the sources and owns the PRs whose head branch and repository ar
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     pullRequests: [{ number: 7, repository: 'github.com/dev/app' }],
     pathGlobs: ['/scratch/**'],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -212,6 +220,8 @@ test('it reads no session scope when the registry has no session source', async 
     remotes: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -262,6 +272,67 @@ test('it owns the atc record that the host environment names, from the main chec
     remotes: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
+  });
+});
+
+test('it unites the scope file and the atc record that the host environment names', async () => {
+  const ctx = await setupTest();
+
+  const repo = join(ctx.directory, 'app');
+  const worktree = join(repo, '.worktrees', 'feature');
+  const recordPath = join(ctx.directory, 'record.json');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  runGit(ctx.directory, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
+
+  await writeFile(
+    recordPath,
+    JSON.stringify(
+      buildMockAtcSessionRecord({
+        session: 'atc-1',
+        scope: { workspace: { path: worktree, branch: 'feature' } },
+      }),
+    ),
+  );
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      paths: ['/srv/notes'],
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  const scope = await loadTaskScope(
+    { sessionID: 'session-1', cwd: repo, stateDir: join(ctx.directory, 'state') },
+    { launcher: { kind: 'launcher' }, atc: { kind: 'atc' } },
+    buildMockHostEnvironment({
+      env: {
+        AUTO_MODE_SCOPE_FILE: scopeFilePath,
+        ATC_SESSION_RECORD: recordPath,
+        ATC_SESSION_ID: 'atc-1',
+      },
+      home: ctx.directory,
+    }),
+    { write: mock() },
+  );
+
+  expect(scope).toStrictEqual({
+    home: ctx.directory,
+    worktrees: [worktree],
+    branches: ['feature'],
+    currentBranch: 'main',
+    remotes: [],
+    pullRequests: [],
+    pathGlobs: [],
+    paths: ['/srv/notes'],
+    replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
   });
 });
 
@@ -314,5 +385,7 @@ test('it never owns a recorded branch of another repository', async () => {
     remotes: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });

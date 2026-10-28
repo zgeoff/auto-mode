@@ -6,6 +6,7 @@ import { loadDenialState } from './budget/load-denial-state.ts';
 import { planDenialBudget } from './budget/plan-denial-budget.ts';
 import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
 import { tryUpdateDenialBudget } from './budget/try-update-denial-budget.ts';
+import { findReplyChannel } from './bypass/find-reply-channel.ts';
 import { tryClassifyEdit } from './bypass/try-classify-edit.ts';
 import type { Config } from './config/config.ts';
 import {
@@ -218,6 +219,7 @@ const STAGES: readonly Stage[] = [
   { decide: classifyContainment },
   { decide: classifyRegenerable },
   { decide: classifyEditBypass },
+  { decide: classifyReplyChannel },
   { decide: classifyLocalOnly },
 ];
 
@@ -435,6 +437,35 @@ async function classifyEditBypass(ctx: Readonly<StageContext>): Promise<StageDec
       verdict: { kind: 'allow' },
       decidingStage: 'bypass',
       note: `allowed by the edit bypass: ${edit.target}`,
+      status: 'allow',
+    },
+  };
+}
+
+async function classifyReplyChannel(ctx: Readonly<StageContext>): Promise<StageDecision> {
+  const channel =
+    ctx.hasConfiguredDenies || ctx.scope === null
+      ? null
+      : findReplyChannel(ctx.request, ctx.scope.replyChannels);
+
+  if (channel === null) {
+    return { kind: 'pass' };
+  }
+
+  // The secret rule set adds about 10 ms to a CLI start, so only a message
+  // through a reply channel loads it.
+  const reply = await import('./bypass/classify-reply-message.ts');
+
+  if (reply.classifyReplyMessage(ctx.request.toolInput).kind !== 'bypass') {
+    return { kind: 'pass' };
+  }
+
+  return {
+    kind: 'decided',
+    outcome: {
+      verdict: { kind: 'allow' },
+      decidingStage: 'bypass',
+      note: `allowed by the reply channel: ${channel.tool} to ${channel.recipient}`,
       status: 'allow',
     },
   };

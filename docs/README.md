@@ -24,6 +24,8 @@ everyday use.
 - [Containment](./architecture/stages/containment.md): the deny for a write outside the task scope.
 - [The edit bypass](./architecture/stages/edit-bypass.md): the allow for an in-scope file edit, and
   its secret scan.
+- [The reply channel](./architecture/stages/reply-channel.md): the allow for a message to a
+  recipient the launcher declared, and its secret scan.
 - [Jev](./architecture/stages/jev.md): the typed questions, the threshold, and what a classifier
   failure does.
 - [The judge](./architecture/stages/judge.md): the review of every Jev deny, and when an overturn
@@ -44,6 +46,8 @@ everyday use.
 
 - [Configuration](./guides/configuration.md): every `config.json` field, the provider presets, and
   how the API key is found.
+- [Declaring a session's scope](./guides/scope-file.md): the scope file format a launcher writes,
+  with an example, and how to write it.
 - [Claude permission mod](./guides/claude-mod.md): the request and verdict, the time limits, and a
   reversible session trial.
 - [Suggested allowlists](./guides/allowlists.md): `permissions.allow` against `autoMode.allow`,

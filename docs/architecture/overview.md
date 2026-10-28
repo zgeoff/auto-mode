@@ -31,7 +31,9 @@ flowchart TD
   G2 -->|"overturn: finding cleared"| E
   C -->|"no finding"| E{"edit bypass"}
   E -->|"in-scope edit, no secret"| B
-  E -->|"passes on"| J{"Jev"}
+  E -->|"passes on"| RC{"reply channel"}
+  RC -->|"message to an owned recipient, no secret"| B
+  RC -->|"passes on"| J{"Jev"}
   J -->|allow| B
   J -->|deny| G{"the judge"}
   G -->|"confirm, or overturn to allow"| B["denial budget"]
@@ -48,20 +50,23 @@ flowchart TD
 3. The local rules allow read-only tools and read-only shell commands on sight, and pass every other
    call on ([local rules](./stages/local-rules.md)).
 4. The containment check reads the write targets it can resolve from the call and denies any that
-   lies outside the task scope: the worktrees, branches and pull requests the task owns
+   lies outside the task scope: the worktrees, paths, branches and pull requests the task owns
    ([containment](./stages/containment.md), [the task scope](./evidence/task-scope.md)). When the
    user's last message names every target, the call moves on with the deny pending, and the judge
    reviews it beside any Jev deny
    ([the user-named grant](./stages/containment.md#the-user-named-grant)).
 5. The edit bypass allows a file edit inside a worktree the task owns, once a secret scan of the new
    content finds nothing ([the edit bypass](./stages/edit-bypass.md)).
-6. Jev answers one question per block rule in the policy, and the CLI denies when any rule's block
+6. The reply channel allows a message to a recipient the session's launcher declared as the
+   session's own, once a secret scan of the message finds nothing
+   ([the reply channel](./stages/reply-channel.md)).
+7. Jev answers one question per block rule in the policy, and the CLI denies when any rule's block
    probability reaches the configured threshold ([Jev](./stages/jev.md)).
-7. The judge, when configured, reads every deny of the call in one review: the pending containment
+8. The judge, when configured, reads every deny of the call in one review: the pending containment
    deny and the Jev deny. It confirms each with a written reason, or overturns it when the user's
    last message asked for exactly this action or when no rule covers the action. The call is allowed
    only when every deny is overturned ([the judge](./stages/judge.md)).
-8. The denial budget counts each deny. The deny that would pass the budget becomes no verdict, so
+9. The denial budget counts each deny. The deny that would pass the budget becomes no verdict, so
    that call reaches the user.
 
 The first stage that decides ends the path. One exception: a local allow for deleting regenerable
@@ -111,6 +116,9 @@ reads elsewhere belongs to someone else:
   reload of the mod and a resumed session.
 - **The session scope** keeps one file per session listing what that session's own calls created,
   which the task scope reads back.
+- **The launcher scope file** is the file a program that starts the session writes in a format
+  auto-mode defines, listing what the session owns. auto-mode reads it and never writes it
+  ([declaring a session's scope](../guides/scope-file.md)).
 - **The action log** appends one line per judged call, with the deciding stage and the counts, and
   the opt-in capture appends each full request ([state and logs](./state-and-logs.md)).
 - **Claude Code's settings and configuration** supply the user's own block rules and the configured

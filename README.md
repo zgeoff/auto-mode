@@ -33,6 +33,8 @@ undo.
   ([containment](./docs/architecture/stages/containment.md)).
 - **The edit bypass** allows an in-scope file edit once a secret scan finds nothing
   ([the edit bypass](./docs/architecture/stages/edit-bypass.md)).
+- **The reply channel** allows a message to a recipient the session's launcher declared as its own
+  ([the reply channel](./docs/architecture/stages/reply-channel.md)).
 - **Jev** judges the remaining calls against the shipped rules and your own
   ([Jev](./docs/architecture/stages/jev.md)).
 - **The judge**, on by default, reviews every Jev deny, and overturns it when your last message

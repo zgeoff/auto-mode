@@ -9,11 +9,18 @@ test.each([
   ['a path whose name only starts like the worktree', '/repo/.worktrees/ab/x.ts', false],
   ['a scratch path', '/scratch/build/x', true],
   ['a path a configured glob matches', '/data/cache/x.json', true],
+  ['a path inside an owned path', '/srv/notes/2026/x.md', true],
+  ['the owned path itself', '/srv/notes', true],
+  ['a path whose name only starts like the owned path', '/srv/notes-old/x.md', false],
 ])('it reads %s as in scope: %p', (_label, path, expected) => {
   expect(
     isInScope(
       path,
-      buildMockOwnedScope({ worktrees: ['/repo/.worktrees/a'], pathGlobs: ['/data/cache/*.json'] }),
+      buildMockOwnedScope({
+        worktrees: ['/repo/.worktrees/a'],
+        pathGlobs: ['/data/cache/*.json'],
+        paths: ['/srv/notes'],
+      }),
       ['/scratch'],
     ),
   ).toBe(expected);
