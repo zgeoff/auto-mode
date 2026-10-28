@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.1...auto-mode-v3.1.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **release:** merge the release pull request on its component branch ([#336](https://github.com/zgeoff/auto-mode/issues/336)) ([ccaf610](https://github.com/zgeoff/auto-mode/commit/ccaf6106a03a22adc82965ed3ccc322059a5eeca))
+* **release:** publish each tagged release from a run at its tag ([#334](https://github.com/zgeoff/auto-mode/issues/334)) ([82e531b](https://github.com/zgeoff/auto-mode/commit/82e531bba45555cf04b72af464253266efea80c1))
+
 ## [3.1.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.0...auto-mode-v3.1.1) (2026-10-28)
 
 
