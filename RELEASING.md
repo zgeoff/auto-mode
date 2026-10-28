@@ -13,17 +13,20 @@ OIDC npm publish step in `.github/workflows/main.yml`. No npm token lives in CI.
    versions but not the package's own, so the bump leaves it valid.
 3. The same job merges the release pull request once its checks pass, and tags the merge
    `auto-mode-vX.Y.Z` with a GitHub release.
-4. The `release-dispatch` job checks npm for the version the release job tagged and for the version
-   the run's commit holds. For each one that npm lacks and that has a tag, it dispatches `main.yml`
-   at the tag with `republish=true`. Every push run does this, so the run of the release commit's
-   own push, or any later push, dispatches a release that an earlier run tagged but did not publish.
+4. The `release-dispatch` job lists the `auto-mode-v*` tags. For each tag whose version is newer
+   than npm's `latest` and missing from npm, it dispatches `main.yml` at the tag with
+   `republish=true`. Every push run does this, so each later push dispatches again a release whose
+   publish run failed.
 5. In the dispatched run, the `release-publish` job waits for that run's checks, then runs
    `npm publish --provenance` under OIDC. npm provenance records the run's own commit as the source,
    so only a run at the tagged commit publishes.
 
 A newer push to `main` cancels the older run's checks and nothing else. The release, dispatch and
-publish jobs never cancel, and the checks of a run at a tag sit in their own group, so no push
-cancels them.
+publish jobs never cancel. The checks of a run at a tag sit in a group of their own and never
+cancel, so neither a push nor a second dispatch at the same tag stops them.
+
+A tag older than npm's `latest` never publishes on its own, because `npm publish` moves `latest` to
+the version it publishes. To ship one, publish it by hand under another dist-tag.
 
 ## One-time setup
 
@@ -73,8 +76,8 @@ Then open the package's access page on npmjs.com and add a trusted publisher: Gi
   gh workflow run main.yml --ref auto-mode-vX.Y.Z -f republish=true
   ```
 
-  A dispatch at `main` instead of the tag dispatches again at the tag of the version `main` holds. A
-  version the registry holds is skipped.
+  A dispatch at `main` instead of the tag dispatches again at each pending tag. A version the
+  registry holds is skipped.
 
 - **A merged release pull request stays untagged.** The release job fails with
   `its merge commit <sha> is no longer main's head`: the release App cannot tag a merge commit once

@@ -18,23 +18,27 @@ test('it dispatches a run at a release tagged after the checked-out commit', asy
 
   await writeFile(
     join(ctx.directory, 'package.json'),
-    JSON.stringify({ name: 'widget', version: '2.3.9' }),
+    JSON.stringify({ name: 'widget', version: '2.3.0' }),
   );
 
   const program = buildStubProgram({
     'git rev-parse HEAD': [{ exitCode: 0, stdout: 'beef01\n', stderr: '' }],
-    'npm view widget@2.4.0 version --json': [
-      { exitCode: 1, stdout: '{"error":{"code":"E404"}}', stderr: 'npm error code E404' },
+    'npm view widget versions dist-tags --json': [
+      {
+        exitCode: 0,
+        stdout: '{"versions":["2.3.0"],"dist-tags":{"latest":"2.3.0"}}',
+        stderr: '',
+      },
     ],
-    'git ls-remote --exit-code origin refs/tags/widget-v2.4.0 refs/tags/widget-v2.4.0^{}': [
-      { exitCode: 0, stdout: 'c0ffee\trefs/tags/widget-v2.4.0\n', stderr: '' },
+    'git ls-remote --tags origin refs/tags/widget-v*': [
+      {
+        exitCode: 0,
+        stdout: 'a0a0a0\trefs/tags/widget-v2.3.0\nc0ffee\trefs/tags/widget-v2.4.0\n',
+        stderr: '',
+      },
     ],
     'gh workflow run main.yml --repo octo/widget --ref widget-v2.4.0 -f republish=true': [
       { exitCode: 0, stdout: '', stderr: '' },
-    ],
-    'npm view widget@2.3.9 version --json': [{ exitCode: 0, stdout: '"2.3.9"\n', stderr: '' }],
-    'git ls-remote --exit-code origin refs/tags/widget-v2.3.9 refs/tags/widget-v2.3.9^{}': [
-      { exitCode: 0, stdout: 'a0a0a0\trefs/tags/widget-v2.3.9\n', stderr: '' },
     ],
   });
 
@@ -42,7 +46,6 @@ test('it dispatches a run at a release tagged after the checked-out commit', asy
     cwd: ctx.directory,
     env: {},
     repository: 'octo/widget',
-    release: { tag: 'widget-v2.4.0', version: '2.4.0' },
     canPublishHere: false,
     runProgram: program,
   });
@@ -50,9 +53,9 @@ test('it dispatches a run at a release tagged after the checked-out commit', asy
   expect(actions).toStrictEqual([
     {
       kind: 'dispatch',
+      tag: 'widget-v2.4.0',
       reason: 'widget@2.4.0 is missing from npm, so a run at widget-v2.4.0 (c0ffee) publishes it',
     },
-    { kind: 'skip', reason: 'widget@2.3.9 is already on npm' },
   ]);
 
   expect(program).toHaveBeenCalledWith(
@@ -72,7 +75,7 @@ test('it dispatches a run at a release tagged after the checked-out commit', asy
   );
 });
 
-test('it publishes the checked-out version at its own tag when the run can publish', async () => {
+test('it publishes the release at its own tag when the run can publish', async () => {
   const ctx = await setupTest();
 
   await writeFile(
@@ -82,10 +85,14 @@ test('it publishes the checked-out version at its own tag when the run can publi
 
   const program = buildStubProgram({
     'git rev-parse HEAD': [{ exitCode: 0, stdout: 'c0ffee\n', stderr: '' }],
-    'npm view widget@2.4.0 version --json': [
-      { exitCode: 1, stdout: '{"error":{"code":"E404"}}', stderr: 'npm error code E404' },
+    'npm view widget versions dist-tags --json': [
+      {
+        exitCode: 0,
+        stdout: '{"versions":["2.3.0"],"dist-tags":{"latest":"2.3.0"}}',
+        stderr: '',
+      },
     ],
-    'git ls-remote --exit-code origin refs/tags/widget-v2.4.0 refs/tags/widget-v2.4.0^{}': [
+    'git ls-remote --tags origin refs/tags/widget-v*': [
       { exitCode: 0, stdout: 'c0ffee\trefs/tags/widget-v2.4.0\n', stderr: '' },
     ],
   });
@@ -94,7 +101,6 @@ test('it publishes the checked-out version at its own tag when the run can publi
     cwd: ctx.directory,
     env: {},
     repository: 'octo/widget',
-    release: undefined,
     canPublishHere: true,
     runProgram: program,
   });
@@ -102,6 +108,7 @@ test('it publishes the checked-out version at its own tag when the run can publi
   expect(actions).toStrictEqual([
     {
       kind: 'publish',
+      tag: 'widget-v2.4.0',
       reason: "widget@2.4.0 is missing from npm, and widget-v2.4.0 is this run's commit",
     },
   ]);
@@ -117,10 +124,14 @@ test('it fails the dispatch that gh refuses', async () => {
 
   const program = buildStubProgram({
     'git rev-parse HEAD': [{ exitCode: 0, stdout: 'c0ffee\n', stderr: '' }],
-    'npm view widget@2.4.0 version --json': [
-      { exitCode: 1, stdout: '{"error":{"code":"E404"}}', stderr: 'npm error code E404' },
+    'npm view widget versions dist-tags --json': [
+      {
+        exitCode: 0,
+        stdout: '{"versions":["2.3.0"],"dist-tags":{"latest":"2.3.0"}}',
+        stderr: '',
+      },
     ],
-    'git ls-remote --exit-code origin refs/tags/widget-v2.4.0 refs/tags/widget-v2.4.0^{}': [
+    'git ls-remote --tags origin refs/tags/widget-v*': [
       { exitCode: 0, stdout: 'c0ffee\trefs/tags/widget-v2.4.0\n', stderr: '' },
     ],
     'gh workflow run main.yml --repo octo/widget --ref widget-v2.4.0 -f republish=true': [
@@ -132,7 +143,6 @@ test('it fails the dispatch that gh refuses', async () => {
     cwd: ctx.directory,
     env: {},
     repository: 'octo/widget',
-    release: undefined,
     canPublishHere: false,
     runProgram: program,
   });
@@ -146,17 +156,16 @@ test('it fails the dispatch that gh refuses', async () => {
   ]);
 });
 
-test('it throws on a package.json that has no version', async () => {
+test('it throws on a package.json that has no name', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.directory, 'package.json'), JSON.stringify({ name: 'widget' }));
+  await writeFile(join(ctx.directory, 'package.json'), JSON.stringify({ version: '2.4.0' }));
 
   expect(() =>
     runPublishCheck({
       cwd: ctx.directory,
       env: {},
       repository: 'octo/widget',
-      release: undefined,
       canPublishHere: true,
       runProgram: buildStubProgram({}),
     }),
@@ -176,7 +185,6 @@ test('it throws when git cannot read the checked-out commit', async () => {
       cwd: ctx.directory,
       env: {},
       repository: 'octo/widget',
-      release: undefined,
       canPublishHere: true,
       runProgram: buildStubProgram({
         'git rev-parse HEAD': [
