@@ -69,7 +69,12 @@
     "check:claude-mod": "bun --no-env-file scripts/check-claude-mod.ts",
     "files:branch": "bun scripts/read-branch-files.ts",
     "lint:files": "oxlint --no-error-on-unmatched-pattern",
-    "test:related": "bun scripts/run-related-tests.ts"
+    "test:related": "bun scripts/run-related-tests.ts",
+    "check:commits": "bun scripts/run-commits-check.ts",
+    "check:local-paths": "bun scripts/run-local-paths-check.ts",
+    "check:test-timeouts": "bun scripts/run-test-timeouts-check.ts",
+    "check:workflows": "bun scripts/run-workflows-check.ts",
+    "memory-capped": "bash scripts/run-memory-capped.sh \"$(bun scripts/read-memory-budget.ts)\""
   },
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.303",
