@@ -18,12 +18,18 @@ The stage runs after the [edit bypass](./edit-bypass.md) and reads the reply cha
 [task scope](../evidence/task-scope.md), so only the launcher scope source can declare one. The
 agent cannot add a channel, because the scope file sits where the agent cannot write.
 
+The [containment check](./containment.md) runs first and counts an MCP tool whose name reads as a
+remote write, such as one that creates a message, as a finding. A call that matches a reply channel
+is the session's own message, so the containment check takes no finding from it, and the call
+reaches this stage.
+
 ## The secret scan
 
-The stage scans every key and every string in the call's input with the Betterleaks rule set that
-the edit bypass scans with, and any match sends the call to Jev, where Data Exfiltration judges it.
-Input larger than the scan's size cap goes to Jev unscanned. The CLI loads the rule set only for a
-call that matches a reply channel.
+The stage scans the call's input with the Betterleaks rule set that the edit bypass scans with, and
+any match sends the call to Jev, where Data Exfiltration judges it. It scans the input as JSON text,
+where a rule that needs a key beside its value can match, and every key and string as written, where
+a rule that spans lines, such as a private key block, can match. Input larger than the scan's size
+cap goes to Jev unscanned. The CLI loads the rule set only for a call that matches a reply channel.
 
 ## What the stage never does
 

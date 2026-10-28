@@ -1,4 +1,5 @@
 import { SCRATCH_PATHS } from '../config/scratch-paths.ts';
+import { findReplyChannel } from '../scope/find-reply-channel.ts';
 import type { OwnedScope } from '../scope/types.ts';
 import { collectShellCommands } from '../shell/collect-shell-commands.ts';
 import type { ShellCommand } from '../shell/collect-shell-commands.ts';
@@ -64,7 +65,10 @@ function collectToolFindings(
 ): ScopeFinding[] {
   const verb = action.tool.split('__').at(-1) ?? '';
 
-  if (!/merge|create|comment|update|delete|push|close|review/u.test(verb)) {
+  if (
+    !/merge|create|comment|update|delete|push|close|review/u.test(verb) ||
+    findReplyChannel(action.tool, action.input, scope.replyChannels) !== null
+  ) {
     return [];
   }
 

@@ -6,7 +6,6 @@ import { loadDenialState } from './budget/load-denial-state.ts';
 import { planDenialBudget } from './budget/plan-denial-budget.ts';
 import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
 import { tryUpdateDenialBudget } from './budget/try-update-denial-budget.ts';
-import { findReplyChannel } from './bypass/find-reply-channel.ts';
 import { tryClassifyEdit } from './bypass/try-classify-edit.ts';
 import type { Config } from './config/config.ts';
 import {
@@ -41,6 +40,7 @@ import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 import type { LocalVerdict } from './rules/classify-locally.ts';
+import { findReplyChannel } from './scope/find-reply-channel.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
 import type { OwnedScope } from './scope/types.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
@@ -446,7 +446,7 @@ async function classifyReplyChannel(ctx: Readonly<StageContext>): Promise<StageD
   const channel =
     ctx.hasConfiguredDenies || ctx.scope === null
       ? null
-      : findReplyChannel(ctx.request, ctx.scope.replyChannels);
+      : findReplyChannel(ctx.request.toolName, ctx.request.toolInput, ctx.scope.replyChannels);
 
   if (channel === null) {
     return { kind: 'pass' };

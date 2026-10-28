@@ -2578,6 +2578,52 @@ test('it allows a message to a reply-channel recipient without asking Jev', asyn
   expect(received).not.toHaveBeenCalled();
 });
 
+test('it allows a message through an MCP tool whose name reads as a remote write to a reply-channel recipient', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__chat__create_message', field: 'channel', recipient: 'planner' },
+      ],
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__chat__create_message',
+      toolInput: { channel: 'planner', text: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+      localOnly: true,
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'bypass',
+    note: 'allowed by the reply channel: mcp__chat__create_message to planner',
+    status: 'allow',
+  });
+});
+
 test('it asks Jev about a message to a recipient that no reply channel lists', async () => {
   const ctx = await setupTest();
 

@@ -12,7 +12,7 @@ const MAX_SCANNED_BYTES = 256 * 1024;
 export function classifyReplyMessage(
   toolInput: Readonly<Record<string, unknown>>,
 ): ReplyClassification {
-  const text = collectStrings(toolInput).join('\n');
+  const text = [JSON.stringify(toolInput), ...collectStrings(toolInput)].join('\n');
 
   if (Buffer.byteLength(text, 'utf8') > MAX_SCANNED_BYTES) {
     return { kind: 'jev', reason: 'message larger than the secret scan reads' };
@@ -25,8 +25,9 @@ export function classifyReplyMessage(
     : { kind: 'jev', reason: `secret scan matched ${secret.rule}` };
 }
 
-// JSON text escapes each line break, so a rule that spans lines, such as a
-// private key block, scans the strings themselves.
+// A rule that needs a key beside its value matches the JSON text, but JSON
+// escapes each line break, so a rule that spans lines, such as a private key
+// block, matches only the strings themselves.
 function collectStrings(value: unknown): string[] {
   if (typeof value === 'string') {
     return [value];
