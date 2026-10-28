@@ -45,6 +45,9 @@ jobs:
     with:
       app-id: ${{ vars.RELEASE_APP_ID }}
       merge: true
+      # release-please names the release PR's branch after the package's
+      # component, so the merge step looks for that branch.
+      release-branch: release-please--branches--main--components--auto-mode
       # bun.lock records dependency versions but not the package's own
       # version, so a release-please bump leaves it valid.
       sync-command: ''
