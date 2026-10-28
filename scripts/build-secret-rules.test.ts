@@ -112,6 +112,58 @@ test('it writes the rule set as a module that exports it under its type', async 
 });
 
 test.each([
+  ['_token', 'example-token matches its own source at a character that is not a literal atom'],
+  ['[ab].*', 'example-token matches its own source at a character that is not a literal atom'],
+  ['a|b', 'example-token still matches its own source after the escape'],
+])(
+  'it refuses to write the %s pattern, which matches its own source and has no safe escape',
+  async (regex, message) => {
+    const ctx = await setupTest();
+
+    const out = join(ctx.directory, 'betterleaks-rules.ts');
+
+    await writeFile(
+      join(ctx.directory, 'betterleaks.toml'),
+      [
+        `prefilter = '''matchesAny(finding["path"], [\`\\.lock$\`])'''`,
+        `filter = '''entropy(finding["secret"]) <= 3.0'''`,
+        '',
+        '[[rules]]',
+        'id = "example-token"',
+        `regex = '''${regex}'''`,
+        '',
+      ].join('\n'),
+    );
+
+    await writeFile(join(ctx.directory, 'LICENSE'), 'MIT License\n\nExample notice.\n');
+
+    const result = Bun.spawnSync(
+      [
+        process.execPath,
+        join(import.meta.dirname, 'build-secret-rules.ts'),
+        '--config',
+        join(ctx.directory, 'betterleaks.toml'),
+        '--license',
+        join(ctx.directory, 'LICENSE'),
+        '--version',
+        'v0.0.1',
+        '--commit',
+        'abc123',
+        '--out',
+        out,
+      ],
+      { env: { PATH: process.env['PATH'] } },
+    );
+
+    const written = await Bun.file(out).exists();
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toInclude(`Invariant failed: ${message}`);
+    expect(written).toBe(false);
+  },
+);
+
+test.each([
   ['example-literal', { source: '[e]xm-literal-key', flags: '', engine: 'js' }],
   ['ebay-client-id', { source: '[e]xm-literal-key', flags: '', engine: 're2' }],
 ])(
