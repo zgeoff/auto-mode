@@ -1,4 +1,4 @@
-import type { HostEnvironment, OutputStream } from '../config/types.ts';
+import type { HostEnvironment, OutputStream, TextFileReader } from '../config/types.ts';
 
 export interface ScopePullRequest {
   readonly number: number;
@@ -6,11 +6,19 @@ export interface ScopePullRequest {
   readonly repository: string;
 }
 
+export interface ReplyChannel {
+  readonly tool: string;
+  readonly field: string;
+  readonly recipient: string;
+}
+
 export interface ScopeFacts {
   readonly worktrees: readonly string[];
   readonly branches: readonly string[];
   readonly pullRequests: readonly ScopePullRequest[];
   readonly pathGlobs: readonly string[];
+  readonly paths: readonly string[];
+  readonly replyChannels: readonly ReplyChannel[];
 }
 
 export const EMPTY_SCOPE_FACTS: ScopeFacts = {
@@ -18,7 +26,26 @@ export const EMPTY_SCOPE_FACTS: ScopeFacts = {
   branches: [],
   pullRequests: [],
   pathGlobs: [],
+  paths: [],
+  replyChannels: [],
 };
+
+interface DeclaredCheckout {
+  readonly path: string;
+  readonly branch: string | null;
+}
+
+export interface DeclaredScope {
+  readonly workspace?: DeclaredCheckout | undefined;
+  readonly worktrees: readonly DeclaredCheckout[];
+  readonly branches: readonly { readonly name: string; readonly repo?: string | undefined }[];
+  readonly pullRequests: readonly {
+    readonly repo: string;
+    readonly number: number;
+    readonly url?: string | undefined;
+    readonly branch: string | null;
+  }[];
+}
 
 export interface ScopeSourceContext {
   readonly env: HostEnvironment['env'];
@@ -30,6 +57,8 @@ export interface ScopeSourceContext {
   readonly stateDir: string;
   readonly atcRecordPath?: string | undefined;
   readonly atcSessionID?: string | undefined;
+  readonly scopeFilePath?: string | undefined;
+  readonly readTextFile: TextFileReader;
   readonly stderr: Readonly<OutputStream>;
 }
 
@@ -71,4 +100,6 @@ export interface OwnedScope {
   readonly remotes: readonly ScopeRemote[];
   readonly pullRequests: readonly OwnedPullRequest[];
   readonly pathGlobs: readonly string[];
+  readonly paths: readonly string[];
+  readonly replyChannels: readonly ReplyChannel[];
 }

@@ -1153,6 +1153,42 @@ test('it finds a pull request merge through an MCP tool with the number a messag
   ]);
 });
 
+test('it finds nothing in an MCP message to the recipient of a reply channel', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'mcp__chat__create_message',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { channel: 'planner', text: 'the build is green' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      replyChannels: [
+        { tool: 'mcp__chat__create_message', field: 'channel', recipient: 'planner' },
+      ],
+    }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});
+
+test('it finds a remote write in an MCP message to a recipient that no reply channel lists', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'mcp__chat__create_message',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { channel: 'everyone', text: 'the build is green' },
+    },
+    buildMockOwnedScope({
+      worktrees: ['/home/dev/src/app/.worktrees/feature'],
+      replyChannels: [
+        { tool: 'mcp__chat__create_message', field: 'channel', recipient: 'planner' },
+      ],
+    }),
+  );
+
+  expect(findings).toStrictEqual([{ kind: 'remote-write', target: 'mcp__chat__create_message' }]);
+});
+
 test('it finds a push of every branch that no message can grant', () => {
   const findings = collectScopeFindings(
     {

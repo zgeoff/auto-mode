@@ -11,6 +11,7 @@ test('it builds a default scope source context', () => {
     branch: expect.toBeString(),
     stateDir: expect.toStartWith('/'),
     stderr: { write: expect.toBeFunction() },
+    readTextFile: expect.toBeFunction(),
   });
 });
 
@@ -34,7 +35,14 @@ test('it applies overrides on top of the defaults', () => {
     stateDir: expect.toStartWith('/'),
     atcRecordPath: '/state/record.json',
     stderr: { write: expect.toBeFunction() },
+    readTextFile: expect.toBeFunction(),
   });
+});
+
+test('it reads a file from disk as UTF-8 text by default', async () => {
+  const text = await buildMockScopeSourceContext().readTextFile(import.meta.path);
+
+  expect(text).toInclude("test('it reads a file from disk as UTF-8 text by default'");
 });
 
 test('it derives the cwd and the git directory from an overridden worktree', () => {
@@ -49,5 +57,6 @@ test('it derives the cwd and the git directory from an overridden worktree', () 
     branch: expect.toBeString(),
     stateDir: expect.toStartWith('/'),
     stderr: { write: expect.toBeFunction() },
+    readTextFile: expect.toBeFunction(),
   });
 });

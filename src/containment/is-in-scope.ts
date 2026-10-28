@@ -8,6 +8,7 @@ export function isInScope(
 ): boolean {
   if (
     scratchPaths.some((entry) => isUnder(path, entry)) ||
+    scope.paths.some((owned) => isUnder(path, owned)) ||
     scope.pathGlobs.some((glob) => matchesGlob(path, glob))
   ) {
     return true;
@@ -25,5 +26,7 @@ export function isInScope(
 }
 
 function isUnder(path: string, root: string): boolean {
-  return path === root || path.startsWith(`${root}/`);
+  const prefix = root.endsWith('/') ? root : `${root}/`;
+
+  return path === root || path.startsWith(prefix);
 }

@@ -45,7 +45,12 @@ test('#loadConfig falls back to the shipped defaults when there is no config fil
     onFailure: 'defer',
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
   });
 });
 
@@ -85,7 +90,12 @@ test('#loadConfig reads the config file under the home config directory when no 
       maxTokens: 3000,
       timeoutMs: 120_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'deny',
@@ -180,7 +190,12 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
       maxTokens: 3000,
       timeoutMs: 45_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -229,7 +244,12 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
       maxTokens: 3000,
       timeoutMs: 120_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -285,7 +305,12 @@ test('#loadConfig resolves the decision classifier and judge from the registry b
       maxTokens: 3000,
       timeoutMs: 45_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -438,7 +463,12 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
       maxTokens: 3000,
       timeoutMs: 60_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -515,7 +545,7 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
       `${ctx.configFile}: classifiers.literal dropped: holds a literal apiKey; name the key with apiKeyEnv or apiKeyCommand`,
       `${ctx.configFile}: classifiers.bare dropped: kind 'messages' needs a model`,
       `${ctx.configFile}: scopeSources.empty dropped: kind 'globs' needs paths`,
-      `${ctx.configFile}: scopeSources.nowhere dropped: unknown kind 'nowhere'; known kinds are cwd, session, globs, atc`,
+      `${ctx.configFile}: scopeSources.nowhere dropped: unknown kind 'nowhere'; known kinds are cwd, session, globs, launcher, atc`,
     ],
   });
 });
@@ -638,7 +668,12 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
       maxTokens: 3000,
       timeoutMs: 120_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: join(ctx.directory, 'rules.md'),
     onFailure: 'deny',
@@ -759,7 +794,12 @@ test('#loadConfig disables the Claude rule import when the policy sets the setti
       maxTokens: 3000,
       timeoutMs: 120_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -890,7 +930,12 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
       maxTokens: 3000,
       timeoutMs: 120_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -902,7 +947,7 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
   });
 });
 
-test('#loadConfig runs the cwd, session, and atc sources when the file has no scope sources', async () => {
+test('#loadConfig runs the cwd, session, launcher, and atc sources when the file has no scope sources', async () => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { onFailure: 'defer' } }));
@@ -933,7 +978,12 @@ test('#loadConfig runs the cwd, session, and atc sources when the file has no sc
       maxTokens: 3000,
       timeoutMs: 120_000,
     },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -1019,7 +1069,12 @@ test('#DEFAULT_CONFIG ships Jev judged by claude-code, deferring on failure, wit
     onFailure: 'defer',
     blockThreshold: 0.2,
     denialBudget: { consecutive: 3, perSession: 20 },
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
   });
 });
 

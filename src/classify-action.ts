@@ -19,6 +19,7 @@ import type {
   EvaluationOptions,
   HostEnvironment,
   OutputStream,
+  TextFileReader,
 } from './config/types.ts';
 import { checkContainment } from './containment/check-containment.ts';
 import type { ContainmentDeny } from './containment/check-containment.ts';
@@ -40,6 +41,7 @@ import { readDenialGuidance } from './policy/read-denial-guidance.ts';
 import type { ActionRequest, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 import type { LocalVerdict } from './rules/classify-locally.ts';
+import { findReplyChannel } from './scope/find-reply-channel.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
 import type { OwnedScope } from './scope/types.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
@@ -218,6 +220,7 @@ const STAGES: readonly Stage[] = [
   { decide: classifyContainment },
   { decide: classifyRegenerable },
   { decide: classifyEditBypass },
+  { decide: classifyReplyChannel },
   { decide: classifyLocalOnly },
 ];
 
@@ -306,7 +309,13 @@ async function classifyContainment(ctx: Readonly<StageContext>): Promise<StageDe
   }).catch(() => null);
 
   const scope = await tryLoadTaskScope(
-    { sessionID: request.sessionID, cwd: request.cwd, checkout, readCheckout: ctx.readCheckout },
+    {
+      sessionID: request.sessionID,
+      cwd: request.cwd,
+      checkout,
+      readCheckout: ctx.readCheckout,
+      readTextFile: ctx.options.runtime.readTextFile,
+    },
     ctx.config,
     host,
     ctx.options.stderr,
@@ -343,6 +352,7 @@ async function tryLoadTaskScope(
     cwd: string;
     checkout: CheckoutFacts | null;
     readCheckout: CheckoutReader;
+    readTextFile: TextFileReader;
   }>,
   config: Readonly<Config>,
   host: Readonly<HostEnvironment>,
@@ -435,6 +445,35 @@ async function classifyEditBypass(ctx: Readonly<StageContext>): Promise<StageDec
       verdict: { kind: 'allow' },
       decidingStage: 'bypass',
       note: `allowed by the edit bypass: ${edit.target}`,
+      status: 'allow',
+    },
+  };
+}
+
+async function classifyReplyChannel(ctx: Readonly<StageContext>): Promise<StageDecision> {
+  const channel =
+    ctx.hasConfiguredDenies || ctx.scope === null
+      ? null
+      : findReplyChannel(ctx.request.toolName, ctx.request.toolInput, ctx.scope.replyChannels);
+
+  if (channel === null) {
+    return { kind: 'pass' };
+  }
+
+  // The secret rule set adds about 10 ms to a CLI start, so only a message
+  // through a reply channel loads it.
+  const reply = await import('./bypass/classify-reply-message.ts');
+
+  if (reply.classifyReplyMessage(ctx.request.toolInput).kind !== 'bypass') {
+    return { kind: 'pass' };
+  }
+
+  return {
+    kind: 'decided',
+    outcome: {
+      verdict: { kind: 'allow' },
+      decidingStage: 'bypass',
+      note: `allowed by the reply channel: ${channel.tool} to ${channel.recipient}`,
       status: 'allow',
     },
   };

@@ -10,6 +10,8 @@ export function buildMockOwnedScope(overrides: Partial<OwnedScope> = {}): OwnedS
     remotes: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
     ...overrides,
   };
 }

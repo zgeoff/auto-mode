@@ -44,9 +44,10 @@ Each line links the section that explains it.
 - The preload seeds faker with a fixed value and a fixed reference date, so a faker date never reads
   the wall clock. Its MSW server lets loopback hosts through and fails every other unmatched
   request, and after each test the preload resets the handlers and clears both reply stores.
-- The preload also deletes the `GIT_*` names a git hook exports and the `ATC_*` names an atc session
-  exports. The deletion reaches in-process reads and `node:child_process` children only: a
-  `Bun.spawn` or `Bun.$` child gets the environment bun started with.
+- The preload also deletes the `GIT_*` names a git hook exports, the `ATC_*` names an atc session
+  exports, and the `AUTO_MODE_SCOPE_FILE` a launcher exports. The deletion reaches in-process reads
+  and `node:child_process` children only: a `Bun.spawn` or `Bun.$` child gets the environment bun
+  started with.
 
 ## The host environment
 

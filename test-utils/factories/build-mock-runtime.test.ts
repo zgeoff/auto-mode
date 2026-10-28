@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect, mock, test } from 'bun:test';
 import { DECISION_URL } from '../../mocks/handlers.ts';
 import { buildMockRuntime } from './build-mock-runtime.ts';
 
@@ -37,6 +37,18 @@ test('it reaches the decision handler through the real fetch', async () => {
   });
 
   expect(response.status).toBe(200);
+});
+
+test('it reads a file from disk as UTF-8 text by default', async () => {
+  const text = await buildMockRuntime().readTextFile(import.meta.path);
+
+  expect(text).toInclude("test('it reads a file from disk as UTF-8 text by default'");
+});
+
+test('it keeps a text file reader it is given', () => {
+  const readTextFile = mock(() => Promise.resolve(''));
+
+  expect(buildMockRuntime({ readTextFile }).readTextFile).toBe(readTextFile);
 });
 
 test('it finds no checkout above the filesystem root with the real lookup', async () => {

@@ -1,5 +1,6 @@
 import { readCheckout } from '../git/read-checkout.ts';
 import { readHostEnvironment } from './read-host-environment.ts';
+import { readTextFile } from './read-text-file.ts';
 import type { Runtime } from './types.ts';
 
 export function readRuntime(): Runtime {
@@ -9,6 +10,7 @@ export function readRuntime(): Runtime {
     timeout: (timeoutMs) => AbortSignal.timeout(timeoutMs),
     fetch: sendThroughGlobalFetch,
     readCheckout: (start, env) => readCheckout(start, env),
+    readTextFile,
   };
 }
 

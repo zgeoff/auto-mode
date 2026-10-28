@@ -1,4 +1,4 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, open, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { DecisionRequestError } from 'auto-mode/eval';
 import type { ClaudeRules, DecisionRequest, DecisionResult } from 'auto-mode/eval';
@@ -152,6 +152,12 @@ export async function runExperiment<Case>(
 
   const records: SampleRecord[] = previous === null ? [] : [...previous.records];
 
+  const unitRecords = new Map<string, SampleRecord[]>();
+
+  for (const record of records) {
+    addUnitRecord(unitRecords, record);
+  }
+
   const planInput = {
     caseKeys,
     samples: options.samples,
@@ -232,6 +238,8 @@ export async function runExperiment<Case>(
 
   const spent = { requests: 0 };
 
+  await using samples = await open(join(runDir, 'samples.jsonl'), 'a');
+
   for (const unit of plan.units) {
     const labelled = getLabelledCase(unit.caseKey);
 
@@ -266,9 +274,7 @@ export async function runExperiment<Case>(
         offline: !options.live,
         policy: options.environment.policy,
         configuredRules: options.environment.configuredRules,
-        previous: records.filter(
-          (record) => record.caseKey === unit.caseKey && record.sample === unit.sample,
-        ),
+        previous: [...(unitRecords.get(toUnitKey(unit.caseKey, unit.sample)) ?? [])],
         send: async (request) => {
           const send = options.environment.send;
 
@@ -363,7 +369,9 @@ export async function runExperiment<Case>(
 
       records.push(record);
 
-      await appendFile(join(runDir, 'samples.jsonl'), `${JSON.stringify(record)}\n`);
+      addUnitRecord(unitRecords, record);
+
+      await samples.write(`${JSON.stringify(record)}\n`);
     }
   }
 
@@ -380,6 +388,16 @@ function requireCleanResume(previous: Readonly<RunConfig>): void {
       'Refusing to resume a run started from a dirty tree: no commit names its code.',
     );
   }
+}
+
+function addUnitRecord(unitRecords: Map<string, SampleRecord[]>, record: SampleRecord): void {
+  const key = toUnitKey(record.caseKey, record.sample);
+
+  unitRecords.set(key, [...(unitRecords.get(key) ?? []), record]);
+}
+
+function toUnitKey(caseKey: string, sample: number): string {
+  return JSON.stringify([caseKey, sample]);
 }
 
 interface SendingRunOptions extends RunOptions {

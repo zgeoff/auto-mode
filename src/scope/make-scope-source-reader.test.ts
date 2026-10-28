@@ -26,6 +26,8 @@ test('it owns the worktree and the branch of the cwd', async () => {
     branches: ['feat'],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -39,6 +41,8 @@ test('it owns no branch from the cwd when the checkout has none checked out', as
     branches: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -75,6 +79,8 @@ test('it owns what the session recorded, keeping only the branches of the action
     branches: ['docs'],
     pullRequests: [{ number: 7, head: 'docs', repository: 'github.com/dev/app' }],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -93,7 +99,14 @@ test("it owns nothing from another session's recorded scope", async () => {
     buildMockScopeSourceContext({ sessionID: 'session-2', stateDir }),
   );
 
-  expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
+  expect(facts).toStrictEqual({
+    worktrees: [],
+    branches: [],
+    pullRequests: [],
+    pathGlobs: [],
+    paths: [],
+    replyChannels: [],
+  });
 });
 
 test('it owns the configured path globs', async () => {
@@ -106,13 +119,22 @@ test('it owns the configured path globs', async () => {
     branches: [],
     pullRequests: [],
     pathGlobs: ['/scratch/**'],
+    paths: [],
+    replyChannels: [],
   });
 });
 
 test('it owns no path glob when the globs source lists no paths', async () => {
   const facts = await makeScopeSourceReader({ kind: 'globs' })(buildMockScopeSourceContext());
 
-  expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
+  expect(facts).toStrictEqual({
+    worktrees: [],
+    branches: [],
+    pullRequests: [],
+    pathGlobs: [],
+    paths: [],
+    replyChannels: [],
+  });
 });
 
 test('it owns the atc checkouts and only the branches that share the action repository', async () => {
@@ -153,6 +175,8 @@ test('it owns the atc checkouts and only the branches that share the action repo
     branches: ['feat', 'later'],
     pullRequests: [{ number: 12, head: 'feat', repository: 'github.com/dev/app' }],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -182,7 +206,14 @@ test('it owns no atc branch when the action is outside every checkout', async ()
     }),
   );
 
-  expect(facts).toStrictEqual({ worktrees: [repo], branches: [], pullRequests: [], pathGlobs: [] });
+  expect(facts).toStrictEqual({
+    worktrees: [repo],
+    branches: [],
+    pullRequests: [],
+    pathGlobs: [],
+    paths: [],
+    replyChannels: [],
+  });
 });
 
 test('it owns nothing from an atc record of another version', async () => {
@@ -199,7 +230,14 @@ test('it owns nothing from an atc record of another version', async () => {
     buildMockScopeSourceContext({ atcRecordPath: recordPath, atcSessionID: 'atc-1' }),
   );
 
-  expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
+  expect(facts).toStrictEqual({
+    worktrees: [],
+    branches: [],
+    pullRequests: [],
+    pathGlobs: [],
+    paths: [],
+    replyChannels: [],
+  });
 });
 
 test('it writes one diagnostic line for an atc record of another version', async () => {
@@ -231,7 +269,14 @@ test('it owns nothing from atc when the session has no record', async () => {
     buildMockScopeSourceContext({ atcRecordPath: undefined }),
   );
 
-  expect(facts).toStrictEqual({ worktrees: [], branches: [], pullRequests: [], pathGlobs: [] });
+  expect(facts).toStrictEqual({
+    worktrees: [],
+    branches: [],
+    pullRequests: [],
+    pathGlobs: [],
+    paths: [],
+    replyChannels: [],
+  });
 });
 
 test('it writes no diagnostic when the session has no atc record', async () => {
@@ -281,5 +326,100 @@ test('it owns only the atc branches whose checkout shares the action repository 
     branches: ['feat', 'later'],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
+});
+
+test('it owns what the launcher scope file declares, keeping only the branches of the action repository', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      paths: ['/srv/notes'],
+      workspace: { path: '/w/app', branch: 'feat' },
+      worktrees: [{ path: '/w/lib', branch: 'lib-feat' }],
+      branches: [{ name: 'later' }, { name: 'elsewhere', repo: '/w/lib' }],
+      pullRequests: [{ repo: 'dev/app', number: 12, branch: 'feat' }],
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  const facts = await makeScopeSourceReader(
+    { kind: 'launcher' },
+    buildStubCheckoutReader({ '/w/app': '/w/app/.git', '/w/lib': '/w/lib/.git' }).readCheckout,
+  )(buildMockScopeSourceContext({ commonDir: '/w/app/.git', scopeFilePath }));
+
+  expect(facts).toStrictEqual({
+    worktrees: ['/w/app', '/w/lib'],
+    branches: ['feat', 'later'],
+    pullRequests: [{ number: 12, head: 'feat', repository: 'github.com/dev/app' }],
+    pathGlobs: [],
+    paths: ['/srv/notes'],
+    replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+  });
+});
+
+test('it owns nothing from the launcher when the session names no scope file', async () => {
+  const facts = await makeScopeSourceReader({ kind: 'launcher' })(
+    buildMockScopeSourceContext({ scopeFilePath: undefined }),
+  );
+
+  expect(facts).toStrictEqual({
+    worktrees: [],
+    branches: [],
+    pullRequests: [],
+    pathGlobs: [],
+    paths: [],
+    replyChannels: [],
+  });
+});
+
+test('it owns nothing from a launcher scope file of another version', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({ format: 'auto-mode.scope', version: 2, paths: ['/srv/notes'] }),
+  );
+
+  const facts = await makeScopeSourceReader({ kind: 'launcher' })(
+    buildMockScopeSourceContext({ scopeFilePath }),
+  );
+
+  expect(facts).toStrictEqual({
+    worktrees: [],
+    branches: [],
+    pullRequests: [],
+    pathGlobs: [],
+    paths: [],
+    replyChannels: [],
+  });
+});
+
+test('it writes one diagnostic line for a launcher scope file of another version', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+  const write = mock();
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({ format: 'auto-mode.scope', version: 2, paths: ['/srv/notes'] }),
+  );
+
+  await makeScopeSourceReader({ kind: 'launcher' })(
+    buildMockScopeSourceContext({ scopeFilePath, stderr: { write } }),
+  );
+
+  expect(write).toHaveBeenCalledExactlyOnceWith(
+    `auto-mode: scope file ignored: version does not match version 1: ${scopeFilePath}\n`,
+  );
 });

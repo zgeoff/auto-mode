@@ -144,7 +144,8 @@ judge decide whether the user named the same ones.
 A write to a pull request passes only when the task owns that pull request in that repository. A
 merge never passes, whoever owns the pull request, so every merge, through `gh`, the GitHub API or
 an MCP tool, is a finding. `gh api graphql` counts as a read unless its query holds `mutation`, and
-`gh api` with no method and no fields is a read.
+`gh api` with no method and no fields is a read. An MCP call that matches a
+[reply channel](./reply-channel.md) of the task scope is the session's own message, never a finding.
 
 A call that runs `auto-mode record` itself is a credential finding. The mod alone reports finished
 calls, so a record the agent sends is a claim on scope the agent did not make
@@ -155,11 +156,11 @@ auto-mode and record, such as a rename, runs nothing and gets no finding.
 
 ## What counts as in scope
 
-A path is in scope when it lies in a worktree the task owns, in a path glob the configuration lists,
-or in the scratch space every task owns. A worktree under the `.worktrees` folder of another, as
-`.worktrees/<name>` sits inside the main checkout, belongs to its own task, so being inside the
-parent checkout never puts it in the parent's scope. Any other checkout nested inside an owned
-worktree counts as part of that worktree here, and the
+A path is in scope when it lies in a worktree the task owns, in a path the launcher scope file
+lists, in a path glob the configuration lists, or in the scratch space every task owns. A worktree
+under the `.worktrees` folder of another, as `.worktrees/<name>` sits inside the main checkout,
+belongs to its own task, so being inside the parent checkout never puts it in the parent's scope.
+Any other checkout nested inside an owned worktree counts as part of that worktree here, and the
 [edit bypass](./edit-bypass.md#which-target-counts) sends an edit into it to Jev.
 
 A branch is in scope when the task scope lists it, and the default branch and the configured

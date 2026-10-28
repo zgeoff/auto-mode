@@ -18,7 +18,12 @@ test.each([
       warnings: [],
       judge: null,
       denialBudget: { consecutive: 3, perSession: 20 },
-      scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+      scopeSources: {
+        cwd: { kind: 'cwd' },
+        session: { kind: 'session' },
+        launcher: { kind: 'launcher' },
+        atc: { kind: 'atc' },
+      },
       provider: {
         protocol: 'system-one',
         baseURL: 'https://decision.test',
@@ -40,7 +45,12 @@ test.each([
       warnings: [],
       judge: null,
       denialBudget: { consecutive: 3, perSession: 20 },
-      scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+      scopeSources: {
+        cwd: { kind: 'cwd' },
+        session: { kind: 'session' },
+        launcher: { kind: 'launcher' },
+        atc: { kind: 'atc' },
+      },
       provider: {
         protocol: 'system-one',
         baseURL: 'https://decision.test',

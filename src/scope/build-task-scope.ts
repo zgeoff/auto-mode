@@ -37,5 +37,7 @@ export function buildTaskScope(input: Readonly<TaskScopeInput>): OwnedScope {
     remotes: input.remotes,
     pullRequests,
     pathGlobs: merged.pathGlobs,
+    paths: merged.paths,
+    replyChannels: merged.replyChannels,
   };
 }

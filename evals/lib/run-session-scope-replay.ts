@@ -89,6 +89,7 @@ async function checkSessionContainment(
 
     // The recorded atc records are well formed.
     stderr: { write: () => true },
+    readTextFile: () => Promise.reject(new Error('the replay runs no launcher source')),
   };
 
   const facts = await Promise.all([

@@ -1,18 +1,19 @@
 # The task scope
 
-The task scope is the set of things a task owns: the worktrees it may write, the branches it may
-push, the pull requests it may change, and the checkout's own remotes. The
-[containment check](../stages/containment.md) denies any write outside it that it can resolve from
-the call, the [edit bypass](../stages/edit-bypass.md) allows edits inside it, and Jev reads its
-summary as evidence. auto-mode builds the scope afresh for every call, as the union of the scope
-sources the configuration lists, and each source answers from the call's context alone. No source
-can hand a task the default branch or a protected branch, so a push to one is always a finding.
+The task scope is the set of things a task owns: the worktrees and paths it may write, the branches
+it may push, the pull requests it may change, the checkout's own remotes, and the reply channels it
+may message. The [containment check](../stages/containment.md) denies any write outside it that it
+can resolve from the call, the [edit bypass](../stages/edit-bypass.md) allows edits inside it, and
+Jev reads its summary as evidence. auto-mode builds the scope afresh for every call, as the union of
+the scope sources the configuration lists, and each source answers from the call's context alone. No
+source can hand a task the default branch or a protected branch, so a push to one is always a
+finding.
 
 ## The scope sources
 
-Each source contributes worktrees, branches, pull requests or path globs, and never throws: a source
-with nothing to say contributes nothing. The configuration chooses which sources run, and the
-shipped default runs the first, the second and the fourth of these:
+Each source contributes worktrees, branches, pull requests, paths, path globs or reply channels, and
+never throws: a source with nothing to say contributes nothing. The configuration chooses which
+sources run, and the shipped default runs every one of these except the path globs:
 
 - **The current directory.** The worktree that holds the call's directory, or the directory itself
   outside a checkout, and its current branch.
@@ -20,6 +21,12 @@ shipped default runs the first, the second and the fourth of these:
   made, kept in the state directory ([what the session created](#what-the-session-created)).
 - **Path globs.** Paths the configuration says every task owns, such as a shared scratch directory.
   A glob that covers every worktree defeats the check, so the configuration warns about one.
+- **The launcher scope file.** A program that starts the session writes a file in a format auto-mode
+  defines, outside anything the agent can write, and names its path in the session's environment
+  ([declaring a session's scope](../../guides/scope-file.md)). The file lists owned paths, a
+  workspace, further worktrees, branches and pull requests, and the reply channels the
+  [reply channel](../stages/reply-channel.md) stage allows. auto-mode reports a malformed file with
+  one line on stderr.
 - **The atc session record.** atc, which spawns and coordinates agent sessions, writes one record
   per session outside anything the agent can write, and names its path in the session's environment.
   The record lists the workspace atc prepared, its branch, and further worktrees, branches and pull
@@ -32,8 +39,8 @@ current branch and its default branch. Every task also owns the system's scratch
 
 ## The rules that join them
 
-A branch name means nothing outside its repository, so the session and atc sources count a branch
-only when it belongs to the same repository as the call's directory. The union then drops the
+A branch name means nothing outside its repository, so the session, launcher and atc sources count a
+branch only when it belongs to the same repository as the call's directory. The union then drops the
 default branch and every branch that matches a protected branch pattern the configuration lists,
 because a branch the forge protects belongs to the repository, never to one task. When the
 checkout's default branch is unknown, it drops the conventional names for one, such as `main` and
@@ -48,8 +55,8 @@ missing or unreadable session file gives, and which makes the containment check 
 ## What the session created
 
 An agent that creates a worktree and a branch for its task must be able to write to them, but
-neither is its current directory until it moves there, and atc may not know about them. The session
-source closes that gap from what the session's own calls did.
+neither is its current directory until it moves there, and its launcher may not know about them. The
+session source closes that gap from what the session's own calls did.
 
 After a Bash call finishes without a deny, the mod checks its command against the scope commands the
 shared contract lists: `git worktree add`, `git checkout`, `git switch`, `git branch` and

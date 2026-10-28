@@ -107,16 +107,17 @@ Each entry names one source of the task scope: the worktrees, branches, pull req
 task owns. As with classifiers, `kind` defaults to the id. The task scope is the union of every
 entry's answer, and the containment check denies a write outside it.
 
-| Kind      | Fields                    | Source                                         |
-| --------- | ------------------------- | ---------------------------------------------- |
-| `cwd`     | none                      | The worktree that holds the action's directory |
-| `session` | none                      | What the session itself created                |
-| `globs`   | `paths`, a non-empty list | Path globs that every task owns                |
-| `atc`     | none                      | What atc's session record declares             |
+| Kind       | Fields                    | Source                                         |
+| ---------- | ------------------------- | ---------------------------------------------- |
+| `cwd`      | none                      | The worktree that holds the action's directory |
+| `session`  | none                      | What the session itself created                |
+| `globs`    | `paths`, a non-empty list | Path globs that every task owns                |
+| `launcher` | none                      | What the launcher's scope file declares        |
+| `atc`      | none                      | What atc's session record declares             |
 
-A file without `scopeSources` runs `cwd`, `session` and `atc`. A file with the block runs exactly
-its entries, and warns when none of them is `cwd`, because the task then owns only what the other
-sources name.
+A file without `scopeSources` runs `cwd`, `session`, `launcher` and `atc`. A file with the block
+runs exactly its entries, and warns when none of them is `cwd`, because the task then owns only what
+the other sources name.
 
 - `cwd` owns the worktree that holds the action's directory, and its branch unless that is the
   default branch.
@@ -128,6 +129,12 @@ sources name.
 - `globs` owns every path that matches one of `paths`; a leading `~/` is the home directory. A glob
   that covers every worktree, such as `.worktrees/**`, defeats the containment check, and the file
   warns about any glob that names `.worktrees`.
+- `launcher` owns what the scope file at `$AUTO_MODE_SCOPE_FILE` declares: its paths, its workspace
+  and worktrees, their branches and the declared branches when they sit in the action's repository,
+  and the declared pull requests whose head branch is in scope. Its reply channels let a message to
+  a declared recipient skip Jev. [Declaring a session's scope](./scope-file.md) holds the format.
+  Without the variable or the file the source contributes nothing; a file that does not parse
+  contributes nothing and prints one line to stderr.
 - `atc` owns what atc's session record declares: the workspace atc prepared and the extra worktrees
   as worktrees; their branches and the declared branches when they sit in the action's repository;
   and the declared pull requests whose head branch is in scope. It reads version 1 of the

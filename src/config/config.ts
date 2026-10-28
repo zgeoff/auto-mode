@@ -28,7 +28,7 @@ export interface ScopeSource {
 
 type ScopeSourceKind = (typeof SCOPE_SOURCE_KINDS)[number];
 
-const SCOPE_SOURCE_KINDS = ['cwd', 'session', 'globs', 'atc'] as const;
+const SCOPE_SOURCE_KINDS = ['cwd', 'session', 'globs', 'launcher', 'atc'] as const;
 
 export interface CaptureConfig {
   readonly enabled: boolean;
@@ -63,6 +63,7 @@ export const DEFAULT_DENIAL_BUDGET: DenialBudget = { consecutive: 3, perSession:
 export const DEFAULT_SCOPE_SOURCES: Readonly<Record<string, ScopeSource>> = {
   cwd: { kind: 'cwd' },
   session: { kind: 'session' },
+  launcher: { kind: 'launcher' },
   atc: { kind: 'atc' },
 };
 

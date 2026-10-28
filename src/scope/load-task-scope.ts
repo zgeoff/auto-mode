@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import type { ScopeSource } from '../config/config.ts';
-import type { HostEnvironment, OutputStream } from '../config/types.ts';
+import type { HostEnvironment, OutputStream, TextFileReader } from '../config/types.ts';
 import { loadCheckoutFacts } from '../git/load-checkout-facts.ts';
 import type { CheckoutFacts, CheckoutReader } from '../git/types.ts';
 import { buildTaskScope } from './build-task-scope.ts';
@@ -14,6 +14,7 @@ export interface TaskScopeRequest {
   readonly protectedBranches?: readonly string[] | undefined;
   readonly checkout?: CheckoutFacts | undefined;
   readonly readCheckout?: CheckoutReader | undefined;
+  readonly readTextFile: TextFileReader;
 }
 
 export async function loadTaskScope(
@@ -40,6 +41,8 @@ export async function loadTaskScope(
     stateDir: request.stateDir,
     atcRecordPath: host.env['ATC_SESSION_RECORD'],
     atcSessionID: host.env['ATC_SESSION_ID'],
+    scopeFilePath: host.env['AUTO_MODE_SCOPE_FILE'],
+    readTextFile: request.readTextFile,
     stderr,
   };
 

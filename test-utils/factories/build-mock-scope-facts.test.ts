@@ -7,6 +7,8 @@ test('it builds a default scope facts', () => {
     branches: [],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 
@@ -16,5 +18,7 @@ test('it applies overrides on top of the defaults', () => {
     branches: ['feature'],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });

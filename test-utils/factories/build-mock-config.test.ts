@@ -14,7 +14,12 @@ test('it builds a default config', () => {
       timeoutMs: 5000,
     },
     judge: null,
-    scopeSources: { cwd: { kind: 'cwd' }, session: { kind: 'session' }, atc: { kind: 'atc' } },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      atc: { kind: 'atc' },
+    },
     classifierPath: undefined,
     rulesPath: undefined,
     onFailure: 'defer',
@@ -58,6 +63,7 @@ test('it applies overrides on top of the defaults', () => {
     scopeSources: {
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
       atc: { kind: 'atc' },
       docs: { kind: 'globs', paths: ['/w/docs/**'] },
     },

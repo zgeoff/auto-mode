@@ -15,6 +15,8 @@ test('it owns the cwd worktree and its branch', async () => {
     remotes: [{ name: 'origin', url: '' }],
     pullRequests: [],
     pathGlobs: [],
+    paths: [],
+    replyChannels: [],
   });
 });
 

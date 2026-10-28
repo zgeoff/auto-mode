@@ -2433,6 +2433,409 @@ test('it reads the local lefthook config to tell Jev that an Edit of a bare valu
   );
 });
 
+test('it allows a write into a path the launcher scope file owns once Jev allows it', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+  const notes = join(ctx.directory, 'notes');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({ format: 'auto-mode.scope', version: 1, paths: [notes] }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: join(notes, 'todo.md'), content: '- write the summary\n' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    decidingStage: 'jev',
+    status: 'allow',
+  });
+});
+
+test('it denies a write outside every path the launcher scope file owns in the containment check', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+  const received = mock();
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      paths: [join(ctx.directory, 'notes')],
+    }),
+  );
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      received();
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: {
+        file_path: join(ctx.directory, 'drafts', 'todo.md'),
+        content: '- write the summary\n',
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Outside Task Scope' },
+    decidingStage: 'containment',
+    status: 'deny',
+  });
+
+  expect(received).not.toHaveBeenCalled();
+});
+
+test('it allows a message to a reply-channel recipient without asking Jev', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+  const received = mock();
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      received();
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'SendMessage',
+      toolInput: { to: 'lead', message: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'bypass',
+    note: 'allowed by the reply channel: SendMessage to lead',
+    status: 'allow',
+  });
+
+  expect(received).not.toHaveBeenCalled();
+});
+
+test('it allows a message through an MCP tool whose name reads as a remote write to a reply-channel recipient', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__chat__create_message', field: 'channel', recipient: 'planner' },
+      ],
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__chat__create_message',
+      toolInput: { channel: 'planner', text: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+      localOnly: true,
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'bypass',
+    note: 'allowed by the reply channel: mcp__chat__create_message to planner',
+    status: 'allow',
+  });
+});
+
+test('it asks Jev about a message to a recipient that no reply channel lists', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+  const received = mock();
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      received();
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'SendMessage',
+      toolInput: { to: 'everyone', message: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+  expect(outcome.status).toBe('allow');
+  expect(received).toHaveBeenCalledOnce();
+});
+
+test('it asks Jev about a message to a reply-channel recipient that carries a secret', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+  const key = ['AKIA', 'Z7QW3RTY5UIOP2LK'].join('');
+  const received = mock();
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      received();
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'SendMessage',
+      toolInput: { to: 'lead', message: `aws_access_key_id = "${key}"` },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+  expect(outcome.verdict).toStrictEqual({ kind: 'allow' });
+  expect(outcome.status).toBe('allow');
+  expect(received).toHaveBeenCalledOnce();
+});
+
+test('it sends a message to a reply-channel recipient to the model tier when the user configured deny entries', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  await writeFile(
+    join(ctx.directory, 'settings.json'),
+    JSON.stringify({ autoMode: { soft_deny: ['Never message the lead'] } }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'SendMessage',
+      toolInput: { to: 'lead', message: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+      localOnly: true,
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: null,
+    decidingStage: 'local',
+    note: 'SendMessage needs the model tier, which this run skipped',
+    status: 'skipped',
+  });
+});
+
+test('it lets an edit into the workspace an atc record names skip Jev when no scope file exists', async () => {
+  const ctx = await setupTest();
+
+  const repo = join(ctx.directory, 'repo');
+  const recordPath = join(ctx.directory, 'record.json');
+
+  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  runGit(ctx.directory, [
+    '-C',
+    repo,
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/feature',
+    '-b',
+    'feature',
+  ]);
+
+  await writeFile(
+    recordPath,
+    JSON.stringify({
+      format: 'atc.session-record',
+      version: 1,
+      session: 'atc-1',
+      scope: {
+        workspace: { path: join(repo, '.worktrees', 'feature'), branch: 'feature' },
+        worktrees: [],
+        branches: [],
+        pullRequests: [],
+      },
+    }),
+  );
+
+  const target = join(repo, '.worktrees', 'feature', 'src', 'a.ts');
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: repo,
+      toolName: 'Write',
+      toolInput: { file_path: target, content: 'export const a = 1;\n' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { ATC_SESSION_RECORD: recordPath, ATC_SESSION_ID: 'atc-1' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+      localOnly: true,
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'bypass',
+    note: `allowed by the edit bypass: ${target}`,
+    status: 'allow',
+  });
+});
+
 test('it sends a write of a skip setting into the local lefthook config to Jev under Policy Tampering', async () => {
   const ctx = await setupTest();
 
