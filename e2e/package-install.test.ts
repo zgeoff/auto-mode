@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { existsSync } from 'node:fs';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { delimiter, dirname, join } from 'node:path';
+import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 
@@ -30,33 +30,29 @@ async function setupTest(): Promise<{
   const resolved = await Bun.$`node -p process.execPath`.quiet().text();
 
   const node = resolved.trim();
-  const nodeDirectory = dirname(node);
 
-  // The package's prepare script links the evals package and installs git
-  // hooks, which a pack of the built artifact does not need.
-  const packed: unknown =
-    await Bun.$`${join(nodeDirectory, 'npm')} pack --json --ignore-scripts --pack-destination ${directory}`
+  // The release job packs with bun pm pack, so the suite tests that tarball. The package's
+  // prepare script links the evals package and installs git hooks, which a pack of the built
+  // artifact does not need.
+  const packed =
+    await Bun.$`${process.execPath} pm pack --ignore-scripts --quiet --destination ${directory}`
       .cwd(root)
-      .env({
-        PATH: `${nodeDirectory}${delimiter}${process.env['PATH'] ?? ''}`,
-        HOME: directory,
-        npm_config_cache: join(directory, 'npm-cache'),
-      })
       .quiet()
-      .json();
+      .text();
 
-  const packedFile = z.object({ path: z.string() });
-  const packedTarball = z.object({ filename: z.string(), files: z.array(packedFile) });
-  const [tarball] = z.array(packedTarball).length(1).parse(packed);
+  const tarball = packed.trim();
 
-  invariant(tarball);
+  const listing = await Bun.$`tar -tzf ${tarball}`.quiet().text();
 
-  await Bun.$`tar -xzf ${join(directory, tarball.filename)} -C ${directory}`.quiet();
+  await Bun.$`tar -xzf ${tarball} -C ${directory}`.quiet();
 
   return {
     node,
     packageDir: join(directory, 'package'),
-    files: tarball.files.map((file) => file.path),
+    files: listing
+      .split('\n')
+      .filter((entry) => entry !== '')
+      .map((entry) => entry.replace(/^package\//u, '')),
     env: { PATH: process.env['PATH'], HOME: directory },
   };
 }

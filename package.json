@@ -70,6 +70,8 @@
     "files:branch": "bun scripts/read-branch-files.ts",
     "lint:files": "oxlint --no-error-on-unmatched-pattern",
     "test:related": "bun scripts/run-related-tests.ts",
+    "check:publish": "bun scripts/run-publish-check.ts",
+    "setup:ci-tools": "bun scripts/run-ci-tools-install.ts",
     "check:commits": "bun scripts/run-commits-check.ts",
     "check:local-paths": "bun scripts/run-local-paths-check.ts",
     "check:test-timeouts": "bun scripts/run-test-timeouts-check.ts",

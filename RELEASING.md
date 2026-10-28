@@ -7,12 +7,31 @@ OIDC npm publish step in `.github/workflows/main.yml`. No npm token lives in CI.
 ## Flow
 
 1. A `feat:` or `fix:` pull request merges to `main`.
-2. `main.yml` runs release-please, which opens or updates the release pull request: a version bump
-   per conventional-commit type, `CHANGELOG.md`, and the manifest. Then it auto-merges. No lockfile
-   repair is needed: `bun.lock` records dependency versions but not the package's own, so the bump
-   leaves it valid.
-3. That merge triggers `main.yml` again: release-please tags `auto-mode-vX.Y.Z`, creates the GitHub
-   release, and the publish step runs `npm publish --provenance` under OIDC.
+2. The `release` job of `main.yml` calls the shared release-please workflow in zgeoff/tools. It
+   opens or updates the release pull request: a version bump per conventional-commit type,
+   `CHANGELOG.md`, and the manifest. No lockfile repair is needed: `bun.lock` records dependency
+   versions but not the package's own, so the bump leaves it valid.
+3. The same job merges the release pull request once its checks pass, and tags the merge
+   `auto-mode-vX.Y.Z` with a GitHub release.
+4. The `release-dispatch` job lists the `auto-mode-v*` tags and picks the oldest one whose version
+   is newer than npm's `latest` and missing from npm. It dispatches `main.yml` at that tag with
+   `republish=true`. Every push run does this, so each later push dispatches again a release whose
+   publish run failed.
+5. In the dispatched run, the `release-publish` job waits for that run's checks, then runs
+   `npm publish --provenance` under OIDC. npm provenance records the run's own commit as the source,
+   so only a run at the tagged commit publishes.
+6. After the publish, the same job dispatches a run at the next pending tag, if one exists.
+
+Releases publish oldest first, because `npm publish` moves `latest` to the version it publishes. A
+run at a newer pending tag publishes nothing and dispatches a run at the oldest one instead.
+
+A newer push to `main` cancels the older run's checks and nothing else. The release, dispatch and
+publish jobs never cancel. The checks of a run at a tag sit in a group of their own, so no push
+cancels them. A second dispatch at the same tag cancels the first one's checks, and the second run
+publishes in its place.
+
+A tag older than npm's `latest` never publishes on its own. To ship one, publish it by hand under
+another dist-tag.
 
 ## One-time setup
 
@@ -24,7 +43,8 @@ the App, release pull requests are still created but you merge them by hand.
 
 1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App, or reuse `zgeoff-release`.
    Any homepage URL. Uncheck "Active" under Webhook.
-2. Repository permissions: Contents read and write, Pull requests read and write. Save, then install
+2. Repository permissions: Contents read and write, Pull requests read and write, Checks read. The
+   shared release job reads the release pull request's checks before it merges. Save, then install
    the App on `zgeoff/auto-mode`.
 3. Generate a private key, which downloads a `.pem`. In the repository settings add:
    - Actions variable `RELEASE_APP_ID` — the App's client ID
@@ -49,18 +69,32 @@ Then open the package's access page on npmjs.com and add a trusted publisher: Gi
 
 ## Troubleshooting
 
-- **Release pull request open but nothing published.** The App is not configured or its token step
-  failed, so the pull request did not auto-merge. Merging it by hand from the GitHub UI works and
-  triggers the publish run.
+- **Release pull request open but nothing published.** The App is not configured, its token step
+  failed, or the pull request's checks ran past the release job's wait, so it did not merge. Merging
+  it by hand from the GitHub UI works: the run of that merge's push tags the release and dispatches
+  the publish.
 - **`npm publish` returns 404 or 403 on the first CI release.** The trusted publisher is not
   configured, or the first manual publish never happened.
-- **Tagged and released on GitHub but the npm publish failed.** Re-run the publish alone:
+- **Tagged and released on GitHub but the npm publish failed.** The next push to `main` dispatches
+  the publish again. To publish without waiting, dispatch it yourself:
 
   ```sh
-  gh workflow run main.yml -f republish=true
+  gh workflow run main.yml --ref auto-mode-vX.Y.Z -f republish=true
   ```
 
-  A version already on the registry is skipped.
+  A dispatch at `main` instead of the tag dispatches again at each pending tag. A version the
+  registry holds is skipped.
+
+- **A merged release pull request stays untagged.** The release job fails with
+  `its merge commit <sha> is no longer main's head`: the release App cannot tag a merge commit once
+  `main` holds a later workflow change, and a person's token, which holds the workflow scope, has
+  to.
+  1. Read the release pull request's merge commit: `gh pr view <number> --json mergeCommit`.
+  2. Create the release at the merge commit, with its section of `CHANGELOG.md` as the notes:
+     `gh release create auto-mode-vX.Y.Z --target <merge commit> --title auto-mode-vX.Y.Z --notes-file <notes>`.
+  3. Mark the pull request tagged, so release-please stops retrying it:
+     `gh pr edit <number> --remove-label 'autorelease: pending' --add-label 'autorelease: tagged'`.
+  4. Publish from the tag: `gh workflow run main.yml --ref auto-mode-vX.Y.Z -f republish=true`.
 
 - **Cutting a specific version.** Put `Release-As: X.Y.Z` in the footer of a commit that lands on
   `main`. With squash merges that means the squash commit body, so pass it explicitly:
