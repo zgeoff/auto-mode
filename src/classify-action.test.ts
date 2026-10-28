@@ -881,6 +881,130 @@ test('it allows a scratch-directory test run that Jev chose to allow but scored 
   expect(calls).toInclude(String.raw`\"misreadMayClear\": true`);
 });
 
+test('it allows a merge that Jev doubted on Audit Tampering and on Default Branch Write when the judge overturns the hard deny as a misread', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set(
+    'rule_3',
+    buildMockDecisionAnswer({
+      choice: 'allow',
+      confidence: 0.67,
+      probabilities: { allow: 0.67, block: 0.33 },
+    }),
+  );
+
+  decisionAnswers.set(
+    'rule_8',
+    buildMockDecisionAnswer({
+      choice: 'allow',
+      confidence: 0.71,
+      probabilities: { allow: 0.71, block: 0.29 },
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'git merge --no-edit origin/main' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      judgeOverturns: 'any',
+      blockThreshold: 0.2,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '{"verdict":"overturn","basis":"misread","reason":"The merge brings main into the feature branch and rewrites no history."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    decidingStage: 'judge',
+    status: 'allow',
+    judge: {
+      status: 'overturned',
+      overturnBasis: 'misread',
+      rule: 'Audit Tampering',
+      tier: 'hard',
+    },
+  });
+
+  const calls = await readFile(ctx.recordPath, 'utf8');
+
+  expect(calls).toInclude(String.raw`\"misreadMayClear\": true`);
+});
+
+test('it keeps a merge Jev doubted on Audit Tampering when it chose to block Default Branch Write', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set(
+    'rule_3',
+    buildMockDecisionAnswer({
+      choice: 'allow',
+      confidence: 0.67,
+      probabilities: { allow: 0.67, block: 0.33 },
+    }),
+  );
+
+  decisionAnswers.set(
+    'rule_8',
+    buildMockDecisionAnswer({
+      choice: 'block',
+      confidence: 0.62,
+      probabilities: { allow: 0.38, block: 0.62 },
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'git merge --no-edit origin/main' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      judgeOverturns: 'any',
+      blockThreshold: 0.2,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_REPLY:
+            '{"verdict":"overturn","basis":"misread","reason":"The merge brings main into the feature branch."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Audit Tampering' },
+    decidingStage: 'judge',
+    status: 'deny',
+    judge: { status: 'held', overturnBasis: 'misread', tier: 'hard' },
+  });
+});
+
 test('it keeps a hard-rule deny Jev chose to allow when its block probability is above the misread bound', async () => {
   const ctx = await setupTest();
 
@@ -1431,7 +1555,7 @@ test('it writes a started and a final action-log record when asked', async () =>
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 6,
+      schemaVersion: 7,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
@@ -1445,9 +1569,10 @@ test('it writes a started and a final action-log record when asked', async () =>
       diagnostics: null,
       judge: null,
       grant: null,
+      action: null,
     },
     {
-      schemaVersion: 6,
+      schemaVersion: 7,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
@@ -1461,6 +1586,7 @@ test('it writes a started and a final action-log record when asked', async () =>
       diagnostics: null,
       judge: null,
       grant: null,
+      action: null,
     },
   ]);
 });

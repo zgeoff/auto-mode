@@ -28,9 +28,11 @@ The action log holds one line when a judged call starts and one when it ends, so
 died midway shows as a start with no end. The end line holds the verdict, the deciding stage, the
 denial counts, whether the call spent the budget, and each model stage's own diagnostics: Jev's
 status, the step where it failed, the request size, its latency and every rule that reached the
-threshold, and the judge's outcome and latency. It holds no tool input and no message text, and it
-keys a call by hashes of its session, agent and tool-call identifiers, so the log records how
-auto-mode decided without holding the work it decided about.
+threshold, and the judge's outcome and latency. It keys a call by hashes of its session, agent and
+tool-call identifiers, and it holds no message text, so the log records how auto-mode decided
+without holding the work it decided about. One exception: an end line that holds a judge review also
+holds the reviewed action, its tool, working directory and input, with every secret the secret rules
+find replaced, so a held deny can be tied to the command it held.
 [Action diagnostics](../guides/diagnostics.md) lists the fields, and the evaluation tooling turns
 the log into its live-use measurement ([evaluation](./evaluation.md)).
 

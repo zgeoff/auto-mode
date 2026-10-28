@@ -1,4 +1,4 @@
-import { findSecret } from 'auto-mode/eval';
+import { buildSecretFreeText } from 'auto-mode/eval';
 import { derivePlaceholder } from './derive-placeholder.ts';
 import {
   EMAIL,
@@ -195,24 +195,6 @@ function buildReplacedText(
 
 function isGroups(value: unknown): value is Groups {
   return typeof value === 'object' && value !== null;
-}
-
-const MAX_SECRET_PASSES = 50;
-
-function buildSecretFreeText(text: string, toReplacement: (secret: string) => string): string {
-  let current = text;
-
-  for (let pass = 0; pass < MAX_SECRET_PASSES; pass += 1) {
-    const finding = findSecret({ text: current, path: null });
-
-    if (finding === null || finding.secret === '' || !current.includes(finding.secret)) {
-      return current;
-    }
-
-    current = current.replaceAll(finding.secret, toReplacement(finding.secret));
-  }
-
-  return current;
 }
 
 function isTokenLike(run: string): boolean {

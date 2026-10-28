@@ -21,10 +21,13 @@ export function findReviewedRule(
 
   const misreadClears =
     chosen.rule.tier === 'hard' &&
-    chosen.rule.source !== 'configured' &&
-    chosen.answer.choice === 'allow' &&
-    chosen.answer.probabilities.block <= MISREAD_CLEARABLE_BLOCK_PROBABILITY &&
-    blocking.length === 1;
+    blocking.every(
+      (entry) =>
+        entry.rule.source !== 'configured' &&
+        entry.answer.choice === 'allow' &&
+        entry.answer.probabilities.block <= MISREAD_CLEARABLE_BLOCK_PROBABILITY &&
+        (entry === chosen || entry.rule.tier === 'soft'),
+    );
 
   return {
     rule: chosen.rule,

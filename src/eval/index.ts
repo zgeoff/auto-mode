@@ -50,7 +50,7 @@ export { collectPullRequestAddresses } from '../scope/collect-pull-request-addre
 export { makeScopeSourceReader } from '../scope/make-scope-source-reader.ts';
 export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';
 export { updateSessionScope } from '../scope/update-session-scope.ts';
-export { findSecret } from '../secrets/find-secret.ts';
+export { buildSecretFreeText } from '../secrets/build-secret-free-text.ts';
 export { collectShellScripts } from '../shell/collect-shell-scripts.ts';
 export { splitCommandWords } from '../shell/split-command-words.ts';
 export { splitGitCommand } from '../shell/split-git-command.ts';

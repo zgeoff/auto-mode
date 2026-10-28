@@ -25,7 +25,7 @@ When neither reason clearly holds, confirm.
 
 Always confirm a HARD BLOCK rule and a configured hard deny entry. Consent never clears one, and you cannot overturn one; your task for these is the reason only.
 
-One exception applies only to a deny whose own evidence holds `"misreadMayClear": true`, which only a HARD BLOCK rule can hold. You may overturn that deny with the basis `misread` when the facts show that the action cannot cause the harm its rule describes and that no other rule covers the action. Otherwise confirm it. This exception changes nothing for any other deny.
+One exception applies only to a deny whose own evidence holds `"misreadMayClear": true`, which only a HARD BLOCK rule can hold. You may overturn that deny with the basis `misread` when the facts show that the action cannot cause the harm its rule describes and that no other rule covers the action, including a SOFT BLOCK rule the classifier doubted. Otherwise confirm it. This exception changes nothing for any other deny.
 
 Confirm a SOFT BLOCK rule when the last direct user message is missing, when it does not name both the operation and the target, and when the action reaches past what it names.
 

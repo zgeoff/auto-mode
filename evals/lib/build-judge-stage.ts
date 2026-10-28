@@ -82,7 +82,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
         status: 'scored',
         verdict: judged.verdict.kind,
         pBlock: null,
-        reason: `${judged.status}${basis}: ${denied.rule.name} — ${text.slice(0, REASON_TEXT_MAX_CHARS)}`,
+        reason: `${judged.status}${basis}: ${denied.rule.name} — ${text.slice(0, REASON_TEXT_MAX_CHARS).trimEnd()}`,
       };
     },
   };
@@ -129,7 +129,7 @@ interface JevDeny {
 
 // The Jev record keeps only the denied rule and its block probability, the
 // highest, so a choice of block passes one half and a clearable hard deny is
-// read as the only rule that blocks.
+// read as one whose other blocking rules are soft rules from the rule list.
 function findJevDeny(
   entry: Readonly<MeasurementCase>,
   context: Readonly<StageContext>,
