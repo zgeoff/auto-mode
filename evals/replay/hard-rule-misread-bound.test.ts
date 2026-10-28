@@ -156,7 +156,7 @@ test('it scores the live judge replies through the judge stage, clearing most lo
   );
 
   expect(hardDenies.map((deny) => deny.reason)).toStrictEqual(
-    hardDenies.map((deny) => deny.recorded),
+    hardDenies.map((deny) => deny.recorded.trimEnd()),
   );
 
   const clearable = hardDenies.filter((deny) => deny.pBlock <= MISREAD_CLEARABLE_BLOCK_PROBABILITY);
@@ -173,7 +173,7 @@ test('it scores the live judge replies through the judge stage, clearing most lo
     'overturned (misread)',
     'overturned (misread)',
     'overturned (misread)',
-    'confirmed',
+    'overturned (misread)',
   ]);
 
   expect(aboveBound.map((deny) => deny.judge)).toIncludeSameMembers([

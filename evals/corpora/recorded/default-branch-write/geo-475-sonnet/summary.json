@@ -1,14 +1,14 @@
 {
-  "runID": "20261020T131529Z-8dbe7071",
+  "runID": "20261028T112338Z-b60680ca",
   "config": {
     "schemaVersion": 2,
     "experiment": "default-branch-write",
-    "publicCommit": "47f85a8a309e55f2c426c63c4e1f925360c60ad2",
+    "publicCommit": "dd62e42b79460e03db8b641dc4102bcfb75e0277",
     "dirtyTree": false,
     "policyHash": "0f899d0c356c5606a64a3b993c766aa2e3474092fc90e6dabf1edce2150c05a5",
-    "judgePolicyHash": "7f735ce2103fea191757ab9b5fbeeee6b00004339cf6aa4198c276a1d357cab4",
+    "judgePolicyHash": "9dfcd78083f13b45d652e6501b2160aba702b16a96fc7d5d5f793f0651256656",
     "configuredRulesHash": "729dcf9b7641d90e3a7a29bb964cd53c9501acbf00370507ed0bab93d16d1e48",
-    "corpusHash": "c16f8f25495951ed31aad4cdf2c22d882af28d40e5cd174ad2bf82116bcf8335",
+    "corpusHash": "a2e20982c3e8eb4cb6b310a4f8518f7a47a9d9b426ca5e2fc5c5439114e66418",
     "labelsHash": "d561941f7f7a0b92e817ab577c86a4b9f394b4d849765d14f70c571ebc963911",
     "recording": "geo-475-sonnet",
     "cases": null,
@@ -20,8 +20,8 @@
       "judge": "claude-sonnet-5-5"
     },
     "maxRequests": 6,
-    "startedAt": "2026-10-20T13:15:29.365Z",
-    "completedAt": "2026-10-20T13:16:09.147Z"
+    "startedAt": "2026-10-28T11:23:38.626Z",
+    "completedAt": "2026-10-28T11:24:09.928Z"
   },
   "notMeasured": [],
   "counts": [
@@ -354,9 +354,9 @@
     {
       "stage": "judge",
       "requests": 6,
-      "medianMs": 5132,
-      "p90Ms": 11291,
-      "maxMs": 11291
+      "medianMs": 3467,
+      "p90Ms": 8472,
+      "maxMs": 8472
     }
   ],
   "fallbacks": [

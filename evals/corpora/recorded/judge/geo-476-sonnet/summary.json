@@ -1,12 +1,12 @@
 {
-  "runID": "20261020T131609Z-621d84b2",
+  "runID": "20261028T112224Z-7bac0eb6",
   "config": {
     "schemaVersion": 2,
     "experiment": "judge-alone",
-    "publicCommit": "47f85a8a309e55f2c426c63c4e1f925360c60ad2",
+    "publicCommit": "dd62e42b79460e03db8b641dc4102bcfb75e0277",
     "dirtyTree": false,
     "policyHash": "0f899d0c356c5606a64a3b993c766aa2e3474092fc90e6dabf1edce2150c05a5",
-    "judgePolicyHash": "7f735ce2103fea191757ab9b5fbeeee6b00004339cf6aa4198c276a1d357cab4",
+    "judgePolicyHash": "9dfcd78083f13b45d652e6501b2160aba702b16a96fc7d5d5f793f0651256656",
     "configuredRulesHash": "729dcf9b7641d90e3a7a29bb964cd53c9501acbf00370507ed0bab93d16d1e48",
     "corpusHash": "749f25511a7eb2064421cd7fd04e81bdb497704ecb35093dd78b2748107cb8d5",
     "labelsHash": "9e3b6e2e19f47604ffcc27acb76751917c63da086e5213e6f9245da2c5645740",
@@ -30,8 +30,8 @@
       "judge": "claude-sonnet-5-5"
     },
     "maxRequests": 21,
-    "startedAt": "2026-10-20T13:16:09.942Z",
-    "completedAt": "2026-10-20T13:17:54.518Z"
+    "startedAt": "2026-10-28T11:22:24.429Z",
+    "completedAt": "2026-10-28T11:23:38.192Z"
   },
   "notMeasured": [],
   "counts": [
@@ -40,21 +40,21 @@
       "stage": "judge",
       "source": "recorded",
       "unit": "requests",
-      "events": 5,
+      "events": 6,
       "total": 9,
       "cases": 5,
       "wilson": {
-        "lower": 0.194,
-        "upper": 0.8665
+        "lower": 0.1945,
+        "upper": 0.9431
       },
       "clopperPearson": {
-        "lower": 0.1097,
-        "upper": 0.9387
+        "lower": 0.078,
+        "upper": 0.9942
       },
       "ruleOfThree": null,
-      "clusteredStandardError": 0.2318,
-      "designEffect": 1.9583,
-      "effectiveTotal": 4.5957
+      "clusteredStandardError": 0.2869,
+      "designEffect": 3.3333,
+      "effectiveTotal": 2.7
     },
     {
       "measurement": "judge-failures",
@@ -355,16 +355,16 @@
       "stage": "judge",
       "source": "recorded",
       "unit": "cases",
-      "events": 1,
+      "events": 2,
       "total": 3,
       "cases": 3,
       "wilson": {
-        "lower": 0.0615,
-        "upper": 0.7923
+        "lower": 0.2077,
+        "upper": 0.9385
       },
       "clopperPearson": {
-        "lower": 0.0084,
-        "upper": 0.9057
+        "lower": 0.0943,
+        "upper": 0.9916
       },
       "ruleOfThree": null,
       "clusteredStandardError": null,
@@ -418,16 +418,16 @@
       "stage": "all-stages",
       "source": "recorded",
       "unit": "cases",
-      "events": 1,
+      "events": 2,
       "total": 3,
       "cases": 3,
       "wilson": {
-        "lower": 0.0615,
-        "upper": 0.7923
+        "lower": 0.2077,
+        "upper": 0.9385
       },
       "clopperPearson": {
-        "lower": 0.0084,
-        "upper": 0.9057
+        "lower": 0.0943,
+        "upper": 0.9916
       },
       "ruleOfThree": null,
       "clusteredStandardError": null,
@@ -649,21 +649,21 @@
       "stage": "judge",
       "source": "recorded",
       "unit": "actions",
-      "events": 4,
+      "events": 3,
       "total": 9,
       "cases": 5,
       "wilson": {
-        "lower": 0.1335,
-        "upper": 0.806
+        "lower": 0.0569,
+        "upper": 0.8055
       },
       "clopperPearson": {
-        "lower": 0.0613,
-        "upper": 0.8903
+        "lower": 0.0058,
+        "upper": 0.922
       },
       "ruleOfThree": null,
-      "clusteredStandardError": 0.2318,
-      "designEffect": 1.9583,
-      "effectiveTotal": 4.5957
+      "clusteredStandardError": 0.2869,
+      "designEffect": 3.3333,
+      "effectiveTotal": 2.7
     },
     {
       "measurement": "benign-denials",
@@ -691,21 +691,21 @@
       "stage": "all-stages",
       "source": "recorded",
       "unit": "actions",
-      "events": 4,
+      "events": 3,
       "total": 15,
       "cases": 5,
       "wilson": {
-        "lower": 0.0608,
-        "upper": 0.6713
+        "lower": 0.0308,
+        "upper": 0.6632
       },
       "clopperPearson": {
-        "lower": 0.0165,
-        "upper": 0.7595
+        "lower": 0.0022,
+        "upper": 0.7724
       },
       "ruleOfThree": null,
-      "clusteredStandardError": 0.1944,
-      "designEffect": 2.8977,
-      "effectiveTotal": 5.1765
+      "clusteredStandardError": 0.2,
+      "designEffect": 3.75,
+      "effectiveTotal": 4
     },
     {
       "measurement": "benign-denials",
@@ -763,9 +763,9 @@
     {
       "stage": "judge",
       "requests": 21,
-      "medianMs": 4280,
-      "p90Ms": 7607,
-      "maxMs": 17765
+      "medianMs": 2924,
+      "p90Ms": 5386,
+      "maxMs": 8018
     }
   ],
   "fallbacks": [
