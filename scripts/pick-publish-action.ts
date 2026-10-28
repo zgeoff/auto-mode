@@ -9,8 +9,8 @@ export interface PublishFacts {
   // The commit the run checked out.
   readonly head: string;
 
-  // npm provenance names the run's own commit as the package's source, so only a run whose checks
-  // passed on the tagged commit publishes; any other run hands the tag to a run at the tag.
+  // npm provenance records the run's own commit as the package's source, so only a run whose
+  // checks passed on the tagged commit publishes; any other run hands the tag to a run at the tag.
   readonly canPublishHere: boolean;
 
   // `npm view <name>@<version> version --json`.

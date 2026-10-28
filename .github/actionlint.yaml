@@ -1,0 +1,7 @@
+# actionlint 1.7.12 predates the queue key of concurrency, which GitHub
+# accepts since 2026-05-07 and which keeps every waiting release run instead
+# of replacing the pending one.
+paths:
+  .github/workflows/*.{yml,yaml}:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'

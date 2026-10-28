@@ -50,7 +50,7 @@ jobs:
     secrets:
       app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
-  # npm provenance names the run's own commit as the package's source, and
+  # npm provenance records the run's own commit as the package's source, and
   # the release tag lands on a commit after this run's, so a push run never
   # publishes: it dispatches a publish run at each tag npm lacks. It needs no
   # checks job, so a newer push that cancels this run's checks loses no
