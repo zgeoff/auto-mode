@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.1.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.0.1...auto-mode-v3.1.0) (2026-10-28)
+
+
+### Features
+
+* **scope:** read a session's scope from a launcher scope file ([#327](https://github.com/zgeoff/auto-mode/issues/327)) ([54b2a96](https://github.com/zgeoff/auto-mode/commit/54b2a96a7403a65b7cd01435254c248e8409fa48))
+
+
+### Bug Fixes
+
+* **deps:** update qs to fix advisories ([#325](https://github.com/zgeoff/auto-mode/issues/325)) ([ab32ca0](https://github.com/zgeoff/auto-mode/commit/ab32ca05b761fd74bc45c97415ee2725f82fd4ce))
+* **judge:** clear a misread hard deny past weakly blocking soft rules ([#328](https://github.com/zgeoff/auto-mode/issues/328)) ([e010ce3](https://github.com/zgeoff/auto-mode/commit/e010ce308dfe300a647ec2f31a255bb4606f758d))
+
 ## [3.0.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.0.0...auto-mode-v3.0.1) (2026-10-22)
 
 
