@@ -17,13 +17,13 @@ export interface SpawnedTaskRunOptions {
   readonly startedAt: string;
 }
 
-export interface PlannedCase {
+interface PlannedCase {
   readonly name: string;
   readonly request: DecisionRequest;
   readonly requestHash: string;
 }
 
-export interface PlannedSend {
+interface PlannedSend {
   readonly plannedCase: PlannedCase;
   readonly sample: number;
 }
