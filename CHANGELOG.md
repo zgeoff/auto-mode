@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.4](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.3...auto-mode-v3.1.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* **judge:** record the overturn reason and the reply's own model ([#341](https://github.com/zgeoff/auto-mode/issues/341)) ([b72fc56](https://github.com/zgeoff/auto-mode/commit/b72fc56a675142ad5c3ba7f41053dd4b2a6021af))
+
 ## [3.1.3](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.2...auto-mode-v3.1.3) (2026-10-29)
 
 
