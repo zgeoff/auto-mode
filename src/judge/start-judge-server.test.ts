@@ -81,6 +81,7 @@ test('it answers each review on its socket from one warm judge process', async (
     safetyStops: null,
     fallback: false,
     warm: true,
+    modelUsage: {},
   });
 
   expect(new Set(pids).size).toBe(1);

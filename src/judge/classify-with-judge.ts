@@ -19,6 +19,7 @@ import type {
   JudgeOverturns,
   JudgeReply,
   JudgeSession,
+  JudgeUsage,
 } from './types.ts';
 
 export interface JudgeOutcome extends JudgedVerdict {
@@ -29,6 +30,7 @@ export interface JudgeOptions extends EvaluationOptions {
   readonly rulesPath?: string | undefined;
   readonly overturns: JudgeOverturns;
   readonly judgeSession?: JudgeSession | undefined;
+  readonly onUsage?: ((usage: Readonly<JudgeUsage>) => Promise<void>) | undefined;
 }
 
 export async function classifyWithJudge(
@@ -102,6 +104,14 @@ export async function classifyWithJudge(
       evidence.map((entry) => entry.rule.name),
     );
 
+    if (answered.modelUsage !== null) {
+      await options.onUsage?.({
+        model: judge.model,
+        answeringModel: answered.model,
+        modelUsage: answered.modelUsage,
+      });
+    }
+
     failure = null;
   } catch {}
 
@@ -124,6 +134,7 @@ export async function classifyWithJudge(
         status: verdict.status,
         failureReason: failure ?? (reply?.kind === 'unreadable' ? 'unreadable' : null),
         overturnBasis: verdict.overturnBasis,
+        overturnReason: verdict.overturnReason,
         model: judge.model,
         answeringModel: answered?.model ?? null,
         safetyStops: answered?.safetyStops ?? null,

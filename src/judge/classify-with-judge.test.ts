@@ -1,4 +1,4 @@
-import { expect, onTestFinished, test } from 'bun:test';
+import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -77,9 +77,11 @@ test('it allows an action whose soft-rule deny the judge overturns', async () =>
     verdict: { kind: 'allow' },
     status: 'overturned',
     overturnBasis: 'consent',
+    overturnReason: 'The user asked to push to main.',
     diagnostics: {
       status: 'overturned',
       overturnBasis: 'consent',
+      overturnReason: 'The user asked to push to main.',
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
@@ -90,6 +92,95 @@ test('it allows an action whose soft-rule deny the judge overturns', async () =>
       elapsedMs: expect.toBeNumber(),
     },
   });
+});
+
+test('it hands the raw model usage of a claude-code reply to the usage callback once', async () => {
+  const ctx = await setupTest();
+
+  const onUsage = mock(() => Promise.resolve());
+
+  await classifyWithJudge(
+    buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'git push origin main' } }),
+    [
+      {
+        rule: buildMockDecisionRule({ name: 'Default Branch Write', tier: 'soft' }),
+        basis: 'matched',
+        repositoryContext: null,
+      },
+      {
+        rule: buildMockDecisionRule({ name: 'Outbound Communication', tier: 'soft' }),
+        basis: 'matched',
+        repositoryContext: null,
+      },
+    ],
+    buildMockProviderConfig({ protocol: 'claude-code', model: 'claude-sonnet-5-5' }),
+    {
+      overturns: 'consent',
+      onUsage,
+      runtime: buildMockRuntime({
+        env: {
+          PATH: ctx.binDir,
+          STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Nobody asked."}',
+          STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'claude-sonnet-5-5' }]),
+          STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
+            'claude-sonnet-5-5': { outputTokens: 40 },
+            'claude-haiku-5-5': { outputTokens: 900 },
+          }),
+        },
+        home: ctx.directory,
+      }),
+    },
+  );
+
+  expect(onUsage).toHaveBeenCalledExactlyOnceWith({
+    model: 'claude-sonnet-5-5',
+    answeringModel: 'claude-sonnet-5-5',
+    modelUsage: {
+      'claude-sonnet-5-5': { outputTokens: 40 },
+      'claude-haiku-5-5': { outputTokens: 900 },
+    },
+  });
+});
+
+test('it calls no usage callback for a Messages judge, which reports no model usage', async () => {
+  const ctx = await setupTest();
+
+  const onUsage = mock(() => Promise.resolve());
+
+  messagesReplies.push(
+    buildMockMessagesResponse({
+      content: [
+        { type: 'text', text: '{"verdict":"confirm","basis":null,"reason":"Nobody asked."}' },
+      ],
+    }),
+  );
+
+  await classifyWithJudge(
+    buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'git push origin main' } }),
+    [
+      {
+        rule: buildMockDecisionRule({ name: 'Default Branch Write', tier: 'soft' }),
+        basis: 'matched',
+        repositoryContext: null,
+      },
+    ],
+    buildMockProviderConfig({
+      protocol: 'messages',
+      baseURL: 'https://gateway.test',
+      model: 'claude-haiku-5-5',
+      apiKeyEnv: 'AUTO_MODE_JUDGE_TEST_KEY',
+    }),
+    {
+      overturns: 'consent',
+      onUsage,
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_JUDGE_TEST_KEY: 'judge-test-key' },
+        home: ctx.directory,
+      }),
+    },
+  );
+
+  expect(onUsage).not.toHaveBeenCalled();
 });
 
 test('it records the fallback model and the safety stops of a reply moved off the configured model', async () => {
@@ -117,6 +208,7 @@ test('it records the fallback model and the safety stops of a reply moved off th
           PATH: ctx.binDir,
           STUB_CLAUDE_REPLY:
             '{"verdict":"confirm","basis":null,"reason":"It sends the token to an outside host."}',
+          STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'claude-sonnet-5' }]),
           STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
             'claude-sonnet-5-5': { outputTokens: 0 },
             'claude-sonnet-5': { outputTokens: 123 },
@@ -133,6 +225,7 @@ test('it records the fallback model and the safety stops of a reply moved off th
   expect(outcome.diagnostics).toStrictEqual({
     status: 'confirmed',
     overturnBasis: null,
+    overturnReason: null,
     failureReason: null,
     model: 'claude-sonnet-5-5',
     answeringModel: 'claude-sonnet-5',
@@ -182,9 +275,11 @@ test('it holds a hard-rule deny the judge overturns, with the template reason', 
     },
     status: 'held',
     overturnBasis: 'consent',
+    overturnReason: 'The host is the user’s.',
     diagnostics: {
       status: 'held',
       overturnBasis: 'consent',
+      overturnReason: 'The host is the user’s.',
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
@@ -296,9 +391,11 @@ test('it keeps the deny on a stored-password change the user only asked to check
     },
     status: 'confirmed',
     overturnBasis: null,
+    overturnReason: null,
     diagnostics: {
       status: 'confirmed',
       overturnBasis: null,
+      overturnReason: null,
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
@@ -445,9 +542,11 @@ test('it keeps the template deny and records a timeout when the judge outlasts i
       },
       status: 'failed',
       overturnBasis: null,
+      overturnReason: null,
       diagnostics: {
         status: 'failed',
         overturnBasis: null,
+        overturnReason: null,
         failureReason: 'timeout',
         model: 'claude-haiku-5-5',
         answeringModel: null,
@@ -537,9 +636,11 @@ test('it keeps the template deny and records an unreadable reply', async () => {
     },
     status: 'failed',
     overturnBasis: null,
+    overturnReason: null,
     diagnostics: {
       status: 'failed',
       overturnBasis: null,
+      overturnReason: null,
       failureReason: 'unreadable',
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
@@ -622,9 +723,11 @@ test('it keeps the template deny and records a missing credential for a Messages
     },
     status: 'failed',
     overturnBasis: null,
+    overturnReason: null,
     diagnostics: {
       status: 'failed',
       overturnBasis: null,
+      overturnReason: null,
       failureReason: 'credential',
       model: 'claude-haiku-5-5',
       answeringModel: null,
@@ -836,9 +939,11 @@ test('it holds a soft-rule deny the judge overturns as a misread when only conse
     },
     status: 'held',
     overturnBasis: 'misread',
+    overturnReason: 'main is the task branch.',
     diagnostics: {
       status: 'held',
       overturnBasis: 'misread',
+      overturnReason: 'main is the task branch.',
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
@@ -943,9 +1048,11 @@ test('it holds a containment deny the judge overturns as a misread, with the con
     },
     status: 'held',
     overturnBasis: 'misread',
+    overturnReason: 'The other worktree looks like the task’s.',
     diagnostics: {
       status: 'held',
       overturnBasis: 'misread',
+      overturnReason: 'The other worktree looks like the task’s.',
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',

@@ -1,5 +1,6 @@
 import { buildDenyReason } from '../policy/build-deny-reason.ts';
 import type { Verdict } from '../request/types.ts';
+import { buildSecretFreeText } from '../secrets/build-secret-free-text.ts';
 import type { DecisionRule, DenyBasis } from '../types.ts';
 import type { JudgeOverturns, JudgeReply, JudgeStatus, OverturnBasis } from './types.ts';
 
@@ -7,6 +8,7 @@ export interface JudgedVerdict {
   readonly verdict: Verdict;
   readonly status: JudgeStatus;
   readonly overturnBasis: OverturnBasis | null;
+  readonly overturnReason: string | null;
 }
 
 export interface JudgedVerdictOptions {
@@ -29,7 +31,7 @@ export function buildJudgedVerdict(
   };
 
   if (reply === null || reply.kind === 'unreadable') {
-    return { verdict: template, status: 'failed', overturnBasis: null };
+    return { verdict: template, status: 'failed', overturnBasis: null, overturnReason: null };
   }
 
   if (reply.kind === 'overturn') {
@@ -40,9 +42,15 @@ export function buildJudgedVerdict(
       (reply.basis === 'misread' && options.overturns === 'consent') ||
       (reply.basis === 'consent' && !options.hasUserMessage);
 
+    // A secret cut in two at the length limit no longer matches the secret rules.
+    const overturn = {
+      overturnBasis: reply.basis,
+      overturnReason: formatJudgeText(buildSecretFreeText(reply.reason, () => '[secret]')),
+    };
+
     return isHeld
-      ? { verdict: template, status: 'held', overturnBasis: reply.basis }
-      : { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: reply.basis };
+      ? { verdict: template, status: 'held', ...overturn }
+      : { verdict: { kind: 'allow' }, status: 'overturned', ...overturn };
   }
 
   return {
@@ -53,6 +61,7 @@ export function buildJudgedVerdict(
     },
     status: 'confirmed',
     overturnBasis: null,
+    overturnReason: null,
   };
 }
 

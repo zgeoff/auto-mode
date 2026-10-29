@@ -17,6 +17,13 @@ export interface JudgeMessageReply {
   readonly safetyStops: number | null;
   readonly fallback: boolean;
   readonly warm: boolean | null;
+  readonly modelUsage: Readonly<Record<string, unknown>> | null;
+}
+
+export interface JudgeUsage {
+  readonly model: string;
+  readonly answeringModel: string;
+  readonly modelUsage: Readonly<Record<string, unknown>>;
 }
 
 export interface JudgeSession {
@@ -34,6 +41,7 @@ export interface JudgeDiagnostics {
   readonly status: JudgeStatus;
   readonly failureReason: JudgeFailure | null;
   readonly overturnBasis: OverturnBasis | null;
+  readonly overturnReason: string | null;
   readonly model: string;
 
   // A safety fallback can answer on another model than the configured one.

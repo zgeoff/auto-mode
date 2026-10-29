@@ -25,6 +25,7 @@ import { checkContainment } from './containment/check-containment.ts';
 import type { ContainmentDeny } from './containment/check-containment.ts';
 import { findUserNamedGrant } from './containment/find-user-named-grant.ts';
 import { writeActionDiagnostic } from './diagnostics/write-action-diagnostic.ts';
+import { writeJudgeUsage } from './diagnostics/write-judge-usage.ts';
 import { buildRepositoryEvidence } from './git/build-repository-evidence.ts';
 import { loadCheckoutFacts } from './git/load-checkout-facts.ts';
 import { makeOnceCheckoutReader } from './git/make-once-checkout-reader.ts';
@@ -532,6 +533,7 @@ async function classifyWithGrant(
     ...ctx.options,
     rulesPath: ctx.config.rulesPath,
     overturns: ctx.config.judgeOverturns ?? DEFAULT_JUDGE_OVERTURNS,
+    onUsage: (usage) => writeJudgeUsage(usage, ctx.options.runtime.host, ctx.options.stderr),
   });
 
   const granted = grant === null ? null : (judged[0] ?? null);
