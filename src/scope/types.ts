@@ -55,8 +55,6 @@ export interface ScopeSourceContext {
   readonly commonDir: string | null;
   readonly branch: string | null;
   readonly stateDir: string;
-  readonly atcRecordPath?: string | undefined;
-  readonly atcSessionID?: string | undefined;
   readonly scopeFilePath?: string | undefined;
   readonly readTextFile: TextFileReader;
   readonly stderr: Readonly<OutputStream>;

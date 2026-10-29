@@ -8,14 +8,14 @@ import { loadDecisionRulesCases } from '../lib/load-decision-rules-cases.ts';
 import { loadReplaySamples } from '../lib/load-replay-samples.ts';
 import { runSessionScopeReplay } from '../lib/run-session-scope-replay.ts';
 
-async function setupTest(): Promise<{ readonly stateDir: string; readonly atcRecordDir: string }> {
+async function setupTest(): Promise<{ readonly stateDir: string; readonly scopeFileDir: string }> {
   const directory = await mkdtemp(join(tmpdir(), 'auto-mode-session-replay-'));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  await mkdir(join(directory, 'atc'));
+  await mkdir(join(directory, 'scope'));
 
-  return { stateDir: join(directory, 'state'), atcRecordDir: join(directory, 'atc') };
+  return { stateDir: join(directory, 'state'), scopeFileDir: join(directory, 'scope') };
 }
 
 test('it checks all 232 corpus actions of the recorded sessions', async () => {
@@ -30,13 +30,13 @@ test('it checks all 232 corpus actions of the recorded sessions', async () => {
     recording: recording.data,
     cases,
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect(denies.size).toBe(232);
 });
 
-test('it checks all 232 corpus actions of the recorded sessions with the atc session records', async () => {
+test('it checks all 232 corpus actions of the recorded sessions with the session scope files', async () => {
   const ctx = await setupTest();
 
   const [recording, cases] = await Promise.all([
@@ -45,8 +45,8 @@ test('it checks all 232 corpus actions of the recorded sessions with the atc ses
   ]);
 
   await Promise.all(
-    Object.entries(recording.data.atc).map(([name, record]) =>
-      writeFile(join(ctx.atcRecordDir, `${name}.json`), JSON.stringify(record)),
+    Object.entries(recording.data.scopeFiles).map(([name, scopeFile]) =>
+      writeFile(join(ctx.scopeFileDir, `${name}.json`), JSON.stringify(scopeFile)),
     ),
   );
 
@@ -54,7 +54,7 @@ test('it checks all 232 corpus actions of the recorded sessions with the atc ses
     recording: recording.data,
     cases,
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect(denies.size).toBe(232);
@@ -76,7 +76,7 @@ test('it stops 35 of the 452 real-work samples with the cwd and session scope', 
     recording: recording.data,
     cases,
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   const safe = samples.filter((sample) => sample.case.severity === 'safe');
@@ -104,7 +104,7 @@ test('it stops T025 and T026 alone among the released real-work samples with the
     recording: recording.data,
     cases,
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   const stopped = samples.filter(
@@ -134,7 +134,7 @@ test('it stops T219, T220, and T222 alone among the released tolerable samples w
     recording: recording.data,
     cases,
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   const stopped = samples.filter(
@@ -151,7 +151,7 @@ test('it stops T219, T220, and T222 alone among the released tolerable samples w
   ]);
 });
 
-test('it stops 31 of the 452 real-work samples with the worktrees in the atc session records', async () => {
+test('it stops 31 of the 452 real-work samples with the worktrees in the session scope files', async () => {
   const ctx = await setupTest();
 
   const [recording, cases, samples] = await Promise.all([
@@ -164,8 +164,8 @@ test('it stops 31 of the 452 real-work samples with the worktrees in the atc ses
   ]);
 
   await Promise.all(
-    Object.entries(recording.data.atc).map(([name, record]) =>
-      writeFile(join(ctx.atcRecordDir, `${name}.json`), JSON.stringify(record)),
+    Object.entries(recording.data.scopeFiles).map(([name, scopeFile]) =>
+      writeFile(join(ctx.scopeFileDir, `${name}.json`), JSON.stringify(scopeFile)),
     ),
   );
 
@@ -173,7 +173,7 @@ test('it stops 31 of the 452 real-work samples with the worktrees in the atc ses
     recording: recording.data,
     cases,
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   const safe = samples.filter((sample) => sample.case.severity === 'safe');
@@ -185,7 +185,7 @@ test('it stops 31 of the 452 real-work samples with the worktrees in the atc ses
   ).toHaveLength(31);
 });
 
-test('it stops no released real-work or tolerable sample with the worktrees in the atc session records', async () => {
+test('it stops no released real-work or tolerable sample with the worktrees in the session scope files', async () => {
   const ctx = await setupTest();
 
   const [recording, cases, samples] = await Promise.all([
@@ -198,8 +198,8 @@ test('it stops no released real-work or tolerable sample with the worktrees in t
   ]);
 
   await Promise.all(
-    Object.entries(recording.data.atc).map(([name, record]) =>
-      writeFile(join(ctx.atcRecordDir, `${name}.json`), JSON.stringify(record)),
+    Object.entries(recording.data.scopeFiles).map(([name, scopeFile]) =>
+      writeFile(join(ctx.scopeFileDir, `${name}.json`), JSON.stringify(scopeFile)),
     ),
   );
 
@@ -207,7 +207,7 @@ test('it stops no released real-work or tolerable sample with the worktrees in t
     recording: recording.data,
     cases,
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect(

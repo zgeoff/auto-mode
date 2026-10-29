@@ -28,7 +28,7 @@ export interface ScopeSource {
 
 type ScopeSourceKind = (typeof SCOPE_SOURCE_KINDS)[number];
 
-const SCOPE_SOURCE_KINDS = ['cwd', 'session', 'globs', 'launcher', 'atc'] as const;
+const SCOPE_SOURCE_KINDS = ['cwd', 'session', 'globs', 'launcher'] as const;
 
 export interface CaptureConfig {
   readonly enabled: boolean;
@@ -64,7 +64,6 @@ export const DEFAULT_SCOPE_SOURCES: Readonly<Record<string, ScopeSource>> = {
   cwd: { kind: 'cwd' },
   session: { kind: 'session' },
   launcher: { kind: 'launcher' },
-  atc: { kind: 'atc' },
 };
 
 export const DEFAULT_BLOCK_THRESHOLD = 0.2;

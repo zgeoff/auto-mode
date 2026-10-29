@@ -49,7 +49,6 @@ test('#loadConfig falls back to the shipped defaults when there is no config fil
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
   });
 });
@@ -94,7 +93,6 @@ test('#loadConfig reads the config file under the home config directory when no 
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -194,7 +192,6 @@ test('#loadConfig takes a built-in kind and lets one field be overridden', async
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -248,7 +245,6 @@ test('#loadConfig uses Jev for a custom entry of the jev kind', async () => {
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -309,7 +305,6 @@ test('#loadConfig resolves the decision classifier and judge from the registry b
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -467,7 +462,6 @@ test('#loadConfig falls back to a built-in kind when the registry has no entry f
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -545,7 +539,7 @@ test('#loadConfig drops a bad registry entry with one diagnostic line and loads 
       `${ctx.configFile}: classifiers.literal dropped: holds a literal apiKey; name the key with apiKeyEnv or apiKeyCommand`,
       `${ctx.configFile}: classifiers.bare dropped: kind 'messages' needs a model`,
       `${ctx.configFile}: scopeSources.empty dropped: kind 'globs' needs paths`,
-      `${ctx.configFile}: scopeSources.nowhere dropped: unknown kind 'nowhere'; known kinds are cwd, session, globs, launcher, atc`,
+      `${ctx.configFile}: scopeSources.nowhere dropped: unknown kind 'nowhere'; known kinds are cwd, session, globs, launcher`,
     ],
   });
 });
@@ -672,7 +666,6 @@ test('#loadConfig reads the policy block, expanding a leading tilde', async () =
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: join(ctx.directory, 'rules.md'),
@@ -798,7 +791,6 @@ test('#loadConfig disables the Claude rule import when the policy sets the setti
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -852,7 +844,7 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
         cwd: {},
         session: {},
         scratch: { kind: 'globs', paths: ['~/scratch/**'] },
-        atc: {},
+        launcher: {},
       },
       decision: {
         classifier: 'jev',
@@ -886,7 +878,7 @@ test('#loadConfig loads the approved shape with no diagnostics and reads the den
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       scratch: { kind: 'globs', paths: [join(ctx.directory, 'scratch', '**')] },
-      atc: { kind: 'atc' },
+      launcher: { kind: 'launcher' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -934,7 +926,6 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -947,7 +938,7 @@ test('#loadConfig defaults the denial budget to 3 in a row and 20 per session', 
   });
 });
 
-test('#loadConfig runs the cwd, session, launcher, and atc sources when the file has no scope sources', async () => {
+test('#loadConfig runs the cwd, session, and launcher sources when the file has no scope sources', async () => {
   const ctx = await setupTest();
 
   await writeFile(ctx.configFile, JSON.stringify({ decision: { onFailure: 'defer' } }));
@@ -982,7 +973,6 @@ test('#loadConfig runs the cwd, session, launcher, and atc sources when the file
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
     classifierPath: undefined,
     rulesPath: undefined,
@@ -1073,7 +1063,6 @@ test('#DEFAULT_CONFIG ships Jev judged by claude-code, deferring on failure, wit
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
     },
   });
 });

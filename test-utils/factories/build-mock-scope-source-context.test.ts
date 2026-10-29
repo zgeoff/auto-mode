@@ -22,7 +22,7 @@ test('it applies overrides on top of the defaults', () => {
     worktree: '/repo',
     commonDir: null,
     branch: null,
-    atcRecordPath: '/state/record.json',
+    scopeFilePath: '/state/scope.json',
   });
 
   expect(context).toStrictEqual({
@@ -33,7 +33,7 @@ test('it applies overrides on top of the defaults', () => {
     commonDir: null,
     branch: null,
     stateDir: expect.toStartWith('/'),
-    atcRecordPath: '/state/record.json',
+    scopeFilePath: '/state/scope.json',
     stderr: { write: expect.toBeFunction() },
     readTextFile: expect.toBeFunction(),
   });

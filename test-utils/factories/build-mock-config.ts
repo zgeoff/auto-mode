@@ -27,7 +27,6 @@ export function buildMockConfig(overrides: ConfigOverrides = {}): Config {
       cwd: { kind: 'cwd' },
       session: { kind: 'session' },
       launcher: { kind: 'launcher' },
-      atc: { kind: 'atc' },
       ...scopeSources,
     },
   };

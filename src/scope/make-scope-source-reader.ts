@@ -4,7 +4,6 @@ import type { HostEnvironment } from '../config/types.ts';
 import { readCheckout } from '../git/read-checkout.ts';
 import type { CheckoutReader } from '../git/types.ts';
 import { buildDeclaredScopeFacts } from './build-declared-scope-facts.ts';
-import { loadAtcSessionRecord } from './load-atc-session-record.ts';
 import { loadScopeFile } from './load-scope-file.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { resolveSessionScopePath } from './resolve-session-scope-path.ts';
@@ -42,7 +41,6 @@ export function makeScopeSourceReader(
     })
     .with('globs', () => () => Promise.resolve(buildFacts({ pathGlobs: source.paths ?? [] })))
     .with('launcher', () => (context) => readLauncherScopeFacts(context, readSourceCheckout))
-    .with('atc', () => (context) => readAtcScopeFacts(context, readSourceCheckout))
     .exhaustive();
 }
 
@@ -106,21 +104,4 @@ async function readCommonDirEntry(
   const checkout = await readSourceCheckout(path, env);
 
   return [path, checkout?.commonDir ?? null];
-}
-
-async function readAtcScopeFacts(
-  context: Readonly<ScopeSourceContext>,
-  readSourceCheckout: CheckoutReader,
-): Promise<ScopeFacts> {
-  const loaded = await loadAtcSessionRecord(context.atcRecordPath, context.atcSessionID);
-
-  if (loaded.kind === 'malformed') {
-    context.stderr.write(`auto-mode: ${loaded.diagnostic}\n`);
-  }
-
-  if (loaded.kind !== 'record') {
-    return EMPTY_SCOPE_FACTS;
-  }
-
-  return readDeclaredScopeFacts(loaded.record.scope, context, readSourceCheckout);
 }

@@ -2,19 +2,18 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
 import { buildMockDecisionRulesCase } from './factories/build-mock-decision-rules-case.ts';
 import { buildMockTaskScopeSessions } from './factories/build-mock-task-scope-sessions.ts';
 import { runSessionScopeReplay } from './run-session-scope-replay.ts';
 
-async function setupTest(): Promise<{ readonly stateDir: string; readonly atcRecordDir: string }> {
+async function setupTest(): Promise<{ readonly stateDir: string; readonly scopeFileDir: string }> {
   const directory = await mkdtemp(join(tmpdir(), 'auto-mode-run-session-replay-'));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  await mkdir(join(directory, 'atc'));
+  await mkdir(join(directory, 'scope'));
 
-  return { stateDir: join(directory, 'state'), atcRecordDir: join(directory, 'atc') };
+  return { stateDir: join(directory, 'state'), scopeFileDir: join(directory, 'scope') };
 }
 
 test('it checks an action against a worktree that a call made earlier in its session', async () => {
@@ -56,7 +55,7 @@ test('it checks an action against a worktree that a call made earlier in its ses
       }),
     ],
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect([...denies]).toStrictEqual([
@@ -104,7 +103,7 @@ test('it takes nothing from a call that failed', async () => {
       }),
     ],
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect([...denies]).toStrictEqual([
@@ -151,7 +150,7 @@ test('it keeps what one session made out of the scope of another session', async
       }),
     ],
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect([...denies]).toStrictEqual([
@@ -167,20 +166,17 @@ test('it keeps what one session made out of the scope of another session', async
   ]);
 });
 
-test('it adds the worktrees of the atc session record of the session', async () => {
+test('it adds the worktrees of the scope file of the session', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.atcRecordDir, 'one.json'),
-    JSON.stringify(
-      buildMockAtcSessionRecord({
-        session: 'one',
-        scope: {
-          workspace: { path: '/home/dev/app', branch: 'feat/a' },
-          worktrees: [{ path: '/home/dev/app-fix', branch: 'fix/a' }],
-        },
-      }),
-    ),
+    join(ctx.scopeFileDir, 'one.json'),
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      workspace: { path: '/home/dev/app', branch: 'feat/a' },
+      worktrees: [{ path: '/home/dev/app-fix', branch: 'fix/a' }],
+    }),
   );
 
   const denies = await runSessionScopeReplay({
@@ -197,26 +193,23 @@ test('it adds the worktrees of the atc session record of the session', async () 
       }),
     ],
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect(denies.get('R1')).toBeNull();
 });
 
-test('it adds the branches of the atc session record in the action repository', async () => {
+test('it adds the branches of the scope file in the action repository', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.atcRecordDir, 'one.json'),
-    JSON.stringify(
-      buildMockAtcSessionRecord({
-        session: 'one',
-        scope: {
-          workspace: { path: '/home/dev/app', branch: 'feat/a' },
-          branches: [{ name: 'fix/b', repo: '/home/dev/app' }],
-        },
-      }),
-    ),
+    join(ctx.scopeFileDir, 'one.json'),
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      workspace: { path: '/home/dev/app', branch: 'feat/a' },
+      branches: [{ name: 'fix/b', repo: '/home/dev/app' }],
+    }),
   );
 
   const denies = await runSessionScopeReplay({
@@ -233,7 +226,7 @@ test('it adds the branches of the atc session record in the action repository', 
       }),
     ],
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect(denies.get('R1')).toBeNull();
@@ -279,7 +272,7 @@ test('it checks an action against a PR that a call opened earlier in its session
       }),
     ],
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect([...denies]).toStrictEqual([
@@ -340,7 +333,7 @@ test('it checks an action against a branch that a call made earlier in its sessi
       }),
     ],
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect([...denies]).toStrictEqual([
@@ -357,20 +350,17 @@ test('it checks an action against a branch that a call made earlier in its sessi
   ]);
 });
 
-test('it places every checkout of an atc session record in the action repository', async () => {
+test('it places every checkout of a scope file in the action repository', async () => {
   const ctx = await setupTest();
 
   await writeFile(
-    join(ctx.atcRecordDir, 'one.json'),
-    JSON.stringify(
-      buildMockAtcSessionRecord({
-        session: 'one',
-        scope: {
-          workspace: { path: '/home/dev/app', branch: 'feat/a' },
-          branches: [{ name: 'fix/b', repo: '/home/dev/other' }],
-        },
-      }),
-    ),
+    join(ctx.scopeFileDir, 'one.json'),
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      workspace: { path: '/home/dev/app', branch: 'feat/a' },
+      branches: [{ name: 'fix/b', repo: '/home/dev/other' }],
+    }),
   );
 
   const denies = await runSessionScopeReplay({
@@ -387,7 +377,7 @@ test('it places every checkout of an atc session record in the action repository
       }),
     ],
     stateDir: ctx.stateDir,
-    atcRecordDir: ctx.atcRecordDir,
+    scopeFileDir: ctx.scopeFileDir,
   });
 
   expect(denies.get('R1')).toBeNull();
@@ -403,7 +393,7 @@ test('it rejects a recording that names a case the corpus lacks', async () => {
       }),
       cases: [],
       stateDir: ctx.stateDir,
-      atcRecordDir: ctx.atcRecordDir,
+      scopeFileDir: ctx.scopeFileDir,
     }),
   ).rejects.toThrowWithMessage(Error, /the corpus lacks: R9/u);
 });

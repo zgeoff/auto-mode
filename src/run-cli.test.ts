@@ -1885,10 +1885,10 @@ test('it denies the action when Jev fails under a deny setting', async () => {
   });
 });
 
-test('it writes the malformed atc record diagnostic to its own stderr', async () => {
+test('it writes the malformed scope file diagnostic to its own stderr', async () => {
   const ctx = await setupTest();
 
-  await writeFile(join(ctx.directory, 'record.json'), 'not json {');
+  await writeFile(join(ctx.directory, 'scope.json'), 'not json {');
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,
@@ -1902,11 +1902,7 @@ test('it writes the malformed atc record diagnostic to its own stderr', async ()
     stderr: ctx.stderr,
     runtime: buildMockRuntime({
       ...ctx.host,
-      env: {
-        ...ctx.host.env,
-        ATC_SESSION_RECORD: join(ctx.directory, 'record.json'),
-        ATC_SESSION_ID: 'atc-1',
-      },
+      env: { ...ctx.host.env, AUTO_MODE_SCOPE_FILE: join(ctx.directory, 'scope.json') },
     }),
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });
@@ -1914,7 +1910,7 @@ test('it writes the malformed atc record diagnostic to its own stderr', async ()
   expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
     exitCode: 0,
     stdout: '{"decision":"allow"}',
-    stderr: `auto-mode: atc session record is not JSON: ${join(ctx.directory, 'record.json')}\n`,
+    stderr: `auto-mode: scope file is not JSON: ${join(ctx.directory, 'scope.json')}\n`,
   });
 });
 
