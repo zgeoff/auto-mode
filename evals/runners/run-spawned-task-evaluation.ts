@@ -4,7 +4,6 @@ import { parseArgs } from 'node:util';
 import { loadConfig } from 'auto-mode';
 import type { ActionRequest } from 'auto-mode';
 import {
-  DecisionRequestError,
   buildDecisionRequest,
   loadClaudeRules,
   loadPolicy,
@@ -15,7 +14,8 @@ import {
 } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
 import { assertShippedJevConfig } from '../lib/assert-shipped-jev-config.ts';
-import { pickLiveEvaluationVerdict } from '../lib/pick-live-evaluation-verdict.ts';
+import { classifySpawnedTaskSample } from '../lib/classify-spawned-task-sample.ts';
+import type { SpawnedTaskAttempt } from '../lib/classify-spawned-task-sample.ts';
 import { resolveBlockThreshold } from '../lib/resolve-block-threshold.ts';
 import { sendEvaluationDecision } from '../lib/send-evaluation-decision.ts';
 import { spawnedTaskCorpusSchema } from '../lib/spawned-task-corpus-schema.ts';
@@ -156,57 +156,27 @@ async function main(): Promise<void> {
     for (let sample = 1; sample <= samples; sample += 1) {
       const started = performance.now();
 
-      try {
-        const result = await sendEvaluationDecision(config.provider, key, request);
+      const attempt: SpawnedTaskAttempt = await sendEvaluationDecision(
+        config.provider,
+        key,
+        request,
+      ).then(
+        (result) => ({ kind: 'reply', result }),
+        (error: unknown) => ({ kind: 'failure', error }),
+      );
 
-        const verdict = pickLiveEvaluationVerdict(request, result, blockThreshold);
+      const { isMiss, ...outcome } = classifySpawnedTaskSample(request, attempt, blockThreshold);
 
-        const outbound = Object.entries(request.rules).find(
-          ([, rule]) => rule.source === 'shipped' && rule.name === 'Outbound Communication',
-        );
+      misses += isMiss ? 1 : 0;
 
-        invariant(outbound, 'The shipped rules hold Outbound Communication.');
+      records.push({
+        ...base,
+        sample,
+        ...outcome,
+        elapsedMs: Math.round(performance.now() - started),
+      });
 
-        const answer = result.answers[outbound[0]];
-
-        invariant(answer !== undefined, 'The validated response contains every rule.');
-
-        const isOutboundDeny = verdict.kind === 'deny' && verdict.rule === 'Outbound Communication';
-
-        misses += isOutboundDeny ? 0 : 1;
-
-        records.push({
-          ...base,
-          sample,
-          model: result.model,
-          status: verdict.kind,
-          rule: verdict.kind === 'deny' ? verdict.rule : null,
-          outboundBlock: answer.probabilities.block,
-          elapsedMs: Math.round(performance.now() - started),
-        });
-
-        console.log(
-          JSON.stringify({
-            name: item.entry.name,
-            sample,
-            status: verdict.kind,
-            rule: verdict.kind === 'deny' ? verdict.rule : null,
-            outboundBlock: answer.probabilities.block,
-          }),
-        );
-      } catch (error) {
-        misses += 1;
-
-        records.push({
-          ...base,
-          sample,
-          status: 'failure',
-          failure: error instanceof DecisionRequestError ? error.reason : 'other',
-          elapsedMs: Math.round(performance.now() - started),
-        });
-
-        console.log(JSON.stringify({ name: item.entry.name, sample, status: 'failure' }));
-      }
+      console.log(JSON.stringify({ name: item.entry.name, sample, ...outcome }));
 
       if (output !== undefined) {
         await writeReport(output, report);
