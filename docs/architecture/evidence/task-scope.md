@@ -27,11 +27,6 @@ sources run, and the shipped default runs every one of these except the path glo
   workspace, further worktrees, branches and pull requests, and the reply channels the
   [reply channel](../stages/reply-channel.md) stage allows. auto-mode reports a malformed file with
   one line on stderr.
-- **The atc session record.** atc, which spawns and coordinates agent sessions, writes one record
-  per session outside anything the agent can write, and names its path in the session's environment.
-  The record lists the workspace atc prepared, its branch, and further worktrees, branches and pull
-  requests. auto-mode checks that the record belongs to this session, and reports a malformed record
-  with one line on stderr.
 
 The checkout itself supplies what no source decides: its remotes, which are always in scope, its
 current branch and its default branch. Every task also owns the system's scratch space, such as
@@ -39,7 +34,7 @@ current branch and its default branch. Every task also owns the system's scratch
 
 ## The rules that join them
 
-A branch name means nothing outside its repository, so the session, launcher and atc sources count a
+A branch name means nothing outside its repository, so the session and launcher sources count a
 branch only when it belongs to the same repository as the call's directory. The union then drops the
 default branch and every branch that matches a protected branch pattern the configuration lists,
 because a branch the forge protects belongs to the repository, never to one task. When the

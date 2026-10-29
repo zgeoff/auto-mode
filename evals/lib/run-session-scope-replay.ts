@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   buildTaskScope,
@@ -15,7 +16,7 @@ export interface SessionScopeReplay {
   readonly recording: TaskScopeSessions;
   readonly cases: readonly DecisionRulesCase[];
   readonly stateDir: string;
-  readonly atcRecordDir: string;
+  readonly scopeFileDir: string;
 }
 
 // Every recorded checkout shares one repository.
@@ -84,12 +85,11 @@ async function checkSessionContainment(
     commonDir: COMMON_DIR,
     branch: action.repository.branch,
     stateDir: replay.stateDir,
-    atcRecordPath: join(replay.atcRecordDir, `${sessionName}.json`),
-    atcSessionID: sessionName,
+    scopeFilePath: join(replay.scopeFileDir, `${sessionName}.json`),
 
-    // The recorded atc records are well formed.
+    // The recorded scope files are well formed.
     stderr: { write: () => true },
-    readTextFile: () => Promise.reject(new Error('the replay runs no launcher source')),
+    readTextFile: (path: string) => readFile(path, 'utf8'),
   };
 
   const facts = await Promise.all([
@@ -99,7 +99,7 @@ async function checkSessionContainment(
     // A recording holds no checkout on disk; every recorded checkout is in the
     // action's repository.
     makeScopeSourceReader(
-      { kind: 'atc' },
+      { kind: 'launcher' },
       buildStubCheckoutReader({}, COMMON_DIR).readCheckout,
     )(context),
   ]);

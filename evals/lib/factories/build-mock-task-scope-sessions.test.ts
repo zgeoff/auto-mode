@@ -7,7 +7,7 @@ test('it builds a default task scope sessions recording', () => {
     remotes: [],
     worktreeBranches: {},
     pullRequestHeads: {},
-    atc: {},
+    scopeFiles: {},
     sessions: [],
   });
 });
@@ -23,7 +23,7 @@ test('it applies overrides on top of the defaults', () => {
     remotes: [],
     worktreeBranches: {},
     pullRequestHeads: { '5': 'feat/a' },
-    atc: {},
+    scopeFiles: {},
     sessions: [{ name: 'one', entries: [{ case: 'R1' }] }],
   });
 });

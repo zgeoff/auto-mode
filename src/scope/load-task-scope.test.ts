@@ -2,7 +2,6 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
 import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
 import { runGit } from '../../test-utils/run-git.ts';
@@ -251,12 +250,12 @@ test('it reads no session scope when the registry has no session source', async 
   });
 });
 
-test('it owns the atc record that the host environment names, from the main checkout', async () => {
+test('it owns the scope file that the host environment names, from the main checkout', async () => {
   const ctx = await setupTest();
 
   const repo = join(ctx.directory, 'app');
   const worktree = join(repo, '.worktrees', 'feature');
-  const recordPath = join(ctx.directory, 'record.json');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
 
   runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
   runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
@@ -271,71 +270,12 @@ test('it owns the atc record that the host environment names, from the main chec
   ]);
 
   await writeFile(
-    recordPath,
-    JSON.stringify(
-      buildMockAtcSessionRecord({
-        session: 'atc-1',
-        scope: { workspace: { path: worktree, branch: 'feature' } },
-      }),
-    ),
-  );
-
-  const scope = await loadTaskScope(
-    {
-      sessionID: 'session-1',
-      cwd: repo,
-      stateDir: join(ctx.directory, 'state'),
-      readTextFile,
-    },
-    { atc: { kind: 'atc' } },
-    buildMockHostEnvironment({
-      env: { ATC_SESSION_RECORD: recordPath, ATC_SESSION_ID: 'atc-1' },
-      home: ctx.directory,
-    }),
-    { write: mock() },
-  );
-
-  expect(scope).toStrictEqual({
-    home: ctx.directory,
-    worktrees: [worktree],
-    branches: ['feature'],
-    currentBranch: 'main',
-    remotes: [],
-    pullRequests: [],
-    pathGlobs: [],
-    paths: [],
-    replyChannels: [],
-  });
-});
-
-test('it unites the scope file and the atc record that the host environment names', async () => {
-  const ctx = await setupTest();
-
-  const repo = join(ctx.directory, 'app');
-  const worktree = join(repo, '.worktrees', 'feature');
-  const recordPath = join(ctx.directory, 'record.json');
-  const scopeFilePath = join(ctx.directory, 'scope.json');
-
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
-  runGit(ctx.directory, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
-
-  await writeFile(
-    recordPath,
-    JSON.stringify(
-      buildMockAtcSessionRecord({
-        session: 'atc-1',
-        scope: { workspace: { path: worktree, branch: 'feature' } },
-      }),
-    ),
-  );
-
-  await writeFile(
     scopeFilePath,
     JSON.stringify({
       format: 'auto-mode.scope',
       version: 1,
       paths: ['/srv/notes'],
+      workspace: { path: worktree, branch: 'feature' },
       replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
     }),
   );
@@ -347,13 +287,9 @@ test('it unites the scope file and the atc record that the host environment name
       stateDir: join(ctx.directory, 'state'),
       readTextFile,
     },
-    { launcher: { kind: 'launcher' }, atc: { kind: 'atc' } },
+    { launcher: { kind: 'launcher' } },
     buildMockHostEnvironment({
-      env: {
-        AUTO_MODE_SCOPE_FILE: scopeFilePath,
-        ATC_SESSION_RECORD: recordPath,
-        ATC_SESSION_ID: 'atc-1',
-      },
+      env: { AUTO_MODE_SCOPE_FILE: scopeFilePath },
       home: ctx.directory,
     }),
     { write: mock() },

@@ -3778,11 +3778,11 @@ test('it denies a message to an unrelated session under Outbound Communication w
   });
 });
 
-test('it lets an edit into the workspace an atc record names skip Jev when no scope file exists', async () => {
+test('it lets an edit into the workspace that only the scope file names skip Jev', async () => {
   const ctx = await setupTest();
 
   const repo = join(ctx.directory, 'repo');
-  const recordPath = join(ctx.directory, 'record.json');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
 
   runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
 
@@ -3798,17 +3798,11 @@ test('it lets an edit into the workspace an atc record names skip Jev when no sc
   ]);
 
   await writeFile(
-    recordPath,
+    scopeFilePath,
     JSON.stringify({
-      format: 'atc.session-record',
+      format: 'auto-mode.scope',
       version: 1,
-      session: 'atc-1',
-      scope: {
-        workspace: { path: join(repo, '.worktrees', 'feature'), branch: 'feature' },
-        worktrees: [],
-        branches: [],
-        pullRequests: [],
-      },
+      workspace: { path: join(repo, '.worktrees', 'feature'), branch: 'feature' },
     }),
   );
 
@@ -3828,7 +3822,7 @@ test('it lets an edit into the workspace an atc record names skip Jev when no sc
     {
       stderr: buildStubOutput(),
       runtime: buildMockRuntime({
-        env: { ATC_SESSION_RECORD: recordPath, ATC_SESSION_ID: 'atc-1' },
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath },
         home: ctx.directory,
         scratchPaths: [],
       }),

@@ -9,7 +9,7 @@ test('it accepts recorded sessions of corpus actions and scope calls', () => {
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     worktreeBranches: { '/home/dev/app-fix': 'fix/a' },
     pullRequestHeads: { '7': 'fix/a' },
-    atc: { one: { format: 'atc.session-record' } },
+    scopeFiles: { one: { format: 'auto-mode.scope', version: 1 } },
     sessions: [
       {
         name: 'one',
@@ -35,7 +35,7 @@ test('it rejects a session entry that is neither an action nor a call', () => {
     remotes: [{ name: 'origin', url: 'git@github.com:dev/app.git' }],
     worktreeBranches: { '/home/dev/app-fix': 'fix/a' },
     pullRequestHeads: { '7': 'fix/a' },
-    atc: { one: { format: 'atc.session-record' } },
+    scopeFiles: { one: { format: 'auto-mode.scope', version: 1 } },
     sessions: [
       {
         name: 'one',

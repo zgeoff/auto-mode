@@ -22,7 +22,6 @@ test.each([
         cwd: { kind: 'cwd' },
         session: { kind: 'session' },
         launcher: { kind: 'launcher' },
-        atc: { kind: 'atc' },
       },
       provider: {
         protocol: 'system-one',
@@ -49,7 +48,6 @@ test.each([
         cwd: { kind: 'cwd' },
         session: { kind: 'session' },
         launcher: { kind: 'launcher' },
-        atc: { kind: 'atc' },
       },
       provider: {
         protocol: 'system-one',

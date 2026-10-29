@@ -39,8 +39,6 @@ export async function loadTaskScope(
     commonDir: checkout?.commonDir ?? null,
     branch,
     stateDir: request.stateDir,
-    atcRecordPath: host.env['ATC_SESSION_RECORD'],
-    atcSessionID: host.env['ATC_SESSION_ID'],
     scopeFilePath: host.env['AUTO_MODE_SCOPE_FILE'],
     readTextFile: request.readTextFile,
     stderr,

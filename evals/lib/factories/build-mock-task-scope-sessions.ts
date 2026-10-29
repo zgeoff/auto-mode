@@ -9,7 +9,7 @@ export function buildMockTaskScopeSessions(
     remotes: [],
     worktreeBranches: {},
     pullRequestHeads: {},
-    atc: {},
+    scopeFiles: {},
     sessions: [],
     ...overrides,
   };

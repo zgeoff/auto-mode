@@ -26,7 +26,7 @@ export const taskScopeSessionsSchema = z
     remotes: z.array(remoteSchema).readonly(),
     worktreeBranches: z.record(z.string(), z.string()).readonly(),
     pullRequestHeads: z.record(z.string(), z.string()).readonly(),
-    atc: z.record(z.string(), z.unknown()).readonly(),
+    scopeFiles: z.record(z.string(), z.unknown()).readonly(),
     sessions: z.array(sessionSchema).readonly(),
   })
   .readonly();

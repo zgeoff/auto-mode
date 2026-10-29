@@ -3,7 +3,6 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { buildStubCheckoutReader } from '../../test-utils/build-stub-checkout-reader.ts';
-import { buildMockAtcSessionRecord } from '../../test-utils/factories/build-mock-atc-session-record.ts';
 import { buildMockScopeSourceContext } from '../../test-utils/factories/build-mock-scope-source-context.ts';
 import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
 import { makeScopeSourceReader } from './make-scope-source-reader.ts';
@@ -137,19 +136,21 @@ test('it owns no path glob when the globs source lists no paths', async () => {
   });
 });
 
-test('it owns the atc checkouts and only the branches that share the action repository', async () => {
+test('it owns the launcher checkouts on disk and only the branches that share the action repository', async () => {
   const ctx = await setupTest();
 
   const repo = join(ctx.directory, 'repo');
   const other = join(ctx.directory, 'other');
-  const recordPath = join(ctx.directory, 'record.json');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
 
   await mkdir(join(repo, '.git'), { recursive: true });
   await mkdir(join(other, '.git'), { recursive: true });
 
-  const record = buildMockAtcSessionRecord({
-    session: 'atc-1',
-    scope: {
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
       workspace: { path: `${repo}/.worktrees/feat`, branch: 'feat' },
       worktrees: [{ path: `${other}/.worktrees/x`, branch: 'x' }],
       branches: [
@@ -157,17 +158,11 @@ test('it owns the atc checkouts and only the branches that share the action repo
         { name: 'elsewhere', repo: other },
       ],
       pullRequests: [{ repo: 'dev/app', number: 12, branch: 'feat' }],
-    },
-  });
-
-  await writeFile(recordPath, JSON.stringify(record));
-
-  const facts = await makeScopeSourceReader({ kind: 'atc' })(
-    buildMockScopeSourceContext({
-      commonDir: join(repo, '.git'),
-      atcRecordPath: recordPath,
-      atcSessionID: 'atc-1',
     }),
+  );
+
+  const facts = await makeScopeSourceReader({ kind: 'launcher' })(
+    buildMockScopeSourceContext({ commonDir: join(repo, '.git'), scopeFilePath }),
   );
 
   expect(facts).toStrictEqual({
@@ -180,30 +175,25 @@ test('it owns the atc checkouts and only the branches that share the action repo
   });
 });
 
-test('it owns no atc branch when the action is outside every checkout', async () => {
+test('it owns no launcher branch when the action is outside every checkout', async () => {
   const ctx = await setupTest();
 
   const repo = join(ctx.directory, 'repo');
-  const recordPath = join(ctx.directory, 'record.json');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
 
   await mkdir(join(repo, '.git'), { recursive: true });
 
   await writeFile(
-    recordPath,
-    JSON.stringify(
-      buildMockAtcSessionRecord({
-        session: 'atc-1',
-        scope: { workspace: { path: repo, branch: 'feat' } },
-      }),
-    ),
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      workspace: { path: repo, branch: 'feat' },
+    }),
   );
 
-  const facts = await makeScopeSourceReader({ kind: 'atc' })(
-    buildMockScopeSourceContext({
-      commonDir: null,
-      atcRecordPath: recordPath,
-      atcSessionID: 'atc-1',
-    }),
+  const facts = await makeScopeSourceReader({ kind: 'launcher' })(
+    buildMockScopeSourceContext({ commonDir: null, scopeFilePath }),
   );
 
   expect(facts).toStrictEqual({
@@ -216,119 +206,14 @@ test('it owns no atc branch when the action is outside every checkout', async ()
   });
 });
 
-test('it owns nothing from an atc record of another version', async () => {
-  const ctx = await setupTest();
-
-  const recordPath = join(ctx.directory, 'record.json');
-
-  await writeFile(
-    recordPath,
-    JSON.stringify({ ...buildMockAtcSessionRecord({ session: 'atc-1' }), version: 2 }),
-  );
-
-  const facts = await makeScopeSourceReader({ kind: 'atc' })(
-    buildMockScopeSourceContext({ atcRecordPath: recordPath, atcSessionID: 'atc-1' }),
-  );
-
-  expect(facts).toStrictEqual({
-    worktrees: [],
-    branches: [],
-    pullRequests: [],
-    pathGlobs: [],
-    paths: [],
-    replyChannels: [],
-  });
-});
-
-test('it writes one diagnostic line for an atc record of another version', async () => {
-  const ctx = await setupTest();
-
-  const recordPath = join(ctx.directory, 'record.json');
+test('it writes no diagnostic when the session names no scope file', async () => {
   const write = mock();
 
-  await writeFile(
-    recordPath,
-    JSON.stringify({ ...buildMockAtcSessionRecord({ session: 'atc-1' }), version: 2 }),
-  );
-
-  await makeScopeSourceReader({ kind: 'atc' })(
-    buildMockScopeSourceContext({
-      atcRecordPath: recordPath,
-      atcSessionID: 'atc-1',
-      stderr: { write },
-    }),
-  );
-
-  expect(write).toHaveBeenCalledExactlyOnceWith(
-    `auto-mode: atc session record ignored: version does not match version 1: ${recordPath}\n`,
-  );
-});
-
-test('it owns nothing from atc when the session has no record', async () => {
-  const facts = await makeScopeSourceReader({ kind: 'atc' })(
-    buildMockScopeSourceContext({ atcRecordPath: undefined }),
-  );
-
-  expect(facts).toStrictEqual({
-    worktrees: [],
-    branches: [],
-    pullRequests: [],
-    pathGlobs: [],
-    paths: [],
-    replyChannels: [],
-  });
-});
-
-test('it writes no diagnostic when the session has no atc record', async () => {
-  const write = mock();
-
-  await makeScopeSourceReader({ kind: 'atc' })(
-    buildMockScopeSourceContext({ atcRecordPath: undefined, stderr: { write } }),
+  await makeScopeSourceReader({ kind: 'launcher' })(
+    buildMockScopeSourceContext({ scopeFilePath: undefined, stderr: { write } }),
   );
 
   expect(write).not.toHaveBeenCalled();
-});
-
-test('it owns only the atc branches whose checkout shares the action repository by the checkout lookup it is given', async () => {
-  const ctx = await setupTest();
-
-  const recordPath = join(ctx.directory, 'record.json');
-
-  await writeFile(
-    recordPath,
-    JSON.stringify(
-      buildMockAtcSessionRecord({
-        session: 'atc-1',
-        scope: {
-          workspace: { path: '/w/app', branch: 'feat' },
-          branches: [
-            { name: 'later', repo: '/w/app' },
-            { name: 'elsewhere', repo: '/w/other' },
-          ],
-        },
-      }),
-    ),
-  );
-
-  const facts = await makeScopeSourceReader(
-    { kind: 'atc' },
-    buildStubCheckoutReader({ '/w/app': '/w/app.git', '/w/other': '/w/other.git' }).readCheckout,
-  )(
-    buildMockScopeSourceContext({
-      commonDir: '/w/app.git',
-      atcRecordPath: recordPath,
-      atcSessionID: 'atc-1',
-    }),
-  );
-
-  expect(facts).toStrictEqual({
-    worktrees: ['/w/app'],
-    branches: ['feat', 'later'],
-    pullRequests: [],
-    pathGlobs: [],
-    paths: [],
-    replyChannels: [],
-  });
 });
 
 test('it owns what the launcher scope file declares, keeping only the branches of the action repository', async () => {
