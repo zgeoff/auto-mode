@@ -106,6 +106,53 @@ test('it keeps a typed message and moves the opening task to the delegated task 
   });
 });
 
+test('it gives a subagent without a delegated task none of the opening prompt when the launcher names a spawner', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const request = buildMockActionRequest({
+    decisionContext: {
+      agentID: 'agent-7',
+      originalUserTask: {
+        text: 'Draft the changelog entry.',
+        origin: 'composer',
+        position: 'opening',
+      },
+      delegatedTask: null,
+      lastDirectUserMessage: null,
+      omittedTaskContext: [{ field: 'delegatedTask', reason: 'unavailable' }],
+    },
+  });
+
+  const resolved = await resolveOpeningPrompt(
+    request,
+    buildMockRuntime({ env: { AUTO_MODE_SCOPE_FILE: scopeFilePath } }),
+  );
+
+  expect(resolved.decisionContext).toStrictEqual({
+    agentID: 'agent-7',
+    originalUserTask: null,
+    delegatedTask: null,
+    lastDirectUserMessage: null,
+    omittedTaskContext: [
+      { field: 'delegatedTask', reason: 'unavailable' },
+      { field: 'originalUserTask', reason: 'unavailable' },
+    ],
+  });
+});
+
 test('it drops a stale opening prompt from the request when the launcher names a spawner', async () => {
   const ctx = await setupTest();
 

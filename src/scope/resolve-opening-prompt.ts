@@ -45,7 +45,10 @@ function buildSpawnedContext(context: DecisionContext, openingText: string): Dec
   return {
     ...context,
     originalUserTask: isTaskOpening ? null : context.originalUserTask,
-    delegatedTask: context.delegatedTask ?? { text: openingText, origin: 'agent.spawn' },
+    delegatedTask:
+      context.agentID === null
+        ? (context.delegatedTask ?? { text: openingText, origin: 'agent.spawn' })
+        : context.delegatedTask,
     lastDirectUserMessage: message?.position === 'opening' ? null : message,
     omittedTaskContext:
       isTaskOpening && !isOmitted
