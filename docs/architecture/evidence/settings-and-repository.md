@@ -20,11 +20,12 @@ rule. Jev reads the environment and allow entries as context, and asks each deny
 rule of its own in its tier ([Jev](../stages/jev.md#the-request)). A soft deny entry clears with a
 specific instruction from the user, and a hard deny entry clears only by changing the configuration.
 
-Deny entries change the path. The local rules and the edit bypass decide without reading the user's
-rules, so when any deny entry exists, both stages stand aside. The containment check still runs and
-denies a write it can resolve outside the task scope, and every other call reaches Jev. A user who
-writes a deny entry about reading a file therefore gets it enforced, at the cost of a Jev call for
-every read.
+Deny entries change the path. The local rules, the edit bypass and the reply channel decide without
+reading the user's rules, so when any deny entry exists, none of them allows a call. The reply
+channel still hands its message to Jev without the Outbound Communication question. The containment
+check still runs and denies a write it can resolve outside the task scope, and every other call
+reaches Jev. A user who writes a deny entry about reading a file therefore gets it enforced, at the
+cost of a Jev call for every read.
 
 A missing settings file means no user rules. A settings file that exists but cannot be read or
 parsed is a classifier failure for every call, read-only calls included, because judging without the

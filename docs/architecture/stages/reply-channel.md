@@ -40,4 +40,5 @@ task scope did not load.
 When the user's Claude settings hold block entries, the stage allows nothing, because only Jev reads
 those entries ([settings and repository facts](../evidence/settings-and-repository.md)). A matching
 call that passes the secret scan goes to Jev without the Outbound Communication question, so Jev
-judges it under every other rule and every configured entry.
+judges it under every other rule and every configured entry. A replacement policy keeps every
+question, because its rules are the user's own.

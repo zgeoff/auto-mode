@@ -824,6 +824,75 @@ test('it returns the configured denial when the deadline passes during the reque
   });
 });
 
+test('it reports the task context of a request Jev answered', async () => {
+  const ctx = await setupTest();
+
+  const onTaskContext = mock<(context: unknown) => void>();
+
+  await classifyWithJev(
+    buildMockActionRequest({
+      cwd: ctx.directory,
+      toolName: 'Bash',
+      toolInput: { command: 'git push' },
+      decisionContext: {
+        agentID: 'agent-2',
+        originalUserTask: null,
+        delegatedTask: { text: 'Push the docs branch.', origin: 'agent.spawn' },
+        lastDirectUserMessage: null,
+        omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+      },
+    }),
+    buildMockConfig({
+      provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+      claudeSettingsPath: null,
+    }),
+    {
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.directory,
+      }),
+      onTaskContext,
+    },
+  );
+
+  expect(onTaskContext).toHaveBeenCalledExactlyOnceWith({
+    agentID: 'agent-2',
+    originalUserTask: null,
+    delegatedTask: { text: 'Push the docs branch.', origin: 'agent.spawn' },
+    lastDirectUserMessage: null,
+    omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+  });
+});
+
+test('it reports no task context when the decision request fails', async () => {
+  const ctx = await setupTest();
+
+  server.use(http.post(DECISION_URL, () => HttpResponse.text('failure', { status: 529 })));
+
+  const onTaskContext = mock<(context: unknown) => void>();
+
+  await classifyWithJev(
+    buildMockActionRequest({
+      cwd: ctx.directory,
+      toolName: 'Bash',
+      toolInput: { command: 'git push' },
+    }),
+    buildMockConfig({
+      provider: { model: 'jev-1.13.0', apiKeyEnv: 'AUTO_MODE_JEV_TEST_KEY' },
+      claudeSettingsPath: null,
+    }),
+    {
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_JEV_TEST_KEY: 'test-key' },
+        home: ctx.directory,
+      }),
+      onTaskContext,
+    },
+  );
+
+  expect(onTaskContext).not.toHaveBeenCalled();
+});
+
 test('it sends a stale direct message to Jev as stale task context, never as current evidence', async () => {
   const ctx = await setupTest();
 

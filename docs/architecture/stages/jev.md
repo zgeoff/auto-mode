@@ -29,11 +29,12 @@ The request holds the call and everything Jev may use to judge it, and nothing e
 
 The questions follow the policy's two tiers. Each `###` heading under the hard block section or the
 soft block section becomes one question, and each configured entry becomes a question in the tier it
-was configured in. A question's block option covers a missing fact as well as a match: when a fact
-needed to rule out the rule's harm is absent, the right answer is block. Two hard rules, Policy
-Tampering and Audit Tampering, carry a narrow clarification path, because their matches include
-false positives that only the user can explain, and some rules carry extra guidance on which
-evidence settles them.
+was configured in. One exception: a message that [the reply channel](./reply-channel.md) hands on
+because the user configured deny entries gets no question for the shipped Outbound Communication
+rule. A question's block option covers a missing fact as well as a match: when a fact needed to rule
+out the rule's harm is absent, the right answer is block. Two hard rules, Policy Tampering and Audit
+Tampering, carry a narrow clarification path, because their matches include false positives that
+only the user can explain, and some rules carry extra guidance on which evidence settles them.
 
 A commit or push that turns off the repository's hooks, or some of their steps, gets guidance of its
 own. The hooks check what an agent commits and pushes, so turning them off disables a guard on the

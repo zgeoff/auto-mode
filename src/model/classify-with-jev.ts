@@ -101,10 +101,6 @@ export async function classifyWithJev(
       exemptRules: options.exemptRules,
     });
 
-    options.onTaskContext?.(
-      buildSizedDecisionInput(config.provider.model, request).input.state.taskContext,
-    );
-
     const signal = createDeadlineSignal(config.provider.timeoutMs, options);
 
     if (signal === null) {
@@ -119,6 +115,10 @@ export async function classifyWithJev(
     });
 
     stage = 'response';
+
+    options.onTaskContext?.(
+      buildSizedDecisionInput(config.provider.model, request).input.state.taskContext,
+    );
 
     return buildJevOutcome(
       { kind: 'reply', request, result, repositoryContext },
