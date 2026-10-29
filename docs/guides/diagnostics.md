@@ -72,11 +72,12 @@ replaced by `[secret]`, cut to its first 2000 characters. It is `null` when a se
 after the replacement. Hash the session identifier to find the session's `sessionHash`.
 
 `taskEvidence` records which parts of the task context the classifiers received, after the CLI
-resolved a spawned session's opening prompt, and never their text. `userMessage` is `current`,
-`stale`, or `null` when the request carried no last direct user message. `originalUserTask` holds
-the origin of the original user task, or `null` when the request carried none. `delegatedTask` is
-`true` when the request carried a delegated task. The field is `null` for a request with no task
-context.
+resolved a spawned session's opening prompt and dropped any task over its size limits, and never
+their text. When Jev drops a task to fit its request, the final record holds what Jev received.
+`userMessage` is `current`, `stale`, or `null` when the request carried no last direct user message.
+`originalUserTask` holds the origin of the original user task, or `null` when the request carried
+none. `delegatedTask` is `true` when the request carried a delegated task. The field is `null` for a
+request with no task context.
 
 Each final record also measures the task, so escalations can be counted per agent:
 

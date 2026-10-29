@@ -1642,6 +1642,210 @@ test('it writes a started and a final action-log record when asked', async () =>
   ]);
 });
 
+test('it records the task evidence of the resolved opening prompt in both action-log records when the launcher names a spawner', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Read',
+      toolInput: { file_path: join(ctx.directory, 'repo', 'a.ts') },
+      decisionContext: {
+        agentID: null,
+        originalUserTask: {
+          text: 'Read the parser module and summarise it.',
+          origin: 'composer',
+          position: 'opening',
+        },
+        delegatedTask: null,
+        lastDirectUserMessage: {
+          text: 'Read the parser module and summarise it.',
+          origin: 'composer',
+          position: 'opening',
+        },
+        omittedTaskContext: [],
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.directory, 'actions.jsonl'),
+          AUTO_MODE_SCOPE_FILE: scopeFilePath,
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+      actionLog: true,
+    },
+  );
+
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
+
+  expect(
+    log
+      .trim()
+      .split('\n')
+      .map((line): unknown => JSON.parse(line)),
+  ).toStrictEqual([
+    expect.objectContaining({
+      status: 'started',
+      taskEvidence: { userMessage: null, originalUserTask: null, delegatedTask: true },
+    }),
+    expect.objectContaining({
+      status: 'allow',
+      taskEvidence: { userMessage: null, originalUserTask: null, delegatedTask: true },
+    }),
+  ]);
+});
+
+test('it records no delegated task in either action-log record when the opening prompt is too large to send', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const opening = `Check the nightly build and report it. ${'Include every failing suite. '.repeat(160)}`;
+
+  await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__atc__atc_message_send',
+      toolInput: { session: 's-archive', text: 'the nightly build is green' },
+      decisionContext: {
+        agentID: null,
+        originalUserTask: { text: opening, origin: 'composer', position: 'opening' },
+        delegatedTask: null,
+        lastDirectUserMessage: { text: opening, origin: 'composer', position: 'opening' },
+        omittedTaskContext: [],
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.directory, 'actions.jsonl'),
+          AUTO_MODE_SCOPE_FILE: scopeFilePath,
+          TYPESAFE_API_KEY: 'test-key',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+      actionLog: true,
+    },
+  );
+
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
+
+  expect(
+    log
+      .trim()
+      .split('\n')
+      .map((line): unknown => JSON.parse(line)),
+  ).toStrictEqual([
+    expect.objectContaining({
+      status: 'started',
+      taskEvidence: { userMessage: null, originalUserTask: null, delegatedTask: false },
+    }),
+    expect.objectContaining({
+      decidingStage: 'jev',
+      taskEvidence: { userMessage: null, originalUserTask: null, delegatedTask: false },
+    }),
+  ]);
+});
+
+test('it records the delegated task Jev dropped to fit its request in the final action-log record', async () => {
+  const ctx = await setupTest();
+
+  const delegated = `Check the nightly build and report it. ${'Include every failing suite. '.repeat(120)}`;
+
+  await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__atc__atc_message_send',
+      toolInput: { session: 's-archive', text: 'The nightly build is green. '.repeat(1300) },
+      decisionContext: {
+        agentID: 'agent-4',
+        originalUserTask: null,
+        delegatedTask: { text: delegated, origin: 'agent.spawn' },
+        lastDirectUserMessage: null,
+        omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          AUTO_MODE_DIAGNOSTICS_PATH: join(ctx.directory, 'actions.jsonl'),
+          TYPESAFE_API_KEY: 'test-key',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+      actionLog: true,
+    },
+  );
+
+  const log = await readFile(join(ctx.directory, 'actions.jsonl'), 'utf8');
+
+  const nearLimit = expect.toBeWithin(90_000, 100_001);
+
+  expect(
+    log
+      .trim()
+      .split('\n')
+      .map((line): unknown => JSON.parse(line)),
+  ).toStrictEqual([
+    expect.objectContaining({
+      status: 'started',
+      taskEvidence: { userMessage: null, originalUserTask: null, delegatedTask: true },
+    }),
+    expect.objectContaining({
+      decidingStage: 'jev',
+      diagnostics: expect.objectContaining({ requestBytes: nearLimit }),
+      taskEvidence: { userMessage: null, originalUserTask: null, delegatedTask: false },
+    }),
+  ]);
+});
+
 test('it walks up to the checkout once for an edit the bypass sends on to Jev', async () => {
   const ctx = await setupTest();
 

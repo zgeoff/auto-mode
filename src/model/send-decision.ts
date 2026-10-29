@@ -1,7 +1,7 @@
 import type { ProviderConfig } from '../config/config.ts';
 import type { Runtime } from '../config/types.ts';
-import { buildBudgetOmittedContext } from './build-budget-omitted-context.ts';
 import { buildDecisionResponseSchema } from './build-decision-response-schema.ts';
+import { MAX_DECISION_BYTES, buildSizedDecisionInput } from './build-sized-decision-input.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import type { DecisionChoice, DecisionInput, DecisionResult } from './types.ts';
 
@@ -38,28 +38,10 @@ export async function sendDecision(
   request: DecisionInput<string>,
   options: Readonly<SendAnyDecisionOptions>,
 ): Promise<DecisionResult<string>> {
-  const input = {
-    model: provider.model,
-    state: { ...request.state },
-    questions: request.questions,
-  };
-
-  let body = JSON.stringify(input);
-
-  for (const field of ['delegatedTask', 'originalUserTask'] as const) {
-    const context = input.state.taskContext;
-
-    if (Buffer.byteLength(body) <= 100_000 || context === undefined || context[field] === null) {
-      continue;
-    }
-
-    input.state.taskContext = buildBudgetOmittedContext(context, field);
-    body = JSON.stringify(input);
-  }
-
+  const body = buildSizedDecisionInput(provider.model, request).body;
   const requestBytes = Buffer.byteLength(body);
 
-  if (requestBytes > 100_000) {
+  if (requestBytes > MAX_DECISION_BYTES) {
     throw new DecisionRequestError(
       'request-too-large',
       requestBytes,

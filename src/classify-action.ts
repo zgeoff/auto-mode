@@ -33,14 +33,15 @@ import { makeOnceCheckoutReader } from './git/make-once-checkout-reader.ts';
 import type { CheckoutFacts, CheckoutReader } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics, JudgeSession } from './judge/types.ts';
+import { buildTaskContext } from './model/build-task-context.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithJev } from './model/classify-with-jev.ts';
-import type { DecisionDiagnostics } from './model/types.ts';
+import type { DecisionDiagnostics, ModelOptions } from './model/types.ts';
 import { buildGuidedVerdict } from './policy/build-guided-verdict.ts';
 import { buildUnavailableVerdict } from './policy/build-unavailable-verdict.ts';
 import { readContainmentRule } from './policy/read-containment-rule.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
-import type { ActionRequest, Verdict } from './request/types.ts';
+import type { ActionRequest, DecisionContext, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 import type { LocalVerdict } from './rules/classify-locally.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
@@ -76,20 +77,29 @@ export async function classifyAction(
   config: Config,
   options: Readonly<ClassifyOptions>,
 ): Promise<ActionOutcome> {
-  const stderr = options.stderr;
-  const host = options.runtime.host;
   const invocationID = randomUUID();
 
   const resolved = await resolveOpeningPrompt(request, options.runtime);
 
+  const offered =
+    resolved.decisionContext === undefined ? undefined : buildTaskContext(resolved.decisionContext);
+
   if (options.actionLog === true) {
-    await writeActionDiagnostic(resolved, { invocationID, status: 'started' }, host, stderr);
+    const started = { invocationID, status: 'started', taskContext: offered } as const;
+
+    await writeActionDiagnostic(resolved, started, options.runtime.host, options.stderr);
   }
+
+  const received: { context: DecisionContext | undefined } = { context: offered };
+
+  const onTaskContext = (context: DecisionContext | undefined): void => {
+    received.context = context;
+  };
 
   const outcome =
     options.budget === true
-      ? await classifyWithBudget(resolved, config, options)
-      : await classifyStages(resolved, config, options);
+      ? await classifyWithBudget(resolved, config, { ...options, onTaskContext })
+      : await classifyStages(resolved, config, { ...options, onTaskContext });
 
   if (options.actionLog === true) {
     await writeActionDiagnostic(
@@ -104,16 +114,17 @@ export async function classifyAction(
         ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
         ...(outcome.judge === undefined ? {} : { judge: outcome.judge }),
         ...(outcome.grant === undefined ? {} : { grant: outcome.grant }),
+        taskContext: received.context,
       },
-      host,
-      stderr,
+      options.runtime.host,
+      options.stderr,
     );
   }
 
   return outcome;
 }
 
-type StageOptions = Readonly<ClassifyOptions>;
+type StageOptions = Readonly<ClassifyOptions & Pick<ModelOptions, 'onTaskContext'>>;
 
 async function classifyWithBudget(
   request: ActionRequest,

@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import type { HostEnvironment, OutputStream } from '../config/types.ts';
 import type { JudgeDiagnostics } from '../judge/types.ts';
 import type { DecisionDiagnostics } from '../model/types.ts';
-import type { ActionRequest, Verdict } from '../request/types.ts';
+import type { ActionRequest, DecisionContext, Verdict } from '../request/types.ts';
 import { buildSecretFreeText } from '../secrets/build-secret-free-text.ts';
 import { findSecret } from '../secrets/find-secret.ts';
 import { resolveXDGDir } from '../state/resolve-xdg-dir.ts';
@@ -26,6 +26,7 @@ interface ActionDiagnostic {
   readonly diagnostics?: DecisionDiagnostics;
   readonly judge?: JudgeDiagnostics;
   readonly grant?: JudgeDiagnostics;
+  readonly taskContext?: DecisionContext | undefined;
 }
 
 export async function writeActionDiagnostic(
@@ -64,7 +65,7 @@ export async function writeActionDiagnostic(
     judge: entry.judge === undefined ? null : buildLoggedReview(entry.judge),
     grant: entry.grant === undefined ? null : buildLoggedReview(entry.grant),
     action: isReviewed ? buildLoggedAction(payload) : null,
-    taskEvidence: buildTaskEvidence(payload),
+    taskEvidence: buildTaskEvidence(entry.taskContext ?? payload.decisionContext),
   };
 
   try {
@@ -159,9 +160,7 @@ interface TaskEvidence {
   readonly delegatedTask: boolean;
 }
 
-function buildTaskEvidence(payload: ActionRequest): TaskEvidence | null {
-  const context = payload.decisionContext;
-
+function buildTaskEvidence(context: DecisionContext | undefined): TaskEvidence | null {
   if (context === undefined) {
     return null;
   }
