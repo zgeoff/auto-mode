@@ -98,8 +98,9 @@ supported tool-call identifier with the action records. The absence of a record 
 allow or a denial.
 
 To see which models a `claude-code` judge called during each review, set `AUTO_MODE_DEBUG_PATH` to a
-file in the environment that Claude Code starts with, since the judge server inherits it. The judge
-appends one JSON line per review to that file. `model` is the configured judge model, and
-`replyModel` is the model of the reply's own messages, or `null` when the turn printed none.
-`modelUsage` is Claude Code's raw per-model usage for the judge process since its last clear, which
-counts background calls beside the reply. The line holds model names and token counts, and no text.
+file in the environment that Claude Code starts with. auto-mode then appends one JSON line per judge
+review to that file. `model` is the configured judge model, and `answeringModel` is the value the
+`judge` record holds. `modelUsage` is Claude Code's raw per-model usage for the judge process since
+its last clear, which counts background calls beside the reply. The line holds model names and token
+counts, and no text. A failed write leaves the verdict unchanged and prints
+`auto-mode: judge debug line unavailable` on stderr.

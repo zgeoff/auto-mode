@@ -17,6 +17,13 @@ export interface JudgeMessageReply {
   readonly safetyStops: number | null;
   readonly fallback: boolean;
   readonly warm: boolean | null;
+  readonly modelUsage: Readonly<Record<string, unknown>> | null;
+}
+
+export interface JudgeUsage {
+  readonly model: string;
+  readonly answeringModel: string;
+  readonly modelUsage: Readonly<Record<string, unknown>>;
 }
 
 export interface JudgeSession {

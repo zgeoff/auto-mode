@@ -1,5 +1,5 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
@@ -23,20 +23,13 @@ async function setupTest(env: Readonly<Record<string, string>>) {
   );
 
   const recordPath = join(directory, 'calls.jsonl');
-  const debugPath = join(directory, 'debug', 'judge.jsonl');
-
-  const session = startJudgeSession({
-    PATH: binDir,
-    STUB_CLAUDE_RECORD: recordPath,
-    AUTO_MODE_DEBUG_PATH: debugPath,
-    ...env,
-  });
+  const session = startJudgeSession({ PATH: binDir, STUB_CLAUDE_RECORD: recordPath, ...env });
 
   onTestFinished(() => {
     session.stop();
   });
 
-  return { session, recordPath, debugPath };
+  return { session, recordPath };
 }
 
 test('it answers a review with the judge’s text on the configured model', async () => {
@@ -56,6 +49,7 @@ test('it answers a review with the judge’s text on the configured model', asyn
     safetyStops: null,
     fallback: false,
     warm: false,
+    modelUsage: {},
   });
 });
 
@@ -177,7 +171,7 @@ test('it reports the fallback model that wrote the reply and starts a new proces
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
     STUB_CLAUDE_REFUSAL_FALLBACK: 'claude-sonnet-5',
-    STUB_CLAUDE_REPLY_MODEL: 'claude-sonnet-5',
+    STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'claude-sonnet-5' }]),
     STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
       'claude-sonnet-5-5': { inputTokens: 900, outputTokens: 0 },
       'claude-sonnet-5': { inputTokens: 910, outputTokens: 123 },
@@ -205,6 +199,10 @@ test('it reports the fallback model that wrote the reply and starts a new proces
     safetyStops: 1,
     fallback: true,
     warm: false,
+    modelUsage: {
+      'claude-sonnet-5-5': { inputTokens: 900, outputTokens: 0 },
+      'claude-sonnet-5': { inputTokens: 910, outputTokens: 123 },
+    },
   });
 
   expect(second.warm).toBeFalse();
@@ -213,7 +211,7 @@ test('it reports the fallback model that wrote the reply and starts a new proces
 test('it reports a fallback from the usage when the result holds no stop count', async () => {
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
-    STUB_CLAUDE_REPLY_MODEL: 'claude-sonnet-5',
+    STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'claude-sonnet-5' }]),
     STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
       'claude-sonnet-5-5': { inputTokens: 900, outputTokens: 0 },
       'claude-sonnet-5': { inputTokens: 910, outputTokens: 123 },
@@ -232,13 +230,17 @@ test('it reports a fallback from the usage when the result holds no stop count',
     safetyStops: null,
     fallback: true,
     warm: false,
+    modelUsage: {
+      'claude-sonnet-5-5': { inputTokens: 900, outputTokens: 0 },
+      'claude-sonnet-5': { inputTokens: 910, outputTokens: 123 },
+    },
   });
 });
 
 test('it reports the model of the reply when background calls in the process wrote more output', async () => {
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
-    STUB_CLAUDE_REPLY_MODEL: 'claude-sonnet-5-5',
+    STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'claude-sonnet-5-5' }]),
     STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
       'claude-sonnet-5-5': { inputTokens: 900, outputTokens: 40 },
       'claude-haiku-5-5': { inputTokens: 4000, outputTokens: 900 },
@@ -271,40 +273,56 @@ test('it reports the configured model when the turn printed no assistant message
   expect(reply.model).toBe('claude-sonnet-5-5');
 });
 
-test('it appends the raw model usage of each review to the debug file the environment names', async () => {
+test('it reports the model of the last top-level assistant message, past a later child message', async () => {
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
-    STUB_CLAUDE_REPLY_MODEL: 'claude-sonnet-5-5',
-    STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
-      'claude-sonnet-5-5': { inputTokens: 900, outputTokens: 40 },
-      'claude-haiku-5-5': { inputTokens: 4000, outputTokens: 900 },
-    }),
+    STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([
+      { model: 'claude-sonnet-5-5' },
+      { model: 'claude-sonnet-5' },
+      { model: 'claude-haiku-5-5', parentToolUseID: 'toolu_child' },
+    ]),
   });
 
-  await ctx.session.review(
+  const reply = await ctx.session.review(
     'claude-sonnet-5-5',
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
 
-  const text = await readFile(ctx.debugPath, 'utf8');
+  expect(reply.model).toBe('claude-sonnet-5');
+});
 
-  const lines = text
-    .trim()
-    .split('\n')
-    .map((line): unknown => JSON.parse(line));
+test('it skips a top-level assistant message that carries an error', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
+    STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([
+      { model: 'claude-sonnet-5' },
+      { model: '<synthetic>', error: 'rate_limit' },
+    ]),
+  });
 
-  expect(lines).toStrictEqual([
-    {
-      time: expect.toBeDateString(),
-      model: 'claude-sonnet-5-5',
-      replyModel: 'claude-sonnet-5-5',
-      modelUsage: {
-        'claude-sonnet-5-5': { inputTokens: 900, outputTokens: 40 },
-        'claude-haiku-5-5': { inputTokens: 4000, outputTokens: 900 },
-      },
-    },
-  ]);
+  const reply = await ctx.session.review(
+    'claude-sonnet-5-5',
+    { system: 'the judge policy', user: 'the evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply.model).toBe('claude-sonnet-5');
+});
+
+test('it returns no model usage when the result holds no usage map', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
+    STUB_CLAUDE_MODEL_USAGE: 'null',
+  });
+
+  const reply = await ctx.session.review(
+    'claude-sonnet-5-5',
+    { system: 'the judge policy', user: 'the evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply.modelUsage).toBeNull();
 });
 
 test('it returns the text of a tagged reply as the judge wrote it', async () => {

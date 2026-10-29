@@ -17,9 +17,21 @@ const crashes = process.env['STUB_CLAUDE_CRASH'] === 'true';
 const modelUsage = process.env['STUB_CLAUDE_MODEL_USAGE'];
 const safetyStops = process.env['STUB_CLAUDE_SAFETY_STOPS'];
 const fallbackModel = process.env['STUB_CLAUDE_REFUSAL_FALLBACK'];
-const replyModel = process.env['STUB_CLAUDE_REPLY_MODEL'];
 const delayMs = Number(process.env['STUB_CLAUDE_DELAY_MS'] ?? 0);
 const sessionID = '00000000-0000-4000-8000-000000000000';
+
+const ASSISTANT_MESSAGES = z.array(
+  z.object({
+    model: z.string(),
+    parentToolUseID: z.string().nullable().default(null),
+    error: z.string().optional(),
+  }),
+);
+
+const assistantMessages = ASSISTANT_MESSAGES.parse(
+  JSON.parse(process.env['STUB_CLAUDE_ASSISTANT_MESSAGES'] ?? '[]'),
+);
+
 const CONTROL_REQUEST = z.object({ subtype: z.string(), systemPrompt: z.unknown().optional() });
 const USER_MESSAGE = z.object({ content: z.string() });
 
@@ -113,20 +125,21 @@ for await (const line of createInterface({ input: process.stdin })) {
     });
   }
 
-  if (replyModel !== undefined) {
+  for (const assistant of assistantMessages) {
     printLine({
       type: 'assistant',
       message: {
         id: 'msg_stub',
         type: 'message',
         role: 'assistant',
-        model: replyModel,
+        model: assistant.model,
         content: [{ type: 'text', text: reply }],
         stop_reason: 'end_turn',
         stop_sequence: null,
         usage: { input_tokens: 1, output_tokens: 1 },
       },
-      parent_tool_use_id: null,
+      parent_tool_use_id: assistant.parentToolUseID,
+      ...(assistant.error === undefined ? {} : { error: assistant.error }),
       uuid: '00000000-0000-4000-8000-000000000002',
       session_id: sessionID,
     });

@@ -655,6 +655,50 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
   expect(outcome.diagnostics?.status).toBe('deny');
 });
 
+test('it appends the judge’s model usage to the debug file the host names', async () => {
+  const ctx = await setupTest();
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const debugPath = join(ctx.directory, 'judge-debug.jsonl');
+
+  await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          AUTO_MODE_DEBUG_PATH: debugPath,
+          STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Nobody asked."}',
+          STUB_CLAUDE_MODEL_USAGE: JSON.stringify({ 'claude-haiku-5-5': { outputTokens: 12 } }),
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  const text = await readFile(debugPath, 'utf8');
+
+  expect(JSON.parse(text)).toStrictEqual({
+    time: expect.toBeDateString(),
+    model: 'claude-haiku-5-5',
+    answeringModel: 'claude-haiku-5-5',
+    modelUsage: { 'claude-haiku-5-5': { outputTokens: 12 } },
+  });
+});
+
 test('it allows an action whose soft-rule Jev deny the judge overturns as a misread under the default overturn setting', async () => {
   const ctx = await setupTest();
 

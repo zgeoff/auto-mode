@@ -1,6 +1,4 @@
-import { appendFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname } from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type {
   Query,
@@ -80,8 +78,6 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
       } else {
         current.cleared = sendClear(current.send, current.stop);
       }
-
-      await writeUsageLine(env, model, turn);
 
       return buildReply(turn, model, warm);
     } catch (error) {
@@ -350,32 +346,8 @@ async function sendClear(
   }
 }
 
-// A detached judge server has no stderr, so the debug line goes to a file.
-async function writeUsageLine(
-  env: Readonly<Record<string, string | undefined>>,
-  requested: string,
-  turn: Readonly<Turn>,
-): Promise<void> {
-  const path = env['AUTO_MODE_DEBUG_PATH'];
-
-  if (path === undefined || path === '') {
-    return;
-  }
-
-  const line = {
-    time: new Date().toISOString(),
-    model: requested,
-    replyModel: turn.replyModel,
-    modelUsage: turn.result.modelUsage,
-  };
-
-  try {
-    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-    await appendFile(path, `${JSON.stringify(line)}\n`, { mode: 0o600 });
-  } catch {}
-}
-
 const MODEL_USAGE = z.record(z.string(), z.object({ outputTokens: z.number() }));
+const RAW_MODEL_USAGE = z.record(z.string(), z.unknown());
 const SAFETY_STOPS = z.object({ safety_stops: z.number() });
 
 function buildReply(turn: Readonly<Turn>, requested: string, warm: boolean): JudgeMessageReply {
@@ -394,6 +366,7 @@ function buildReply(turn: Readonly<Turn>, requested: string, warm: boolean): Jud
     safetyStops: stops ?? null,
     fallback: turn.fallbacks > 0 || isFallbackReply(usage, stops),
     warm,
+    modelUsage: RAW_MODEL_USAGE.safeParse(result.modelUsage).data ?? null,
   };
 }
 

@@ -74,5 +74,6 @@ async function sendToMessagesAPI(
     safetyStops: null,
     fallback: false,
     warm: null,
+    modelUsage: null,
   };
 }
