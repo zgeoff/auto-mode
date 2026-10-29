@@ -125,7 +125,7 @@ test('it carries the session identity and the user message typed after the openi
   expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
-test('it grants no consent from the opening prompt of a session, which a launcher can write', async ($, on) => {
+test('it marks the opening prompt of a session, which a launcher can write, in the request', async ($, on) => {
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('classic.SessionStart', () => ({}));
@@ -166,7 +166,11 @@ test('it grants no consent from the opening prompt of a session, which a launche
         origin: 'composer',
       },
       delegatedTask: null,
-      lastDirectUserMessage: null,
+      lastDirectUserMessage: {
+        text: 'Send "relay check: hello from lane two" to session b7e2-dune-otter.',
+        origin: 'composer',
+        position: 'opening',
+      },
       omittedTaskContext: [],
     },
   });

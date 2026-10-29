@@ -43,6 +43,7 @@ import { classifyLocally } from './rules/classify-locally.ts';
 import type { LocalVerdict } from './rules/classify-locally.ts';
 import { findReplyChannel } from './scope/find-reply-channel.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
+import { resolveOpeningPrompt } from './scope/resolve-opening-prompt.ts';
 import type { OwnedScope } from './scope/types.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
 import type { DecidingStage, JudgeEvidence } from './types.ts';
@@ -179,7 +180,7 @@ async function classifyStages(
   options: StageOptions,
 ): Promise<ActionOutcome> {
   const ctx: StageContext = {
-    request,
+    request: await resolveOpeningPrompt(request, options.runtime),
     config,
     options,
 

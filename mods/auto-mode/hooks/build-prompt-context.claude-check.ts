@@ -79,7 +79,7 @@ for (const [title, previous, input, expected] of [
     },
   ],
   [
-    'it captures the opening prompt as the original task, never as the direct message',
+    'it captures the opening prompt as the original task and marks it as the opening prompt',
     {
       originalUserTask: null,
       lastDirectUserMessage: null,
@@ -89,7 +89,7 @@ for (const [title, previous, input, expected] of [
     { text: 'Build the parser', origin: { kind: 'composer' } },
     {
       originalUserTask: { text: 'Build the parser', origin: 'composer' },
-      lastDirectUserMessage: null,
+      lastDirectUserMessage: { text: 'Build the parser', origin: 'composer', position: 'opening' },
       canCaptureOriginal: true,
       awaitsOpeningPrompt: false,
     },
@@ -105,13 +105,13 @@ for (const [title, previous, input, expected] of [
     { text: 'Build the parser', origin: { kind: 'sdk' } },
     {
       originalUserTask: { text: 'Build the parser', origin: 'sdk' },
-      lastDirectUserMessage: null,
+      lastDirectUserMessage: { text: 'Build the parser', origin: 'sdk', position: 'opening' },
       canCaptureOriginal: true,
       awaitsOpeningPrompt: false,
     },
   ],
   [
-    'it counts no opening prompt of a resumed session as the direct message',
+    'it marks the first prompt after a resume as the opening prompt',
     {
       originalUserTask: null,
       lastDirectUserMessage: null,
@@ -121,16 +121,36 @@ for (const [title, previous, input, expected] of [
     { text: 'Tag the release candidate', origin: { kind: 'composer' } },
     {
       originalUserTask: null,
-      lastDirectUserMessage: null,
+      lastDirectUserMessage: {
+        text: 'Tag the release candidate',
+        origin: 'composer',
+        position: 'opening',
+      },
       canCaptureOriginal: false,
       awaitsOpeningPrompt: false,
     },
   ],
   [
-    'it counts a prompt typed after the opening prompt as the direct message',
+    'it marks an opening prompt stale without its opening mark after a plugin prompt',
     {
       originalUserTask: { text: 'Build the parser', origin: 'composer' },
-      lastDirectUserMessage: null,
+      lastDirectUserMessage: { text: 'Build the parser', origin: 'composer', position: 'opening' },
+      canCaptureOriginal: true,
+      awaitsOpeningPrompt: false,
+    },
+    { text: 'Relayed request', origin: { kind: 'plugin' } },
+    {
+      originalUserTask: { text: 'Build the parser', origin: 'composer' },
+      lastDirectUserMessage: { text: 'Build the parser', origin: 'composer', freshness: 'stale' },
+      canCaptureOriginal: true,
+      awaitsOpeningPrompt: false,
+    },
+  ],
+  [
+    'it counts a prompt typed after the opening prompt as an unmarked direct message',
+    {
+      originalUserTask: { text: 'Build the parser', origin: 'composer' },
+      lastDirectUserMessage: { text: 'Build the parser', origin: 'composer', position: 'opening' },
       canCaptureOriginal: true,
       awaitsOpeningPrompt: false,
     },

@@ -42,7 +42,7 @@ export function buildPromptContext(
   return {
     originalUserTask:
       previous?.originalUserTask ?? (previous?.canCaptureOriginal === true ? message : null),
-    lastDirectUserMessage: isOpeningPrompt ? null : message,
+    lastDirectUserMessage: isOpeningPrompt ? { ...message, position: 'opening' } : message,
     canCaptureOriginal: previous?.canCaptureOriginal ?? false,
     awaitsOpeningPrompt: false,
   };

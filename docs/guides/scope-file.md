@@ -60,7 +60,10 @@ back to the agent named `planner`:
   other recipient, or through any other tool, is judged as outbound like every other message.
 
 A reply channel grants no consent. It takes one message out of what Jev judges, and nothing a rule
-asks the user to name.
+asks the user to name. auto-mode reads any reply channel as the mark of a session that another
+session spawned, so the session's opening prompt counts as task context and never as the user's
+consent ([the user message](../architecture/evidence/user-message.md)). List a reply channel only
+for a session that has a spawner.
 
 auto-mode reads the file and never writes it. A missing file, or no `AUTO_MODE_SCOPE_FILE`, adds
 nothing. A file that is not JSON, holds another version, or holds a field the format does not define

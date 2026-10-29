@@ -9,6 +9,7 @@ export interface UserTask {
 
 export interface DirectUserMessage extends UserTask {
   readonly freshness?: 'stale' | undefined;
+  readonly position?: 'opening' | undefined;
 }
 
 interface DelegatedTask {
