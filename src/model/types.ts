@@ -15,6 +15,8 @@ export interface ModelOutcome {
 export interface ModelOptions extends EvaluationOptions {
   readonly checkout?: CheckoutFacts | undefined;
   readonly readCheckout?: CheckoutReader | undefined;
+  readonly exemptRules?: readonly string[] | undefined;
+  readonly onTaskContext?: ((context: DecisionContext | undefined) => void) | undefined;
 }
 
 export type DecisionChoice = 'allow' | 'block';

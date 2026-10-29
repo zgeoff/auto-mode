@@ -18,25 +18,32 @@ three things:
 - **The original user task:** the first direct message of a session started fresh or cleared. A
   resumed session or a reloaded mod has none, because the mod cannot tell whether the first message
   it sees opened the task.
-- **The delegated task** of each subagent: the prompt its parent agent wrote when spawning it.
+- **The delegated task** of each subagent: the prompt its parent agent wrote when spawning it. The
+  CLI gives a spawned session's opening prompt the same place.
 
 Only the last direct message is user evidence. The classifiers read the original task and the
 delegated task as the purpose of the work, and neither grants consent or clears a rule, because the
 original task is old and the delegated task is the agent's own words.
 
-The opening prompt of a session that another session spawned is task context, never the last direct
-message. The program that starts a session can pass its opening prompt on the command line, and
-Claude Code reports a command-line prompt with the same origin as a typed one, so the mod marks the
-opening prompt and the CLI decides. The mod marks the first direct prompt after a start, a resume or
-a reload of the mod, and the mark stays on the prompt when it goes stale. A clear starts no new
-opening prompt, because a person clears a session from its own prompt.
+The opening prompt of a session that another session spawned is the delegated task, never the last
+direct message or the original user task. The program that starts a session can pass its opening
+prompt on the command line, and Claude Code reports a command-line prompt with the same origin as a
+typed one, so the mod marks the opening prompt and the CLI decides. The mod marks the first direct
+prompt after a start, a resume or a reload of the mod, on the last direct message and on the
+original task it captures from that prompt. The mark stays on the message when it goes stale, and on
+the original task after the user types a later message. A clear starts no new opening prompt,
+because a person clears a session from its own prompt.
 
-The CLI drops a marked prompt from the request when the
+The CLI moves a marked prompt to the delegated task when the
 [launcher scope file](../../guides/scope-file.md) lists a reply channel, because a launcher lists
-one only for a session that has a spawner to reply to. It drops the prompt too when that file is
-unreadable or malformed. It does so before the denial budget computes its retry key, so a user who
-types the same instruction later gets a fresh judgement. Otherwise the opening prompt counts like
-any direct message, so a user who starts a session with an instruction keeps that consent.
+one only for a session that has a spawner to reply to. It does the same when that file is unreadable
+or malformed. The marked prompt then leaves the last direct message and the original task, and the
+request records the original task as unavailable. The classifiers read the original task as a
+person's words and the delegated task as an agent's, and a spawned session's opening prompt is an
+agent's. The CLI resolves the opening prompt before the denial budget computes its retry key, so a
+user who types the same instruction later gets a fresh judgement. Otherwise the opening prompt
+counts like any direct message, so a user who starts a session with an instruction keeps that
+consent.
 
 A subagent's call never carries the user's message. The CLI drops it from every request whose agent
 is a subagent when it parses the request, because the user typed it to the main agent, and a

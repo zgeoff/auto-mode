@@ -14,7 +14,7 @@ async function setupTest(): Promise<{ readonly directory: string }> {
   return { directory };
 }
 
-test('it drops the opening prompt from the request when the launcher names a spawner', async () => {
+test('it turns the opening prompt into the delegated task when the launcher names a spawner', async () => {
   const ctx = await setupTest();
 
   const scopeFilePath = join(ctx.directory, 'scope.json');
@@ -33,12 +33,18 @@ test('it drops the opening prompt from the request when the launcher names a spa
   const request = buildMockActionRequest({
     decisionContext: {
       agentID: null,
-      originalUserTask: { text: 'Draft the changelog entry.', origin: 'composer' },
+      originalUserTask: {
+        text: 'Draft the changelog entry.',
+        origin: 'composer',
+        position: 'opening',
+      },
+      delegatedTask: null,
       lastDirectUserMessage: {
         text: 'Draft the changelog entry.',
         origin: 'composer',
         position: 'opening',
       },
+      omittedTaskContext: [],
     },
   });
 
@@ -47,11 +53,103 @@ test('it drops the opening prompt from the request when the launcher names a spa
     buildMockRuntime({ env: { AUTO_MODE_SCOPE_FILE: scopeFilePath } }),
   );
 
-  expect(resolved.decisionContext?.lastDirectUserMessage).toBeNull();
+  expect(resolved.decisionContext).toStrictEqual({
+    agentID: null,
+    originalUserTask: null,
+    delegatedTask: { text: 'Draft the changelog entry.', origin: 'agent.spawn' },
+    lastDirectUserMessage: null,
+    omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+  });
+});
 
-  expect(resolved.decisionContext?.originalUserTask).toStrictEqual({
-    text: 'Draft the changelog entry.',
-    origin: 'composer',
+test('it keeps a typed message and moves the opening task to the delegated task when the launcher names a spawner', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const request = buildMockActionRequest({
+    decisionContext: {
+      agentID: null,
+      originalUserTask: {
+        text: 'Draft the changelog entry.',
+        origin: 'composer',
+        position: 'opening',
+      },
+      delegatedTask: null,
+      lastDirectUserMessage: { text: 'Post the entry to the docs channel.', origin: 'composer' },
+      omittedTaskContext: [],
+    },
+  });
+
+  const resolved = await resolveOpeningPrompt(
+    request,
+    buildMockRuntime({ env: { AUTO_MODE_SCOPE_FILE: scopeFilePath } }),
+  );
+
+  expect(resolved.decisionContext).toStrictEqual({
+    agentID: null,
+    originalUserTask: null,
+    delegatedTask: { text: 'Draft the changelog entry.', origin: 'agent.spawn' },
+    lastDirectUserMessage: { text: 'Post the entry to the docs channel.', origin: 'composer' },
+    omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+  });
+});
+
+test('it gives a subagent without a delegated task none of the opening prompt when the launcher names a spawner', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const request = buildMockActionRequest({
+    decisionContext: {
+      agentID: 'agent-7',
+      originalUserTask: {
+        text: 'Draft the changelog entry.',
+        origin: 'composer',
+        position: 'opening',
+      },
+      delegatedTask: null,
+      lastDirectUserMessage: null,
+      omittedTaskContext: [{ field: 'delegatedTask', reason: 'unavailable' }],
+    },
+  });
+
+  const resolved = await resolveOpeningPrompt(
+    request,
+    buildMockRuntime({ env: { AUTO_MODE_SCOPE_FILE: scopeFilePath } }),
+  );
+
+  expect(resolved.decisionContext).toStrictEqual({
+    agentID: 'agent-7',
+    originalUserTask: null,
+    delegatedTask: null,
+    lastDirectUserMessage: null,
+    omittedTaskContext: [
+      { field: 'delegatedTask', reason: 'unavailable' },
+      { field: 'originalUserTask', reason: 'unavailable' },
+    ],
   });
 });
 
@@ -91,23 +189,33 @@ test('it drops a stale opening prompt from the request when the launcher names a
   expect(resolved.decisionContext?.lastDirectUserMessage).toBeNull();
 });
 
-test('it keeps the opening prompt without its mark when no launcher names a spawner', async () => {
+test('it keeps the opening prompt as the task and the message without their marks when no launcher names a spawner', async () => {
   const request = buildMockActionRequest({
     decisionContext: {
       agentID: null,
+      originalUserTask: {
+        text: 'Draft the changelog entry.',
+        origin: 'composer',
+        position: 'opening',
+      },
+      delegatedTask: null,
       lastDirectUserMessage: {
         text: 'Draft the changelog entry.',
         origin: 'composer',
         position: 'opening',
       },
+      omittedTaskContext: [],
     },
   });
 
   const resolved = await resolveOpeningPrompt(request, buildMockRuntime());
 
-  expect(resolved.decisionContext?.lastDirectUserMessage).toStrictEqual({
-    text: 'Draft the changelog entry.',
-    origin: 'composer',
+  expect(resolved.decisionContext).toStrictEqual({
+    agentID: null,
+    originalUserTask: { text: 'Draft the changelog entry.', origin: 'composer' },
+    delegatedTask: null,
+    lastDirectUserMessage: { text: 'Draft the changelog entry.', origin: 'composer' },
+    omittedTaskContext: [],
   });
 });
 

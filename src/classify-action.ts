@@ -6,6 +6,7 @@ import { loadDenialState } from './budget/load-denial-state.ts';
 import { planDenialBudget } from './budget/plan-denial-budget.ts';
 import { resolveDenialStatePath } from './budget/resolve-denial-state-path.ts';
 import { tryUpdateDenialBudget } from './budget/try-update-denial-budget.ts';
+import { classifyReplyCall } from './bypass/classify-reply-call.ts';
 import { tryClassifyEdit } from './bypass/try-classify-edit.ts';
 import type { Config } from './config/config.ts';
 import {
@@ -32,17 +33,17 @@ import { makeOnceCheckoutReader } from './git/make-once-checkout-reader.ts';
 import type { CheckoutFacts, CheckoutReader } from './git/types.ts';
 import { classifyWithJudge } from './judge/classify-with-judge.ts';
 import type { JudgeDiagnostics, JudgeSession } from './judge/types.ts';
+import { buildTaskContext } from './model/build-task-context.ts';
 import { buildTaskScopeSummary } from './model/build-task-scope-summary.ts';
 import { classifyWithJev } from './model/classify-with-jev.ts';
-import type { DecisionDiagnostics } from './model/types.ts';
+import type { DecisionDiagnostics, ModelOptions } from './model/types.ts';
 import { buildGuidedVerdict } from './policy/build-guided-verdict.ts';
 import { buildUnavailableVerdict } from './policy/build-unavailable-verdict.ts';
 import { readContainmentRule } from './policy/read-containment-rule.ts';
 import { readDenialGuidance } from './policy/read-denial-guidance.ts';
-import type { ActionRequest, Verdict } from './request/types.ts';
+import type { ActionRequest, DecisionContext, Verdict } from './request/types.ts';
 import { classifyLocally } from './rules/classify-locally.ts';
 import type { LocalVerdict } from './rules/classify-locally.ts';
-import { findReplyChannel } from './scope/find-reply-channel.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
 import { resolveOpeningPrompt } from './scope/resolve-opening-prompt.ts';
 import type { OwnedScope } from './scope/types.ts';
@@ -76,24 +77,33 @@ export async function classifyAction(
   config: Config,
   options: Readonly<ClassifyOptions>,
 ): Promise<ActionOutcome> {
-  const stderr = options.stderr;
-  const host = options.runtime.host;
   const invocationID = randomUUID();
-
-  if (options.actionLog === true) {
-    await writeActionDiagnostic(request, { invocationID, status: 'started' }, host, stderr);
-  }
 
   const resolved = await resolveOpeningPrompt(request, options.runtime);
 
+  const offered =
+    resolved.decisionContext === undefined ? undefined : buildTaskContext(resolved.decisionContext);
+
+  if (options.actionLog === true) {
+    const started = { invocationID, status: 'started', taskContext: offered } as const;
+
+    await writeActionDiagnostic(resolved, started, options.runtime.host, options.stderr);
+  }
+
+  const received: { context: DecisionContext | undefined } = { context: offered };
+
+  const onTaskContext = (context: DecisionContext | undefined): void => {
+    received.context = context;
+  };
+
   const outcome =
     options.budget === true
-      ? await classifyWithBudget(resolved, config, options)
-      : await classifyStages(resolved, config, options);
+      ? await classifyWithBudget(resolved, config, { ...options, onTaskContext })
+      : await classifyStages(resolved, config, { ...options, onTaskContext });
 
   if (options.actionLog === true) {
     await writeActionDiagnostic(
-      request,
+      resolved,
       {
         invocationID,
         status: outcome.status,
@@ -104,16 +114,17 @@ export async function classifyAction(
         ...(outcome.diagnostics === undefined ? {} : { diagnostics: outcome.diagnostics }),
         ...(outcome.judge === undefined ? {} : { judge: outcome.judge }),
         ...(outcome.grant === undefined ? {} : { grant: outcome.grant }),
+        taskContext: received.context,
       },
-      host,
-      stderr,
+      options.runtime.host,
+      options.stderr,
     );
   }
 
   return outcome;
 }
 
-type StageOptions = Readonly<ClassifyOptions>;
+type StageOptions = Readonly<ClassifyOptions & Pick<ModelOptions, 'onTaskContext'>>;
 
 async function classifyWithBudget(
   request: ActionRequest,
@@ -168,6 +179,7 @@ interface StageFacts {
   readonly checkout: CheckoutFacts | null;
   readonly scope: OwnedScope | null;
   readonly grant: PendingGrant | null;
+  readonly exemptRules: readonly string[];
 }
 
 interface StageContext extends StageFacts {
@@ -194,6 +206,7 @@ async function classifyStages(
     checkout: null,
     scope: null,
     grant: null,
+    exemptRules: [],
   };
 
   const outcome = await runStages(ctx);
@@ -455,22 +468,13 @@ async function classifyEditBypass(ctx: Readonly<StageContext>): Promise<StageDec
 }
 
 async function classifyReplyChannel(ctx: Readonly<StageContext>): Promise<StageDecision> {
-  const channel =
-    ctx.hasConfiguredDenies || ctx.scope === null
-      ? null
-      : findReplyChannel(ctx.request.toolName, ctx.request.toolInput, ctx.scope.replyChannels);
+  const reply = await classifyReplyCall(ctx.request, ctx.scope, ctx.hasConfiguredDenies);
 
-  if (channel === null) {
-    return { kind: 'pass' };
+  if (reply.kind !== 'bypass') {
+    return { kind: 'pass', facts: { exemptRules: reply.kind === 'exempt' ? reply.rules : [] } };
   }
 
-  // The secret rule set adds about 10 ms to a CLI start, so only a message
-  // through a reply channel loads it.
-  const reply = await import('./bypass/classify-reply-message.ts');
-
-  if (reply.classifyReplyMessage(ctx.request.toolInput).kind !== 'bypass') {
-    return { kind: 'pass' };
-  }
+  const channel = reply.channel;
 
   return {
     kind: 'decided',
@@ -506,6 +510,7 @@ async function classifyJev(ctx: Readonly<StageContext>): Promise<StageOutcome> {
     claudeSettings: ctx.claudeSettings,
     checkout: ctx.checkout ?? undefined,
     readCheckout: ctx.readCheckout,
+    exemptRules: ctx.exemptRules,
   });
 
   return {

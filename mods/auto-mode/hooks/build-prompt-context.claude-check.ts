@@ -88,7 +88,7 @@ for (const [title, previous, input, expected] of [
     },
     { text: 'Build the parser', origin: { kind: 'composer' } },
     {
-      originalUserTask: { text: 'Build the parser', origin: 'composer' },
+      originalUserTask: { text: 'Build the parser', origin: 'composer', position: 'opening' },
       lastDirectUserMessage: { text: 'Build the parser', origin: 'composer', position: 'opening' },
       canCaptureOriginal: true,
       awaitsOpeningPrompt: false,
@@ -104,7 +104,7 @@ for (const [title, previous, input, expected] of [
     },
     { text: 'Build the parser', origin: { kind: 'sdk' } },
     {
-      originalUserTask: { text: 'Build the parser', origin: 'sdk' },
+      originalUserTask: { text: 'Build the parser', origin: 'sdk', position: 'opening' },
       lastDirectUserMessage: { text: 'Build the parser', origin: 'sdk', position: 'opening' },
       canCaptureOriginal: true,
       awaitsOpeningPrompt: false,

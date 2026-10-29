@@ -11,6 +11,7 @@ export const actionLogRecordSchema = z
       z.literal(6),
       z.literal(7),
       z.literal(8),
+      z.literal(9),
     ]),
     time: z.iso.datetime(),
     invocationID: z.string().min(1),
@@ -43,6 +44,7 @@ export const actionLogRecordSchema = z
     judge: z.unknown().optional(),
     grant: z.unknown().optional(),
     action: z.unknown().optional(),
+    taskEvidence: z.unknown().optional(),
   })
   .superRefine((record, context) => {
     if (record.schemaVersion >= 5 !== (record.agentHash !== undefined)) {
@@ -69,6 +71,15 @@ export const actionLogRecordSchema = z
         path: ['action'],
         message:
           'A version 7 or later record holds the action field, and an earlier version does not.',
+      });
+    }
+
+    if (record.schemaVersion >= 9 !== (record.taskEvidence !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['taskEvidence'],
+        message:
+          'A version 9 or later record holds the task evidence, and an earlier version does not.',
       });
     }
   })

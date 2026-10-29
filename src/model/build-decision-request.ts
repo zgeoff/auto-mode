@@ -22,6 +22,7 @@ export interface DecisionRequestOptions {
   readonly mcpServers?: readonly MCPServerFact[] | undefined;
   readonly localHookConfig?: string | null | undefined;
   readonly hookFacts?: HookFacts | null | undefined;
+  readonly exemptRules?: readonly string[] | undefined;
 }
 
 export function buildDecisionRequest(
@@ -32,6 +33,7 @@ export function buildDecisionRequest(
   const rulesSource = options.rulesSource ?? 'replacement';
   const repositoryContext = options.repositoryContext ?? null;
   const mcpServers = options.mcpServers ?? [];
+  const exemptRules = options.exemptRules ?? [];
   const rules: Record<string, DecisionRule> = {};
   let tier: DecisionRule['tier'] | null = null;
 
@@ -49,6 +51,10 @@ export function buildDecisionRequest(
 
       if (name === '' || Object.values(rules).some((rule) => rule.name === name)) {
         throw new Error('Policy has an empty or duplicate rule');
+      }
+
+      if (rulesSource === 'shipped' && exemptRules.includes(name)) {
+        continue;
       }
 
       rules[`rule_${Object.keys(rules).length}`] = {

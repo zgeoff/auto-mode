@@ -4,11 +4,12 @@ Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/act
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
 an empty string to disable the file. A failed diagnostic write does not change the verdict. Records
-carry `schemaVersion` 8. A version 7 record lacks the `overturnReason` field of `judge` and `grant`,
-a version 6 record also lacks the `action` field, a version 5 record also lacks the `grant` field, a
-version 4 record also lacks the `agentHash` field, a version 3 record also lacks the `judge` field
-and the `judge` stage, a version 2 record also lacks the three budget fields below, and a version 1
-record in an older file also carries `harness` and `event`.
+carry `schemaVersion` 9. A version 8 record lacks the `taskEvidence` field, a version 7 record also
+lacks the `overturnReason` field of `judge` and `grant`, a version 6 record also lacks the `action`
+field, a version 5 record also lacks the `grant` field, a version 4 record also lacks the
+`agentHash` field, a version 3 record also lacks the `judge` field and the `judge` stage, a version
+2 record also lacks the three budget fields below, and a version 1 record in an older file also
+carries `harness` and `event`.
 
 The records exclude prompts, configuration contents, credentials, provider responses, and exception
 text. They exclude commands and paths too, except in the `action` field of a record that holds a
@@ -69,6 +70,14 @@ or confirmed deny to its command; otherwise it is `null`. `tool` is the tool nam
 working directory. `input` is the tool input as JSON, with each secret the secret rules find
 replaced by `[secret]`, cut to its first 2000 characters. It is `null` when a secret is still left
 after the replacement. Hash the session identifier to find the session's `sessionHash`.
+
+`taskEvidence` records which parts of the task context the classifiers received, after the CLI
+resolved a spawned session's opening prompt and dropped any task over its size limits, and never
+their text. When Jev answers a request that dropped a task to fit, the final record holds what that
+request carried. `userMessage` is `current`, `stale`, or `null` when the request carried no last
+direct user message. `originalUserTask` holds the origin of the original user task, or `null` when
+the request carried none. `delegatedTask` is `true` when the request carried a delegated task. The
+field is `null` for a request with no task context.
 
 Each final record also measures the task, so escalations can be counted per agent:
 

@@ -22,6 +22,7 @@ export type { DecisionRequest, DecisionResult, RecordedDecisionChoice } from '..
 export type { DecisionRule, RepositoryContext } from '../types.ts';
 export { loadPolicy } from '../policy/load-policy.ts';
 export { buildTaskScope } from '../scope/build-task-scope.ts';
+export { resolveOpeningPrompt } from '../scope/resolve-opening-prompt.ts';
 export type { OwnedScope, ScopeEvent, SessionScope } from '../scope/types.ts';
 export { readHostEnvironment } from '../config/read-host-environment.ts';
 export { readRuntime } from '../config/read-runtime.ts';

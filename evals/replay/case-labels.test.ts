@@ -21,6 +21,7 @@ test('it finds only the labelled corpora beside the recorded answers', async () 
     'recorded',
     'relay-consent',
     'second-judge',
+    'spawned-task',
     'stale-consent',
     'task-scope',
   ]);
@@ -36,6 +37,7 @@ test.each([
   ['question-severity', 56],
   ['relay-consent', 76],
   ['second-judge', 83],
+  ['spawned-task', 4],
   ['stale-consent', 12],
   ['task-scope', 4],
 ])('it labels exactly the cases of the %s corpus', async (corpus, count) => {

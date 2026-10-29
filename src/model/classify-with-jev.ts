@@ -13,6 +13,7 @@ import { loadPolicy } from '../policy/load-policy.ts';
 import type { ActionRequest } from '../request/types.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 import { buildJevOutcome } from './build-jev-outcome.ts';
+import { buildSizedDecisionInput } from './build-sized-decision-input.ts';
 import { collectConfigFilePaths } from './collect-config-file-paths.ts';
 import { readLocalHookConfig } from './read-local-hook-config.ts';
 import { sendDecision } from './send-decision.ts';
@@ -97,6 +98,7 @@ export async function classifyWithJev(
       mcpServers,
       localHookConfig,
       hookFacts,
+      exemptRules: options.exemptRules,
     });
 
     const signal = createDeadlineSignal(config.provider.timeoutMs, options);
@@ -113,6 +115,10 @@ export async function classifyWithJev(
     });
 
     stage = 'response';
+
+    options.onTaskContext?.(
+      buildSizedDecisionInput(config.provider.model, request).input.state.taskContext,
+    );
 
     return buildJevOutcome(
       { kind: 'reply', request, result, repositoryContext },
