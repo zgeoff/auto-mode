@@ -51,5 +51,10 @@ export function buildPromptContext(
 function buildStaleMessage(message: DirectUserMessage | null): DirectUserMessage | null {
   return message === null
     ? null
-    : { text: message.text, origin: message.origin, freshness: 'stale' };
+    : {
+        text: message.text,
+        origin: message.origin,
+        freshness: 'stale',
+        ...(message.position === undefined ? {} : { position: message.position }),
+      };
 }

@@ -2159,6 +2159,84 @@ test('it clears a write that a later typed message names on consent when the lau
   });
 });
 
+test('it reviews a write the user types after its opening prompt was denied in a spawned session, instead of repeating the deny', async () => {
+  const ctx = await setupTest();
+
+  const target = join(ctx.directory, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const config = buildMockConfig({
+    provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+    judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+    claudeSettingsPath: null,
+  });
+
+  const runtime = buildMockRuntime({
+    env: {
+      AUTO_MODE_SCOPE_FILE: scopeFilePath,
+      TYPESAFE_API_KEY: 'test-key',
+      PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+      STUB_CLAUDE_RECORD: ctx.recordPath,
+      STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
+    },
+    home: ctx.directory,
+    scratchPaths: [],
+  });
+
+  await classifyAction(
+    buildMockActionRequest({
+      sessionID: 'spawned-session',
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test.`,
+          origin: 'composer',
+          position: 'opening',
+        },
+      },
+    }),
+    config,
+    { runtime, stderr: buildStubOutput(), budget: true },
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      sessionID: 'spawned-session',
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test.`,
+          origin: 'composer',
+        },
+      },
+    }),
+    config,
+    { runtime, stderr: buildStubOutput(), budget: true },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    grant: { status: 'overturned', overturnBasis: 'consent' },
+  });
+});
+
 test.each([
   [
     'an admin merge of the pull request the message names',

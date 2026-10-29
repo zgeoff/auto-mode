@@ -131,7 +131,7 @@ for (const [title, previous, input, expected] of [
     },
   ],
   [
-    'it marks an opening prompt stale without its opening mark after a plugin prompt',
+    'it keeps the opening mark when the opening prompt goes stale after a plugin prompt',
     {
       originalUserTask: { text: 'Build the parser', origin: 'composer' },
       lastDirectUserMessage: { text: 'Build the parser', origin: 'composer', position: 'opening' },
@@ -141,7 +141,12 @@ for (const [title, previous, input, expected] of [
     { text: 'Relayed request', origin: { kind: 'plugin' } },
     {
       originalUserTask: { text: 'Build the parser', origin: 'composer' },
-      lastDirectUserMessage: { text: 'Build the parser', origin: 'composer', freshness: 'stale' },
+      lastDirectUserMessage: {
+        text: 'Build the parser',
+        origin: 'composer',
+        freshness: 'stale',
+        position: 'opening',
+      },
       canCaptureOriginal: true,
       awaitsOpeningPrompt: false,
     },

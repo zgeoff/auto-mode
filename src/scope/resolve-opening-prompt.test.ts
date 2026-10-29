@@ -55,6 +55,42 @@ test('it drops the opening prompt from the request when the launcher names a spa
   });
 });
 
+test('it drops a stale opening prompt from the request when the launcher names a spawner', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const request = buildMockActionRequest({
+    decisionContext: {
+      agentID: null,
+      lastDirectUserMessage: {
+        text: 'Leave the release branch alone.',
+        origin: 'composer',
+        freshness: 'stale',
+        position: 'opening',
+      },
+    },
+  });
+
+  const resolved = await resolveOpeningPrompt(
+    request,
+    buildMockRuntime({ env: { AUTO_MODE_SCOPE_FILE: scopeFilePath } }),
+  );
+
+  expect(resolved.decisionContext?.lastDirectUserMessage).toBeNull();
+});
+
 test('it keeps the opening prompt without its mark when no launcher names a spawner', async () => {
   const request = buildMockActionRequest({
     decisionContext: {

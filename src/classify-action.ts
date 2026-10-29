@@ -83,10 +83,12 @@ export async function classifyAction(
     await writeActionDiagnostic(request, { invocationID, status: 'started' }, host, stderr);
   }
 
+  const resolved = await resolveOpeningPrompt(request, options.runtime);
+
   const outcome =
     options.budget === true
-      ? await classifyWithBudget(request, config, options)
-      : await classifyStages(request, config, options);
+      ? await classifyWithBudget(resolved, config, options)
+      : await classifyStages(resolved, config, options);
 
   if (options.actionLog === true) {
     await writeActionDiagnostic(
@@ -180,7 +182,7 @@ async function classifyStages(
   options: StageOptions,
 ): Promise<ActionOutcome> {
   const ctx: StageContext = {
-    request: await resolveOpeningPrompt(request, options.runtime),
+    request,
     config,
     options,
 
