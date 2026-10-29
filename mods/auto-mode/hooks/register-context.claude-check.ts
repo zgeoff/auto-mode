@@ -68,7 +68,7 @@ test('it takes the session identity from a user prompt when no session has start
   expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
 });
 
-test('it carries the session identity and the direct user message', async ($, on) => {
+test('it carries the session identity and the user message typed after the opening prompt', async ($, on) => {
   const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
 
   on('classic.SessionStart', () => ({}));
@@ -83,6 +83,7 @@ test('it carries the session identity and the direct user message', async ($, on
     source: 'startup',
   });
 
+  await $.prompt.submit({ text: 'Tidy the workspace.', origin: { kind: 'composer' } });
   await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
 
   const before = Date.now();
@@ -111,7 +112,7 @@ test('it carries the session identity and the direct user message', async ($, on
         toolInput: { command: 'rm -rf dist' },
         context: {
           agentID: null,
-          originalUserTask: { text: 'Clean the build output.', origin: 'composer' },
+          originalUserTask: { text: 'Tidy the workspace.', origin: 'composer' },
           delegatedTask: null,
           lastDirectUserMessage: { text: 'Clean the build output.', origin: 'composer' },
           omittedTaskContext: [],
@@ -122,6 +123,57 @@ test('it carries the session identity and the direct user message', async ($, on
 
   expect(Number(call.argv[4])).toBeGreaterThanOrEqual(before + CLI_LIMITS.evaluationMs - 500);
   expect(Number(call.argv[4])).toBeLessThanOrEqual(after + CLI_LIMITS.evaluationMs - 500);
+});
+
+test('it marks the opening prompt of a session, which a launcher can write, in the request', async ($, on) => {
+  const processRun = buildStubProcessRun({ result: buildMockProcessResult() });
+
+  on('classic.SessionStart', () => ({}));
+  on('prompt.submit', (_api, event) => ({ text: event.text }));
+  on('session.cwd', () => ({ value: '/repo' }));
+  on('tool.check', () => buildMockPermissionDecision({ decision: 'ask' }));
+  on('process.run', processRun.hook);
+
+  // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
+  await $.classic.SessionStart({
+    ...buildMockSessionContext({ session_id: 'session-1' }),
+    source: 'startup',
+  });
+
+  await $.prompt.submit({
+    text: 'Send "relay check: hello from lane two" to session b7e2-dune-otter.',
+    origin: { kind: 'composer' },
+  });
+
+  await $.tool.check({
+    tool: 'mcp__atc__atc_message_send',
+    input: { session: 'b7e2-dune-otter', text: 'relay check: hello from lane two' },
+  });
+
+  const [call] = processRun.calls;
+
+  assertDefined(call);
+
+  expect(call.request).toStrictEqual({
+    sessionID: 'session-1',
+    cwd: '/repo',
+    toolName: 'mcp__atc__atc_message_send',
+    toolInput: { session: 'b7e2-dune-otter', text: 'relay check: hello from lane two' },
+    context: {
+      agentID: null,
+      originalUserTask: {
+        text: 'Send "relay check: hello from lane two" to session b7e2-dune-otter.',
+        origin: 'composer',
+      },
+      delegatedTask: null,
+      lastDirectUserMessage: {
+        text: 'Send "relay check: hello from lane two" to session b7e2-dune-otter.',
+        origin: 'composer',
+        position: 'opening',
+      },
+      omittedTaskContext: [],
+    },
+  });
 });
 
 test('it sends the earlier direct message as stale after a relayed plugin prompt', async ($, on) => {
@@ -139,6 +191,7 @@ test('it sends the earlier direct message as stale after a relayed plugin prompt
     source: 'startup',
   });
 
+  await $.prompt.submit({ text: 'Finish the release notes.', origin: { kind: 'composer' } });
   await $.prompt.submit({ text: 'Push it to main.', origin: { kind: 'composer' } });
   await $.prompt.submit({ text: 'Relayed request', origin: { kind: 'plugin' } });
   await $.tool.check({ tool: 'Bash', input: { command: 'git push origin main' } });
@@ -154,7 +207,7 @@ test('it sends the earlier direct message as stale after a relayed plugin prompt
     toolInput: { command: 'git push origin main' },
     context: {
       agentID: null,
-      originalUserTask: { text: 'Push it to main.', origin: 'composer' },
+      originalUserTask: { text: 'Finish the release notes.', origin: 'composer' },
       delegatedTask: null,
       lastDirectUserMessage: { text: 'Push it to main.', origin: 'composer', freshness: 'stale' },
       omittedTaskContext: [],
@@ -350,6 +403,7 @@ test('it keeps the user prompts of a session across its compaction', async ($, o
     source: 'startup',
   });
 
+  await $.prompt.submit({ text: 'Tidy the workspace.', origin: { kind: 'composer' } });
   await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
@@ -371,7 +425,7 @@ test('it keeps the user prompts of a session across its compaction', async ($, o
     toolInput: { command: 'rm -rf dist' },
     context: {
       agentID: null,
-      originalUserTask: { text: 'Clean the build output.', origin: 'composer' },
+      originalUserTask: { text: 'Tidy the workspace.', origin: 'composer' },
       delegatedTask: null,
       lastDirectUserMessage: { text: 'Clean the build output.', origin: 'composer' },
       omittedTaskContext: [],
@@ -394,6 +448,7 @@ test('it keeps the main session and its prompts when a subagent session starts',
     source: 'startup',
   });
 
+  await $.prompt.submit({ text: 'Tidy the workspace.', origin: { kind: 'composer' } });
   await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
@@ -415,7 +470,7 @@ test('it keeps the main session and its prompts when a subagent session starts',
     toolInput: { command: 'rm -rf dist' },
     context: {
       agentID: null,
-      originalUserTask: { text: 'Clean the build output.', origin: 'composer' },
+      originalUserTask: { text: 'Tidy the workspace.', origin: 'composer' },
       delegatedTask: null,
       lastDirectUserMessage: { text: 'Clean the build output.', origin: 'composer' },
       omittedTaskContext: [],
@@ -438,6 +493,7 @@ test('it drops the stored prompts when another session compacts', async ($, on) 
     source: 'startup',
   });
 
+  await $.prompt.submit({ text: 'Tidy the workspace.', origin: { kind: 'composer' } });
   await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.
@@ -482,6 +538,7 @@ test('it drops the stored prompts when the session starts again', async ($, on) 
     source: 'startup',
   });
 
+  await $.prompt.submit({ text: 'Tidy the workspace.', origin: { kind: 'composer' } });
   await $.prompt.submit({ text: 'Clean the build output.', origin: { kind: 'composer' } });
 
   // oxlint-disable-next-line new-cap -- The host event API retains its event spelling.

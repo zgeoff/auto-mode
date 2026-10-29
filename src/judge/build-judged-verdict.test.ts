@@ -217,8 +217,39 @@ test.each<ReviewCase>([
     buildJudgedVerdict(row.rule, row.basis, row.reply, {
       overturns: row.overturns,
       misreadClears: row.misreadClears,
+      hasUserMessage: true,
     }),
   ).toStrictEqual(row.expected);
+});
+
+test('it holds a consent overturn of a soft rule when the review had no user message', () => {
+  expect(
+    buildJudgedVerdict(
+      { name: 'Outbound Communication', tier: 'soft', source: 'shipped' },
+      'unresolved',
+      { kind: 'overturn', basis: 'consent', reason: 'The user asked for this message.' },
+      { overturns: 'any', hasUserMessage: false },
+    ),
+  ).toStrictEqual({
+    verdict: {
+      kind: 'deny',
+      rule: 'Outbound Communication',
+      reason: expect.toBeString(),
+    },
+    status: 'held',
+    overturnBasis: 'consent',
+  });
+});
+
+test('it accepts a misread overturn of a soft rule when the review had no user message', () => {
+  expect(
+    buildJudgedVerdict(
+      { name: 'Outbound Communication', tier: 'soft', source: 'shipped' },
+      'unresolved',
+      { kind: 'overturn', basis: 'misread', reason: 'The recipient is a remote of the checkout.' },
+      { overturns: 'any', hasUserMessage: false },
+    ),
+  ).toStrictEqual({ verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'misread' });
 });
 
 test('it collapses the whitespace in a confirmed reason to single spaces', () => {
@@ -227,7 +258,7 @@ test('it collapses the whitespace in a confirmed reason to single spaces', () =>
       { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
       'matched',
       { kind: 'confirm', reason: '  The commit\n\nlands   on main.\t' },
-      { overturns: 'consent' },
+      { overturns: 'consent', hasUserMessage: true },
     ).verdict,
   ).toStrictEqual({
     kind: 'deny',
@@ -241,7 +272,7 @@ test('it cuts a confirmed reason longer than the limit at the last word break an
     { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
     'matched',
     { kind: 'confirm', reason: 'alpha '.repeat(150) },
-    { overturns: 'consent' },
+    { overturns: 'consent', hasUserMessage: true },
   ).verdict;
 
   expect(JUDGE_REASON_MAX_CHARS).toBe(600);
@@ -258,7 +289,7 @@ test('it cuts a confirmed reason with no word break inside the limit at the limi
     { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
     'matched',
     { kind: 'confirm', reason: 'x'.repeat(700) },
-    { overturns: 'consent' },
+    { overturns: 'consent', hasUserMessage: true },
   ).verdict;
 
   expect(verdict).toStrictEqual({
@@ -277,6 +308,7 @@ test('it keeps the held reason it is given when the review fails', () => {
       {
         overturns: 'consent',
         heldReason: 'This action writes outside the task scope: branch other.',
+        hasUserMessage: true,
       },
     ),
   ).toStrictEqual({

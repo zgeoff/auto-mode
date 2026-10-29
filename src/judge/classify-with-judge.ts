@@ -43,6 +43,10 @@ export async function classifyWithJudge(
   let answered: JudgeMessageReply | null = null;
   let replies: readonly (JudgeReply | null)[] = evidence.map(() => null);
 
+  const directMessage = findCurrentDirectUserMessage(
+    payload.decisionContext?.lastDirectUserMessage,
+  );
+
   try {
     failure = 'credential';
 
@@ -56,10 +60,6 @@ export async function classifyWithJudge(
     failure = 'policy';
 
     const system = await loadPolicy({ rulesPath: options.rulesPath }, 'judge.md');
-
-    const directMessage = findCurrentDirectUserMessage(
-      payload.decisionContext?.lastDirectUserMessage,
-    );
 
     const user = buildJudgeMessage({
       denies: evidence.map((entry) => ({
@@ -115,6 +115,7 @@ export async function classifyWithJudge(
       overturns,
       heldReason: entry.containment?.reason,
       misreadClears: entry.misreadClears,
+      hasUserMessage: directMessage !== null,
     });
 
     return {

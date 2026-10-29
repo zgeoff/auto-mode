@@ -305,8 +305,10 @@ test('it scores a consent overturn of a soft rule deny as an allow', async () =>
       }),
   });
 
+  const measured = buildMockMeasurementCase({ lastUserMessage: 'Delete the build cache folder.' });
+
   const outcome = await buildJudgeStage({ replaysRecording: false }).run(
-    { key: 'set/a', labels, case: buildMockMeasurementCase() },
+    { key: 'set/a', labels, case: measured },
     context,
   );
 
@@ -537,15 +539,14 @@ test('it reviews a Jev deny containment denied first when it reviews every Jev d
       }),
   });
 
+  const measured = buildMockMeasurementCase({ lastUserMessage: 'Delete the build cache folder.' });
+
   const stage = buildJudgeStage({
     replaysRecording: false,
     reviewsEveryJevDeny: true,
   });
 
-  const outcome = await stage.run(
-    { key: 'set/a', labels, case: buildMockMeasurementCase() },
-    context,
-  );
+  const outcome = await stage.run({ key: 'set/a', labels, case: measured }, context);
 
   expect(outcome).toStrictEqual({
     status: 'scored',

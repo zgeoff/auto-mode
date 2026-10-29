@@ -13,6 +13,7 @@ export interface JudgedVerdictOptions {
   readonly overturns: JudgeOverturns;
   readonly heldReason?: string | undefined;
   readonly misreadClears?: boolean | undefined;
+  readonly hasUserMessage: boolean;
 }
 
 export function buildJudgedVerdict(
@@ -36,7 +37,8 @@ export function buildJudgedVerdict(
 
     const isHeld =
       (rule.tier === 'hard' && !clearsHardRule) ||
-      (reply.basis === 'misread' && options.overturns === 'consent');
+      (reply.basis === 'misread' && options.overturns === 'consent') ||
+      (reply.basis === 'consent' && !options.hasUserMessage);
 
     return isHeld
       ? { verdict: template, status: 'held', overturnBasis: reply.basis }

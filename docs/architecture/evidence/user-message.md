@@ -24,6 +24,20 @@ Only the last direct message is user evidence. The classifiers read the original
 delegated task as the purpose of the work, and neither grants consent or clears a rule, because the
 original task is old and the delegated task is the agent's own words.
 
+The opening prompt of a session that another session spawned is task context, never the last direct
+message. The program that starts a session can pass its opening prompt on the command line, and
+Claude Code reports a command-line prompt with the same origin as a typed one, so the mod marks the
+opening prompt and the CLI decides. The mod marks the first direct prompt after a start, a resume or
+a reload of the mod, and the mark stays on the prompt when it goes stale. A clear starts no new
+opening prompt, because a person clears a session from its own prompt.
+
+The CLI drops a marked prompt from the request when the
+[launcher scope file](../../guides/scope-file.md) lists a reply channel, because a launcher lists
+one only for a session that has a spawner to reply to. It drops the prompt too when that file is
+unreadable or malformed. It does so before the denial budget computes its retry key, so a user who
+types the same instruction later gets a fresh judgement. Otherwise the opening prompt counts like
+any direct message, so a user who starts a session with an instruction keeps that consent.
+
 A subagent's call never carries the user's message. The CLI drops it from every request whose agent
 is a subagent when it parses the request, because the user typed it to the main agent, and a
 subagent works from the task its parent wrote. Library callers get the same rule only by building

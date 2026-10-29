@@ -43,6 +43,7 @@ import { classifyLocally } from './rules/classify-locally.ts';
 import type { LocalVerdict } from './rules/classify-locally.ts';
 import { findReplyChannel } from './scope/find-reply-channel.ts';
 import { loadTaskScope } from './scope/load-task-scope.ts';
+import { resolveOpeningPrompt } from './scope/resolve-opening-prompt.ts';
 import type { OwnedScope } from './scope/types.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
 import type { DecidingStage, JudgeEvidence } from './types.ts';
@@ -82,10 +83,12 @@ export async function classifyAction(
     await writeActionDiagnostic(request, { invocationID, status: 'started' }, host, stderr);
   }
 
+  const resolved = await resolveOpeningPrompt(request, options.runtime);
+
   const outcome =
     options.budget === true
-      ? await classifyWithBudget(request, config, options)
-      : await classifyStages(request, config, options);
+      ? await classifyWithBudget(resolved, config, options)
+      : await classifyStages(resolved, config, options);
 
   if (options.actionLog === true) {
     await writeActionDiagnostic(

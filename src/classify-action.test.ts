@@ -599,6 +599,10 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
       cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make release' },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Run make release on main.', origin: 'composer' },
+      },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
@@ -1995,6 +1999,313 @@ test('it denies a write the message names without asking the judge when the mess
   expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
 });
 
+test('it denies a write the opening prompt names without asking the judge when the launcher names a spawner', async () => {
+  const ctx = await setupTest();
+
+  const target = join(ctx.directory, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test.`,
+          origin: 'composer',
+          position: 'opening',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          AUTO_MODE_SCOPE_FILE: scopeFilePath,
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Outside Task Scope' },
+    decidingStage: 'containment',
+    note: `denied by the containment check: ${target}`,
+  });
+
+  expect(readFile(ctx.recordPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test('it clears a write the opening prompt names on consent when no launcher names a spawner', async () => {
+  const ctx = await setupTest();
+
+  const target = join(ctx.directory, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test.`,
+          origin: 'composer',
+          position: 'opening',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    grant: { status: 'overturned', overturnBasis: 'consent' },
+  });
+});
+
+test('it clears a write that a later typed message names on consent when the launcher names a spawner', async () => {
+  const ctx = await setupTest();
+
+  const target = join(ctx.directory, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        originalUserTask: { text: 'Tidy the label module.', origin: 'composer' },
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test.`,
+          origin: 'composer',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          AUTO_MODE_SCOPE_FILE: scopeFilePath,
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    grant: { status: 'overturned', overturnBasis: 'consent' },
+  });
+});
+
+test('it keeps an outbound deny that the judge overturns on consent when the only user text is a spawned opening prompt', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  decisionAnswers.set('rule_10', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__atc__atc_message_send',
+      toolInput: { session: 's-archive', text: 'the nightly build is green' },
+      decisionContext: {
+        agentID: null,
+        originalUserTask: {
+          text: 'Check the nightly build, then tell session s-archive the result.',
+          origin: 'composer',
+        },
+        lastDirectUserMessage: {
+          text: 'Check the nightly build, then tell session s-archive the result.',
+          origin: 'composer',
+          position: 'opening',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          AUTO_MODE_SCOPE_FILE: scopeFilePath,
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '{"verdict":"overturn","basis":"consent","reason":"The message names this session."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Outbound Communication' },
+    decidingStage: 'judge',
+    judge: { status: 'held', overturnBasis: 'consent', rule: 'Outbound Communication' },
+  });
+});
+
+test('it reviews a write the user types after its opening prompt was denied in a spawned session, instead of repeating the deny', async () => {
+  const ctx = await setupTest();
+
+  const target = join(ctx.directory, 'repo', '.worktrees', 'label-check', 'label.test.ts');
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const config = buildMockConfig({
+    provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+    judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+    claudeSettingsPath: null,
+  });
+
+  const runtime = buildMockRuntime({
+    env: {
+      AUTO_MODE_SCOPE_FILE: scopeFilePath,
+      TYPESAFE_API_KEY: 'test-key',
+      PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+      STUB_CLAUDE_RECORD: ctx.recordPath,
+      STUB_CLAUDE_REPLY: '{"verdict":"overturn","basis":"consent","reason":"Asked for."}',
+    },
+    home: ctx.directory,
+    scratchPaths: [],
+  });
+
+  await classifyAction(
+    buildMockActionRequest({
+      sessionID: 'spawned-session',
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test.`,
+          origin: 'composer',
+          position: 'opening',
+        },
+      },
+    }),
+    config,
+    { runtime, stderr: buildStubOutput(), budget: true },
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      sessionID: 'spawned-session',
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'Write',
+      toolInput: { file_path: target, content: "test('it trims a label', () => {});\n" },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: {
+          text: `Create ${target} with one label test.`,
+          origin: 'composer',
+        },
+      },
+    }),
+    config,
+    { runtime, stderr: buildStubOutput(), budget: true },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'allow' },
+    grant: { status: 'overturned', overturnBasis: 'consent' },
+  });
+});
+
 test.each([
   [
     'an admin merge of the pull request the message names',
@@ -2678,6 +2989,69 @@ test('it allows a message to a reply-channel recipient without asking Jev', asyn
       cwd: join(ctx.directory, 'repo'),
       toolName: 'SendMessage',
       toolInput: { to: 'lead', message: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'bypass',
+    note: 'allowed by the reply channel: SendMessage to lead',
+    status: 'allow',
+  });
+
+  expect(received).not.toHaveBeenCalled();
+});
+
+test('it allows a message to the spawner when the opening prompt is the only user text', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+  const received = mock();
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      received();
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'SendMessage',
+      toolInput: { to: 'lead', message: 'the parser tests pass' },
+      decisionContext: {
+        agentID: null,
+        originalUserTask: { text: 'Fix the parser and report to lead.', origin: 'composer' },
+        delegatedTask: null,
+        lastDirectUserMessage: {
+          text: 'Fix the parser and report to lead.',
+          origin: 'composer',
+          position: 'opening',
+        },
+        omittedTaskContext: [],
+      },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },

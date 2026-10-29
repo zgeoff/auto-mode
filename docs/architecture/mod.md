@@ -16,8 +16,9 @@ Claude Code loads the mod once per session as raw TypeScript, and the mod holds 
 - **The session identity,** from the session start and prompt events. Claude Code keeps the identity
   across a resume unless the session is forked, so the denial counts and the session scope, which
   the CLI keys by it, carry over.
-- **The task context:** the last direct user message with its origin and freshness, and the original
-  user task. A compaction keeps them, and a fresh start or a clear resets them.
+- **The task context:** the last direct user message with its origin, its freshness and whether it
+  is the session's opening prompt, and the original user task. A compaction keeps them, and a fresh
+  start or a clear resets them.
 - **The delegated task of each subagent,** from the agent spawn event.
 - **The agent each running tool call belongs to,** so a subagent's call goes out under its own
   agent.
