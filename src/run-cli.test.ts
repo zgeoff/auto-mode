@@ -1735,6 +1735,10 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
     cwd: ctx.repo,
     toolName: 'Bash',
     toolInput: { command: 'make release' },
+    context: {
+      agentID: null,
+      lastDirectUserMessage: { text: 'Run make release.', origin: 'composer' },
+    },
   });
 
   const exitCode = await runCLI(['run'], {

@@ -47,6 +47,7 @@ export function buildGrantStage(): Stage<MeasurementCase> {
       const judged = buildJudgedVerdict(review.rule, 'matched', parsed, {
         overturns: 'consent',
         heldReason: review.containment.reason,
+        hasUserMessage: entry.case.lastUserMessage !== null,
       });
 
       if (judged.status === 'failed') {

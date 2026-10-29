@@ -58,6 +58,68 @@ test('it carries the session identity, the action and the task context', () => {
   });
 });
 
+test('it keeps the opening mark of a direct user message', () => {
+  expect(
+    parseActionRequest({
+      sessionID: 'session',
+      toolUseID: 'toolu_1',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf dist' },
+      context: {
+        agentID: null,
+        originalUserTask: { text: 'Clean the build output', origin: 'composer' },
+        delegatedTask: null,
+        lastDirectUserMessage: {
+          text: 'Clean the build output',
+          origin: 'composer',
+          position: 'opening',
+        },
+        omittedTaskContext: [],
+      },
+    }),
+  ).toStrictEqual({
+    sessionID: 'session',
+    toolUseID: 'toolu_1',
+    cwd: '/repo',
+    toolName: 'Bash',
+    toolInput: { command: 'rm -rf dist' },
+    decisionContext: {
+      agentID: null,
+      originalUserTask: { text: 'Clean the build output', origin: 'composer' },
+      delegatedTask: null,
+      lastDirectUserMessage: {
+        text: 'Clean the build output',
+        origin: 'composer',
+        position: 'opening',
+      },
+      omittedTaskContext: [],
+    },
+  });
+});
+
+test('it has nothing to say about a body whose message holds an unknown position', () => {
+  expect(
+    parseActionRequest({
+      sessionID: 'session',
+      cwd: '/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'rm -rf dist' },
+      context: {
+        agentID: null,
+        originalUserTask: null,
+        delegatedTask: null,
+        lastDirectUserMessage: {
+          text: 'Clean the build output',
+          origin: 'composer',
+          position: 'closing',
+        },
+        omittedTaskContext: [],
+      },
+    }),
+  ).toBeNull();
+});
+
 test('it has nothing to say about a body the schema rejects', () => {
   expect(
     parseActionRequest({

@@ -599,6 +599,10 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
       cwd: join(ctx.directory, 'repo'),
       toolName: 'Bash',
       toolInput: { command: 'make release' },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Run make release on main.', origin: 'composer' },
+      },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
@@ -2156,6 +2160,71 @@ test('it clears a write that a later typed message names on consent when the lau
   expect(outcome).toMatchObject({
     verdict: { kind: 'allow' },
     grant: { status: 'overturned', overturnBasis: 'consent' },
+  });
+});
+
+test('it keeps an outbound deny that the judge overturns on consent when the only user text is a spawned opening prompt', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  decisionAnswers.set('rule_10', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__atc__atc_message_send',
+      toolInput: { session: 's-archive', text: 'the nightly build is green' },
+      decisionContext: {
+        agentID: null,
+        originalUserTask: {
+          text: 'Check the nightly build, then tell session s-archive the result.',
+          origin: 'composer',
+        },
+        lastDirectUserMessage: {
+          text: 'Check the nightly build, then tell session s-archive the result.',
+          origin: 'composer',
+          position: 'opening',
+        },
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', model: 'jev-1.13.0', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: { protocol: 'claude-code', model: 'claude-haiku-5-5' },
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: {
+          AUTO_MODE_SCOPE_FILE: scopeFilePath,
+          TYPESAFE_API_KEY: 'test-key',
+          PATH: `${ctx.binDir}:${process.env['PATH'] ?? ''}`,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY:
+            '{"verdict":"overturn","basis":"consent","reason":"The message names this session."}',
+        },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Outbound Communication' },
+    decidingStage: 'judge',
+    judge: { status: 'held', overturnBasis: 'consent', rule: 'Outbound Communication' },
   });
 });
 

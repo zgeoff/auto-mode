@@ -69,6 +69,7 @@ export function buildJudgeStage(options: Readonly<JudgeStageOptions>): Stage<Mea
       const judged = buildJudgedVerdict(denied.rule, denied.basis, parsed, {
         overturns: DEFAULT_JUDGE_OVERTURNS,
         misreadClears: denied.misreadClears,
+        hasUserMessage: entry.case.lastUserMessage !== null,
       });
 
       if (judged.status === 'failed') {

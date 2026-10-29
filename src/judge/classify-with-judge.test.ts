@@ -40,7 +40,14 @@ test('it allows an action whose soft-rule deny the judge overturns', async () =>
   const ctx = await setupTest();
 
   const [outcome] = await classifyWithJudge(
-    buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'git push origin main' } }),
+    buildMockActionRequest({
+      toolName: 'Bash',
+      toolInput: { command: 'git push origin main' },
+      decisionContext: {
+        agentID: null,
+        lastDirectUserMessage: { text: 'Push the release commit to main.', origin: 'composer' },
+      },
+    }),
     [
       {
         rule: buildMockDecisionRule({

@@ -61,8 +61,9 @@ The judge overturns on one of two bases. Consent means that in the last message 
 this operation on this target. Misread means that the supplied facts put the action outside the rule
 altogether. The configuration accepts both bases by default, and can accept consent alone, which
 holds every misread overturn. A hard rule never clears on consent, and a configured hard deny entry
-never clears at all: an overturn of either is held. A held deny carries the rule's fixed reason
-rather than the judge's, because the judge's reason argues for the allow.
+never clears at all: an overturn of either is held. A consent overturn of a review that had no last
+direct user message is held too, because consent needs that message. A held deny carries the rule's
+fixed reason rather than the judge's, because the judge's reason argues for the allow.
 
 One hard deny can clear. When Jev itself chose allow for a hard rule from the rule list, its block
 probability sits at or under a fixed bound halfway between the shipped threshold and an even split,
