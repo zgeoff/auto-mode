@@ -247,6 +247,51 @@ test('it rejects a version 7 record without the action field', () => {
   expect(result.error?.issues).toPartiallyContain({ path: ['action'] });
 });
 
+test('it accepts a version 9 record with the task evidence', () => {
+  const payload = {
+    schemaVersion: 9,
+    time: '2026-10-01T10:00:05.000Z',
+    invocationID: 'invocation-5',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'allow',
+    verdict: 'allow',
+    decidingStage: 'jev',
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+    grant: null,
+    action: null,
+    taskEvidence: { userMessage: null, originalUserTask: null, delegatedTask: true },
+  } as const;
+
+  expect(actionLogRecordSchema.safeParse(payload).data).toStrictEqual(payload);
+});
+
+test('it rejects a version 9 record without the task evidence', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 9,
+    time: '2026-10-01T10:00:05.000Z',
+    invocationID: 'invocation-5',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+    grant: null,
+    action: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['taskEvidence'] });
+});
+
 test('it rejects the action field on a version 6 record', () => {
   const result = actionLogRecordSchema.safeParse({
     schemaVersion: 6,
@@ -316,9 +361,9 @@ test('it rejects a version 8 record without the action field', () => {
   expect(result.error?.issues).toPartiallyContain({ path: ['action'] });
 });
 
-test('it rejects a schema version other than 3 to 8', () => {
+test('it rejects a schema version other than 3 to 9', () => {
   const result = actionLogRecordSchema.safeParse({
-    schemaVersion: 9,
+    schemaVersion: 10,
     time: '2026-10-01T10:00:00.000Z',
     invocationID: 'invocation-1',
     sessionHash: 'ad9ef8a88622d2c9',

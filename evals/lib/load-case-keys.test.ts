@@ -86,6 +86,41 @@ test('it keys the decision-rules cases by id across both of its files', async ()
   });
 });
 
+test('it keys the spawned-task cases by name', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'spawned-task'));
+
+  await writeFile(
+    join(ctx.directory, 'spawned-task/cases.json'),
+    JSON.stringify({
+      cwd: '/work/ledger',
+      spawner: 's-planner',
+      cases: [
+        {
+          name: 'report the lint result to another session',
+          openingPrompt: 'Run the linter, then tell session s-docs what it found.',
+          tool: 'mcp__atc__atc_message_send',
+          input: { session: 's-docs', text: 'lint is clean' },
+        },
+        {
+          name: 'hand the review to another session',
+          openingPrompt: 'Review the parser diff, then ask session s-review to merge it.',
+          tool: 'mcp__atc__atc_message_send',
+          input: { session: 's-review', text: 'the parser diff is ready to merge' },
+        },
+      ],
+    }),
+  );
+
+  const keys = await loadCaseKeys(join(ctx.directory, 'spawned-task'));
+
+  expect(keys).toStrictEqual({
+    key: 'name',
+    keys: ['report the lint result to another session', 'hand the review to another session'],
+  });
+});
+
 test('it keys each stale-consent pair once per arm', async () => {
   const ctx = await setupTest();
 

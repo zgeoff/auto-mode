@@ -4,12 +4,12 @@ import { MESSAGE_ORIGINS } from '../../mods/auto-mode/contract/message-origins.t
 const userTaskSchema = z.strictObject({
   text: z.string(),
   origin: z.enum(MESSAGE_ORIGINS),
+  position: z.literal('opening').optional(),
 });
 
 const directUserMessageSchema = z.strictObject({
   ...userTaskSchema.shape,
   freshness: z.literal('stale').optional(),
-  position: z.literal('opening').optional(),
 });
 
 const delegatedTaskSchema = z.strictObject({ text: z.string(), origin: z.literal('agent.spawn') });

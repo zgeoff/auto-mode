@@ -80,11 +80,11 @@ export async function classifyAction(
   const host = options.runtime.host;
   const invocationID = randomUUID();
 
-  if (options.actionLog === true) {
-    await writeActionDiagnostic(request, { invocationID, status: 'started' }, host, stderr);
-  }
-
   const resolved = await resolveOpeningPrompt(request, options.runtime);
+
+  if (options.actionLog === true) {
+    await writeActionDiagnostic(resolved, { invocationID, status: 'started' }, host, stderr);
+  }
 
   const outcome =
     options.budget === true
@@ -93,7 +93,7 @@ export async function classifyAction(
 
   if (options.actionLog === true) {
     await writeActionDiagnostic(
-      request,
+      resolved,
       {
         invocationID,
         status: outcome.status,

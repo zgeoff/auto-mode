@@ -36,13 +36,16 @@ export function buildPromptContext(
     };
   }
 
-  const message: UserTask = { text: input.text, origin };
   const isOpeningPrompt = previous?.awaitsOpeningPrompt ?? true;
+
+  const message: UserTask = isOpeningPrompt
+    ? { text: input.text, origin, position: 'opening' }
+    : { text: input.text, origin };
 
   return {
     originalUserTask:
       previous?.originalUserTask ?? (previous?.canCaptureOriginal === true ? message : null),
-    lastDirectUserMessage: isOpeningPrompt ? { ...message, position: 'opening' } : message,
+    lastDirectUserMessage: message,
     canCaptureOriginal: previous?.canCaptureOriginal ?? false,
     awaitsOpeningPrompt: false,
   };

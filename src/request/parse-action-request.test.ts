@@ -58,7 +58,7 @@ test('it carries the session identity, the action and the task context', () => {
   });
 });
 
-test('it keeps the opening mark of a direct user message', () => {
+test('it keeps the opening mark of the original task and the direct user message', () => {
   expect(
     parseActionRequest({
       sessionID: 'session',
@@ -68,7 +68,11 @@ test('it keeps the opening mark of a direct user message', () => {
       toolInput: { command: 'rm -rf dist' },
       context: {
         agentID: null,
-        originalUserTask: { text: 'Clean the build output', origin: 'composer' },
+        originalUserTask: {
+          text: 'Clean the build output',
+          origin: 'composer',
+          position: 'opening',
+        },
         delegatedTask: null,
         lastDirectUserMessage: {
           text: 'Clean the build output',
@@ -86,7 +90,11 @@ test('it keeps the opening mark of a direct user message', () => {
     toolInput: { command: 'rm -rf dist' },
     decisionContext: {
       agentID: null,
-      originalUserTask: { text: 'Clean the build output', origin: 'composer' },
+      originalUserTask: {
+        text: 'Clean the build output',
+        origin: 'composer',
+        position: 'opening',
+      },
       delegatedTask: null,
       lastDirectUserMessage: {
         text: 'Clean the build output',

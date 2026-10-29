@@ -6,6 +6,7 @@ import { taskScopeSessionsSchema } from './corpora/task-scope-sessions-schema.ts
 import { decisionRulesCorpusSchema } from './decision-rules-corpus-schema.ts';
 import { loadCorpus } from './load-corpus.ts';
 import { relayConsentCorpusSchema } from './relay-consent-corpus-schema.ts';
+import { spawnedTaskCorpusSchema } from './spawned-task-corpus-schema.ts';
 import { staleConsentCorpusSchema } from './stale-consent-corpus-schema.ts';
 
 export interface CorpusCaseKeys {
@@ -62,6 +63,11 @@ export function loadCaseKeys(corpusDir: string): Promise<CorpusCaseKeys> {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), idCasesSchema);
 
       return { key: 'id', keys: loaded.data.cases.map((entry) => entry.id) };
+    })
+    .with('spawned-task', async () => {
+      const loaded = await loadCorpus(join(corpusDir, 'cases.json'), spawnedTaskCorpusSchema);
+
+      return { key: 'name', keys: loaded.data.cases.map((entry) => entry.name) };
     })
     .with('stale-consent', async () => {
       const loaded = await loadCorpus(join(corpusDir, 'cases.json'), staleConsentCorpusSchema);

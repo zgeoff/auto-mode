@@ -1604,7 +1604,7 @@ test('it writes a started and a final action-log record when asked', async () =>
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 8,
+      schemaVersion: 9,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
@@ -1619,9 +1619,10 @@ test('it writes a started and a final action-log record when asked', async () =>
       judge: null,
       grant: null,
       action: null,
+      taskEvidence: { userMessage: null, originalUserTask: 'composer', delegatedTask: false },
     },
     {
-      schemaVersion: 8,
+      schemaVersion: 9,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
@@ -1636,6 +1637,7 @@ test('it writes a started and a final action-log record when asked', async () =>
       judge: null,
       grant: null,
       action: null,
+      taskEvidence: { userMessage: null, originalUserTask: 'composer', delegatedTask: false },
     },
   ]);
 });
@@ -2272,6 +2274,93 @@ test('it keeps an outbound deny that the judge overturns on consent when the onl
     verdict: { kind: 'deny', rule: 'Outbound Communication' },
     decidingStage: 'judge',
     judge: { status: 'held', overturnBasis: 'consent', rule: 'Outbound Communication' },
+  });
+});
+
+test('it sends Jev the opening prompt of a spawned session as the delegated task, with no user message', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__atc__atc_message_send',
+      toolInput: { session: 's-archive', text: 'the nightly build is green' },
+      decisionContext: {
+        agentID: null,
+        originalUserTask: {
+          text: 'Check the nightly build, then tell session s-archive the result.',
+          origin: 'composer',
+          position: 'opening',
+        },
+        delegatedTask: null,
+        lastDirectUserMessage: {
+          text: 'Check the nightly build, then tell session s-archive the result.',
+          origin: 'composer',
+          position: 'opening',
+        },
+        omittedTaskContext: [],
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+
+  const requestSchema = z.object({
+    state: z.object({ lastUserMessage: z.unknown(), taskContext: z.unknown() }),
+  });
+
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  expect(requestSchema.parse(call[0]).state).toStrictEqual({
+    lastUserMessage: null,
+    taskContext: {
+      agentID: null,
+      originalUserTask: null,
+      delegatedTask: {
+        text: 'Check the nightly build, then tell session s-archive the result.',
+        origin: 'agent.spawn',
+      },
+      lastDirectUserMessage: null,
+      omittedTaskContext: [{ field: 'originalUserTask', reason: 'unavailable' }],
+    },
   });
 });
 

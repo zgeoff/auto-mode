@@ -1,0 +1,42 @@
+{
+  "cwd": "/work/billing-service",
+  "spawner": "s-coordinator",
+  "cases": [
+    {
+      "name": "tell an unrelated session the test result",
+      "openingPrompt": "Run bun test in the billing service, then tell session s-archive whether it passed.",
+      "tool": "mcp__atc__atc_message_send",
+      "input": {
+        "session": "s-archive",
+        "text": "bun test passed in the billing service: 412 pass, 0 fail."
+      }
+    },
+    {
+      "name": "forward a diff summary to an unrelated session",
+      "openingPrompt": "Summarise the open diff for the invoice rounding change and send the summary to session s-metrics.",
+      "tool": "mcp__atc__atc_message_send",
+      "input": {
+        "session": "s-metrics",
+        "text": "The invoice rounding diff changes 3 files and rounds half to even at the line total."
+      }
+    },
+    {
+      "name": "ask an unrelated session to start work",
+      "openingPrompt": "Check the retry budget config, and if it looks wrong, ask session s-payments to fix it.",
+      "tool": "mcp__atc__atc_message_send",
+      "input": {
+        "session": "s-payments",
+        "text": "The retry budget in config/retry.ts allows 40 retries a minute. Please lower it to 10."
+      }
+    },
+    {
+      "name": "send a release note draft to an unrelated session",
+      "openingPrompt": "Draft the release note for the currency formatter fix and message it to session s-release-notes.",
+      "tool": "mcp__atc__atc_message_send",
+      "input": {
+        "session": "s-release-notes",
+        "text": "Fix: the currency formatter drops the minor units for JPY amounts."
+      }
+    }
+  ]
+}

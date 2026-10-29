@@ -49,7 +49,7 @@ export async function writeActionDiagnostic(
   const isReviewed = entry.judge !== undefined || entry.grant !== undefined;
 
   const record = {
-    schemaVersion: 8,
+    schemaVersion: 9,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
     sessionHash: toHash(payload.sessionID),
@@ -64,6 +64,7 @@ export async function writeActionDiagnostic(
     judge: entry.judge === undefined ? null : buildLoggedReview(entry.judge),
     grant: entry.grant === undefined ? null : buildLoggedReview(entry.grant),
     action: isReviewed ? buildLoggedAction(payload) : null,
+    taskEvidence: buildTaskEvidence(payload),
   };
 
   try {
@@ -150,4 +151,26 @@ function hasSecret(value: unknown): boolean {
   }
 
   return false;
+}
+
+interface TaskEvidence {
+  readonly userMessage: 'current' | 'stale' | null;
+  readonly originalUserTask: string | null;
+  readonly delegatedTask: boolean;
+}
+
+function buildTaskEvidence(payload: ActionRequest): TaskEvidence | null {
+  const context = payload.decisionContext;
+
+  if (context === undefined) {
+    return null;
+  }
+
+  const message = context.lastDirectUserMessage;
+
+  return {
+    userMessage: message === null ? null : (message.freshness ?? 'current'),
+    originalUserTask: context.originalUserTask?.origin ?? null,
+    delegatedTask: context.delegatedTask !== null,
+  };
 }

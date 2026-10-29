@@ -5,11 +5,11 @@ export type MessageOrigin = (typeof MESSAGE_ORIGINS)[number];
 export interface UserTask {
   readonly text: string;
   readonly origin: MessageOrigin;
+  readonly position?: 'opening' | undefined;
 }
 
 export interface DirectUserMessage extends UserTask {
   readonly freshness?: 'stale' | undefined;
-  readonly position?: 'opening' | undefined;
 }
 
 interface DelegatedTask {

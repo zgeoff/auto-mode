@@ -112,7 +112,11 @@ test('it carries the session identity and the user message typed after the openi
         toolInput: { command: 'rm -rf dist' },
         context: {
           agentID: null,
-          originalUserTask: { text: 'Tidy the workspace.', origin: 'composer' },
+          originalUserTask: {
+            text: 'Tidy the workspace.',
+            origin: 'composer',
+            position: 'opening',
+          },
           delegatedTask: null,
           lastDirectUserMessage: { text: 'Clean the build output.', origin: 'composer' },
           omittedTaskContext: [],
@@ -164,6 +168,7 @@ test('it marks the opening prompt of a session, which a launcher can write, in t
       originalUserTask: {
         text: 'Send "relay check: hello from lane two" to session b7e2-dune-otter.',
         origin: 'composer',
+        position: 'opening',
       },
       delegatedTask: null,
       lastDirectUserMessage: {
@@ -207,7 +212,11 @@ test('it sends the earlier direct message as stale after a relayed plugin prompt
     toolInput: { command: 'git push origin main' },
     context: {
       agentID: null,
-      originalUserTask: { text: 'Finish the release notes.', origin: 'composer' },
+      originalUserTask: {
+        text: 'Finish the release notes.',
+        origin: 'composer',
+        position: 'opening',
+      },
       delegatedTask: null,
       lastDirectUserMessage: { text: 'Push it to main.', origin: 'composer', freshness: 'stale' },
       omittedTaskContext: [],
@@ -425,7 +434,7 @@ test('it keeps the user prompts of a session across its compaction', async ($, o
     toolInput: { command: 'rm -rf dist' },
     context: {
       agentID: null,
-      originalUserTask: { text: 'Tidy the workspace.', origin: 'composer' },
+      originalUserTask: { text: 'Tidy the workspace.', origin: 'composer', position: 'opening' },
       delegatedTask: null,
       lastDirectUserMessage: { text: 'Clean the build output.', origin: 'composer' },
       omittedTaskContext: [],
@@ -470,7 +479,7 @@ test('it keeps the main session and its prompts when a subagent session starts',
     toolInput: { command: 'rm -rf dist' },
     context: {
       agentID: null,
-      originalUserTask: { text: 'Tidy the workspace.', origin: 'composer' },
+      originalUserTask: { text: 'Tidy the workspace.', origin: 'composer', position: 'opening' },
       delegatedTask: null,
       lastDirectUserMessage: { text: 'Clean the build output.', origin: 'composer' },
       omittedTaskContext: [],

@@ -63,7 +63,7 @@ test('it appends private correlated records without action, task, credential, or
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 8,
+      schemaVersion: 9,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -78,9 +78,10 @@ test('it appends private correlated records without action, task, credential, or
       judge: null,
       grant: null,
       action: null,
+      taskEvidence: { userMessage: null, originalUserTask: 'composer', delegatedTask: false },
     },
     {
-      schemaVersion: 8,
+      schemaVersion: 9,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -95,6 +96,7 @@ test('it appends private correlated records without action, task, credential, or
       judge: null,
       grant: null,
       action: null,
+      taskEvidence: { userMessage: null, originalUserTask: 'composer', delegatedTask: false },
     },
   ]);
 
@@ -221,7 +223,7 @@ test('it records the judge diagnostics and the action of an overturned deny', as
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 8,
+    schemaVersion: 9,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -248,6 +250,7 @@ test('it records the judge diagnostics and the action of an overturned deny', as
     },
     grant: null,
     action: { tool: 'Bash', cwd: '/work/repo', input: '{"command":"git push origin main"}' },
+    taskEvidence: { userMessage: null, originalUserTask: 'composer', delegatedTask: false },
   });
 });
 
@@ -571,6 +574,34 @@ test('it cuts the logged input of a reviewed grant to 2000 characters', async ()
   });
 });
 
+test('it records which task evidence the request carried, without its text', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      sessionID: 's',
+      decisionContext: {
+        originalUserTask: null,
+        delegatedTask: { text: 'delegated-task-canary' },
+        lastDirectUserMessage: { text: 'message-canary', freshness: 'stale' },
+      },
+    }),
+    { invocationID: 'i', status: 'started' },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  expect(text).not.toInclude('canary');
+
+  expect(JSON.parse(text)).toMatchObject({
+    taskEvidence: { userMessage: 'stale', originalUserTask: null, delegatedTask: true },
+  });
+});
+
 test('it records no action hash for a request without a tool use id', async () => {
   const ctx = await setupTest();
 
@@ -587,7 +618,7 @@ test('it records no action hash for a request without a tool use id', async () =
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 8,
+    schemaVersion: 9,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -602,6 +633,7 @@ test('it records no action hash for a request without a tool use id', async () =
     judge: null,
     grant: null,
     action: null,
+    taskEvidence: { userMessage: null, originalUserTask: 'composer', delegatedTask: false },
   });
 });
 
@@ -669,7 +701,7 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 8,
+    schemaVersion: 9,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -684,5 +716,6 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
     judge: null,
     grant: null,
     action: null,
+    taskEvidence: { userMessage: null, originalUserTask: 'composer', delegatedTask: false },
   });
 });
