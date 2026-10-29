@@ -3406,6 +3406,72 @@ test('it sends a message to a reply-channel recipient to the model tier when the
   });
 });
 
+test('it asks Jev about a message to a reply-channel recipient under every rule but Outbound Communication when the user configured deny entries', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  await writeFile(
+    join(ctx.directory, 'settings.json'),
+    JSON.stringify({ autoMode: { soft_deny: ['Never message the lead'] } }),
+  );
+
+  const received = mock<(body: unknown) => void>();
+
+  server.use(
+    http.post(DECISION_URL, async (info) => {
+      const body: unknown = await info.request.clone().json();
+
+      received(body);
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'SendMessage',
+      toolInput: { to: 'lead', message: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome.decidingStage).toBe('jev');
+
+  const questionSchema = z.object({ instructions: z.string() });
+  const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
+  const [call] = received.mock.calls;
+
+  invariant(call, 'the decision service received the request');
+
+  const questions = requestSchema.parse(call[0]).questions;
+  const instructions = Object.values(questions).map((question) => question.instructions);
+
+  expect(instructions).not.toContainEqual(expect.toInclude('### Outbound Communication\n'));
+  expect(instructions).toContainEqual(expect.toInclude('### Data Exfiltration\n'));
+  expect(questions['soft_deny_0']?.instructions).toInclude('Never message the lead');
+});
+
 test('it lets an edit into the workspace an atc record names skip Jev when no scope file exists', async () => {
   const ctx = await setupTest();
 

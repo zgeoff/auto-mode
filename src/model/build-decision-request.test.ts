@@ -255,6 +255,41 @@ test('it orders shipped rules before configured ones and each question as allow 
   expect(Object.keys(question.criteria)).toStrictEqual(['allow', 'block']);
 });
 
+test('it asks no question about an exempt shipped rule', () => {
+  const request = buildDecisionRequest(
+    buildMockActionRequest(),
+    '## HARD BLOCK rules\n### Secret Persistence\nNever commit keys\n## SOFT BLOCK rules\n### Outbound Communication\nNever message an unnamed recipient',
+    {
+      configuredRules: buildMockClaudeRules({ soft_deny: ['Keep main protected'] }),
+      lastUserMessage: null,
+      rulesSource: 'shipped',
+      exemptRules: ['Outbound Communication'],
+    },
+  );
+
+  expect(Object.values(request.rules).map((rule) => rule.name)).toStrictEqual([
+    'Secret Persistence',
+    'Configured soft_deny 1',
+  ]);
+});
+
+test('it keeps a replacement rule that shares a name with an exempt rule', () => {
+  const request = buildDecisionRequest(
+    buildMockActionRequest(),
+    '## SOFT BLOCK rules\n### Outbound Communication\nNever message an unnamed recipient',
+    {
+      configuredRules: buildMockClaudeRules(),
+      lastUserMessage: null,
+      rulesSource: 'replacement',
+      exemptRules: ['Outbound Communication'],
+    },
+  );
+
+  expect(Object.values(request.rules).map((rule) => rule.name)).toStrictEqual([
+    'Outbound Communication',
+  ]);
+});
+
 test('it leaves out the task context and keeps the last user message when the request carries no decision context', () => {
   const request = buildDecisionRequest(
     buildMockActionRequest({ decisionContext: undefined }),

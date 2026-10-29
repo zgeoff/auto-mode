@@ -97,6 +97,7 @@ export async function classifyWithJev(
       mcpServers,
       localHookConfig,
       hookFacts,
+      exemptRules: options.exemptRules,
     });
 
     const signal = createDeadlineSignal(config.provider.timeoutMs, options);
