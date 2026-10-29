@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.3](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.2...auto-mode-v3.1.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* treat a command-line prompt as task context, not consent ([#337](https://github.com/zgeoff/auto-mode/issues/337)) ([2e6fd7e](https://github.com/zgeoff/auto-mode/commit/2e6fd7e65873e1e351ee1ded90c89460381ce825))
+
 ## [3.1.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.1...auto-mode-v3.1.2) (2026-10-28)
 
 
