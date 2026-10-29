@@ -2704,6 +2704,65 @@ test('it allows a message to a reply-channel recipient without asking Jev', asyn
   expect(received).not.toHaveBeenCalled();
 });
 
+test('it allows a message to a reply-channel recipient when the opening prompt is the only user text', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+  const received = mock();
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+    }),
+  );
+
+  server.use(
+    http.post(DECISION_URL, () => {
+      received();
+    }),
+  );
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'SendMessage',
+      toolInput: { to: 'lead', message: 'the parser tests pass' },
+      decisionContext: {
+        agentID: null,
+        originalUserTask: { text: 'Fix the parser and report to lead.', origin: 'composer' },
+        delegatedTask: null,
+        lastDirectUserMessage: null,
+        omittedTaskContext: [],
+      },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: null,
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toStrictEqual({
+    verdict: { kind: 'allow' },
+    decidingStage: 'bypass',
+    note: 'allowed by the reply channel: SendMessage to lead',
+    status: 'allow',
+  });
+
+  expect(received).not.toHaveBeenCalled();
+});
+
 test('it allows a message through an MCP tool whose name reads as a remote write to a reply-channel recipient', async () => {
   const ctx = await setupTest();
 

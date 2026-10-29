@@ -14,7 +14,7 @@ The mod builds the task context in memory from Claude Code's prompt and agent ev
 three things:
 
 - **The last direct user message,** with its origin. A message is direct when a person typed it into
-  the composer, through Remote Control, or through the Claude Agent SDK.
+  the composer, through Remote Control, or through the Claude Agent SDK, after the opening prompt.
 - **The original user task:** the first direct message of a session started fresh or cleared. A
   resumed session or a reloaded mod has none, because the mod cannot tell whether the first message
   it sees opened the task.
@@ -23,6 +23,14 @@ three things:
 Only the last direct message is user evidence. The classifiers read the original task and the
 delegated task as the purpose of the work, and neither grants consent or clears a rule, because the
 original task is old and the delegated task is the agent's own words.
+
+The opening prompt of a session never becomes the last direct message. The program that starts a
+session can pass that prompt on the command line, and Claude Code reports a command-line prompt with
+the same origin as a typed one, so the mod cannot tell a prompt another agent wrote from one the
+user typed. The opening prompt is the first direct prompt after a start, a resume or a reload of the
+mod, and it becomes the original task when the session can capture one. A clear starts no new
+opening prompt, because a person clears a session from its own prompt. A user who opens a session
+with an instruction that needs consent repeats it in a later message.
 
 A subagent's call never carries the user's message. The CLI drops it from every request whose agent
 is a subagent when it parses the request, because the user typed it to the main agent, and a

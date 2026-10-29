@@ -51,6 +51,7 @@ export interface PromptContext {
   readonly originalUserTask: UserTask | null;
   readonly lastDirectUserMessage: DirectUserMessage | null;
   readonly canCaptureOriginal: boolean;
+  readonly awaitsOpeningPrompt: boolean;
 }
 
 interface PromptInput {

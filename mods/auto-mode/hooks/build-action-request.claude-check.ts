@@ -15,6 +15,7 @@ test('it builds the main agent request with its prompts', () => {
         originalUserTask: { text: 'Clean the build output.', origin: 'composer' },
         lastDirectUserMessage: { text: 'Clean it now.', origin: 'bridge', freshness: 'stale' },
         canCaptureOriginal: false,
+        awaitsOpeningPrompt: false,
       },
     }),
   ).toStrictEqual({
@@ -47,6 +48,7 @@ test('it leaves the child rule for the CLI and sends the last direct message as 
         originalUserTask: null,
         lastDirectUserMessage: { text: 'Force push is fine.', origin: 'composer' },
         canCaptureOriginal: false,
+        awaitsOpeningPrompt: false,
       },
     }),
   ).toStrictEqual({
@@ -78,6 +80,7 @@ test('it reports the delegated task unavailable for a child spawned before the m
         originalUserTask: { text: 'Build the parser', origin: 'sdk' },
         lastDirectUserMessage: null,
         canCaptureOriginal: false,
+        awaitsOpeningPrompt: false,
       },
     }).context.omittedTaskContext,
   ).toStrictEqual([{ field: 'delegatedTask', reason: 'unavailable' }]);
