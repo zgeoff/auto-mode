@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.5](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.4...auto-mode-v3.1.5) (2026-10-29)
+
+
+### Bug Fixes
+
+* read a spawned session's opening prompt as its delegated task ([#342](https://github.com/zgeoff/auto-mode/issues/342)) ([252b0d4](https://github.com/zgeoff/auto-mode/commit/252b0d4a64b71ec74c0d4c60c0ad2c58fa63c3ef))
+
 ## [3.1.4](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.3...auto-mode-v3.1.4) (2026-10-29)
 
 
