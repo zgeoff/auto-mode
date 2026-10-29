@@ -4,20 +4,22 @@ Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/act
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
 an empty string to disable the file. A failed diagnostic write does not change the verdict. Records
-carry `schemaVersion` 7. A version 6 record lacks the `action` field, a version 5 record also lacks
-the `grant` field, a version 4 record also lacks the `agentHash` field, a version 3 record also
-lacks the `judge` field and the `judge` stage, a version 2 record also lacks the three budget fields
-below, and a version 1 record in an older file also carries `harness` and `event`.
+carry `schemaVersion` 8. A version 7 record lacks the `overturnReason` field of `judge` and `grant`,
+a version 6 record also lacks the `action` field, a version 5 record also lacks the `grant` field, a
+version 4 record also lacks the `agentHash` field, a version 3 record also lacks the `judge` field
+and the `judge` stage, a version 2 record also lacks the three budget fields below, and a version 1
+record in an older file also carries `harness` and `event`.
 
 The records exclude prompts, configuration contents, credentials, provider responses, and exception
 text. They exclude commands and paths too, except in the `action` field of a record that holds a
-judge review. Configured and replacement rules use question identifiers; only shipped rules retain
-their public names. Session, agent and action identifiers use the first 16 hexadecimal characters of
-SHA-256. Hash a recorded tool-call identifier to find its `actionHash`. For a subagent, `agentHash`
-hashes the session identifier and the subagent identifier joined by a NUL character, so each
-subagent gets its own value. The main agent has no subagent identifier, and its `agentHash` equals
-its `sessionHash`, the key an earlier record holds, so a session that spans the change of version
-keeps one key for its main agent.
+judge review. The one provider text they hold is the judge's reason for an overturn, in
+`overturnReason`. Configured and replacement rules use question identifiers; only shipped rules
+retain their public names. Session, agent and action identifiers use the first 16 hexadecimal
+characters of SHA-256. Hash a recorded tool-call identifier to find its `actionHash`. For a
+subagent, `agentHash` hashes the session identifier and the subagent identifier joined by a NUL
+character, so each subagent gets its own value. The main agent has no subagent identifier, and its
+`agentHash` equals its `sessionHash`, the key an earlier record holds, so a session that spans the
+change of version keeps one key for its main agent.
 
 For Jev, `diagnostics.status` distinguishes `allow`, `deny`, `failure`, `timeout`, and `cancelled`.
 `stage` identifies credential resolution, evidence preparation, the request, or a validated
@@ -30,6 +32,7 @@ complete, `http-status` for a non-success response, and `invalid-response` for a
 validation. It is `null` for other failures and for a completed decision. `requestBytes` holds the
 UTF-8 size of the serialized request body whenever the body was built, including for the failures
 above; it is `null` when a failure came before the body. It records a size only, never content.
+
 `contributors` records every rule whose block probability reached the threshold, highest first, with
 its choice, confidence, and `blockProbability`; the first one is the rule the deny names. An allow
 has no contributors. `blockThreshold` records the threshold in force. The final `verdict`
@@ -38,18 +41,22 @@ distinguishes a failure that defers from one that fails closed.
 When the judge reviewed a Jev deny, `judge` holds its outcome; otherwise it is `null`. `status` is
 `confirmed`, `overturned`, `held` (an overturn the deny keeps: of a hard rule, or a misread under
 `judgeOverturns: "consent"`), or `failed`. `overturnBasis` is `consent` or `misread` for an overturn
-or a held overturn, and `null` otherwise. `failureReason` names the step that failed: `credential`,
-`policy`, `request`, `timeout`, or `unreadable`; it is `null` when the judge answered. `rule` is a
-shipped rule's name, or the rule's source for a configured or replacement rule. `model` is the
-configured judge model, and `answeringModel` is the model that wrote the reply, or `null` when no
-reply came back. It holds a canonical model ID, so it differs from a `model` that names an alias
-even when no fallback happened. A `claude-code` judge whose request trips a safety stop answers on a
-fallback model, and a `safetyStops` count above zero marks that reply. `safetyStops` holds the
-number of safety stops that Claude Code reported, and is `null` for a Messages judge or when no
-count came back. `warm` is `true` when a judge process that had answered an earlier review answered
-this one, `false` when the review started the process, and `null` for a Messages judge or when no
-reply came back. `tier` and `elapsedMs` complete the record. The judge's reason text is not
-recorded.
+or a held overturn, and `null` otherwise. `overturnReason` holds the judge's reason for that
+overturn, with its whitespace collapsed, cut to 600 characters, and each secret the secret rules
+find replaced by `[secret]`. It is `null` when the judge did not overturn, or when a secret is still
+left after the replacement. `failureReason` names the step that failed: `credential`, `policy`,
+`request`, `timeout`, or `unreadable`; it is `null` when the judge answered. `rule` is a shipped
+rule's name, or the rule's source for a configured or replacement rule.
+
+The rest of `judge` describes the model call. `model` is the configured judge model, and
+`answeringModel` is the model that wrote the reply, or `null` when no reply came back. It holds a
+canonical model ID, so it differs from a `model` that names an alias even when no fallback happened.
+A `claude-code` judge whose request trips a safety stop answers on a fallback model, and a
+`safetyStops` count above zero marks that reply. `safetyStops` holds the number of safety stops that
+Claude Code reported, and is `null` for a Messages judge or when no count came back. `warm` is
+`true` when a judge process that had answered an earlier review answered this one, `false` when the
+review started the process, and `null` for a Messages judge or when no reply came back. `tier` and
+`elapsedMs` complete the record.
 
 When the judge reviewed a containment deny whose every target the last direct user message named,
 `grant` holds that review in the same shape as `judge`, with `rule` set to `Outside Task Scope`;
@@ -89,3 +96,10 @@ nonzero exit, truncated output, no usable verdict, subprocess failure, or subpro
 never copies child output or exception text into those messages. Match the session, timestamp, and
 supported tool-call identifier with the action records. The absence of a record does not prove an
 allow or a denial.
+
+To see which models a `claude-code` judge called during each review, set `AUTO_MODE_DEBUG_PATH` to a
+file in the environment that Claude Code starts with, since the judge server inherits it. The judge
+appends one JSON line per review to that file. `model` is the configured judge model, and
+`replyModel` is the model of the reply's own messages, or `null` when the turn printed none.
+`modelUsage` is Claude Code's raw per-model usage for the judge process since its last clear, which
+counts background calls beside the reply. The line holds model names and token counts, and no text.

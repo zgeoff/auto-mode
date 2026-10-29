@@ -25,7 +25,12 @@ test.each<ReviewCase>([
       reason: 'The user asked for this commit on main.',
     },
     overturns: 'consent',
-    expected: { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'consent' },
+    expected: {
+      verdict: { kind: 'allow' },
+      status: 'overturned',
+      overturnBasis: 'consent',
+      overturnReason: 'The user asked for this commit on main.',
+    },
   },
   {
     label: 'allows a soft-rule deny the judge overturns on consent when any overturn may clear it',
@@ -37,7 +42,12 @@ test.each<ReviewCase>([
       reason: 'The user asked for this commit on main.',
     },
     overturns: 'any',
-    expected: { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'consent' },
+    expected: {
+      verdict: { kind: 'allow' },
+      status: 'overturned',
+      overturnBasis: 'consent',
+      overturnReason: 'The user asked for this commit on main.',
+    },
   },
   {
     label: 'holds a soft-rule deny the judge overturns as a misread when only consent may overturn',
@@ -54,6 +64,7 @@ test.each<ReviewCase>([
       },
       status: 'held',
       overturnBasis: 'misread',
+      overturnReason: 'main is the task branch.',
     },
   },
   {
@@ -63,7 +74,12 @@ test.each<ReviewCase>([
     basis: 'matched',
     reply: { kind: 'overturn', basis: 'misread', reason: 'main is the task branch.' },
     overturns: 'any',
-    expected: { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'misread' },
+    expected: {
+      verdict: { kind: 'allow' },
+      status: 'overturned',
+      overturnBasis: 'misread',
+      overturnReason: 'main is the task branch.',
+    },
   },
   {
     label: 'holds a hard-rule deny the judge overturns on consent, with the template reason',
@@ -84,6 +100,7 @@ test.each<ReviewCase>([
       },
       status: 'held',
       overturnBasis: 'consent',
+      overturnReason: 'The destination is the user’s own server.',
     },
   },
   {
@@ -105,6 +122,7 @@ test.each<ReviewCase>([
       },
       status: 'held',
       overturnBasis: 'misread',
+      overturnReason: 'The destination is the user’s own server.',
     },
   },
   {
@@ -118,7 +136,12 @@ test.each<ReviewCase>([
     },
     overturns: 'any',
     misreadClears: true,
-    expected: { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'misread' },
+    expected: {
+      verdict: { kind: 'allow' },
+      status: 'overturned',
+      overturnBasis: 'misread',
+      overturnReason: 'The command writes test output to a scratch directory and stores no secret.',
+    },
   },
   {
     label: 'holds a clearable hard-rule deny the judge overturns on consent',
@@ -136,6 +159,7 @@ test.each<ReviewCase>([
       },
       status: 'held',
       overturnBasis: 'consent',
+      overturnReason: 'The user asked for the test run.',
     },
   },
   {
@@ -159,6 +183,7 @@ test.each<ReviewCase>([
       },
       status: 'held',
       overturnBasis: 'misread',
+      overturnReason: 'The command writes test output to a scratch directory and stores no secret.',
     },
   },
   {
@@ -176,6 +201,7 @@ test.each<ReviewCase>([
       },
       status: 'confirmed',
       overturnBasis: null,
+      overturnReason: null,
     },
   },
   {
@@ -193,6 +219,7 @@ test.each<ReviewCase>([
       },
       status: 'failed',
       overturnBasis: null,
+      overturnReason: null,
     },
   },
   {
@@ -210,6 +237,7 @@ test.each<ReviewCase>([
       },
       status: 'failed',
       overturnBasis: null,
+      overturnReason: null,
     },
   },
 ])('it $label', (row) => {
@@ -238,6 +266,7 @@ test('it holds a consent overturn of a soft rule when the review had no user mes
     },
     status: 'held',
     overturnBasis: 'consent',
+    overturnReason: 'The user asked for this message.',
   });
 });
 
@@ -249,7 +278,23 @@ test('it accepts a misread overturn of a soft rule when the review had no user m
       { kind: 'overturn', basis: 'misread', reason: 'The recipient is a remote of the checkout.' },
       { overturns: 'any', hasUserMessage: false },
     ),
-  ).toStrictEqual({ verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: 'misread' });
+  ).toStrictEqual({
+    verdict: { kind: 'allow' },
+    status: 'overturned',
+    overturnBasis: 'misread',
+    overturnReason: 'The recipient is a remote of the checkout.',
+  });
+});
+
+test('it collapses the whitespace in an overturn reason and cuts it at the limit', () => {
+  expect(
+    buildJudgedVerdict(
+      { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+      'matched',
+      { kind: 'overturn', basis: 'consent', reason: `  The user\n\nasked ${'x'.repeat(700)}` },
+      { overturns: 'consent', hasUserMessage: true },
+    ).overturnReason,
+  ).toBe(`The user asked ${'x'.repeat(584)}…`);
 });
 
 test('it collapses the whitespace in a confirmed reason to single spaces', () => {
@@ -319,5 +364,6 @@ test('it keeps the held reason it is given when the review fails', () => {
     },
     status: 'failed',
     overturnBasis: null,
+    overturnReason: null,
   });
 });

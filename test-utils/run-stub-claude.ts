@@ -17,6 +17,7 @@ const crashes = process.env['STUB_CLAUDE_CRASH'] === 'true';
 const modelUsage = process.env['STUB_CLAUDE_MODEL_USAGE'];
 const safetyStops = process.env['STUB_CLAUDE_SAFETY_STOPS'];
 const fallbackModel = process.env['STUB_CLAUDE_REFUSAL_FALLBACK'];
+const replyModel = process.env['STUB_CLAUDE_REPLY_MODEL'];
 const delayMs = Number(process.env['STUB_CLAUDE_DELAY_MS'] ?? 0);
 const sessionID = '00000000-0000-4000-8000-000000000000';
 const CONTROL_REQUEST = z.object({ subtype: z.string(), systemPrompt: z.unknown().optional() });
@@ -108,6 +109,25 @@ for await (const line of createInterface({ input: process.stdin })) {
       original_model: 'stub',
       fallback_model: fallbackModel,
       request_id: null,
+      session_id: sessionID,
+    });
+  }
+
+  if (replyModel !== undefined) {
+    printLine({
+      type: 'assistant',
+      message: {
+        id: 'msg_stub',
+        type: 'message',
+        role: 'assistant',
+        model: replyModel,
+        content: [{ type: 'text', text: reply }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
+      parent_tool_use_id: null,
+      uuid: '00000000-0000-4000-8000-000000000002',
       session_id: sessionID,
     });
   }

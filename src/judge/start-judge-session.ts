@@ -1,4 +1,6 @@
+import { appendFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { dirname } from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type {
   Query,
@@ -16,6 +18,7 @@ interface Turn {
   readonly result: SDKResultMessage;
   readonly fallbacks: number;
   readonly sessionFallback: boolean;
+  readonly replyModel: string | null;
 }
 
 interface LiveProcess {
@@ -78,7 +81,9 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
         current.cleared = sendClear(current.send, current.stop);
       }
 
-      return buildReply(turn.result, turn.fallbacks, model, warm);
+      await writeUsageLine(env, model, turn);
+
+      return buildReply(turn, model, warm);
     } catch (error) {
       if (signal.aborted) {
         throw new DOMException('Judge review aborted', 'AbortError');
@@ -117,6 +122,7 @@ interface TurnWaiter {
   readonly reject: (error: Readonly<Error>) => void;
   fallbacks: number;
   sessionFallback: boolean;
+  replyModel: string | null;
 }
 
 function startLiveProcess(
@@ -182,6 +188,18 @@ function startLiveProcess(
       return;
     }
 
+    // The result's model usage sums every call of the process, background calls
+    // included, so the model of the turn's last assistant message names the writer.
+    if (
+      message.type === 'assistant' &&
+      message.parent_tool_use_id === null &&
+      message.error === undefined
+    ) {
+      waiter.replyModel = message.message.model;
+
+      return;
+    }
+
     if (message.type === 'result') {
       const done = waiter;
 
@@ -191,6 +209,7 @@ function startLiveProcess(
         result: message,
         fallbacks: done.fallbacks,
         sessionFallback: done.sessionFallback,
+        replyModel: done.replyModel,
       });
     }
   };
@@ -213,7 +232,7 @@ function startLiveProcess(
           return;
         }
 
-        waiter = { resolve, reject, fallbacks: 0, sessionFallback: false };
+        waiter = { resolve, reject, fallbacks: 0, sessionFallback: false, replyModel: null };
 
         input.push(text);
       }),
@@ -331,15 +350,37 @@ async function sendClear(
   }
 }
 
+// A detached judge server has no stderr, so the debug line goes to a file.
+async function writeUsageLine(
+  env: Readonly<Record<string, string | undefined>>,
+  requested: string,
+  turn: Readonly<Turn>,
+): Promise<void> {
+  const path = env['AUTO_MODE_DEBUG_PATH'];
+
+  if (path === undefined || path === '') {
+    return;
+  }
+
+  const line = {
+    time: new Date().toISOString(),
+    model: requested,
+    replyModel: turn.replyModel,
+    modelUsage: turn.result.modelUsage,
+  };
+
+  try {
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    await appendFile(path, `${JSON.stringify(line)}\n`, { mode: 0o600 });
+  } catch {}
+}
+
 const MODEL_USAGE = z.record(z.string(), z.object({ outputTokens: z.number() }));
 const SAFETY_STOPS = z.object({ safety_stops: z.number() });
 
-function buildReply(
-  result: SDKResultMessage,
-  fallbacks: number,
-  requested: string,
-  warm: boolean,
-): JudgeMessageReply {
+function buildReply(turn: Readonly<Turn>, requested: string, warm: boolean): JudgeMessageReply {
+  const result = turn.result;
+
   if (result.subtype !== 'success' || result.is_error) {
     throw new Error(`the judge turn ended in ${result.subtype}`);
   }
@@ -349,24 +390,11 @@ function buildReply(
 
   return {
     text: result.result,
-    model: pickAnsweringModel(usage, requested),
+    model: turn.replyModel ?? requested,
     safetyStops: stops ?? null,
-    fallback: fallbacks > 0 || isFallbackReply(usage, stops),
+    fallback: turn.fallbacks > 0 || isFallbackReply(usage, stops),
     warm,
   };
-}
-
-// A safety stop makes Claude Code answer on a fallback model. A background model
-// writes fewer output tokens than the reply, and a model with none wrote no part
-// of it.
-function pickAnsweringModel(
-  usage: Readonly<z.output<typeof MODEL_USAGE>> | undefined,
-  requested: string,
-): string {
-  const writers = Object.entries(usage ?? {}).filter(([, entry]) => entry.outputTokens > 0);
-  const [top] = writers.toSorted(([, left], [, right]) => right.outputTokens - left.outputTokens);
-
-  return top === undefined ? requested : top[0];
 }
 
 // A model alias resolves to a canonical model ID in the usage, so a reply's model

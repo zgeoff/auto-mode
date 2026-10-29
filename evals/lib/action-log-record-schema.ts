@@ -4,7 +4,14 @@ const hashSchema = z.string().regex(/^[0-9a-f]{16}$/u);
 
 export const actionLogRecordSchema = z
   .strictObject({
-    schemaVersion: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]),
+    schemaVersion: z.union([
+      z.literal(3),
+      z.literal(4),
+      z.literal(5),
+      z.literal(6),
+      z.literal(7),
+      z.literal(8),
+    ]),
     time: z.iso.datetime(),
     invocationID: z.string().min(1),
     sessionHash: hashSchema,
@@ -56,11 +63,12 @@ export const actionLogRecordSchema = z
       });
     }
 
-    if ((record.schemaVersion === 7) !== (record.action !== undefined)) {
+    if (record.schemaVersion >= 7 !== (record.action !== undefined)) {
       context.addIssue({
         code: 'custom',
         path: ['action'],
-        message: 'A version 7 record holds the action field, and an earlier version does not.',
+        message:
+          'A version 7 or later record holds the action field, and an earlier version does not.',
       });
     }
   })

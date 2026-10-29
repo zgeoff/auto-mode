@@ -38,6 +38,7 @@ test('it returns the claude run’s text and answering model for a claude-code j
       env: {
         PATH: ctx.binDir,
         STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"From claude."}',
+        STUB_CLAUDE_REPLY_MODEL: 'claude-sonnet-5',
         STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
           'claude-sonnet-5-5': { outputTokens: 0 },
           'claude-sonnet-5': { outputTokens: 31 },

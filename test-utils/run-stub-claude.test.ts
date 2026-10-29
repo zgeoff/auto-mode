@@ -120,6 +120,24 @@ test('it reports a refusal fallback to the model its control names before the re
   expect(JSON.parse(reply ?? '')).toMatchObject({ type: 'result' });
 });
 
+test('it prints an assistant message on the model its control names before the result', () => {
+  const result = spawnSync(process.execPath, [join(import.meta.dir, 'run-stub-claude.ts')], {
+    input: JSON.stringify({ type: 'user', message: { role: 'user', content: 'the evidence' } }),
+    encoding: 'utf8',
+    env: { STUB_CLAUDE_REPLY: '{}', STUB_CLAUDE_REPLY_MODEL: 'claude-opus-8' },
+  });
+
+  const [, assistant, reply] = result.stdout.trim().split('\n');
+
+  expect(JSON.parse(assistant ?? '')).toMatchObject({
+    type: 'assistant',
+    message: { model: 'claude-opus-8', content: [{ type: 'text', text: '{}' }] },
+    parent_tool_use_id: null,
+  });
+
+  expect(JSON.parse(reply ?? '')).toMatchObject({ type: 'result', result: '{}' });
+});
+
 test('it appends each review with its process, its count, the clears before it, the system prompt and the provider variables to the record file', async () => {
   const ctx = await setupTest();
 

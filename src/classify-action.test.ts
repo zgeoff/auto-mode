@@ -636,6 +636,7 @@ test('it allows an action whose soft-rule Jev deny the judge overturns', async (
     judge: {
       status: 'overturned',
       overturnBasis: 'consent',
+      overturnReason: 'The user asked for the release on main.',
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
@@ -1559,7 +1560,7 @@ test('it writes a started and a final action-log record when asked', async () =>
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 7,
+      schemaVersion: 8,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
@@ -1576,7 +1577,7 @@ test('it writes a started and a final action-log record when asked', async () =>
       action: null,
     },
     {
-      schemaVersion: 7,
+      schemaVersion: 8,
       time: expect.toBeString(),
       invocationID: expect.toBeString(),
       sessionHash: expect.toBeString(),
@@ -1717,6 +1718,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
     grant: {
       status: 'confirmed',
       overturnBasis: null,
+      overturnReason: null,
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
@@ -1869,6 +1871,7 @@ test('it clears a containment finding the judge confirms the user asked for, and
     grant: {
       status: 'overturned',
       overturnBasis: 'consent',
+      overturnReason: 'The user asked to create this exact file.',
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',

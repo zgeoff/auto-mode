@@ -124,6 +124,7 @@ export async function classifyWithJudge(
         status: verdict.status,
         failureReason: failure ?? (reply?.kind === 'unreadable' ? 'unreadable' : null),
         overturnBasis: verdict.overturnBasis,
+        overturnReason: verdict.overturnReason,
         model: judge.model,
         answeringModel: answered?.model ?? null,
         safetyStops: answered?.safetyStops ?? null,

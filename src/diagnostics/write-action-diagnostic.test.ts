@@ -63,7 +63,7 @@ test('it appends private correlated records without action, task, credential, or
       .map((line): unknown => JSON.parse(line)),
   ).toStrictEqual([
     {
-      schemaVersion: 7,
+      schemaVersion: 8,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -80,7 +80,7 @@ test('it appends private correlated records without action, task, credential, or
       action: null,
     },
     {
-      schemaVersion: 7,
+      schemaVersion: 8,
       time: expect.toBeDateString(),
       invocationID: 'invocation',
       sessionHash: 'ad9ef8a88622d2c9',
@@ -202,6 +202,7 @@ test('it records the judge diagnostics and the action of an overturned deny', as
       judge: {
         status: 'overturned',
         overturnBasis: 'consent',
+        overturnReason: 'The user asked for the push to main.',
         failureReason: null,
         model: 'claude-haiku-5-5',
         answeringModel: 'claude-haiku-5-5',
@@ -220,7 +221,7 @@ test('it records the judge diagnostics and the action of an overturned deny', as
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 7,
+    schemaVersion: 8,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -235,6 +236,7 @@ test('it records the judge diagnostics and the action of an overturned deny', as
     judge: {
       status: 'overturned',
       overturnBasis: 'consent',
+      overturnReason: 'The user asked for the push to main.',
       failureReason: null,
       model: 'claude-haiku-5-5',
       answeringModel: 'claude-haiku-5-5',
@@ -271,6 +273,7 @@ test('it replaces each secret in the logged input of a held deny', async () => {
       judge: {
         status: 'held',
         overturnBasis: 'misread',
+        overturnReason: 'The release targets a fork the task created.',
         failureReason: null,
         model: 'claude-haiku-5-5',
         answeringModel: 'claude-haiku-5-5',
@@ -316,6 +319,7 @@ test('it replaces a quoted credential that JSON escaping would hide from the sec
       judge: {
         status: 'confirmed',
         overturnBasis: null,
+        overturnReason: null,
         failureReason: null,
         model: 'claude-haiku-5-5',
         answeringModel: 'claude-haiku-5-5',
@@ -364,6 +368,7 @@ test('it replaces a quoted credential inside an array of the logged input', asyn
       judge: {
         status: 'held',
         overturnBasis: 'misread',
+        overturnReason: 'The release targets a fork the task created.',
         failureReason: null,
         model: 'claude-haiku-5-5',
         answeringModel: 'claude-haiku-5-5',
@@ -410,6 +415,7 @@ test('it logs no input when a secret is left after the redaction passes', async 
       judge: {
         status: 'confirmed',
         overturnBasis: null,
+        overturnReason: null,
         failureReason: null,
         model: 'claude-haiku-5-5',
         answeringModel: 'claude-haiku-5-5',
@@ -433,6 +439,95 @@ test('it logs no input when a secret is left after the redaction passes', async 
   });
 });
 
+test('it replaces each secret in the overturn reason of a review', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+  const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2Rl'].join('');
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      cwd: '/work/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'gh release create v1.2.0' },
+    }),
+    {
+      invocationID: 'i',
+      status: 'allow',
+      verdict: 'allow',
+      decidingStage: 'judge',
+      judge: {
+        status: 'overturned',
+        overturnBasis: 'consent',
+        overturnReason: `The user gave GH_TOKEN=${token} and asked for the release.`,
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        answeringModel: 'claude-haiku-5-5',
+        safetyStops: null,
+        warm: false,
+        rule: 'Publish and Release',
+        tier: 'soft',
+        elapsedMs: 1800,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  const record: unknown = JSON.parse(text);
+
+  expect(record).toMatchObject({
+    judge: { overturnReason: 'The user gave GH_TOKEN=[secret] and asked for the release.' },
+  });
+});
+
+test('it logs no overturn reason when a secret is left after the redaction pass', async () => {
+  const ctx = await setupTest();
+
+  const path = join(ctx.directory, 'actions.jsonl');
+
+  const tokens = Array.from({ length: 51 }, () =>
+    ['ghp', '_', faker.string.alphanumeric(36)].join(''),
+  );
+
+  await writeActionDiagnostic(
+    buildMockActionRequest({
+      cwd: '/work/repo',
+      toolName: 'Bash',
+      toolInput: { command: 'make release' },
+    }),
+    {
+      invocationID: 'i',
+      status: 'allow',
+      verdict: 'allow',
+      decidingStage: 'containment',
+      grant: {
+        status: 'overturned',
+        overturnBasis: 'consent',
+        overturnReason: `The user listed ${tokens.join(' ')} for the release.`,
+        failureReason: null,
+        model: 'claude-haiku-5-5',
+        answeringModel: 'claude-haiku-5-5',
+        safetyStops: null,
+        warm: false,
+        rule: 'Outside Task Scope',
+        tier: 'soft',
+        elapsedMs: 1500,
+      },
+    },
+    buildMockHostEnvironment({ env: { AUTO_MODE_DIAGNOSTICS_PATH: path }, home: ctx.directory }),
+    { write: mock() },
+  );
+
+  const text = await readFile(path, 'utf8');
+
+  const record: unknown = JSON.parse(text);
+
+  expect(record).toMatchObject({ grant: { overturnReason: null } });
+});
+
 test('it cuts the logged input of a reviewed grant to 2000 characters', async () => {
   const ctx = await setupTest();
 
@@ -452,6 +547,7 @@ test('it cuts the logged input of a reviewed grant to 2000 characters', async ()
       grant: {
         status: 'confirmed',
         overturnBasis: null,
+        overturnReason: null,
         failureReason: null,
         model: 'claude-haiku-5-5',
         answeringModel: 'claude-haiku-5-5',
@@ -491,7 +587,7 @@ test('it records no action hash for a request without a tool use id', async () =
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 7,
+    schemaVersion: 8,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',
@@ -573,7 +669,7 @@ test('it appends to the auto-mode state directory when no diagnostics path is se
 
   // The session and agent hashes are the first 16 hex digits of `printf s | sha256sum`.
   expect(JSON.parse(text)).toStrictEqual({
-    schemaVersion: 7,
+    schemaVersion: 8,
     time: expect.toBeDateString(),
     invocationID: 'i',
     sessionHash: '043a718774c572bd',

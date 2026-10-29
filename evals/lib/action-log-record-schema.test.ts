@@ -269,9 +269,56 @@ test('it rejects the action field on a version 6 record', () => {
   expect(result.error?.issues).toPartiallyContain({ path: ['action'] });
 });
 
-test('it rejects a schema version other than 3 to 7', () => {
+test('it accepts a version 8 record with the overturn reason in its judge diagnostics', () => {
+  const payload = {
+    schemaVersion: 8,
+    time: '2026-10-01T10:00:05.000Z',
+    invocationID: 'invocation-5',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'allow',
+    verdict: 'allow',
+    decidingStage: 'judge',
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: {
+      status: 'overturned',
+      rule: 'Default Branch Write',
+      overturnReason: 'The user asked for the merge on main.',
+    },
+    grant: null,
+    action: { tool: 'Bash', cwd: '/work/repo', input: '{"command":"git merge origin/main"}' },
+  } as const;
+
+  expect(actionLogRecordSchema.safeParse(payload).data).toStrictEqual(payload);
+});
+
+test('it rejects a version 8 record without the action field', () => {
   const result = actionLogRecordSchema.safeParse({
     schemaVersion: 8,
+    time: '2026-10-01T10:00:05.000Z',
+    invocationID: 'invocation-5',
+    sessionHash: 'ad9ef8a88622d2c9',
+    agentHash: '5945296ed529b81d',
+    actionHash: 'f5d171dc69611257',
+    status: 'started',
+    verdict: null,
+    decidingStage: null,
+    denials: null,
+    escalation: false,
+    diagnostics: null,
+    judge: null,
+    grant: null,
+  });
+
+  expect(result.error?.issues).toPartiallyContain({ path: ['action'] });
+});
+
+test('it rejects a schema version other than 3 to 8', () => {
+  const result = actionLogRecordSchema.safeParse({
+    schemaVersion: 9,
     time: '2026-10-01T10:00:00.000Z',
     invocationID: 'invocation-1',
     sessionHash: 'ad9ef8a88622d2c9',

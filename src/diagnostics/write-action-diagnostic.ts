@@ -49,7 +49,7 @@ export async function writeActionDiagnostic(
   const isReviewed = entry.judge !== undefined || entry.grant !== undefined;
 
   const record = {
-    schemaVersion: 7,
+    schemaVersion: 8,
     time: new Date().toISOString(),
     invocationID: entry.invocationID,
     sessionHash: toHash(payload.sessionID),
@@ -61,8 +61,8 @@ export async function writeActionDiagnostic(
     denials: entry.denials ?? null,
     escalation: entry.escalation ?? false,
     diagnostics: entry.diagnostics ?? null,
-    judge: entry.judge ?? null,
-    grant: entry.grant ?? null,
+    judge: entry.judge === undefined ? null : buildLoggedReview(entry.judge),
+    grant: entry.grant === undefined ? null : buildLoggedReview(entry.grant),
     action: isReviewed ? buildLoggedAction(payload) : null,
   };
 
@@ -76,6 +76,19 @@ export async function writeActionDiagnostic(
 
 function toHash(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 16);
+}
+
+function buildLoggedReview(review: Readonly<JudgeDiagnostics>): JudgeDiagnostics {
+  if (review.overturnReason === null) {
+    return review;
+  }
+
+  const reason = buildSecretFreeText(review.overturnReason, () => '[secret]');
+
+  return {
+    ...review,
+    overturnReason: findSecret({ text: reason, path: null }) === null ? reason : null,
+  };
 }
 
 const LOGGED_INPUT_MAX_CHARS = 2000;

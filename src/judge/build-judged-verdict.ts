@@ -7,6 +7,7 @@ export interface JudgedVerdict {
   readonly verdict: Verdict;
   readonly status: JudgeStatus;
   readonly overturnBasis: OverturnBasis | null;
+  readonly overturnReason: string | null;
 }
 
 export interface JudgedVerdictOptions {
@@ -29,7 +30,7 @@ export function buildJudgedVerdict(
   };
 
   if (reply === null || reply.kind === 'unreadable') {
-    return { verdict: template, status: 'failed', overturnBasis: null };
+    return { verdict: template, status: 'failed', overturnBasis: null, overturnReason: null };
   }
 
   if (reply.kind === 'overturn') {
@@ -40,9 +41,11 @@ export function buildJudgedVerdict(
       (reply.basis === 'misread' && options.overturns === 'consent') ||
       (reply.basis === 'consent' && !options.hasUserMessage);
 
+    const overturn = { overturnBasis: reply.basis, overturnReason: formatJudgeText(reply.reason) };
+
     return isHeld
-      ? { verdict: template, status: 'held', overturnBasis: reply.basis }
-      : { verdict: { kind: 'allow' }, status: 'overturned', overturnBasis: reply.basis };
+      ? { verdict: template, status: 'held', ...overturn }
+      : { verdict: { kind: 'allow' }, status: 'overturned', ...overturn };
   }
 
   return {
@@ -53,6 +56,7 @@ export function buildJudgedVerdict(
     },
     status: 'confirmed',
     overturnBasis: null,
+    overturnReason: null,
   };
 }
 
