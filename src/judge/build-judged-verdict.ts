@@ -1,5 +1,6 @@
 import { buildDenyReason } from '../policy/build-deny-reason.ts';
 import type { Verdict } from '../request/types.ts';
+import { buildSecretFreeText } from '../secrets/build-secret-free-text.ts';
 import type { DecisionRule, DenyBasis } from '../types.ts';
 import type { JudgeOverturns, JudgeReply, JudgeStatus, OverturnBasis } from './types.ts';
 
@@ -41,7 +42,11 @@ export function buildJudgedVerdict(
       (reply.basis === 'misread' && options.overturns === 'consent') ||
       (reply.basis === 'consent' && !options.hasUserMessage);
 
-    const overturn = { overturnBasis: reply.basis, overturnReason: formatJudgeText(reply.reason) };
+    // A secret cut in two at the length limit no longer matches the secret rules.
+    const overturn = {
+      overturnBasis: reply.basis,
+      overturnReason: formatJudgeText(buildSecretFreeText(reply.reason, () => '[secret]')),
+    };
 
     return isHeld
       ? { verdict: template, status: 'held', ...overturn }

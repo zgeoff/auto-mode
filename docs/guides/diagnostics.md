@@ -42,11 +42,11 @@ When the judge reviewed a Jev deny, `judge` holds its outcome; otherwise it is `
 `confirmed`, `overturned`, `held` (an overturn the deny keeps: of a hard rule, or a misread under
 `judgeOverturns: "consent"`), or `failed`. `overturnBasis` is `consent` or `misread` for an overturn
 or a held overturn, and `null` otherwise. `overturnReason` holds the judge's reason for that
-overturn, with its whitespace collapsed, cut to 600 characters, and each secret the secret rules
-find replaced by `[secret]`. It is `null` when the judge did not overturn, or when a secret is still
-left after the replacement. `failureReason` names the step that failed: `credential`, `policy`,
-`request`, `timeout`, or `unreadable`; it is `null` when the judge answered. `rule` is a shipped
-rule's name, or the rule's source for a configured or replacement rule.
+overturn. auto-mode replaces each secret the secret rules find with `[secret]`, then collapses the
+reason's whitespace and cuts it to 600 characters. It is `null` when the judge did not overturn, or
+when a secret is still left after the replacement. `failureReason` names the step that failed:
+`credential`, `policy`, `request`, `timeout`, or `unreadable`; it is `null` when the judge answered.
+`rule` is a shipped rule's name, or the rule's source for a configured or replacement rule.
 
 The rest of `judge` describes the model call. `model` is the configured judge model, and
 `answeringModel` is the model that wrote the reply, or `null` when no reply came back. It holds a

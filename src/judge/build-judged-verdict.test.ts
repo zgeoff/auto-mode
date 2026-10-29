@@ -286,6 +286,25 @@ test('it accepts a misread overturn of a soft rule when the review had no user m
   });
 });
 
+// The fake token is joined at runtime so that the repository's own secret scan
+// does not read it as a leak.
+test('it replaces a secret in an overturn reason before it cuts the reason at the limit', () => {
+  const token = ['ghp', '_', 'Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MGFiY2Rl'].join('');
+
+  expect(
+    buildJudgedVerdict(
+      { name: 'Default Branch Write', tier: 'soft', source: 'replacement' },
+      'matched',
+      {
+        kind: 'overturn',
+        basis: 'consent',
+        reason: `${'a '.repeat(284)}https://example.com/?t=${token}`,
+      },
+      { overturns: 'consent', hasUserMessage: true },
+    ).overturnReason,
+  ).toBe(`${'a '.repeat(284)}https://example.com/?t=[secret]`);
+});
+
 test('it collapses the whitespace in an overturn reason and cuts it at the limit', () => {
   expect(
     buildJudgedVerdict(
