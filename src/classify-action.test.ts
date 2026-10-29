@@ -3406,7 +3406,7 @@ test('it sends a message to a reply-channel recipient to the model tier when the
   });
 });
 
-test('it asks Jev about a message to a reply-channel recipient under every rule but Outbound Communication when the user configured deny entries', async () => {
+test('it allows a message to the spawner past Outbound Communication when the user configured deny entries', async () => {
   const ctx = await setupTest();
 
   const scopeFilePath = join(ctx.directory, 'scope.json');
@@ -3416,13 +3416,15 @@ test('it asks Jev about a message to a reply-channel recipient under every rule 
     JSON.stringify({
       format: 'auto-mode.scope',
       version: 1,
-      replyChannels: [{ tool: 'SendMessage', field: 'to', recipient: 'lead' }],
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
     }),
   );
 
   await writeFile(
     join(ctx.directory, 'settings.json'),
-    JSON.stringify({ autoMode: { soft_deny: ['Never message the lead'] } }),
+    JSON.stringify({ autoMode: { soft_deny: ['Never run terraform apply against production'] } }),
   );
 
   const received = mock<(body: unknown) => void>();
@@ -3438,8 +3440,8 @@ test('it asks Jev about a message to a reply-channel recipient under every rule 
   const outcome = await classifyAction(
     buildMockActionRequest({
       cwd: join(ctx.directory, 'repo'),
-      toolName: 'SendMessage',
-      toolInput: { to: 'lead', message: 'the build is green' },
+      toolName: 'mcp__atc__atc_message_send',
+      toolInput: { session: 's-lead', text: 'the build is green' },
     }),
     buildMockConfig({
       provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
@@ -3456,7 +3458,7 @@ test('it asks Jev about a message to a reply-channel recipient under every rule 
     },
   );
 
-  expect(outcome.decidingStage).toBe('jev');
+  expect(outcome).toMatchObject({ verdict: { kind: 'allow' }, decidingStage: 'jev' });
 
   const questionSchema = z.object({ instructions: z.string() });
   const requestSchema = z.object({ questions: z.record(z.string(), questionSchema) });
@@ -3469,7 +3471,107 @@ test('it asks Jev about a message to a reply-channel recipient under every rule 
 
   expect(instructions).not.toContainEqual(expect.toInclude('### Outbound Communication\n'));
   expect(instructions).toContainEqual(expect.toInclude('### Data Exfiltration\n'));
-  expect(questions['soft_deny_0']?.instructions).toInclude('Never message the lead');
+
+  expect(questions['soft_deny_0']?.instructions).toInclude(
+    'Never run terraform apply against production',
+  );
+});
+
+test('it denies a message to the spawner that a configured deny entry blocks', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  await writeFile(
+    join(ctx.directory, 'settings.json'),
+    JSON.stringify({ autoMode: { soft_deny: ['Never message session s-lead'] } }),
+  );
+
+  decisionAnswers.set('soft_deny_0', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__atc__atc_message_send',
+      toolInput: { session: 's-lead', text: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({ verdict: { kind: 'deny' }, decidingStage: 'jev' });
+});
+
+test('it denies a message to an unrelated session under Outbound Communication when the user configured deny entries', async () => {
+  const ctx = await setupTest();
+
+  const scopeFilePath = join(ctx.directory, 'scope.json');
+
+  await writeFile(
+    scopeFilePath,
+    JSON.stringify({
+      format: 'auto-mode.scope',
+      version: 1,
+      replyChannels: [
+        { tool: 'mcp__atc__atc_message_send', field: 'session', recipient: 's-lead' },
+      ],
+    }),
+  );
+
+  await writeFile(
+    join(ctx.directory, 'settings.json'),
+    JSON.stringify({ autoMode: { soft_deny: ['Never run terraform apply against production'] } }),
+  );
+
+  decisionAnswers.set('rule_10', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const outcome = await classifyAction(
+    buildMockActionRequest({
+      cwd: join(ctx.directory, 'repo'),
+      toolName: 'mcp__atc__atc_message_send',
+      toolInput: { session: 's-archive', text: 'the build is green' },
+    }),
+    buildMockConfig({
+      provider: { protocol: 'system-one', apiKeyEnv: 'TYPESAFE_API_KEY' },
+      judge: null,
+      claudeSettingsPath: join(ctx.directory, 'settings.json'),
+    }),
+    {
+      stderr: buildStubOutput(),
+      runtime: buildMockRuntime({
+        env: { AUTO_MODE_SCOPE_FILE: scopeFilePath, TYPESAFE_API_KEY: 'test-key' },
+        home: ctx.directory,
+        scratchPaths: [],
+      }),
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    verdict: { kind: 'deny', rule: 'Outbound Communication' },
+    decidingStage: 'jev',
+  });
 });
 
 test('it lets an edit into the workspace an atc record names skip Jev when no scope file exists', async () => {
