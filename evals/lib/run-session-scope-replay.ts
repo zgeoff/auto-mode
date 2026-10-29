@@ -1,9 +1,9 @@
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   buildTaskScope,
   checkContainment,
   makeScopeSourceReader,
+  readTextFile,
   updateSessionScope,
 } from 'auto-mode/eval';
 import type { ContainmentDeny } from 'auto-mode/eval';
@@ -89,7 +89,7 @@ async function checkSessionContainment(
 
     // The recorded scope files are well formed.
     stderr: { write: () => true },
-    readTextFile: (path: string) => readFile(path, 'utf8'),
+    readTextFile,
   };
 
   const facts = await Promise.all([

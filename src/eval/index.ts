@@ -11,6 +11,7 @@ export {
 
 export { loadClaudeRules } from '../config/load-claude-rules.ts';
 export { pickClassifierLane } from '../config/pick-classifier-lane.ts';
+export { readTextFile } from '../config/read-text-file.ts';
 export { pickJudgeLane } from '../config/pick-judge-lane.ts';
 export type { ClaudeRules } from '../config/types.ts';
 export { checkContainment, type ContainmentDeny } from '../containment/check-containment.ts';
