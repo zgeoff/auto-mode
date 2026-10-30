@@ -89,7 +89,7 @@
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.3",
     "@types/node": "26.6.5",
-    "@zgeoff/bun-test-extended": "0.2.1",
+    "@zgeoff/bun-test-extended": "0.2.2",
     "@zgeoff/format-codemod": "0.3.3",
     "@zgeoff/oxlint-config": "0.7.1",
     "@zgeoff/skill-gate": "0.2.9",
