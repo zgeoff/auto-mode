@@ -91,7 +91,7 @@
     "@types/node": "26.6.5",
     "@zgeoff/bun-test-extended": "0.2.2",
     "@zgeoff/format-codemod": "0.3.3",
-    "@zgeoff/oxlint-config": "0.7.1",
+    "@zgeoff/oxlint-config": "0.7.3",
     "@zgeoff/skill-gate": "0.2.9",
     "gunshi": "1.0.0-rc.1",
     "knip": "6.42.0",
@@ -109,9 +109,6 @@
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "7.0.2",
     "zod": "4.6.7"
-  },
-  "overrides": {
-    "smol-toml": "1.9.1"
   },
   "engines": {
     "node": ">=24"

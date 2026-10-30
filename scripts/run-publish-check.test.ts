@@ -120,7 +120,7 @@ test('it throws when git cannot read the checked-out commit', () => {
   ).toThrowWithMessage(Error, 'git rev-parse HEAD failed: fatal: not a git repository');
 });
 
-test('the entry point writes publish=true and exits 0 at the tag of the oldest pending release', async () => {
+test('it writes publish=true and exits 0 at the tag of the oldest pending release as a script', async () => {
   const ctx = await setupTest();
 
   const origin = join(ctx.directory, 'origin.git');
@@ -171,7 +171,7 @@ test('the entry point writes publish=true and exits 0 at the tag of the oldest p
   expect(dispatched).toBe(false);
 });
 
-test('the entry point dispatches from a run that cannot publish and writes publish=false', async () => {
+test('it dispatches from a run that cannot publish and writes publish=false as a script', async () => {
   const ctx = await setupTest();
 
   const origin = join(ctx.directory, 'origin.git');
@@ -225,7 +225,7 @@ test('the entry point dispatches from a run that cannot publish and writes publi
   );
 });
 
-test('the entry point exits 1 and writes publish=false when the dispatch fails', async () => {
+test('it exits 1 and writes publish=false as a script when the dispatch fails', async () => {
   const ctx = await setupTest();
 
   const origin = join(ctx.directory, 'origin.git');
@@ -281,7 +281,7 @@ test('the entry point exits 1 and writes publish=false when the dispatch fails',
   );
 });
 
-test('the entry point writes publish=false and exits 0 when every release tag is on npm', async () => {
+test('it writes publish=false and exits 0 as a script when every release tag is on npm', async () => {
   const ctx = await setupTest();
 
   const origin = join(ctx.directory, 'origin.git');
@@ -336,7 +336,7 @@ test('the entry point writes publish=false and exits 0 when every release tag is
   );
 });
 
-test('the entry point exits 2 when GITHUB_OUTPUT is not set', async () => {
+test('it exits 2 as a script when GITHUB_OUTPUT is not set', async () => {
   const ctx = await setupTest();
 
   const result = await Bun.$`${process.execPath} ${ctx.script}`

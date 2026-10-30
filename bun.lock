@@ -14,7 +14,7 @@
         "@types/node": "26.6.5",
         "@zgeoff/bun-test-extended": "0.2.2",
         "@zgeoff/format-codemod": "0.3.3",
-        "@zgeoff/oxlint-config": "0.7.1",
+        "@zgeoff/oxlint-config": "0.7.3",
         "@zgeoff/skill-gate": "0.2.9",
         "gunshi": "1.0.0-rc.1",
         "knip": "6.42.0",
@@ -44,9 +44,6 @@
         "zod": "4.6.7",
       },
     },
-  },
-  "overrides": {
-    "smol-toml": "1.9.1",
   },
   "packages": {
     "@anthropic-ai/claude-agent-sdk": ["@anthropic-ai/claude-agent-sdk@0.3.303", "", { "optionalDependencies": { "@anthropic-ai/claude-agent-sdk-darwin-arm64": "0.3.303", "@anthropic-ai/claude-agent-sdk-darwin-x64": "0.3.303", "@anthropic-ai/claude-agent-sdk-linux-arm64": "0.3.303", "@anthropic-ai/claude-agent-sdk-linux-arm64-musl": "0.3.303", "@anthropic-ai/claude-agent-sdk-linux-x64": "0.3.303", "@anthropic-ai/claude-agent-sdk-linux-x64-musl": "0.3.303", "@anthropic-ai/claude-agent-sdk-win32-arm64": "0.3.303", "@anthropic-ai/claude-agent-sdk-win32-x64": "0.3.303" }, "peerDependencies": { "@anthropic-ai/sdk": ">=0.93.0", "@modelcontextprotocol/sdk": "^1.29.0", "zod": "^4.0.0" } }, "sha512-XBql04V40xr+fmGJh8AmIpqRZKFNrs99BzXzzSVlx+uE5NjFCzKmkNKTdMD0DQtDvFJlijOLoh1siaH+au9Psw=="],
@@ -499,7 +496,7 @@
 
     "@zgeoff/format-codemod": ["@zgeoff/format-codemod@0.3.3", "", { "dependencies": { "gunshi": "1.0.0-rc.1", "oxc-parser": "0.155.0" }, "bin": { "format-codemod": "dist/cli.js" } }, "sha512-HrKdnhO0E5dR9ro3Ah5wRuf+2Bz8s+tK60+gU2r14Q47/1G21iEfoBc9KTKCE6QvuqsHGDhKl/pyE+/BjU1NFw=="],
 
-    "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.7.1", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.78.0" } }, "sha512-NMzI1GD4K+3mqNATsBoghRW3EVJAnBD+wTaMF2/9IafwNewLFirZc/9bi6tCkkL5jhlfJSN33npvoANqHUbRwQ=="],
+    "@zgeoff/oxlint-config": ["@zgeoff/oxlint-config@0.7.3", "", { "dependencies": { "@stylistic/eslint-plugin": "5.10.0" }, "peerDependencies": { "oxlint": ">=1.78.0" } }, "sha512-2pmYFR+vbzr7vg5O8Zp4SvoXalKL0+hCiEP3EGAjxdYQ1URiK65FAHZXdUG21YFXDjWwMo9hFEEB1q6RGxol0A=="],
 
     "@zgeoff/skill-gate": ["@zgeoff/skill-gate@0.2.9", "", {}, "sha512-Ojjoj3Co5bmBqjpUwyoI5w6GuR/HUnCS3/b87cXAQOE0KPfbtbmaffJBhYTvH+u8+Ky190yxjMRneD+JiTssMg=="],
 

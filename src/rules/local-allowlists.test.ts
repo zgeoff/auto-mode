@@ -80,7 +80,7 @@ test.each([
   ['READ_ONLY_COMMANDS', READ_ONLY_COMMANDS],
   ['READ_ONLY_GIT_SUBCOMMANDS', READ_ONLY_GIT_SUBCOMMANDS],
   ['REGENERABLE_DIRS', REGENERABLE_DIRS],
-] as const)('#%s holds only matchable entries', (_name, entries) => {
+] as const)('it holds only matchable entries in %s', (_name, entries) => {
   expect([...entries]).toSatisfyAll(
     (entry: string) => entry !== '' && entry.trim() === entry && !entry.includes('/'),
   );
