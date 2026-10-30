@@ -6,9 +6,6 @@
     "es2024": true
   },
   "rules": {
-    // zod schemas and jest-extended matchers are imported wholesale on purpose
-    "import/no-namespace": "off",
-
     "zgeoff/function-verb": ["error", { "exemptNames": ["main"] }],
 
     // the module boundaries: every file under src/ belongs to a zone, and a

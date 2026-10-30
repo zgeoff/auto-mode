@@ -6,7 +6,7 @@ import { buildMockActionRequest } from '../test-utils/factories/build-mock-actio
 import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
 import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { DEFAULT_CONFIG } from './config/config.ts';
-import * as api from './index.ts';
+import { classifyAction, loadConfig } from './index.ts';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), 'auto-mode-index-'));
@@ -18,8 +18,8 @@ async function setupTest() {
 
 // The package exports this set, so removing, renaming, or retyping one is a
 // breaking change for a consumer that publint and the type build cannot see.
-test('it exports the documented public API', () => {
-  expect({ ...api }).toStrictEqual({
+test('it exports the documented public API', async () => {
+  expect({ ...(await import('./index.ts')) }).toStrictEqual({
     classifyAction: expect.toBeFunction(),
     loadConfig: expect.toBeFunction(),
     parseActionRequest: expect.toBeFunction(),
@@ -29,7 +29,7 @@ test('it exports the documented public API', () => {
 test('#classifyAction classifies with the runtime a library caller passes and no stderr', async () => {
   const ctx = await setupTest();
 
-  const outcome = await api.classifyAction(
+  const outcome = await classifyAction(
     buildMockActionRequest({
       cwd: ctx.directory,
       toolName: 'Read',
@@ -49,7 +49,7 @@ test('#classifyAction classifies with the runtime a library caller passes and no
 
 test('#loadConfig reads the shipped defaults for a config file that does not exist', async () => {
   const ctx = await setupTest();
-  const config = await api.loadConfig(join(ctx.directory, 'missing.json'));
+  const config = await loadConfig(join(ctx.directory, 'missing.json'));
 
   expect(config).toBe(DEFAULT_CONFIG);
 });
