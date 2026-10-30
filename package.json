@@ -90,7 +90,7 @@
     "@types/bun": "1.4.3",
     "@types/node": "26.6.5",
     "@zgeoff/bun-test-extended": "0.2.2",
-    "@zgeoff/format-codemod": "0.3.3",
+    "@zgeoff/format-codemod": "0.3.4",
     "@zgeoff/oxlint-config": "0.7.3",
     "@zgeoff/skill-gate": "0.2.9",
     "gunshi": "1.0.0-rc.1",
