@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.6](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.5...auto-mode-v3.1.6) (2026-10-31)
+
+
+### Bug Fixes
+
+* **hooks:** keep format-ignored files away from format-codemod ([#364](https://github.com/zgeoff/auto-mode/issues/364)) ([427f79b](https://github.com/zgeoff/auto-mode/commit/427f79b59041101e0b32f99a8d1e7761955c3cbb))
+
 ## [3.1.5](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.4...auto-mode-v3.1.5) (2026-10-29)
 
 
