@@ -41,7 +41,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: zgeoff/tools/.github/workflows/release-please.yml@88652ed5edec35150703d1552645798c24376b71 # main
+    uses: zgeoff/tools/.github/workflows/release-please.yml@3e0052ce48171a0d3f7932005e0d9067ccc0d73c # main
     with:
       app-id: ${{ vars.RELEASE_APP_ID }}
       merge: true
