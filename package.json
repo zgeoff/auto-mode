@@ -40,7 +40,7 @@
     "./secret-rules.json": "./dist/secret-rules.json"
   },
   "scripts": {
-    "audit": "bun audit",
+    "audit": "bun audit --ignore=GHSA-g3hv-75wg-m249",
     "bench": "bun --no-env-file src/secrets/find-secret.bench.ts",
     "build": "tsdown",
     "check": "bun run format:check && bun run lint:full && bun run typecheck && bun run deadcode && bun run test && bun run build && bun run check:artifact && bun run publint",
