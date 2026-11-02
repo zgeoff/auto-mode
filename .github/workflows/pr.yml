@@ -11,26 +11,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gitleaks:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # the action comments findings on the PR, which needs write on pull-requests
+  # The shared Bun checks: separate gitleaks, static, test and test-<lane> jobs
+  # in a public repo, and one checks job in a private one. In both, the checks
+  # job fails when any check fails, so the ruleset requires `pr / checks`.
+  pr:
+    # the gitleaks job comments findings on the PR, which needs write on
+    # pull-requests
     permissions:
       contents: read
       pull-requests: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # the action's hard-coded default (8.24.3) predates the root-level
-          # [[allowlists]] syntax .gitleaks.toml relies on and silently ignores it
-          GITLEAKS_VERSION: 8.30.1
-
-  checks:
-    uses: ./.github/workflows/checks.yml
+    uses: zgeoff/tools/.github/workflows/bun-checks.yml@f39969ec9d59837d48313139501758d5e9dccf21 # main
+    with:
+      scripts: ${{ vars.BUN_CHECK_SCRIPTS }}
+      node-version: ${{ vars.NODE_VERSION }}
+      timeout-minutes: ${{ fromJSON(vars.BUN_CHECK_TIMEOUT_MINUTES || '20') }}
+      # e2e/package-install.test.ts scans the packed package with gitleaks
+      setup-gitleaks: true
