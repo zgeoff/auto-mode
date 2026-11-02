@@ -1,29 +1,36 @@
 ---
 name: project-code-style
 description:
-  auto-mode's additions to the shared code-style skill — what its own function verbs mean. Load it
-  beside code-style before writing, reviewing, or renaming any TypeScript in auto-mode.
+  "auto-mode's additions to the shared code-style skill: the two verbs it keeps for its own jobs,
+  and where the verb rule's exempt names go. Load it beside code-style before you write or review
+  TypeScript in auto-mode."
+metadata:
+  kind: rule-set
 ---
 
 # auto-mode code style
 
-The shared `code-style` skill holds the rules and the function-verb taxonomy. This skill holds only
-what auto-mode adds: the meaning of its own verbs.
+## Departures
 
-## Free verbs
+None.
 
-auto-mode gives two free verbs a fixed meaning, so each one names the same job everywhere in the
-repo. `zgeoff/function-verb` passes any verb it does not ban, so neither verb needs a lint option.
+## auto-mode's verbs
 
-- `classify`: decide which category a value falls into, from a closed set the caller knows
-  (`classifyLocally`, `classifySegment`). It differs from `check`, which reports findings rather
-  than returning a category.
-- `record`: add what a finished action created to the state a later action reads (`recordScope`). It
-  differs from `write`, which persists a value the caller already holds.
+auto-mode keeps the verbs `classify` and `record` for the two jobs below, and uses neither for any
+other job. Neither job has a row in code-style's role table, so each verb is a
+[free verb](../code-style/SKILL.md#free-verbs). Both may do I/O. No lint rule checks the job behind
+a free verb, so check it in review.
+
+- Name a function `classify…` when it returns which outcome of a fixed set applies to its input,
+  such as [`classifyLocally`](../../../src/rules/classify-locally.ts), which returns `allow` or
+  `escalate`. Use `pick…` when the function returns one of the values it was given.
+- Name a function `record…` when it merges a finished tool call's result into the saved state that
+  auto-mode reads when it judges a later tool call, such as
+  [`recordScope`](../../../src/record-scope.ts), which adds to the session's scope. Use `write…`
+  when it writes a whole value out.
 
 ## Exempt names
 
-The verb rule skips these names, which also sit in its `exemptNames` option in
-[`.oxlintrc.json`](../../../.oxlintrc.json).
-
-- `main`, a script entrypoint
+- Add an entry point that the `zgeoff/function-verb` lint rule must skip, such as a script's `main`,
+  to the rule's `exemptNames` option in [`.oxlintrc.json`](../../../.oxlintrc.json). Rename any
+  other function that the rule rejects.
