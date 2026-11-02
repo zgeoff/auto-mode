@@ -47,7 +47,8 @@ may write. Every function below them takes a [`HostEnvironment`](../../../src/co
   each variable the case needs in `env`.
 - When your test expects a write under `/tmp` to be denied as outside the task's scope, pass
   `scratchPaths: []`. By default `scratchPaths` holds `/tmp` and the `/dev` streams, and the scope
-  check allows every write there.
+  check finds no out-of-scope write there. It still flags a credential path under `home`, such as
+  `.ssh`.
 - Root every cwd in a git repository that the test creates in its temp tree. The scope and
   repository readers walk up from the cwd to the nearest `.git`, so a stray `.git` above the system
   temp folder becomes the repository they read.
@@ -84,8 +85,10 @@ may write. Every function below them takes a [`HostEnvironment`](../../../src/co
 
 ## Time
 
-- Pass `now` and `timeout` in [`EvaluationOptions`](../../../src/config/types.ts) to the code that
-  classifies a tool call, and an `AbortSignal` to the decision and Messages clients.
+- Pass `now` and `timeout` to the code that classifies a tool call through the `runtime` of its
+  [`EvaluationOptions`](../../../src/config/types.ts), built with
+  [`buildMockRuntime`](../../../test-utils/factories/build-mock-runtime.ts), and an `AbortSignal` to
+  the decision and Messages clients.
 - Pass [`buildStubLockClock`](../../../test-utils/build-stub-lock-clock.ts) as the `LockClock` that
   [`updateJSONFile`](../../../src/state/update-json-file.ts) and the state writers take. With
   `advancesOnWait`, its `now()` moves forward by each delay passed to `wait()`.
@@ -106,7 +109,8 @@ a provider with `protocol: 'system-one'` calls, and `MESSAGES_URL`, the Anthropi
 - Seed a Messages reply in the [`messagesReplies`](../../../mocks/messages-replies.ts) queue. An
   empty queue answers HTTP 500.
 - Assert the exact request body in the decision client's own tests. The mock decision API rejects a
-  request only where the real API does, and never checks `state` or a question's fields.
+  request only where the real API does, and never checks what a non-null `state` holds or any field
+  of a question but `type`.
 - [`buildMockProviderConfig`](../../../test-utils/factories/build-mock-provider-config.ts) returns a
   `system-one` provider at the mock decision host. For a Messages provider, override `protocol` to
   `messages` and `baseURL` to the origin of `MESSAGES_URL`.

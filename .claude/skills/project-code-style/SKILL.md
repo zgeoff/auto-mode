@@ -21,9 +21,10 @@ other job. Neither job has a row in code-style's role table, so each verb is a
 [free verb](../code-style/SKILL.md#free-verbs). Both may do I/O. No lint rule checks the job behind
 a free verb, so check it in review.
 
-- Name a function `classify…` when it returns which outcome of a fixed set applies to its input,
+- Name a function `classify…` when it judges a tool call, or a part of one, and returns the verdict,
   such as [`classifyLocally`](../../../src/rules/classify-locally.ts), which returns `allow` or
-  `escalate`. Use `pick…` when the function returns one of the values it was given.
+  `escalate`. Use `pick…` for any other choice among known alternatives, such as
+  [`pickClassifierLane`](../../../src/config/pick-classifier-lane.ts).
 - Name a function `record…` when it merges a finished tool call's result into the saved state that
   auto-mode reads when it judges a later tool call, such as
   [`recordScope`](../../../src/record-scope.ts), which adds to the session's scope. Use `write…`
