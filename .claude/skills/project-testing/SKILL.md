@@ -124,7 +124,7 @@ a provider with `protocol: 'system-one'` calls, and `MESSAGES_URL`, the Anthropi
   [`fixtures/`](../../../fixtures/), with [`readFixture`](../../../test-utils/read-fixture.ts).
 - Never run an evaluation runner in a test. The `run-*-evaluation.ts` runners in
   [`evals/runners/`](../../../evals/runners/) send real model requests. The replay suites read the
-  recorded answers in [`evals/corpora/`](../../../evals/corpora/)'s `recorded/` folder.
+  recorded answers in the `recorded/` folder of [`evals/corpora/`](../../../evals/corpora/).
 
 ## The Claude Code mod checks
 

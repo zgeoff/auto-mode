@@ -21,7 +21,7 @@ The rules a task needs are not repeated here. Load the skill for the work before
 | `testing`            | designing, writing, or reviewing tests                                                                  |
 | `project-testing`    | the same, beside `testing` — the test utils, host environment, and mod checks                           |
 | `ci-design`          | changing a workflow, a CI step, or a required check                                                     |
-| `project-ci-design`  | the same, beside `ci-design` — the test budget, the required checks, and the one `checks` job           |
+| `project-ci-design`  | the same, beside `ci-design` — the test budget, the required checks, and adding a check                 |
 | `docs-writing`       | writing or editing any committed prose: `docs/`, READMEs, this file, skills                             |
 
 ## Repo structure

@@ -25,7 +25,19 @@ jobs:
     concurrency:
       group: checks-${{ github.ref }}
       cancel-in-progress: true
-    uses: ./.github/workflows/checks.yml
+    # GitHub checks the called workflow's job permissions even for its skipped
+    # gitleaks job, which asks for pull-requests: write
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: zgeoff/tools/.github/workflows/bun-checks.yml@f39969ec9d59837d48313139501758d5e9dccf21 # main
+    with:
+      scripts: ${{ vars.BUN_CHECK_SCRIPTS }}
+      node-version: ${{ vars.NODE_VERSION }}
+      timeout-minutes: ${{ fromJSON(vars.BUN_CHECK_TIMEOUT_MINUTES || '20') }}
+      # the pull request that landed the commits already scanned them
+      gitleaks: false
+      setup-gitleaks: true
 
   # The shared job opens or updates the release PR, merges it once its checks
   # pass, and tags the merge in the same run. It waits for no checks job, so
