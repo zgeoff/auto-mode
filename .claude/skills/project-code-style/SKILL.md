@@ -30,7 +30,7 @@ a free verb, so check it in review.
   [`recordScope`](../../../src/record-scope.ts), which adds to the session's scope. Use `write…`
   when it writes a whole value out.
 
-## Exempt names
+## The function-verb lint rule
 
 - Add an entry point that the `zgeoff/function-verb` lint rule must skip, such as a script's `main`,
   to the rule's `exemptNames` option in [`.oxlintrc.json`](../../../.oxlintrc.json). Rename any
