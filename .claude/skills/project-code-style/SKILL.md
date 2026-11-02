@@ -2,8 +2,8 @@
 name: project-code-style
 description:
   "auto-mode's additions to the shared code-style skill: the two verbs it keeps for its own jobs,
-  and where the verb rule's exempt names go. Load it beside code-style before you write or review
-  TypeScript in auto-mode."
+  and where to list a name that the `zgeoff/function-verb` lint rule must skip. Load it beside
+  code-style before you write or review TypeScript in auto-mode."
 metadata:
   kind: rule-set
 ---
@@ -16,22 +16,24 @@ None.
 
 ## auto-mode's verbs
 
-auto-mode keeps the verbs `classify` and `record` for the two jobs below, and uses neither for any
-other job. Neither job has a row in code-style's role table, so each verb is a
-[free verb](../code-style/SKILL.md). Both may do I/O. No lint rule checks the job behind a free
-verb, so check it in review.
+auto-mode keeps the verbs `classify` and `record` for the two jobs below, and uses neither verb for
+any other job. The verb table in [code-style](../code-style/SKILL.md) has no row for either job, so
+the lint rule accepts both verbs, and you check in review that each function does its verb's job.
+Both jobs may do I/O, which the table's `pick` and `build` rows forbid.
 
-- Name a function `classify…` when it judges a tool call, or a part of one, and returns the verdict,
-  such as [`classifyLocally`](../../../src/rules/classify-locally.ts), which returns `allow` or
-  `escalate`. Use `pick…` for any other choice among known alternatives, such as
-  [`pickClassifierLane`](../../../src/config/pick-classifier-lane.ts).
-- Name a function `record…` when it merges a finished tool call's result into the saved state that
-  auto-mode reads when it judges a later tool call, such as
-  [`recordScope`](../../../src/record-scope.ts), which adds to the session's scope. Use `write…`
-  when it writes a whole value out.
+- `classify…`: the function decides whether a tool call, or a part of one such as its target path,
+  may go ahead, and returns that decision.
+  [`classifyLocally`](../../../src/rules/classify-locally.ts) returns `escalate` for any tool call
+  its local rules don't cover. For any other choice among known alternatives, use the table's `pick`
+  verb, as [`pickClassifierLane`](../../../src/config/pick-classifier-lane.ts) does.
+- `record…`: the function merges a finished tool call's result into the session state that auto-mode
+  reads when it decides on a later tool call. [`recordScope`](../../../src/record-scope.ts) merges
+  into the session's scope, and records nothing when no configured scope source is the session. Use
+  `write…` when a function writes a whole value out, with no merge.
 
 ## The function-verb lint rule
 
-- Add an entry point that the `zgeoff/function-verb` lint rule must skip, such as a script's `main`,
-  to the rule's `exemptNames` option in [`.oxlintrc.json`](../../../.oxlintrc.json). Rename any
-  other function that the rule rejects.
+When a caller outside your code sets a function's name, such as a script's `main`, and the
+`zgeoff/function-verb` lint rule rejects that name, add it to the rule's `exemptNames` option in
+[`.oxlintrc.json`](../../../.oxlintrc.json). Rename any other function that the rule rejects.
+`bun run lint` shows each name it rejects.
