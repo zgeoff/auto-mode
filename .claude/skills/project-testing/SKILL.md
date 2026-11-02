@@ -20,10 +20,7 @@ metadata:
 
 ## Departures
 
-- Keep the `test` script in [`package.json`](../../../package.json) on one process that runs the
-  files one after another, with neither `--parallel` nor `--no-isolate`. The shared
-  [testing](../testing/SKILL.md) skill's "The test run" section asks for both. Nobody has timed the
-  two modes in auto-mode, so ask the repo owner before you add the flags.
+None.
 
 ## Running the suite
 
