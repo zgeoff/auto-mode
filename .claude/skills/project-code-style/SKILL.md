@@ -18,8 +18,8 @@ None.
 
 auto-mode keeps the verbs `classify` and `record` for the two jobs below, and uses neither for any
 other job. Neither job has a row in code-style's role table, so each verb is a
-[free verb](../code-style/SKILL.md#free-verbs). Both may do I/O. No lint rule checks the job behind
-a free verb, so check it in review.
+[free verb](../code-style/SKILL.md). Both may do I/O. No lint rule checks the job behind a free
+verb, so check it in review.
 
 - Name a function `classify…` when it judges a tool call, or a part of one, and returns the verdict,
   such as [`classifyLocally`](../../../src/rules/classify-locally.ts), which returns `allow` or
