@@ -25,11 +25,8 @@ jobs:
     concurrency:
       group: checks-${{ github.ref }}
       cancel-in-progress: true
-    # GitHub checks the called workflow's job permissions even for its skipped
-    # gitleaks job, which asks for pull-requests: write
     permissions:
       contents: read
-      pull-requests: write
     uses: zgeoff/tools/.github/workflows/bun-checks.yml@26f8b5bd65c8c892e5eca3519555b4d15c3cfc84 # main
     with:
       scripts: ${{ vars.BUN_CHECK_SCRIPTS }}
