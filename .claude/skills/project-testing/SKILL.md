@@ -113,7 +113,7 @@ a provider with `protocol: 'system-one'` calls, and `MESSAGES_URL`, the Anthropi
   `messages` and `baseURL` to the origin of `MESSAGES_URL`.
 - To capture a request, add a `server.use` handler that records it and returns nothing, and read the
   body from `request.clone()`. Also assert the answer that the default handler gives after yours. A
-  handler that returns nothing hands the request on, and if no handler answers, MSW 2 sends the
+  handler that returns nothing hands the request on, and if no handler answers, MSW sends the
   request to the real network without the preload's unhandled-request error.
 - To give a provider an API key, set `AUTO_MODE_UNSET_TEST_KEY` in the test's host `env`. The
   factories name that variable as the key's source, and no real environment sets it.

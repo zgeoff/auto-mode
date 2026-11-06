@@ -85,6 +85,7 @@
     "@anthropic-ai/claude-agent-sdk": "0.3.312",
     "@commitlint/cli": "21.2.4",
     "@faker-js/faker": "10.6.0",
+    "@mswjs/interceptors": "0.45.9",
     "@stylistic/eslint-plugin": "5.10.0",
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.4",
