@@ -111,10 +111,12 @@ a provider with `protocol: 'system-one'` calls, and `MESSAGES_URL`, the Anthropi
 - [`buildMockProviderConfig`](../../../test-utils/factories/build-mock-provider-config.ts) returns a
   `system-one` provider at the mock decision host. For a Messages provider, override `protocol` to
   `messages` and `baseURL` to the origin of `MESSAGES_URL`.
-- To capture a request, add a `server.use` handler that records it and returns nothing, and read the
-  body from `request.clone()`. Also assert the answer that the default handler gives after yours. A
-  handler that returns nothing hands the request on, and if no handler answers, MSW 2 sends the
-  request to the real network without the preload's unhandled-request error.
+- To capture a request, pass a handler that records it and returns nothing to `server.use`, on the
+  MSW server in [`mocks/node.ts`](../../../mocks/node.ts). Read the body from `request.clone()`, so
+  the default handler can still read it.
+- In a capture test, also assert the answer the default handler gives. A handler that returns
+  nothing hands the request on. If no later handler answers, MSW sends the request to the real
+  network, and the server's callback for an unmatched request never fails it.
 - To give a provider an API key, set `AUTO_MODE_UNSET_TEST_KEY` in the test's host `env`. The
   factories name that variable as the key's source, and no real environment sets it.
 
