@@ -15,7 +15,7 @@ metadata:
 
 | Fact       | Where                                                                                                                                                                                                    |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lanes      | none; the mod checks run apart, under `bun run check:claude-mod`                                                                                                                                         |
+| Lanes      | [`rig.config.ts`](../../../rig.config.ts), which declares none                                                                                                                                           |
 | Test utils | [`test-utils/`](../../../test-utils/); [`mods/auto-mode/hooks/test-utils/`](../../../mods/auto-mode/hooks/test-utils/) for the mod checks; [`evals/lib/`](../../../evals/lib/) for the evaluation suites |
 
 ## Departures
@@ -24,9 +24,16 @@ None.
 
 ## Running the suite
 
-- Run `bun run test`. It builds `dist/` before the tests, which the `e2e/` tests spawn.
-- Pass `--conditions=auto-mode-eval` to a bare `bun test`, such as `bun test evals/…`. Without it,
-  `auto-mode` resolves to `dist/`, and `auto-mode/eval` doesn't resolve.
+- Run `bun run test`. It builds `dist/`, which the `e2e/` tests spawn, and then runs every test
+  through `rig unit`, the `@zgeoff/rig` test runner. `bun run test:related <files>` builds `dist/`
+  too, then runs the tests beside the files you name through `rig related`.
+- Keep `--no-env-file` and `--conditions=auto-mode-eval` in the `BUN_OPTIONS` variable that the
+  `test` and `test:related` scripts in [`package.json`](../../../package.json) set. `rig related`
+  takes no flags for `bun test`, and Bun reads `BUN_OPTIONS` in every process that rig starts.
+- Pass both flags to a bare `bun test`, such as
+  `bun --no-env-file test --conditions=auto-mode-eval evals/…`. Without `--no-env-file`, Bun loads
+  your `.env`, and a test sees your real API key. Without the condition, the package's own
+  `auto-mode` import resolves to `dist/`, and its `auto-mode/eval` import doesn't resolve.
 - Pass an explicit `env` to a `Bun.spawn` or `Bun.$` child. The preload,
   [`test-setup.ts`](../../../test-setup.ts), deletes the `GIT_*` variables a git hook exports and
   the `AUTO_MODE_SCOPE_FILE` a launcher exports, but only from `process.env`. A Bun child still gets
