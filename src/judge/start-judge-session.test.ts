@@ -201,6 +201,41 @@ test('it points claude at the endpoint’s API with its key, in place of the hos
   ]);
 });
 
+test('it starts a new process with the key when a login review is followed by an API key review', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
+  });
+
+  await ctx.session.review(
+    { model: 'provider-model-2', endpoint: { kind: 'login' } },
+    { system: 'the judge policy', user: 'the first evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const second = await ctx.session.review(
+    {
+      model: 'provider-model-2',
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example/anthropic',
+        apiKey: 'provider-test-key',
+        maxTokens: 2500,
+      },
+    },
+    { system: 'the judge policy', user: 'the second evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const records = await readStubClaudeRecords(ctx.recordPath);
+
+  expect(second.warm).toBeFalse();
+
+  expect(records.map((record) => record.env['ANTHROPIC_API_KEY'])).toStrictEqual([
+    undefined,
+    'provider-test-key',
+  ]);
+});
+
 test('it starts a new process when a review names another endpoint', async () => {
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',

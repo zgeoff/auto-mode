@@ -26,7 +26,7 @@ export interface JudgeUsage {
   readonly modelUsage: Readonly<Record<string, unknown>>;
 }
 
-export type JudgeEndpoint =
+type JudgeEndpoint =
   | { readonly kind: 'login' }
   | {
       readonly kind: 'api-key';

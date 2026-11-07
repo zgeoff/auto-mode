@@ -188,6 +188,63 @@ test('it answers a request that is not a review with a failure', async () => {
   });
 });
 
+test.each([
+  ['no endpoint', {}],
+  [
+    'an API key endpoint with an empty key',
+    {
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example',
+        apiKey: '',
+        maxTokens: 2500,
+      },
+    },
+  ],
+  [
+    'an API key endpoint with no output cap',
+    {
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example',
+        apiKey: 'provider-test-key',
+      },
+    },
+  ],
+  [
+    'a login endpoint that carries a key',
+    { endpoint: { kind: 'login', apiKey: 'provider-test-key' } },
+  ],
+])('it answers a review with %s as malformed', async (_case, fields) => {
+  const ctx = await setupTest();
+
+  const server = await startJudgeServer({
+    socketPath: ctx.socketPath,
+    env: { PATH: ctx.binDir },
+    idleMs: 60_000,
+  });
+
+  invariant(server);
+
+  onTestFinished(() => {
+    server.stop();
+  });
+
+  const socket = connect(ctx.socketPath);
+
+  socket.write(
+    `${JSON.stringify({ model: 'claude-haiku-5-5', timeoutMs: 10_000, system: 'the judge policy', user: 'the evidence', ...fields })}\n`,
+  );
+
+  const answer = await text(socket);
+
+  expect(JSON.parse(answer)).toStrictEqual({
+    kind: 'failure',
+    aborted: false,
+    message: 'malformed request',
+  });
+});
+
 test('it fails a review that outlasts its timeout as aborted', async () => {
   const ctx = await setupTest();
 

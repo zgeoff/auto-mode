@@ -311,7 +311,8 @@ const PROVIDER_SWITCHES = new Set([
   'CLAUDE_CODE_USE_FOUNDRY',
 ]);
 
-// Claude Code reads another provider's endpoint and key from these variables.
+// Claude Code reads another provider's endpoint and key from these variables,
+// so the host's set never reaches the child, and an API key endpoint sets its own.
 function buildChildEnv(
   env: Readonly<Record<string, string | undefined>>,
   target: Readonly<JudgeTarget>,
