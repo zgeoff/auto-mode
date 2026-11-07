@@ -29,7 +29,7 @@ export interface JudgeUsage {
   readonly modelUsage: Readonly<Record<string, unknown>>;
 }
 
-type JudgeEndpoint =
+export type JudgeEndpoint =
   | { readonly kind: 'login' }
   | {
       readonly kind: 'api-key';
