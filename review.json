@@ -13,7 +13,7 @@
     ".claude/skills/code-style/**",
     ".claude/skills/docs-writing/**",
     ".claude/skills/skill-writing/**",
-    ".claude/hooks/skill-gate/**",
+    ".claude/hooks/start.ts",
     ".lefthook/pre-push-baseline.yml",
     "scripts/collect-branch-files.ts",
     "scripts/run-related-tests.ts"
