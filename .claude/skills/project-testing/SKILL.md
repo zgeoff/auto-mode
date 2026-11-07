@@ -15,7 +15,7 @@ metadata:
 
 | Fact       | Where                                                                                                                                                                                                    |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lanes      | none; the mod checks run apart, under `bun run check:claude-mod`                                                                                                                                         |
+| Lanes      | none: [`rig.config.ts`](../../../rig.config.ts) declares none; the mod checks run apart, under `bun run check:claude-mod`                                                                                |
 | Test utils | [`test-utils/`](../../../test-utils/); [`mods/auto-mode/hooks/test-utils/`](../../../mods/auto-mode/hooks/test-utils/) for the mod checks; [`evals/lib/`](../../../evals/lib/) for the evaluation suites |
 
 ## Departures
@@ -24,7 +24,12 @@ None.
 
 ## Running the suite
 
-- Run `bun run test`. It builds `dist/` before the tests, which the `e2e/` tests spawn.
+- Run `bun run test`. It builds `dist/` before the tests, which the `e2e/` tests spawn, then runs
+  them through `rig unit`, the `@zgeoff/rig` test runner. `bun run test:related <files>` runs the
+  tests beside the files you name the same way, through `rig related`.
+- Keep `--no-env-file` and `--conditions=auto-mode-eval` in the `BUN_OPTIONS` of both scripts. rig
+  passes no flag of its own to `bun test` for a related run, and Bun reads `BUN_OPTIONS` in every
+  process rig starts.
 - Pass `--conditions=auto-mode-eval` to a bare `bun test`, such as `bun test evals/…`. Without it,
   `auto-mode` resolves to `dist/`, and `auto-mode/eval` doesn't resolve.
 - Pass an explicit `env` to a `Bun.spawn` or `Bun.$` child. The preload,
