@@ -17,6 +17,7 @@ import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-deci
 import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-request.ts';
 import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
+import { readStubClaudeRecords } from '../test-utils/read-stub-claude-records.ts';
 import { runGit } from '../test-utils/run-git.ts';
 import type { HostEnvironment } from './config/types.ts';
 import { loadPolicy } from './policy/load-policy.ts';
@@ -1716,6 +1717,82 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
   invariant(question, 'the request asks about rule_0');
 
   expect(question.instructions).toInclude('### Data Exfiltration\n');
+});
+
+test('it reviews a Jev deny through the judge server on a Messages API judge’s API with its key', async () => {
+  const ctx = await setupTest();
+
+  await mkdir(join(ctx.directory, 'auto-mode'));
+  await mkdir(join(ctx.directory, 'bin'));
+
+  await writeFile(
+    join(ctx.directory, 'bin', 'claude'),
+    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
+    { mode: 0o755 },
+  );
+
+  await writeFile(
+    join(ctx.directory, 'auto-mode', 'config.json'),
+    JSON.stringify({
+      classifiers: { jev: { baseURL: 'https://decision.test' } },
+      decision: { classifier: 'jev', judge: 'glm', onFailure: 'defer' },
+    }),
+  );
+
+  decisionAnswers.set('rule_8', buildMockDecisionAnswer({ choice: 'block', confidence: 1 }));
+
+  const payload = buildMockModRequest({
+    cwd: ctx.repo,
+    toolName: 'Bash',
+    toolInput: { command: 'make release' },
+    context: {
+      agentID: null,
+      lastDirectUserMessage: { text: 'Run make release.', origin: 'composer' },
+    },
+  });
+
+  const exitCode = await runCLI(['run'], {
+    stdin: () => Promise.resolve(JSON.stringify(payload)),
+    stdout: ctx.stdout,
+    stderr: ctx.stderr,
+    runtime: buildMockRuntime({
+      ...ctx.host,
+      env: {
+        ...ctx.host.env,
+        PATH: `${join(ctx.directory, 'bin')}:${ctx.host.env['PATH'] ?? ''}`,
+        TYPESAFE_API_KEY: 'cli-test-key',
+        ZAI_API_KEY: 'zai-test-key',
+        STUB_CLAUDE_RECORD: join(ctx.directory, 'claude.jsonl'),
+        STUB_CLAUDE_REPLY:
+          '{"verdict":"overturn","basis":"consent","reason":"The user asked for the release."}',
+        STUB_JUDGE_SERVER_RECORD: join(ctx.directory, 'servers.jsonl'),
+        STUB_JUDGE_SERVER_IDLE_MS: '500',
+      },
+    }),
+    judgeServerCommand: [
+      process.execPath,
+      join(import.meta.dir, '..', 'test-utils', 'run-stub-judge-server.ts'),
+    ],
+    subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
+  });
+
+  const servers = await readFile(join(ctx.directory, 'servers.jsonl'), 'utf8');
+  const [review] = await readStubClaudeRecords(join(ctx.directory, 'claude.jsonl'));
+
+  expect({ exitCode, stdout: ctx.stdout.read(), stderr: ctx.stderr.read() }).toStrictEqual({
+    exitCode: 0,
+    stdout: '{"decision":"allow"}',
+    stderr: '',
+  });
+
+  expect(servers.trim().split('\n')).toHaveLength(1);
+
+  expect(review?.env).toStrictEqual({
+    ANTHROPIC_API_KEY: 'zai-test-key',
+    ANTHROPIC_BASE_URL: 'https://api.z.ai/api/anthropic',
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: 'glm-5.3-flash',
+    CLAUDE_CODE_MAX_OUTPUT_TOKENS: '3000',
+  });
 });
 
 test('it allows an action whose Jev deny the judge overturns and records the judge in the action log', async () => {
