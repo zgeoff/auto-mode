@@ -135,7 +135,7 @@ test('it starts a new process when a review carries another system prompt', asyn
   expect(second.warm).toBeFalse();
 });
 
-test('it sends the system prompt, no provider variables and a scratch directory to claude', async () => {
+test('it sends the system prompt, no provider variables or host output cap and a scratch directory to claude', async () => {
   const ctx = await setupTest();
 
   const session = ctx.startSession({
@@ -143,6 +143,7 @@ test('it sends the system prompt, no provider variables and a scratch directory 
     ANTHROPIC_API_KEY: 'sk-gateway-test',
     ANTHROPIC_BASE_URL: 'https://gateway.example',
     CLAUDE_CODE_USE_BEDROCK: '1',
+    CLAUDE_CODE_MAX_OUTPUT_TOKENS: '64000',
   });
 
   await session.review(
