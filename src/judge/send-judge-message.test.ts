@@ -137,6 +137,35 @@ test('it reviews a Messages API judge through claude on the judge’s API, with 
   ]);
 });
 
+test('it rounds a fractional output budget up to a whole token count', async () => {
+  const ctx = await setupTest();
+
+  await sendJudgeMessage(
+    buildMockProviderConfig({
+      protocol: 'messages',
+      baseURL: 'https://provider.example/anthropic',
+      model: 'provider-model-2',
+      maxTokens: 2500.5,
+    }),
+    { system: 'the judge policy', user: 'the evidence' },
+    {
+      apiKey: 'judge-test-key',
+      env: {
+        PATH: ctx.binDir,
+        STUB_CLAUDE_RECORD: ctx.recordPath,
+        STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"From the provider."}',
+      },
+    },
+    AbortSignal.timeout(10_000),
+  );
+
+  const records = await readStubClaudeRecords(ctx.recordPath);
+
+  expect(records.map((record) => record.env['CLAUDE_CODE_MAX_OUTPUT_TOKENS'])).toStrictEqual([
+    '2501',
+  ]);
+});
+
 test('it refuses a Messages API judge without an API key', () => {
   expect(
     sendJudgeMessage(

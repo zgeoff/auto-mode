@@ -196,6 +196,49 @@ test.each([
   },
 );
 
+test('it hands the model usage of a Messages API judge’s reply to the usage callback', async () => {
+  const ctx = await setupTest();
+
+  const onUsage = mock(() => Promise.resolve());
+
+  await classifyWithJudge(
+    buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'git push origin main' } }),
+    [
+      {
+        rule: buildMockDecisionRule({ name: 'Default Branch Write', tier: 'soft' }),
+        basis: 'matched',
+        repositoryContext: null,
+      },
+    ],
+    buildMockProviderConfig({
+      protocol: 'messages',
+      baseURL: 'https://provider.example/anthropic',
+      model: 'provider-model-2',
+      apiKeyEnv: 'AUTO_MODE_JUDGE_TEST_KEY',
+    }),
+    {
+      overturns: 'consent',
+      onUsage,
+      runtime: buildMockRuntime({
+        env: {
+          AUTO_MODE_JUDGE_TEST_KEY: 'judge-test-key',
+          PATH: ctx.binDir,
+          STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Nobody asked."}',
+          STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'provider-model-2' }]),
+          STUB_CLAUDE_MODEL_USAGE: JSON.stringify({ 'provider-model-2': { outputTokens: 40 } }),
+        },
+        home: ctx.directory,
+      }),
+    },
+  );
+
+  expect(onUsage).toHaveBeenCalledExactlyOnceWith({
+    model: 'provider-model-2',
+    answeringModel: 'provider-model-2',
+    modelUsage: { 'provider-model-2': { outputTokens: 40 } },
+  });
+});
+
 test('it records the fallback model and the safety stops of a reply moved off the configured model', async () => {
   const ctx = await setupTest();
 

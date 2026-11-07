@@ -48,7 +48,14 @@ function buildJudgeEndpoint(
 
   return apiKey === null
     ? null
-    : { kind: 'api-key', baseURL: provider.baseURL, apiKey, maxTokens: provider.maxTokens };
+    : {
+        kind: 'api-key',
+        baseURL: provider.baseURL,
+        apiKey,
+
+        // The configuration accepts any positive number, and Claude Code reads a whole count.
+        maxTokens: Math.ceil(provider.maxTokens),
+      };
 }
 
 async function sendToAgentSDK(

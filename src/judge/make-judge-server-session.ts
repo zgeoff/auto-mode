@@ -1,6 +1,7 @@
 import { connect } from 'node:net';
 import type { Socket } from 'node:net';
 import { setTimeout as wait } from 'node:timers/promises';
+import { toTimerDelay } from '../config/to-timer-delay.ts';
 import { startDetachedProcess } from '../process/start-detached-process.ts';
 import { judgeServerResponseSchema } from './judge-server-response-schema.ts';
 import type { JudgeSession } from './types.ts';
@@ -18,7 +19,8 @@ export function makeJudgeServerSession(target: Readonly<JudgeServerTarget>): Jud
     review: async (judgeTarget, request, signal) => {
       const socket = await tryConnectOrStartServer(target, signal);
 
-      const line = `${JSON.stringify({ ...judgeTarget, timeoutMs: target.timeoutMs, ...request })}\n`;
+      const timeoutMs = toTimerDelay(target.timeoutMs);
+      const line = `${JSON.stringify({ ...judgeTarget, timeoutMs, ...request })}\n`;
 
       const answer = await sendLine(socket, line, signal);
 

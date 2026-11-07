@@ -65,6 +65,27 @@ test('it starts the judge server when none answers, and a later review reaches t
   expect(servers.trim().split('\n')).toHaveLength(1);
 });
 
+test('it reviews through the server when the configured timeout is fractional', async () => {
+  const ctx = await setupTest();
+
+  const reply = await makeJudgeServerSession({
+    socketPath: ctx.socketPath,
+    command: [process.execPath, ctx.stubServer],
+    env: {
+      PATH: ctx.binDir,
+      STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It pushes to main."}',
+      STUB_JUDGE_SERVER_IDLE_MS: '500',
+    },
+    timeoutMs: 10_000.5,
+  }).review(
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
+    { system: 'the judge policy', user: 'the evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply.text).toBe('{"verdict":"confirm","basis":null,"reason":"It pushes to main."}');
+});
+
 test('it rejects with an AbortError when the server reports an aborted review', async () => {
   const ctx = await setupTest();
 
