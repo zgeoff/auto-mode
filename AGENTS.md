@@ -144,8 +144,8 @@ Rules for the policy text:
 
 ## Banned words
 
-The repo bans these words in all prose. `check-prose.sh` fails on each one except `bites` and
-`floor`, which need judgment.
+The repo bans these words in all prose. `chex prose` fails on each one except `bites` and `floor`,
+which need judgment.
 
 - `bites`
 - `CAS`
