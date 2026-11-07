@@ -6,7 +6,7 @@ import { startDetachedProcess } from '../process/start-detached-process.ts';
 import { judgeServerResponseSchema } from './judge-server-response-schema.ts';
 import type { JudgeSession } from './types.ts';
 
-export interface JudgeServerTarget {
+export interface JudgeServerOptions {
   readonly socketPath: string;
 
   readonly command: readonly [string, ...string[]];
@@ -14,13 +14,13 @@ export interface JudgeServerTarget {
   readonly timeoutMs: number;
 }
 
-export function makeJudgeServerSession(target: Readonly<JudgeServerTarget>): JudgeSession {
+export function makeJudgeServerSession(server: Readonly<JudgeServerOptions>): JudgeSession {
   return {
-    review: async (judgeTarget, request, signal) => {
-      const socket = await tryConnectOrStartServer(target, signal);
+    review: async (target, request, signal) => {
+      const socket = await tryConnectOrStartServer(server, signal);
 
-      const timeoutMs = toTimerDelay(target.timeoutMs);
-      const line = `${JSON.stringify({ ...judgeTarget, timeoutMs, ...request })}\n`;
+      const timeoutMs = toTimerDelay(server.timeoutMs);
+      const line = `${JSON.stringify({ ...target, timeoutMs, ...request })}\n`;
 
       const answer = await sendLine(socket, line, signal);
 
@@ -44,25 +44,25 @@ const START_WAIT_MS = 10_000;
 const START_POLL_MS = 25;
 
 async function tryConnectOrStartServer(
-  target: Readonly<JudgeServerTarget>,
+  server: Readonly<JudgeServerOptions>,
   signal: Readonly<AbortSignal>,
 ): Promise<Socket> {
-  const existing = await tryConnect(target.socketPath);
+  const existing = await tryConnect(server.socketPath);
 
   if (existing !== null) {
     return existing;
   }
 
-  const [file, ...args] = target.command;
+  const [file, ...args] = server.command;
 
-  startDetachedProcess(file, [...args, 'judge-server', target.socketPath], target.env);
+  startDetachedProcess(file, [...args, 'judge-server', server.socketPath], server.env);
 
   const deadline = Date.now() + START_WAIT_MS;
 
   while (Date.now() < deadline) {
     await wait(START_POLL_MS, undefined, { signal });
 
-    const socket = await tryConnect(target.socketPath);
+    const socket = await tryConnect(server.socketPath);
 
     if (socket !== null) {
       return socket;
