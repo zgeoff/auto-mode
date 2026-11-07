@@ -22,27 +22,30 @@ that holds a closing tag cannot end its own field early. The judge reads no stal
 because a message the user typed before a relayed turn cannot grant consent
 ([the user message](../evidence/user-message.md)).
 
-The default judge is one Claude Code process per agent session, which the Agent SDK drives over
-streaming input. The process runs with no tools, no settings, no MCP servers and no session file, in
-a scratch directory, so it cannot act and no hook of the user's session runs inside it. The judge
-framework is its system prompt, which Claude caches across reviews. The judge answers in plain text
-rather than through Claude Code's schema output, because a schema answer costs further model turns
-on every review. Each review sends one user turn and then clears the conversation, so one review's
-evidence never reaches the next. A change of model, framework, API or key starts a new process. The
-judge server owns the process, because each CLI run ends with its call: the
-[overview](../overview.md#topology) covers the topology. The CLI strips the variables that point
-Claude Code at another provider from the child's environment, because the agent's own session often
-runs a non-Claude model through such a gateway, and the judge must reach only the API its
-configuration names. The default judge reaches Claude through the user's own Claude login. A judge
-on another Anthropic-compatible API, such as the `glm` or `spark` preset, runs the same process,
-pointed at that API with the judge's key
-([configuration](../../guides/configuration.md#classifiers)).
+The judge is one Claude Code process per agent session, which the Agent SDK drives over streaming
+input. The process runs with no tools, no settings, no MCP servers and no session file, in a scratch
+directory, so it cannot act and no hook of the user's session runs inside it. The judge framework is
+its system prompt, which Claude caches across reviews. The judge answers in plain text rather than
+through Claude Code's schema output, because a schema answer costs further model turns on every
+review. Each review sends one user turn and then clears the conversation, so one review's evidence
+never reaches the next. A change of model, framework, API or key starts a new process. Each CLI run
+ends when the prompted call it judges ends, so a judge server keeps the process alive between runs:
+the [overview](../overview.md#topology) covers the topology.
+
+The judge reaches only the API its configuration names. The agent's own session can point Claude
+Code at another provider, such as a gateway to a non-Claude model, through `ANTHROPIC_*` variables
+and the Bedrock, Vertex and Foundry switches. The CLI removes all of them from the judge process's
+environment. The default `claude-code` judge then reaches Claude through the user's own Claude
+login. A judge on another Anthropic-compatible API, such as the `glm` or `spark` preset, gets that
+API's address and the judge's key as its own `ANTHROPIC_*` variables
+([configuration](../../guides/configuration.md#classifiers)). Jev itself can never be the judge,
+because it writes no reasons.
 
 When a request trips a safety stop, Claude Code answers it on a fallback model, so the judge reads
 the model that wrote the reply from the turn's per-model usage: the model with the most output
 tokens, which passes over a background model and a model that wrote nothing. A fallback that Claude
 Code keeps for the rest of the session ends the process, so the next review starts again on the
-configured model. Jev itself can never be the judge, because it writes no reasons.
+configured model.
 
 ## Confirm or overturn
 

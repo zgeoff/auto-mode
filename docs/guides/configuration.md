@@ -49,17 +49,17 @@ Each entry describes one model endpoint. `kind` selects the defaults the entry s
 entry without `kind` uses its own id as the kind. So `"jev": {}` is the shipped Jev endpoint, and
 `"fast": { "kind": "jev", "timeoutMs": 3000 }` is a second Jev entry with a shorter deadline.
 
-| Kind          | Protocol      | Model                        | Key variable        |
-| ------------- | ------------- | ---------------------------- | ------------------- |
-| `jev`         | Jev decisions | `jev-1.13.0`                 | `TYPESAFE_API_KEY`  |
-| `claude-code` | Agent SDK     | `claude-sonnet-5-5`          | none; judge only    |
-| `spark`       | Messages API  | `muse-spark-1.3-contributor` | `META_API_KEY`      |
-| `claude`      | Messages API  | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` |
-| `glm`         | Messages API  | `glm-5.3-flash`              | `ZAI_API_KEY`       |
-| `messages`    | Messages API  | none; the entry must name it | none                |
+| Kind          | Role       | API                              | Model                        | Key variable        | Deadline |
+| ------------- | ---------- | -------------------------------- | ---------------------------- | ------------------- | -------- |
+| `jev`         | classifier | `https://api.typesafe.ai`        | `jev-1.13.0`                 | `TYPESAFE_API_KEY`  | 5 s      |
+| `claude-code` | judge      | your Claude login                | `claude-sonnet-5-5`          | none                | 120 s    |
+| `spark`       | judge      | `https://api.meta.ai`            | `muse-spark-1.3-contributor` | `META_API_KEY`      | 45 s     |
+| `claude`      | judge      | `https://api.anthropic.com`      | `claude-haiku-4-5-20251001`  | `ANTHROPIC_API_KEY` | 45 s     |
+| `glm`         | judge      | `https://api.z.ai/api/anthropic` | `glm-5.3-flash`              | `ZAI_API_KEY`       | 60 s     |
+| `messages`    | judge      | `https://api.anthropic.com`      | none; the entry must name it | none; name it       | 45 s     |
 
-The `messages` kind starts from `https://api.anthropic.com`, reasoning on, 3,000 output tokens and a
-45-second deadline. Every field below overrides the kind's default:
+`spark`, `claude`, `glm` and `messages` are the Messages API kinds, and each starts from 3,000
+output tokens. Every field below overrides the kind's default:
 
 | Field           | Effect                                          |
 | --------------- | ----------------------------------------------- |
@@ -72,23 +72,24 @@ The `messages` kind starts from `https://api.anthropic.com`, reasoning on, 3,000
 | `reasoning`     | Accepted and ignored                            |
 | `maxTokens`     | Output budget for a Messages API kind           |
 
-The Jev kind calls TypeSafe's `/v1/systemone` endpoint with a Bearer key and waits up to 5 seconds.
-Set `baseURL` to the API root of a compatible provider. Only a Jev kind can classify. The
-`claude-code` kind and the Messages API kinds can only judge, and `decision.classifier` refuses
-them.
+The Jev kind calls TypeSafe's `/v1/systemone` endpoint with a Bearer key. To use a compatible
+provider, set `baseURL` to its API root. Only a Jev kind can classify, and auto-mode refuses any
+other kind in `decision.classifier`.
 
-Every judge drives the `claude` on your `PATH` through the Agent SDK, with no tools, settings, MCP
-servers or session file, and keeps one process per agent session. The judge drops every
-`ANTHROPIC_*` variable and the Bedrock, Vertex and Foundry switches from the child's environment, so
-the agent session's own provider never reaches it. A machine without `claude` on its `PATH` fails
-the judge call, and the deny keeps its fixed reason.
+Every judge runs Claude Code, the `claude` program on your `PATH`, through the Agent SDK, with no
+tools, settings, MCP servers or session file. A judge server keeps one Claude Code process per agent
+session ([the judge](../architecture/stages/judge.md)). auto-mode removes every `ANTHROPIC_*`
+variable and the Bedrock, Vertex and Foundry switches from that process's environment, so the agent
+session's own provider never reaches the judge. Without `claude` on your `PATH`, every judge call
+fails, and each deny keeps its rule's fixed reason.
 
-- The `claude-code` kind runs through the local `claude` login, so it needs no API key. It waits up
-  to 120 seconds.
-- A Messages API kind points `claude` at its `baseURL` with its key, and Claude Code then calls that
-  API's `/v1/messages`. Claude Code also sends its background calls to the entry's model, and caps
-  each reply at `maxTokens`. A Messages API judge with no key fails, and the deny keeps its fixed
-  reason.
+- The `claude-code` kind runs through your local Claude login, so it needs no API key.
+- A Messages API kind needs a key, from `apiKeyEnv` or `apiKeyCommand`. Without one, the judge call
+  fails, and the deny keeps its rule's fixed reason.
+- For a Messages API kind, auto-mode points Claude Code at the entry's `baseURL` with the key.
+  Claude Code then calls that API's `/v1/messages` with the entry's model, and caps each reply at
+  `maxTokens`. Claude Code sends its own background requests to the entry's model too, in place of a
+  Claude Haiku model.
 
 ### Credentials
 

@@ -2,9 +2,9 @@
 name: project-testing
 description:
   "auto-mode's test facts and its own test topics beside the shared testing skill: running the
-  suite, the injected host environment, the CLI, git, clocks, the decision API mock, the judge's
-  stub claude, recorded inputs, and the Claude Code mod checks. Load it beside testing before you
-  design, write or review an auto-mode test."
+  suite, the injected host environment, the CLI, git, time, the HTTP mock of the decision API, the
+  judge's stub claude, recorded inputs, and the Claude Code mod checks. Load it beside testing
+  before you design, write or review an auto-mode test."
 metadata:
   kind: rule-set
 ---
@@ -90,9 +90,10 @@ may write. Every function below them takes a [`HostEnvironment`](../../../src/co
 ## Time
 
 - Pass `now` and `timeout` to the code that classifies a tool call through the `runtime` of its
-  [`EvaluationOptions`](../../../src/config/types.ts), built with
-  [`buildMockRuntime`](../../../test-utils/factories/build-mock-runtime.ts), and an `AbortSignal` to
-  the decision client and the judge session.
+  [`EvaluationOptions`](../../../src/config/types.ts). Build the runtime with
+  [`buildMockRuntime`](../../../test-utils/factories/build-mock-runtime.ts).
+- Pass an `AbortSignal`, such as `AbortSignal.timeout(10_000)`, to the decision client and to the
+  judge session. Each takes its deadline only from that signal.
 - Pass [`buildStubLockClock`](../../../test-utils/build-stub-lock-clock.ts) as the `LockClock` that
   [`updateJSONFile`](../../../src/state/update-json-file.ts) and the state writers take. With
   `advancesOnWait`, its `now()` moves forward by each delay passed to `wait()`.
@@ -113,8 +114,8 @@ with `protocol: 'system-one'` calls.
 - Assert the exact request body in the decision client's own tests. The mock decision API rejects a
   request only where the real API does, and never checks what a non-null `state` holds or any field
   of a question but `type`.
-- [`buildMockProviderConfig`](../../../test-utils/factories/build-mock-provider-config.ts) returns a
-  `system-one` provider at the mock decision host.
+- Build a `system-one` provider at the mock decision host with
+  [`buildMockProviderConfig`](../../../test-utils/factories/build-mock-provider-config.ts).
 - To capture a request, pass a handler that records it and returns nothing to `server.use`, on the
   MSW server in [`mocks/node.ts`](../../../mocks/node.ts). Read the body from `request.clone()`, so
   the default handler can still read it.
@@ -126,15 +127,21 @@ with `protocol: 'system-one'` calls.
 
 ## The judge
 
-Every judge runs a `claude` process through the Agent SDK, and MSW can't reach a spawned process.
+Every judge review runs in a `claude` process that the Agent SDK starts, and MSW can't reach a
+spawned process. Stand in for `claude` with
+[`run-stub-claude.ts`](../../../test-utils/run-stub-claude.ts).
 
-- Put a `claude` script that runs [`run-stub-claude.ts`](../../../test-utils/run-stub-claude.ts) in
-  a `bin` folder of the test's temp tree, and pass that folder as `PATH` in the judge's `env`, as
-  [`start-judge-session.test.ts`](../../../src/judge/start-judge-session.test.ts) does. The stub's
-  `STUB_CLAUDE_*` variables set its reply.
-- Read what each review sent, its arguments, its system prompt and the provider variables, with
-  [`readStubClaudeRecords`](../../../test-utils/read-stub-claude-records.ts) from the file that
-  `STUB_CLAUDE_RECORD` names.
+- Copy the `setupTest` of
+  [`start-judge-session.test.ts`](../../../src/judge/start-judge-session.test.ts). It writes a
+  `claude` shell script that runs the stub with `process.execPath`, into a `bin` folder of the
+  test's temp tree.
+- Pass only that `bin` folder as `PATH`: in the `env` you give `startJudgeSession`, or in the host
+  `env` of the runtime you give `classifyWithJudge`.
+- Set the stub's reply with the `STUB_CLAUDE_*` variables that `run-stub-claude.ts` reads. Put them
+  in the same `env` as `PATH`.
+- To check what a review sent, set `STUB_CLAUDE_RECORD` to a file in the temp tree. Read that file
+  with [`readStubClaudeRecords`](../../../test-utils/read-stub-claude-records.ts). Each record holds
+  the arguments, the system prompt, the user turn and the `ANTHROPIC_*` variables of one review.
 
 ## Recorded inputs
 
