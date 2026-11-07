@@ -103,6 +103,9 @@ failure. Use a key command when the Claude Code process does not carry the key v
 }
 ```
 
+A judge's key is part of its Claude Code process, so a key command that prints a new key on each
+call starts a new process for each review.
+
 An entry that holds a literal `apiKey`, `key`, `token` or `secret` field is dropped, and the
 diagnostic names the field but never its value.
 

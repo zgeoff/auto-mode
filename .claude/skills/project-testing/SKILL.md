@@ -141,7 +141,8 @@ spawned process. Stand in for `claude` with
   in the same `env` as `PATH`.
 - To check what a review sent, set `STUB_CLAUDE_RECORD` to a file in the temp tree. Read that file
   with [`readStubClaudeRecords`](../../../test-utils/read-stub-claude-records.ts). Each record holds
-  the arguments, the system prompt, the user turn and the `ANTHROPIC_*` variables of one review.
+  the arguments, the system prompt, the user turn and the provider variables of one review, which
+  `run-stub-claude.ts` lists in its record.
 
 ## Recorded inputs
 
