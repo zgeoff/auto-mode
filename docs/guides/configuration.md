@@ -77,11 +77,9 @@ provider, set `baseURL` to its API root. Only a Jev kind can classify, and auto-
 other kind in `decision.classifier`.
 
 Every judge runs Claude Code, the `claude` program on your `PATH`, through the Agent SDK, with no
-tools, settings, MCP servers or session file. A judge server keeps one Claude Code process per agent
-session ([the judge](../architecture/stages/judge.md)). auto-mode removes every `ANTHROPIC_*`
-variable and the Bedrock, Vertex and Foundry switches from that process's environment, so the agent
-session's own provider never reaches the judge. Without `claude` on your `PATH`, every judge call
-fails, and each deny keeps its rule's fixed reason.
+tools, settings, MCP servers or session file. The judge reaches only the API its entry names, never
+the provider your agent session uses ([the judge](../architecture/stages/judge.md)). Without
+`claude` on your `PATH`, every judge call fails, and each deny keeps its rule's fixed reason.
 
 - The `claude-code` kind runs through your local Claude login, so it needs no API key.
 - A Messages API kind needs a key, from `apiKeyEnv` or `apiKeyCommand`. Without one, the judge call

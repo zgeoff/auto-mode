@@ -28,9 +28,10 @@ directory, so it cannot act and no hook of the user's session runs inside it. Th
 its system prompt, which Claude caches across reviews. The judge answers in plain text rather than
 through Claude Code's schema output, because a schema answer costs further model turns on every
 review. Each review sends one user turn and then clears the conversation, so one review's evidence
-never reaches the next. A change of model, framework, API or key starts a new process. Each CLI run
-ends when the prompted call it judges ends, so a judge server keeps the process alive between runs:
-the [overview](../overview.md#topology) covers the topology.
+never reaches the next. The process takes one review at a time, and a review's deadline counts its
+wait for the reviews ahead of it. A change of model, framework, API or key starts a new process.
+Each CLI run ends when the prompted call it judges ends, so a judge server keeps the process alive
+between runs: the [overview](../overview.md#topology) covers the topology.
 
 The judge reaches only the API its configuration names. The agent's own session can point Claude
 Code at another provider, such as a gateway to a non-Claude model, through `ANTHROPIC_*` variables
