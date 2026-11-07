@@ -64,7 +64,7 @@
     "lint:shfmt": "shfmt -d scripts/*.sh",
     "prepare": "bash scripts/link-evals-package.sh && (command -v git > /dev/null 2>&1 && lefthook install --force || true)",
     "publint": "publint",
-    "test": "bun run build && bun --no-env-file test --conditions=auto-mode-eval --parallel=${TEST_WORKERS:-4} --no-isolate --randomize",
+    "test": "bun run build && workers=$(bun scripts/read-worker-count.ts) && bun --no-env-file test --conditions=auto-mode-eval --parallel=$workers --no-isolate --randomize",
     "typecheck": "tsrs -p tsconfig.json --noEmit && tsrs -p evals/tsconfig.json --noEmit",
     "check:artifact": "bun --no-env-file scripts/check-artifact.ts",
     "check:claude-mod": "bun --no-env-file scripts/check-claude-mod.ts",
