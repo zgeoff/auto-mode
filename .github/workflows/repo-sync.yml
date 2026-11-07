@@ -43,12 +43,12 @@ jobs:
       checks: read
       statuses: read
       actions: read
-    uses: zgeoff/tools/.github/workflows/repo-sync.yml@99e0e097edc9bc98b7040972b3fe4ec41f61e023 # main
+    uses: zgeoff/tools/.github/workflows/repo-sync.yml@4a3553ce71b27c2647a451a2c7c9511595821e67 # main
     with:
       ref: ${{ github.event.client_payload.sha }}
       include:
-        skill-testing, hook-skill-gate, skill-docs-writing, skill-code-style, skill-skill-writing,
-        workflow-audit-fix, skill-ci-design
+        skill-testing, hook-start, skill-docs-writing, skill-code-style, skill-skill-writing,
+        workflow-audit-fix, skill-ci-design, knip-runner
       skip: agents, memory-cap
     secrets:
       REPO_SYNC_APP_CLIENT_ID: ${{ secrets.REPO_SYNC_APP_CLIENT_ID }}

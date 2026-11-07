@@ -29,7 +29,7 @@
       ],
       "ignoreDependencies": [
         "@stylistic/eslint-plugin",
-        "@zgeoff/skill-gate",
+        "@zgeoff/agent-hooks",
         "@zgeoff/diet",
         "claude-code"
       ]
