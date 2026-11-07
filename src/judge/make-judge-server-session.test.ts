@@ -1,8 +1,9 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
+import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
 import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
 
@@ -11,16 +12,7 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(directory, 'bin');
-
-  await mkdir(binDir);
-
-  // the SDK runs the `claude` it finds on the PATH a test passes, so the stub stands in for it
-  await writeFile(
-    join(binDir, 'claude'),
-    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  const binDir = await createStubClaude(directory);
 
   return {
     directory,

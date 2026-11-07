@@ -136,12 +136,11 @@ Every judge review runs in a `claude` process that the Agent SDK starts, and MSW
 spawned process. Stand in for `claude` with
 [`run-stub-claude.ts`](../../../test-utils/run-stub-claude.ts).
 
-- Copy the `setupTest` of
-  [`start-judge-session.test.ts`](../../../src/judge/start-judge-session.test.ts) into your test
-  file. It writes a `claude` shell script that runs the stub with `process.execPath`, into a `bin`
-  folder of the test's temp tree.
-- Pass only that `bin` folder as `PATH`: in the `env` you give `startJudgeSession`, or in the `env`
-  you give `buildMockRuntime` for `classifyWithJudge`.
+- In `setupTest`, call [`createStubClaude`](../../../test-utils/create-stub-claude.ts) with the
+  test's temp folder, and return the `bin` folder it gives back, as
+  [`classify-with-judge.test.ts`](../../../src/judge/classify-with-judge.test.ts) does.
+- In each test, pass only that `bin` folder as `PATH`: in the `env` you give `startJudgeSession`, or
+  in the `env` you give `buildMockRuntime` for `classifyWithJudge`.
 - Set the stub's reply with the `STUB_CLAUDE_*` variables that `run-stub-claude.ts` reads. Put them
   in the same `env` as `PATH`.
 - To check what a review sent, set `STUB_CLAUDE_RECORD` to a file in the temp tree. Read that file

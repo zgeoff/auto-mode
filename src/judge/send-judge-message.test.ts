@@ -1,7 +1,8 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
 import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
 import { sendJudgeMessage } from './send-judge-message.ts';
@@ -12,16 +13,7 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(directory, 'bin');
-
-  await mkdir(binDir);
-
-  // the judge finds `claude` through the PATH a test passes, so the stub stands in for it
-  await writeFile(
-    join(binDir, 'claude'),
-    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  const binDir = await createStubClaude(directory);
 
   return { binDir, recordPath: join(directory, 'calls.jsonl') };
 }

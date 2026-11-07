@@ -13,6 +13,7 @@ import type { StubOutput } from '../test-utils/build-stub-output.ts';
 import { buildStubOutput } from '../test-utils/build-stub-output.ts';
 import type { StubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
 import { buildStubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
+import { createStubClaude } from '../test-utils/create-stub-claude.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
 import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-request.ts';
 import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
@@ -1723,13 +1724,7 @@ test('it reviews a Jev deny through the judge server on a Messages API judge’s
   const ctx = await setupTest();
 
   await mkdir(join(ctx.directory, 'auto-mode'));
-  await mkdir(join(ctx.directory, 'bin'));
-
-  await writeFile(
-    join(ctx.directory, 'bin', 'claude'),
-    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  await createStubClaude(ctx.directory);
 
   await writeFile(
     join(ctx.directory, 'auto-mode', 'config.json'),
@@ -1799,13 +1794,7 @@ test('it allows an action whose Jev deny the judge overturns and records the jud
   const ctx = await setupTest();
 
   await mkdir(join(ctx.directory, 'auto-mode'));
-  await mkdir(join(ctx.directory, 'bin'));
-
-  await writeFile(
-    join(ctx.directory, 'bin', 'claude'),
-    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  await createStubClaude(ctx.directory);
 
   await writeFile(
     join(ctx.directory, 'auto-mode', 'config.json'),

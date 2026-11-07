@@ -1,43 +1,43 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
+import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
 import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
 import { startJudgeSession } from './start-judge-session.ts';
+import type { JudgeSession } from './types.ts';
 
-async function setupTest(env: Readonly<Record<string, string>>) {
+async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), 'auto-mode-judge-session-'));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(directory, 'bin');
-
-  await mkdir(binDir);
-
-  // the SDK runs the `claude` it finds on the PATH a test passes, so the stub stands in for it
-  await writeFile(
-    join(binDir, 'claude'),
-    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  const binDir = await createStubClaude(directory);
 
   const recordPath = join(directory, 'calls.jsonl');
-  const session = startJudgeSession({ PATH: binDir, STUB_CLAUDE_RECORD: recordPath, ...env });
 
-  onTestFinished(() => {
-    session.stop();
-  });
+  const startSession = (env: Readonly<Record<string, string>>): JudgeSession => {
+    const session = startJudgeSession({ PATH: binDir, STUB_CLAUDE_RECORD: recordPath, ...env });
 
-  return { session, recordPath };
+    onTestFinished(() => {
+      session.stop();
+    });
+
+    return session;
+  };
+
+  return { startSession, recordPath };
 }
 
 test('it answers a review with the judge’s text on the configured model', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It sends the key."}',
   });
 
-  const reply = await ctx.session.review(
+  const reply = await session.review(
     { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -54,19 +54,21 @@ test('it answers a review with the judge’s text on the configured model', asyn
 });
 
 test('it answers a second review from the same process, after clearing the first', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
   });
 
   const model = 'claude-haiku-5-5';
 
-  await ctx.session.review(
+  await session.review(
     { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
-  const second = await ctx.session.review(
+  const second = await session.review(
     { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
@@ -85,17 +87,19 @@ test('it answers a second review from the same process, after clearing the first
 });
 
 test('it starts a new process when a review names another model', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
   });
 
-  await ctx.session.review(
+  await session.review(
     { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
-  const second = await ctx.session.review(
+  const second = await session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
@@ -108,19 +112,21 @@ test('it starts a new process when a review names another model', async () => {
 });
 
 test('it starts a new process when a review carries another system prompt', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
   });
 
   const model = 'claude-haiku-5-5';
 
-  await ctx.session.review(
+  await session.review(
     { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
-  const second = await ctx.session.review(
+  const second = await session.review(
     { model, endpoint: { kind: 'login' } },
     { system: 'the edited judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
@@ -130,14 +136,16 @@ test('it starts a new process when a review carries another system prompt', asyn
 });
 
 test('it sends the system prompt, no provider variables and a scratch directory to claude', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
     ANTHROPIC_API_KEY: 'sk-gateway-test',
     ANTHROPIC_BASE_URL: 'https://gateway.example',
     CLAUDE_CODE_USE_BEDROCK: '1',
   });
 
-  await ctx.session.review(
+  await session.review(
     { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -168,14 +176,16 @@ test('it sends the system prompt, no provider variables and a scratch directory 
 });
 
 test('it points claude at the endpoint’s API with its key, in place of the host’s provider variables', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
     ANTHROPIC_API_KEY: 'sk-gateway-test',
     ANTHROPIC_BASE_URL: 'https://gateway.example',
     CLAUDE_CODE_USE_BEDROCK: '1',
   });
 
-  await ctx.session.review(
+  await session.review(
     {
       model: 'provider-model-2',
       endpoint: {
@@ -202,17 +212,19 @@ test('it points claude at the endpoint’s API with its key, in place of the hos
 });
 
 test('it starts a new process with the key when a login review is followed by an API key review', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
   });
 
-  await ctx.session.review(
+  await session.review(
     { model: 'provider-model-2', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
-  const second = await ctx.session.review(
+  const second = await session.review(
     {
       model: 'provider-model-2',
       endpoint: {
@@ -237,11 +249,13 @@ test('it starts a new process with the key when a login review is followed by an
 });
 
 test('it starts a new process when a review names another endpoint', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
   });
 
-  await ctx.session.review(
+  await session.review(
     {
       model: 'provider-model-2',
       endpoint: {
@@ -255,7 +269,7 @@ test('it starts a new process when a review names another endpoint', async () =>
     AbortSignal.timeout(10_000),
   );
 
-  const second = await ctx.session.review(
+  const second = await session.review(
     {
       model: 'provider-model-2',
       endpoint: {
@@ -280,7 +294,9 @@ test('it starts a new process when a review names another endpoint', async () =>
 });
 
 test('it reports the fallback model that wrote the reply and starts a new process after a refusal fallback', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
     STUB_CLAUDE_REFUSAL_FALLBACK: 'claude-sonnet-5',
     STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'claude-sonnet-5' }]),
@@ -293,13 +309,13 @@ test('it reports the fallback model that wrote the reply and starts a new proces
 
   const model = 'claude-sonnet-5-5';
 
-  const first = await ctx.session.review(
+  const first = await session.review(
     { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
-  const second = await ctx.session.review(
+  const second = await session.review(
     { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
@@ -321,7 +337,9 @@ test('it reports the fallback model that wrote the reply and starts a new proces
 });
 
 test('it reports a fallback from the usage when the result holds no stop count', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
     STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'claude-sonnet-5' }]),
     STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
@@ -330,7 +348,7 @@ test('it reports a fallback from the usage when the result holds no stop count',
     }),
   });
 
-  const reply = await ctx.session.review(
+  const reply = await session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -350,7 +368,9 @@ test('it reports a fallback from the usage when the result holds no stop count',
 });
 
 test('it reports the model of the reply when background calls in the process wrote more output', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
     STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([{ model: 'claude-sonnet-5-5' }]),
     STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
@@ -359,7 +379,7 @@ test('it reports the model of the reply when background calls in the process wro
     }),
   });
 
-  const reply = await ctx.session.review(
+  const reply = await session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -369,14 +389,16 @@ test('it reports the model of the reply when background calls in the process wro
 });
 
 test('it reports the configured model when the turn printed no assistant message', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
     STUB_CLAUDE_MODEL_USAGE: JSON.stringify({
       'claude-haiku-5-5': { inputTokens: 4000, outputTokens: 900 },
     }),
   });
 
-  const reply = await ctx.session.review(
+  const reply = await session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -386,7 +408,9 @@ test('it reports the configured model when the turn printed no assistant message
 });
 
 test('it reports the model of the last top-level assistant message, past a later child message', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
     STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([
       { model: 'claude-sonnet-5-5' },
@@ -395,7 +419,7 @@ test('it reports the model of the last top-level assistant message, past a later
     ]),
   });
 
-  const reply = await ctx.session.review(
+  const reply = await session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -405,7 +429,9 @@ test('it reports the model of the last top-level assistant message, past a later
 });
 
 test('it skips a top-level assistant message that carries an error', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
     STUB_CLAUDE_ASSISTANT_MESSAGES: JSON.stringify([
       { model: 'claude-sonnet-5' },
@@ -413,7 +439,7 @@ test('it skips a top-level assistant message that carries an error', async () =>
     ]),
   });
 
-  const reply = await ctx.session.review(
+  const reply = await session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -423,12 +449,14 @@ test('it skips a top-level assistant message that carries an error', async () =>
 });
 
 test('it returns no model usage when the result holds no usage map', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
     STUB_CLAUDE_MODEL_USAGE: 'null',
   });
 
-  const reply = await ctx.session.review(
+  const reply = await session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -438,11 +466,13 @@ test('it returns no model usage when the result holds no usage map', async () =>
 });
 
 test('it returns the text of a tagged reply as the judge wrote it', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '<verdict>confirm</verdict>\n<reason>It rewrites main.</reason>',
   });
 
-  const reply = await ctx.session.review(
+  const reply = await session.review(
     { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
@@ -452,13 +482,15 @@ test('it returns the text of a tagged reply as the judge wrote it', async () => 
 });
 
 test('it rejects a review whose reply passes the output cap', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
     STUB_CLAUDE_REPLY_BYTES: String(1024 * 1024 + 1),
   });
 
   await expect(
-    ctx.session.review(
+    session.review(
       { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.timeout(10_000),
@@ -467,13 +499,15 @@ test('it rejects a review whose reply passes the output cap', async () => {
 });
 
 test('it rejects a turn that ends in an error', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
     STUB_CLAUDE_IS_ERROR: 'true',
   });
 
   await expect(
-    ctx.session.review(
+    session.review(
       { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.timeout(10_000),
@@ -482,14 +516,16 @@ test('it rejects a turn that ends in an error', async () => {
 });
 
 test('it rejects a review whose process exits, and starts a new process for the next one', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
     STUB_CLAUDE_CRASH: 'true',
   });
 
   const model = 'claude-sonnet-5-5';
 
-  const first = ctx.session.review(
+  const first = session.review(
     { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
@@ -497,7 +533,7 @@ test('it rejects a review whose process exits, and starts a new process for the 
 
   await expect(first).toReject();
 
-  const second = ctx.session.review(
+  const second = session.review(
     { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
@@ -511,14 +547,16 @@ test('it rejects a review whose process exits, and starts a new process for the 
 });
 
 test('it rejects an aborted review with an abort error', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
     STUB_CLAUDE_DELAY_MS: '5000',
   });
 
   const controller = new AbortController();
 
-  const review = ctx.session.review(
+  const review = session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     controller.signal,
@@ -530,12 +568,14 @@ test('it rejects an aborted review with an abort error', async () => {
 });
 
 test('it rejects a queued review at its own deadline while an earlier review still runs', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
     STUB_CLAUDE_DELAY_MS: '1500',
   });
 
-  const first = ctx.session.review(
+  const first = session.review(
     { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
@@ -544,7 +584,7 @@ test('it rejects a queued review at its own deadline while an earlier review sti
   const startedAt = performance.now();
 
   const [queued] = await Promise.allSettled([
-    ctx.session.review(
+    session.review(
       { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the second evidence' },
       AbortSignal.timeout(100),
@@ -561,12 +601,14 @@ test('it rejects a queued review at its own deadline while an earlier review sti
 });
 
 test('it rejects a review before it starts a process when the signal has already aborted', async () => {
-  const ctx = await setupTest({
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
   });
 
   expect(
-    ctx.session.review(
+    session.review(
       { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.abort(),
