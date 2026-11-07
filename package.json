@@ -44,7 +44,7 @@
     "bench": "bun --no-env-file src/secrets/find-secret.bench.ts",
     "build": "tsdown",
     "check": "bun run format:check && bun run lint:full && bun run typecheck && bun run deadcode && bun run test && bun run build && bun run check:artifact && bun run publint",
-    "deadcode": "knip",
+    "deadcode": "bash scripts/run-knip.sh",
     "eval": "bun --no-env-file --conditions=auto-mode-eval evals/eval.ts",
     "eval:answer-guidance": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-answer-guidance-evaluation.ts",
     "eval:applicability": "bun --no-env-file --conditions=auto-mode-eval evals/runners/run-applicability-evaluation.ts",
