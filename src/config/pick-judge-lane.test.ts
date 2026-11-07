@@ -4,7 +4,7 @@ import { pickJudgeLane } from './pick-judge-lane.ts';
 
 test.each([
   ['claude-code', { transport: 'agent-sdk', credential: 'none' }],
-  ['messages', { transport: 'messages', credential: 'api-key' }],
+  ['messages', { transport: 'agent-sdk', credential: 'api-key' }],
   ['system-one', { transport: 'refused', credential: 'api-key' }],
 ] as const)('it picks the judge lane for the %s protocol', (protocol, expected) => {
   expect(pickJudgeLane(buildMockProviderConfig({ protocol }))).toStrictEqual(expected);
@@ -19,5 +19,5 @@ test('it reads a provider that names no protocol as a Messages API one', () => {
       maxTokens: 3000,
       timeoutMs: 5000,
     }),
-  ).toStrictEqual({ transport: 'messages', credential: 'api-key' });
+  ).toStrictEqual({ transport: 'agent-sdk', credential: 'api-key' });
 });

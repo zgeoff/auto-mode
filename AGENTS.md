@@ -41,7 +41,7 @@ evals/             private package: imports auto-mode by package name, auto-mode
 fixtures/          files Claude Code wrote: mod requests from a live session, and the
                    claude-json.json and mcp-json.json that the MCP server read parses
 e2e/               whole-program suites; the cli-* suites spawn the built dist/cli.js under node
-mocks/             the MSW handlers for the decision and Messages APIs
+mocks/             the MSW handler for the decision API
 test-utils/        shared test helpers and factories, each with its own tests
 scripts/           the repo scripts behind the root package.json
 docs/

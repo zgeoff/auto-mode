@@ -8,10 +8,9 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import { match } from 'ts-pattern';
 import * as z from 'zod';
-import type { ModelRequest } from '../messages/anthropic-client.ts';
 import { resolveExecutable } from '../process/resolve-executable.ts';
 import { startCappedProcess } from '../process/start-capped-process.ts';
-import type { JudgeMessageReply, JudgeSession, JudgeTarget } from './types.ts';
+import type { JudgeMessageReply, JudgeSession, JudgeTarget, ModelRequest } from './types.ts';
 
 interface Turn {
   readonly result: SDKResultMessage;

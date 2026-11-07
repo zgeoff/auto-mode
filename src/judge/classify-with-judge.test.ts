@@ -2,19 +2,16 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { http } from 'msw';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { MESSAGES_URL } from '../../mocks/handlers.ts';
-import { messagesReplies } from '../../mocks/messages-replies.ts';
-import { server } from '../../mocks/node.ts';
 import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
 import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
 import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
-import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
 import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
+import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
 import { waitFor } from '../../test-utils/wait-for.ts';
+import { findPreset } from '../config/presets.ts';
 import { classifyWithJudge } from './classify-with-judge.ts';
 
 async function setupTest() {
@@ -142,46 +139,62 @@ test('it hands the raw model usage of a claude-code reply to the usage callback 
   });
 });
 
-test('it calls no usage callback for a Messages judge, which reports no model usage', async () => {
-  const ctx = await setupTest();
+test.each([
+  ['claude', 'https://api.anthropic.com', 'ANTHROPIC_API_KEY', 'claude-haiku-4-5-20251001'],
+  ['glm', 'https://api.z.ai/api/anthropic', 'ZAI_API_KEY', 'glm-5.3-flash'],
+  ['spark', 'https://api.meta.ai', 'META_API_KEY', 'muse-spark-1.3-contributor'],
+])(
+  'it reviews through a claude session on the %s preset’s API, with the key from its variable',
+  async (id, baseURL, keyVariable, model) => {
+    const ctx = await setupTest();
 
-  const onUsage = mock(() => Promise.resolve());
+    const judge = findPreset(id);
 
-  messagesReplies.push(
-    buildMockMessagesResponse({
-      content: [
-        { type: 'text', text: '{"verdict":"confirm","basis":null,"reason":"Nobody asked."}' },
+    invariant(judge);
+
+    const [outcome] = await classifyWithJudge(
+      buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'git push origin main' } }),
+      [
+        {
+          rule: buildMockDecisionRule({ name: 'Default Branch Write', tier: 'soft' }),
+          basis: 'matched',
+          repositoryContext: null,
+        },
       ],
-    }),
-  );
-
-  await classifyWithJudge(
-    buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'git push origin main' } }),
-    [
+      judge,
       {
-        rule: buildMockDecisionRule({ name: 'Default Branch Write', tier: 'soft' }),
-        basis: 'matched',
-        repositoryContext: null,
+        overturns: 'consent',
+        runtime: buildMockRuntime({
+          env: {
+            [keyVariable]: 'preset-test-key',
+            PATH: ctx.binDir,
+            STUB_CLAUDE_RECORD: ctx.recordPath,
+            STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Nobody asked."}',
+          },
+          home: ctx.directory,
+        }),
       },
-    ],
-    buildMockProviderConfig({
-      protocol: 'messages',
-      baseURL: 'https://gateway.test',
-      model: 'claude-haiku-5-5',
-      apiKeyEnv: 'AUTO_MODE_JUDGE_TEST_KEY',
-    }),
-    {
-      overturns: 'consent',
-      onUsage,
-      runtime: buildMockRuntime({
-        env: { AUTO_MODE_JUDGE_TEST_KEY: 'judge-test-key' },
-        home: ctx.directory,
-      }),
-    },
-  );
+    );
 
-  expect(onUsage).not.toHaveBeenCalled();
-});
+    const records = await readStubClaudeRecords(ctx.recordPath);
+
+    expect(outcome?.status).toBe('confirmed');
+
+    expect(
+      records.map((record) => [record.argv.includes(`--model=${model}`), record.env]),
+    ).toStrictEqual([
+      [
+        true,
+        {
+          ANTHROPIC_API_KEY: 'preset-test-key',
+          ANTHROPIC_BASE_URL: baseURL,
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: model,
+          CLAUDE_CODE_MAX_OUTPUT_TOKENS: '3000',
+        },
+      ],
+    ]);
+  },
+);
 
 test('it records the fallback model and the safety stops of a reply moved off the configured model', async () => {
   const ctx = await setupTest();
@@ -690,7 +703,7 @@ test('it keeps the template deny and records a failed request when claude exits 
   });
 });
 
-test('it keeps the template deny and records a missing credential for a Messages judge with no key', async () => {
+test('it keeps the template deny and records a missing credential for a Messages API judge with no key', async () => {
   const ctx = await setupTest();
 
   const [outcome] = await classifyWithJudge(
@@ -740,29 +753,8 @@ test('it keeps the template deny and records a missing credential for a Messages
   });
 });
 
-test('it confirms a deny through a Messages judge with the judge policy as the system prompt', async () => {
+test('it confirms a deny through a Messages API judge with the judge policy as the system prompt', async () => {
   const ctx = await setupTest();
-
-  messagesReplies.push(
-    buildMockMessagesResponse({
-      content: [
-        {
-          type: 'text',
-          text: '{"verdict":"confirm","basis":null,"reason":"Nobody asked for main."}',
-        },
-      ],
-    }),
-  );
-
-  const received: { headers: Headers; body: unknown } = { headers: new Headers(), body: null };
-
-  server.use(
-    http.post(MESSAGES_URL, async (info) => {
-      received.headers = info.request.headers;
-
-      received.body = await info.request.clone().json();
-    }),
-  );
 
   const [outcome] = await classifyWithJudge(
     buildMockActionRequest({ toolName: 'Bash', toolInput: { command: 'git push origin main' } }),
@@ -779,21 +771,25 @@ test('it confirms a deny through a Messages judge with the judge policy as the s
     ],
     buildMockProviderConfig({
       protocol: 'messages',
-      baseURL: 'https://gateway.test',
-      model: 'claude-haiku-5-5',
+      baseURL: 'https://provider.example/anthropic',
+      model: 'provider-model-2',
       apiKeyEnv: 'AUTO_MODE_JUDGE_TEST_KEY',
     }),
     {
       overturns: 'consent',
       runtime: buildMockRuntime({
-        env: { AUTO_MODE_JUDGE_TEST_KEY: 'judge-test-key' },
+        env: {
+          AUTO_MODE_JUDGE_TEST_KEY: 'judge-test-key',
+          PATH: ctx.binDir,
+          STUB_CLAUDE_RECORD: ctx.recordPath,
+          STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"Nobody asked for main."}',
+        },
         home: ctx.directory,
       }),
     },
   );
 
-  const blockSchema = z.object({ text: z.string() });
-  const body = z.object({ model: z.string(), system: z.array(blockSchema) }).parse(received.body);
+  const [record] = await readStubClaudeRecords(ctx.recordPath);
 
   expect(outcome).toMatchObject({
     verdict: {
@@ -804,9 +800,12 @@ test('it confirms a deny through a Messages judge with the judge policy as the s
     diagnostics: { failureReason: null },
   });
 
-  expect(received.headers.get('x-api-key')).toBe('judge-test-key');
-  expect(body.model).toBe('claude-haiku-5-5');
-  expect(body.system.map((block) => block.text).join('\n')).toInclude('### Default Branch Write\n');
+  expect(record?.env['ANTHROPIC_API_KEY']).toBe('judge-test-key');
+  expect(record?.argv).toContain('--model=provider-model-2');
+
+  expect(z.array(z.string()).parse(record?.system).join('\n')).toInclude(
+    '### Default Branch Write\n',
+  );
 });
 
 test('it sends the main agent’s last direct user message to the judge', async () => {

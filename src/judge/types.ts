@@ -1,4 +1,7 @@
-import type { ModelRequest } from '../messages/anthropic-client.ts';
+export interface ModelRequest {
+  readonly system: string;
+  readonly user: string;
+}
 
 export type OverturnBasis = 'consent' | 'misread';
 

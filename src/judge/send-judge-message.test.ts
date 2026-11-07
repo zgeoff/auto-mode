@@ -2,9 +2,8 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { messagesReplies } from '../../mocks/messages-replies.ts';
-import { buildMockMessagesResponse } from '../../test-utils/factories/build-mock-messages-response.ts';
 import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
 import { sendJudgeMessage } from './send-judge-message.ts';
 import { startJudgeSession } from './start-judge-session.ts';
 
@@ -24,7 +23,7 @@ async function setupTest() {
     { mode: 0o755 },
   );
 
-  return { binDir };
+  return { binDir, recordPath: join(directory, 'calls.jsonl') };
 }
 
 test('it returns the claude run’s text and answering model for a claude-code judge, with no API key', async () => {
@@ -95,33 +94,50 @@ test('it sends a claude-code review through the session the caller holds, whose 
   expect(second.warm).toBeTrue();
 });
 
-test('it returns the Messages reply text for a Messages judge', async () => {
-  messagesReplies.push(
-    buildMockMessagesResponse({ content: [{ type: 'text', text: 'from messages' }] }),
-  );
+test('it reviews a Messages API judge through claude on the judge’s API, with its key and output budget', async () => {
+  const ctx = await setupTest();
 
   const reply = await sendJudgeMessage(
     buildMockProviderConfig({
       protocol: 'messages',
-      baseURL: 'https://gateway.test',
-      model: 'claude-haiku-5-5',
+      baseURL: 'https://provider.example/anthropic',
+      model: 'provider-model-2',
+      maxTokens: 2500,
     }),
     { system: 'the judge policy', user: 'the evidence' },
-    { apiKey: 'judge-test-key', env: {} },
+    {
+      apiKey: 'judge-test-key',
+      env: {
+        PATH: ctx.binDir,
+        STUB_CLAUDE_RECORD: ctx.recordPath,
+        STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"From the provider."}',
+      },
+    },
     AbortSignal.timeout(10_000),
   );
 
+  const records = await readStubClaudeRecords(ctx.recordPath);
+
   expect(reply).toStrictEqual({
-    text: 'from messages',
-    model: 'claude-haiku-5-5',
+    text: '{"verdict":"confirm","basis":null,"reason":"From the provider."}',
+    model: 'provider-model-2',
     safetyStops: null,
     fallback: false,
-    warm: null,
-    modelUsage: null,
+    warm: false,
+    modelUsage: {},
   });
+
+  expect(records.map((record) => record.env)).toStrictEqual([
+    {
+      ANTHROPIC_API_KEY: 'judge-test-key',
+      ANTHROPIC_BASE_URL: 'https://provider.example/anthropic',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'provider-model-2',
+      CLAUDE_CODE_MAX_OUTPUT_TOKENS: '2500',
+    },
+  ]);
 });
 
-test('it refuses a Messages judge without an API key', () => {
+test('it refuses a Messages API judge without an API key', () => {
   expect(
     sendJudgeMessage(
       buildMockProviderConfig({ protocol: 'messages', baseURL: 'https://gateway.test' }),

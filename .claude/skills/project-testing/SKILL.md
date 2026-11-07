@@ -2,9 +2,9 @@
 name: project-testing
 description:
   "auto-mode's test facts and its own test topics beside the shared testing skill: running the
-  suite, the injected host environment, the CLI, git, clocks, the decision and Messages API mocks,
-  recorded inputs, and the Claude Code mod checks. Load it beside testing before you design, write
-  or review an auto-mode test."
+  suite, the injected host environment, the CLI, git, clocks, the decision API mock, the judge's
+  stub claude, recorded inputs, and the Claude Code mod checks. Load it beside testing before you
+  design, write or review an auto-mode test."
 metadata:
   kind: rule-set
 ---
@@ -92,7 +92,7 @@ may write. Every function below them takes a [`HostEnvironment`](../../../src/co
 - Pass `now` and `timeout` to the code that classifies a tool call through the `runtime` of its
   [`EvaluationOptions`](../../../src/config/types.ts), built with
   [`buildMockRuntime`](../../../test-utils/factories/build-mock-runtime.ts), and an `AbortSignal` to
-  the decision and Messages clients.
+  the decision client and the judge session.
 - Pass [`buildStubLockClock`](../../../test-utils/build-stub-lock-clock.ts) as the `LockClock` that
   [`updateJSONFile`](../../../src/state/update-json-file.ts) and the state writers take. With
   `advancesOnWait`, its `now()` moves forward by each delay passed to `wait()`.
@@ -105,19 +105,16 @@ may write. Every function below them takes a [`HostEnvironment`](../../../src/co
 
 ## HTTP
 
-[`handlers.ts`](../../../mocks/handlers.ts) answers two APIs: `DECISION_URL`, the decision API that
-a provider with `protocol: 'system-one'` calls, and `MESSAGES_URL`, the Anthropic Messages API.
+[`handlers.ts`](../../../mocks/handlers.ts) answers `DECISION_URL`, the decision API that a provider
+with `protocol: 'system-one'` calls.
 
 - Seed a decision answer in [`decisionAnswers`](../../../mocks/decision-answers.ts), keyed by
   question ID, such as `rule_0`. A question with no seeded answer gets `allow` at confidence 1.
-- Seed a Messages reply in the [`messagesReplies`](../../../mocks/messages-replies.ts) queue. An
-  empty queue answers HTTP 500.
 - Assert the exact request body in the decision client's own tests. The mock decision API rejects a
   request only where the real API does, and never checks what a non-null `state` holds or any field
   of a question but `type`.
 - [`buildMockProviderConfig`](../../../test-utils/factories/build-mock-provider-config.ts) returns a
-  `system-one` provider at the mock decision host. For a Messages provider, override `protocol` to
-  `messages` and `baseURL` to the origin of `MESSAGES_URL`.
+  `system-one` provider at the mock decision host.
 - To capture a request, pass a handler that records it and returns nothing to `server.use`, on the
   MSW server in [`mocks/node.ts`](../../../mocks/node.ts). Read the body from `request.clone()`, so
   the default handler can still read it.
@@ -126,6 +123,18 @@ a provider with `protocol: 'system-one'` calls, and `MESSAGES_URL`, the Anthropi
   network, and the server's callback for an unmatched request never fails it.
 - To give a provider an API key, set `AUTO_MODE_UNSET_TEST_KEY` in the test's host `env`. The
   factories name that variable as the key's source, and no real environment sets it.
+
+## The judge
+
+Every judge runs a `claude` process through the Agent SDK, and MSW can't reach a spawned process.
+
+- Put a `claude` script that runs [`run-stub-claude.ts`](../../../test-utils/run-stub-claude.ts) in
+  a `bin` folder of the test's temp tree, and pass that folder as `PATH` in the judge's `env`, as
+  [`start-judge-session.test.ts`](../../../src/judge/start-judge-session.test.ts) does. The stub's
+  `STUB_CLAUDE_*` variables set its reply.
+- Read what each review sent, its arguments, its system prompt and the provider variables, with
+  [`readStubClaudeRecords`](../../../test-utils/read-stub-claude-records.ts) from the file that
+  `STUB_CLAUDE_RECORD` names.
 
 ## Recorded inputs
 

@@ -70,19 +70,25 @@ The `messages` kind starts from `https://api.anthropic.com`, reasoning on, 3,000
 | `apiKeyCommand` | Shell command that prints the key               |
 | `timeoutMs`     | API deadline in milliseconds                    |
 | `reasoning`     | Accepted and ignored                            |
-| `maxTokens`     | Output budget for Messages API providers        |
+| `maxTokens`     | Output budget for a Messages API kind           |
 
 The Jev kind calls TypeSafe's `/v1/systemone` endpoint with a Bearer key and waits up to 5 seconds.
 Set `baseURL` to the API root of a compatible provider. Only a Jev kind can classify. The
-`claude-code` kind and the Messages API kinds, which call `/v1/messages`, can only judge, and
-`decision.classifier` refuses them.
+`claude-code` kind and the Messages API kinds can only judge, and `decision.classifier` refuses
+them.
 
-The `claude-code` kind can only judge. It drives the `claude` on your `PATH` through the Agent SDK,
-with no tools, settings, MCP servers or session file, and keeps one process per agent session. It
-runs through the local `claude` login, so it needs no API key. It drops every `ANTHROPIC_*` variable
-and the Bedrock, Vertex and Foundry switches from the child's environment, so a session pointed at
-another provider still reaches Claude. It waits up to 120 seconds. A machine without a `claude`
-login fails the judge call, and the deny keeps its fixed reason.
+Every judge drives the `claude` on your `PATH` through the Agent SDK, with no tools, settings, MCP
+servers or session file, and keeps one process per agent session. The judge drops every
+`ANTHROPIC_*` variable and the Bedrock, Vertex and Foundry switches from the child's environment, so
+the agent session's own provider never reaches it. A machine without `claude` on its `PATH` fails
+the judge call, and the deny keeps its fixed reason.
+
+- The `claude-code` kind runs through the local `claude` login, so it needs no API key. It waits up
+  to 120 seconds.
+- A Messages API kind points `claude` at its `baseURL` with its key, and Claude Code then calls that
+  API's `/v1/messages`. Claude Code also sends its background calls to the entry's model, and caps
+  each reply at `maxTokens`. A Messages API judge with no key fails, and the deny keeps its fixed
+  reason.
 
 ### Credentials
 

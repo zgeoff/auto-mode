@@ -1,9 +1,14 @@
+import { match } from 'ts-pattern';
 import type { ProviderConfig } from '../config/config.ts';
 import { pickJudgeLane } from '../config/pick-judge-lane.ts';
 import type { JudgeLane } from '../config/pick-judge-lane.ts';
-import { sendMessage } from '../messages/anthropic-client.ts';
-import type { ModelRequest } from '../messages/anthropic-client.ts';
-import type { JudgeMessageReply, JudgeSession, JudgeTarget } from './types.ts';
+import type {
+  JudgeEndpoint,
+  JudgeMessageReply,
+  JudgeSession,
+  JudgeTarget,
+  ModelRequest,
+} from './types.ts';
 
 export interface JudgeTransport {
   readonly apiKey: string | null;
@@ -12,37 +17,46 @@ export interface JudgeTransport {
   readonly session?: JudgeSession | undefined;
 }
 
-type JudgeSender = (
-  provider: Readonly<ProviderConfig>,
-  request: Readonly<ModelRequest>,
-  transport: Readonly<JudgeTransport>,
-  signal: Readonly<AbortSignal>,
-) => Promise<JudgeMessageReply>;
-
-const JUDGE_SENDERS: Readonly<Record<JudgeLane['transport'], JudgeSender>> = {
-  'agent-sdk': sendToAgentSDK,
-  messages: sendToMessagesAPI,
-  refused: () =>
-    Promise.reject(new Error('Jev returns typed answers and cannot write a judge reason')),
-};
-
 export function sendJudgeMessage(
   provider: Readonly<ProviderConfig>,
   request: Readonly<ModelRequest>,
   transport: Readonly<JudgeTransport>,
   signal: Readonly<AbortSignal>,
 ): Promise<JudgeMessageReply> {
-  return JUDGE_SENDERS[pickJudgeLane(provider).transport](provider, request, transport, signal);
+  return match(pickJudgeLane(provider))
+    .with({ transport: 'refused' }, () =>
+      Promise.reject(new Error('Jev returns typed answers and cannot write a judge reason')),
+    )
+    .with({ transport: 'agent-sdk' }, (lane) => {
+      const endpoint = buildJudgeEndpoint(provider, lane, transport.apiKey);
+
+      return endpoint === null
+        ? Promise.reject(new Error('no API key for the judge'))
+        : sendToAgentSDK({ model: provider.model, endpoint }, request, transport, signal);
+    })
+    .exhaustive();
+}
+
+function buildJudgeEndpoint(
+  provider: Readonly<ProviderConfig>,
+  lane: Readonly<JudgeLane>,
+  apiKey: string | null,
+): JudgeEndpoint | null {
+  if (lane.credential === 'none') {
+    return { kind: 'login' };
+  }
+
+  return apiKey === null
+    ? null
+    : { kind: 'api-key', baseURL: provider.baseURL, apiKey, maxTokens: provider.maxTokens };
 }
 
 async function sendToAgentSDK(
-  provider: Readonly<ProviderConfig>,
+  target: Readonly<JudgeTarget>,
   request: Readonly<ModelRequest>,
   transport: Readonly<JudgeTransport>,
   signal: Readonly<AbortSignal>,
 ): Promise<JudgeMessageReply> {
-  const target: JudgeTarget = { model: provider.model, endpoint: { kind: 'login' } };
-
   if (transport.session !== undefined) {
     return transport.session.review(target, request, signal);
   }
@@ -56,26 +70,4 @@ async function sendToAgentSDK(
   } finally {
     session.stop();
   }
-}
-
-async function sendToMessagesAPI(
-  provider: Readonly<ProviderConfig>,
-  request: Readonly<ModelRequest>,
-  transport: Readonly<JudgeTransport>,
-  signal: Readonly<AbortSignal>,
-): Promise<JudgeMessageReply> {
-  if (transport.apiKey === null) {
-    throw new Error('no API key for the judge');
-  }
-
-  const result = await sendMessage(provider, transport.apiKey, request, signal);
-
-  return {
-    text: result.text,
-    model: provider.model,
-    safetyStops: null,
-    fallback: false,
-    warm: null,
-    modelUsage: null,
-  };
 }
