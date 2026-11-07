@@ -170,7 +170,12 @@ test('it appends each review with its process, its count, the clears before it, 
       ].join('\n'),
       cwd: ctx.directory,
       encoding: 'utf8',
-      env: { STUB_CLAUDE_RECORD: ctx.recordPath, ANTHROPIC_BASE_URL: 'https://proxy.test' },
+      env: {
+        STUB_CLAUDE_RECORD: ctx.recordPath,
+        ANTHROPIC_BASE_URL: 'https://proxy.test',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'proxy-model-1',
+        CLAUDE_CODE_MAX_OUTPUT_TOKENS: '2500',
+      },
     },
   );
 
@@ -190,7 +195,11 @@ test('it appends each review with its process, its count, the clears before it, 
       argv: ['--tools='],
       system: ['the policy'],
       user: 'first',
-      env: { ANTHROPIC_BASE_URL: 'https://proxy.test' },
+      env: {
+        ANTHROPIC_BASE_URL: 'https://proxy.test',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'proxy-model-1',
+        CLAUDE_CODE_MAX_OUTPUT_TOKENS: '2500',
+      },
     },
     {
       pid: result.pid,
@@ -200,7 +209,11 @@ test('it appends each review with its process, its count, the clears before it, 
       argv: ['--tools='],
       system: ['the policy'],
       user: 'second',
-      env: { ANTHROPIC_BASE_URL: 'https://proxy.test' },
+      env: {
+        ANTHROPIC_BASE_URL: 'https://proxy.test',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'proxy-model-1',
+        CLAUDE_CODE_MAX_OUTPUT_TOKENS: '2500',
+      },
     },
   ]);
 });

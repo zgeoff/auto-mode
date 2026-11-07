@@ -6,11 +6,12 @@ import type {
   SDKResultMessage,
   SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
+import { match } from 'ts-pattern';
 import * as z from 'zod';
 import type { ModelRequest } from '../messages/anthropic-client.ts';
 import { resolveExecutable } from '../process/resolve-executable.ts';
 import { startCappedProcess } from '../process/start-capped-process.ts';
-import type { JudgeMessageReply, JudgeSession } from './types.ts';
+import type { JudgeMessageReply, JudgeSession, JudgeTarget } from './types.ts';
 
 interface Turn {
   readonly result: SDKResultMessage;
@@ -38,11 +39,11 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
   };
 
   const runReview = async (
-    model: string,
+    target: Readonly<JudgeTarget>,
     request: Readonly<ModelRequest>,
     signal: Readonly<AbortSignal>,
   ): Promise<JudgeMessageReply> => {
-    const key = `${model}\0${request.system}`;
+    const key = JSON.stringify([target.model, target.endpoint, request.system]);
 
     if (live !== null && (live.key !== key || live.closed)) {
       stop();
@@ -52,7 +53,7 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
       throw new DOMException('Judge review aborted', 'AbortError');
     }
 
-    live ??= startLiveProcess(model, request.system, key, env);
+    live ??= startLiveProcess(target, request.system, key, env);
 
     const current = live;
     const warm = current.reviews > 0;
@@ -79,7 +80,7 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
         current.cleared = sendClear(current.send, current.stop);
       }
 
-      return buildReply(turn, model, warm);
+      return buildReply(turn, target.model, warm);
     } catch (error) {
       if (signal.aborted) {
         throw new DOMException('Judge review aborted', 'AbortError');
@@ -92,7 +93,7 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
   };
 
   return {
-    review: async (model, request, signal) => {
+    review: async (target, request, signal) => {
       const previous = queue;
       const turn = Promise.withResolvers<void>();
 
@@ -101,7 +102,7 @@ export function startJudgeSession(env: Readonly<Record<string, string | undefine
       try {
         await waitUnlessAborted(previous, signal);
 
-        return await runReview(model, request, signal);
+        return await runReview(target, request, signal);
       } finally {
         void waitThenRelease(previous, turn.resolve);
       }
@@ -122,7 +123,7 @@ interface TurnWaiter {
 }
 
 function startLiveProcess(
-  model: string,
+  target: Readonly<JudgeTarget>,
   system: string,
   key: string,
   env: Readonly<Record<string, string | undefined>>,
@@ -139,7 +140,7 @@ function startLiveProcess(
   const stream: Query = query({
     prompt: input.messages,
     options: {
-      model,
+      model: target.model,
       systemPrompt: system,
       tools: [],
       settingSources: [],
@@ -148,7 +149,7 @@ function startLiveProcess(
       thinking: { type: 'disabled' },
       pathToClaudeCodeExecutable: executable,
       cwd: tmpdir(),
-      env: buildChildEnv(env),
+      env: buildChildEnv(env, target),
       spawnClaudeCodeProcess: (spawned) =>
         startCappedProcess(spawned.command, spawned.args, {
           maxLineBytes: MAX_LINE_BYTES,
@@ -313,12 +314,27 @@ const PROVIDER_SWITCHES = new Set([
 // Claude Code reads another provider's endpoint and key from these variables.
 function buildChildEnv(
   env: Readonly<Record<string, string | undefined>>,
+  target: Readonly<JudgeTarget>,
 ): Record<string, string | undefined> {
-  return Object.fromEntries(
+  const kept = Object.fromEntries(
     Object.entries(env).filter(
       ([name]) => !name.startsWith('ANTHROPIC_') && !PROVIDER_SWITCHES.has(name),
     ),
   );
+
+  return match(target.endpoint)
+    .with({ kind: 'login' }, () => kept)
+    .with({ kind: 'api-key' }, (endpoint) => ({
+      ...kept,
+      ANTHROPIC_BASE_URL: endpoint.baseURL,
+      ANTHROPIC_API_KEY: endpoint.apiKey,
+
+      // Claude Code sends its background calls to the haiku alias, a model
+      // another provider's API may not serve.
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: target.model,
+      CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(endpoint.maxTokens),
+    }))
+    .exhaustive();
 }
 
 async function readMessages(

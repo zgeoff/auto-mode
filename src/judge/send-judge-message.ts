@@ -3,7 +3,7 @@ import { pickJudgeLane } from '../config/pick-judge-lane.ts';
 import type { JudgeLane } from '../config/pick-judge-lane.ts';
 import { sendMessage } from '../messages/anthropic-client.ts';
 import type { ModelRequest } from '../messages/anthropic-client.ts';
-import type { JudgeMessageReply, JudgeSession } from './types.ts';
+import type { JudgeMessageReply, JudgeSession, JudgeTarget } from './types.ts';
 
 export interface JudgeTransport {
   readonly apiKey: string | null;
@@ -41,8 +41,10 @@ async function sendToAgentSDK(
   transport: Readonly<JudgeTransport>,
   signal: Readonly<AbortSignal>,
 ): Promise<JudgeMessageReply> {
+  const target: JudgeTarget = { model: provider.model, endpoint: { kind: 'login' } };
+
   if (transport.session !== undefined) {
-    return transport.session.review(provider.model, request, signal);
+    return transport.session.review(target, request, signal);
   }
 
   const sessionModule = await import('./start-judge-session.ts');
@@ -50,7 +52,7 @@ async function sendToAgentSDK(
   const session = sessionModule.startJudgeSession(transport.env);
 
   try {
-    return await session.review(provider.model, request, signal);
+    return await session.review(target, request, signal);
   } finally {
     session.stop();
   }

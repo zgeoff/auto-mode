@@ -15,10 +15,10 @@ export interface JudgeServerTarget {
 
 export function makeJudgeServerSession(target: Readonly<JudgeServerTarget>): JudgeSession {
   return {
-    review: async (model, request, signal) => {
+    review: async (judgeTarget, request, signal) => {
       const socket = await tryConnectOrStartServer(target, signal);
 
-      const line = `${JSON.stringify({ model, timeoutMs: target.timeoutMs, ...request })}\n`;
+      const line = `${JSON.stringify({ ...judgeTarget, timeoutMs: target.timeoutMs, ...request })}\n`;
 
       const answer = await sendLine(socket, line, signal);
 
