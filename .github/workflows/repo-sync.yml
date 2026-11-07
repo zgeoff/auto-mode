@@ -48,7 +48,7 @@ jobs:
       ref: ${{ github.event.client_payload.sha }}
       include:
         skill-testing, hook-start, pre-push-baseline, skill-docs-writing, skill-code-style,
-        skill-skill-writing, workflow-audit-fix, skill-ci-design
+        skill-skill-writing, workflow-audit-fix, skill-ci-design, knip-runner
       skip: agents, memory-cap
     secrets:
       REPO_SYNC_APP_CLIENT_ID: ${{ secrets.REPO_SYNC_APP_CLIENT_ID }}
