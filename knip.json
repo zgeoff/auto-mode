@@ -30,7 +30,7 @@
       "ignoreDependencies": ["@stylistic/eslint-plugin", "@zgeoff/agent-hooks", "claude-code"]
     },
     "evals": {
-      "entry": ["**/*.test.ts", "runners/*.ts", "eval.ts"],
+      "entry": ["**/*.test.ts", "runners/*.ts"],
       "project": ["**/*.ts"]
     }
   }
