@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.0.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.6...auto-mode-v4.0.0) (2026-11-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **judge:** a Messages API judge now runs the claude on the PATH, so a machine without claude fails its reviews, and each deny keeps its fixed reason.
+
+### Features
+
+* **judge:** point the judge session at an api with a key ([#445](https://github.com/zgeoff/auto-mode/issues/445)) ([9cd7f98](https://github.com/zgeoff/auto-mode/commit/9cd7f981652b7b6b51ff9c0fb165897615e9b997))
+* **judge:** run every judge preset on the agent sdk ([#446](https://github.com/zgeoff/auto-mode/issues/446)) ([e80b7f7](https://github.com/zgeoff/auto-mode/commit/e80b7f78a4f0e61bdae3744bccc5ff7d8e8e6b30))
+
 ## [3.1.6](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.5...auto-mode-v3.1.6) (2026-10-31)
 
 
