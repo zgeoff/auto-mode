@@ -68,18 +68,10 @@
     "typecheck": "tsrs -p tsconfig.json --noEmit && tsrs -p evals/tsconfig.json --noEmit",
     "check:artifact": "bun --no-env-file scripts/check-artifact.ts",
     "check:claude-mod": "bun --no-env-file scripts/check-claude-mod.ts",
-    "files:branch": "bun scripts/read-branch-files.ts",
-    "lint:files": "oxlint --no-error-on-unmatched-pattern",
     "test:related": "bun run build && BUN_OPTIONS='--no-env-file --conditions=auto-mode-eval' rig related",
     "check:publish": "bun scripts/run-publish-check.ts",
     "setup:ci-tools": "bun scripts/run-ci-tools-install.ts",
-    "check:commits": "bun scripts/run-commits-check.ts",
-    "check:local-paths": "bun scripts/run-local-paths-check.ts",
-    "check:test-timeouts": "bun scripts/run-test-timeouts-check.ts",
-    "check:workflows": "bun scripts/run-workflows-check.ts",
-    "memory-capped": "diet --",
-    "check:dependency-gates": "bun scripts/dependency-gates/run-dependency-gates-check.ts",
-    "check:uncommitted": "bun scripts/run-uncommitted-check.ts"
+    "check:docs": "chex prose length links readmes skill"
   },
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.312",
@@ -92,6 +84,7 @@
     "@types/node": "26.6.5",
     "@zgeoff/agent-hooks": "0.2.10",
     "@zgeoff/bun-test-extended": "0.2.3",
+    "@zgeoff/chex": "0.2.1",
     "@zgeoff/diet": "0.2.2",
     "@zgeoff/format-codemod": "0.3.5",
     "@zgeoff/oxlint-config": "0.10.0",
