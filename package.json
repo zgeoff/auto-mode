@@ -82,7 +82,7 @@
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.4",
     "@types/node": "26.6.5",
-    "@zgeoff/agent-hooks": "0.2.9",
+    "@zgeoff/agent-hooks": "0.2.10",
     "@zgeoff/bun-test-extended": "0.2.3",
     "@zgeoff/chex": "0.2.1",
     "@zgeoff/diet": "0.2.2",
