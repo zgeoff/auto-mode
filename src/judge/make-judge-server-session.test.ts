@@ -1,8 +1,9 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
+import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
 import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
 
@@ -11,16 +12,7 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(directory, 'bin');
-
-  await mkdir(binDir);
-
-  // the SDK runs the `claude` it finds on the PATH a test passes, so the stub stands in for it
-  await writeFile(
-    join(binDir, 'claude'),
-    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  const binDir = await createStubClaude(directory);
 
   return {
     directory,
@@ -63,6 +55,27 @@ test('it starts the judge server when none answers, and a later review reaches t
 
   expect(second.warm).toBeTrue();
   expect(servers.trim().split('\n')).toHaveLength(1);
+});
+
+test('it reviews through the server when the configured timeout is fractional', async () => {
+  const ctx = await setupTest();
+
+  const reply = await makeJudgeServerSession({
+    socketPath: ctx.socketPath,
+    command: [process.execPath, ctx.stubServer],
+    env: {
+      PATH: ctx.binDir,
+      STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It pushes to main."}',
+      STUB_JUDGE_SERVER_IDLE_MS: '500',
+    },
+    timeoutMs: 10_000.5,
+  }).review(
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
+    { system: 'the judge policy', user: 'the evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  expect(reply.text).toBe('{"verdict":"confirm","basis":null,"reason":"It pushes to main."}');
 });
 
 test('it rejects with an AbortError when the server reports an aborted review', async () => {

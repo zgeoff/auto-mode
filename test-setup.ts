@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeAll } from 'bun:test';
 import { faker } from '@faker-js/faker';
 import { decisionAnswers } from './mocks/decision-answers.ts';
-import { messagesReplies } from './mocks/messages-replies.ts';
 import { server } from './mocks/node.ts';
 
 // A git hook and a launcher export these. This clears them for in-process reads
@@ -30,7 +29,6 @@ beforeAll(() => {
 afterEach(() => {
   server.resetHandlers();
   decisionAnswers.clear();
-  messagesReplies.splice(0);
 });
 
 afterAll(() => {

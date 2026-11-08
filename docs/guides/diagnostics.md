@@ -52,12 +52,11 @@ when a secret is still left after the replacement. `failureReason` names the ste
 The rest of `judge` describes the model call. `model` is the configured judge model, and
 `answeringModel` is the model that wrote the reply, or `null` when no reply came back. It holds a
 canonical model ID, so it differs from a `model` that names an alias even when no fallback happened.
-A `claude-code` judge whose request trips a safety stop answers on a fallback model, and a
-`safetyStops` count above zero marks that reply. `safetyStops` holds the number of safety stops that
-Claude Code reported, and is `null` for a Messages judge or when no count came back. `warm` is
-`true` when a judge process that had answered an earlier review answered this one, `false` when the
-review started the process, and `null` for a Messages judge or when no reply came back. `tier` and
-`elapsedMs` complete the record.
+A judge whose request trips a safety stop answers on a fallback model, and a `safetyStops` count
+above zero marks that reply. `safetyStops` holds the number of safety stops that Claude Code
+reported, and is `null` when no count came back. `warm` is `true` when a judge process that had
+answered an earlier review answered this one, `false` when the review started the process, and
+`null` when no reply came back. `tier` and `elapsedMs` complete the record.
 
 When the judge reviewed a containment deny whose every target the last direct user message named,
 `grant` holds that review in the same shape as `judge`, with `rule` set to `Outside Task Scope`;
@@ -106,10 +105,10 @@ never copies child output or exception text into those messages. Match the sessi
 supported tool-call identifier with the action records. The absence of a record does not prove an
 allow or a denial.
 
-To see which models a `claude-code` judge called during each review, set `AUTO_MODE_DEBUG_PATH` to a
-file in the environment that Claude Code starts with. auto-mode then appends one JSON line per judge
-review to that file. `model` is the configured judge model, and `answeringModel` is the value the
-`judge` record holds. `modelUsage` is Claude Code's raw per-model usage for the judge process since
-its last clear, which counts background calls beside the reply. The line holds model names and token
-counts, and no text. A failed write leaves the verdict unchanged and prints
+To see which models the judge called during each review, set `AUTO_MODE_DEBUG_PATH` to a file in the
+environment that Claude Code starts with. auto-mode then appends one JSON line per judge review to
+that file. `model` is the configured judge model, and `answeringModel` is the value the `judge`
+record holds. `modelUsage` is Claude Code's raw per-model usage for the judge process since its last
+clear, which counts background calls beside the reply. The line holds model names and token counts,
+and no text. A failed write leaves the verdict unchanged and prints
 `auto-mode: judge debug line unavailable` on stderr.

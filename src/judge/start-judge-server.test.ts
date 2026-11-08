@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
 import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
 import { waitFor } from '../../test-utils/wait-for.ts';
 import { makeJudgeServerSession } from './make-judge-server-session.ts';
@@ -17,16 +18,7 @@ async function setupTest() {
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
 
-  const binDir = join(directory, 'bin');
-
-  await mkdir(binDir);
-
-  // the SDK runs the `claude` it finds on the PATH a test passes, so the stub stands in for it
-  await writeFile(
-    join(binDir, 'claude'),
-    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  const binDir = await createStubClaude(directory);
 
   return { directory, binDir, socketPath: join(directory, 'run', 'judge.sock') };
 }

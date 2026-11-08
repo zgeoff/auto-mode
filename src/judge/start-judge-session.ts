@@ -8,10 +8,9 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import { match } from 'ts-pattern';
 import * as z from 'zod';
-import type { ModelRequest } from '../messages/anthropic-client.ts';
 import { resolveExecutable } from '../process/resolve-executable.ts';
 import { startCappedProcess } from '../process/start-capped-process.ts';
-import type { JudgeMessageReply, JudgeSession, JudgeTarget } from './types.ts';
+import type { JudgeMessageReply, JudgeSession, JudgeTarget, ModelRequest } from './types.ts';
 
 interface Turn {
   readonly result: SDKResultMessage;
@@ -305,20 +304,22 @@ async function* readPending(reader: Readonly<InputReader>): AsyncGenerator<SDKUs
   }
 }
 
-const PROVIDER_SWITCHES = new Set([
+const HOST_SETTINGS = new Set([
   'CLAUDE_CODE_USE_BEDROCK',
   'CLAUDE_CODE_USE_VERTEX',
   'CLAUDE_CODE_USE_FOUNDRY',
+  'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
 ]);
 
-// Claude Code reads another provider's endpoint and key from these variables.
+// Claude Code reads another provider's endpoint and key, and the output cap
+// of the host's own session, from these variables.
 function buildChildEnv(
   env: Readonly<Record<string, string | undefined>>,
   target: Readonly<JudgeTarget>,
 ): Record<string, string | undefined> {
   const kept = Object.fromEntries(
     Object.entries(env).filter(
-      ([name]) => !name.startsWith('ANTHROPIC_') && !PROVIDER_SWITCHES.has(name),
+      ([name]) => !name.startsWith('ANTHROPIC_') && !HOST_SETTINGS.has(name),
     ),
   );
 

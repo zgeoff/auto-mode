@@ -1,4 +1,7 @@
-import type { ModelRequest } from '../messages/anthropic-client.ts';
+export interface ModelRequest {
+  readonly system: string;
+  readonly user: string;
+}
 
 export type OverturnBasis = 'consent' | 'misread';
 
@@ -26,7 +29,7 @@ export interface JudgeUsage {
   readonly modelUsage: Readonly<Record<string, unknown>>;
 }
 
-type JudgeEndpoint =
+export type JudgeEndpoint =
   | { readonly kind: 'login' }
   | {
       readonly kind: 'api-key';

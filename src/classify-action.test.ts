@@ -11,6 +11,7 @@ import { DECISION_URL } from '../mocks/handlers.ts';
 import { server } from '../mocks/node.ts';
 import { sendDecisionReply } from '../mocks/send-decision-reply.ts';
 import { buildStubOutput } from '../test-utils/build-stub-output.ts';
+import { createStubClaude } from '../test-utils/create-stub-claude.ts';
 import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
 import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
 import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
@@ -34,16 +35,7 @@ async function setupTest(): Promise<{
   // above the temp root, so the repo is a checkout of its own.
   runGit(directory, ['init', '-q', '-b', 'main', join(directory, 'repo')]);
 
-  const binDir = join(directory, 'bin');
-
-  await mkdir(binDir);
-
-  // the judge finds `claude` through the host PATH a test passes, so the stub stands in for it
-  await writeFile(
-    join(binDir, 'claude'),
-    `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dir, '..', 'test-utils', 'run-stub-claude.ts')}" "$@"\n`,
-    { mode: 0o755 },
-  );
+  const binDir = await createStubClaude(directory);
 
   return { directory, binDir, recordPath: join(directory, 'claude-calls.jsonl') };
 }
