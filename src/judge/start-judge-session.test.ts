@@ -38,7 +38,7 @@ test('it answers a review with the judge’s text on the configured model', asyn
   });
 
   const reply = await ctx.session.review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -61,13 +61,13 @@ test('it answers a second review from the same process, after clearing the first
   const model = 'claude-haiku-5-5';
 
   await ctx.session.review(
-    model,
+    { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
   const second = await ctx.session.review(
-    model,
+    { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -90,13 +90,13 @@ test('it starts a new process when a review names another model', async () => {
   });
 
   await ctx.session.review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
   const second = await ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -115,13 +115,13 @@ test('it starts a new process when a review carries another system prompt', asyn
   const model = 'claude-haiku-5-5';
 
   await ctx.session.review(
-    model,
+    { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
   const second = await ctx.session.review(
-    model,
+    { model, endpoint: { kind: 'login' } },
     { system: 'the edited judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -138,7 +138,7 @@ test('it sends the system prompt, no provider variables and a scratch directory 
   });
 
   await ctx.session.review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -167,6 +167,118 @@ test('it sends the system prompt, no provider variables and a scratch directory 
   ]);
 });
 
+test('it points claude at the endpoint’s API with its key, in place of the host’s provider variables', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
+    ANTHROPIC_API_KEY: 'sk-gateway-test',
+    ANTHROPIC_BASE_URL: 'https://gateway.example',
+    CLAUDE_CODE_USE_BEDROCK: '1',
+  });
+
+  await ctx.session.review(
+    {
+      model: 'provider-model-2',
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example/anthropic',
+        apiKey: 'provider-test-key',
+        maxTokens: 2500,
+      },
+    },
+    { system: 'the judge policy', user: 'the evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const records = await readStubClaudeRecords(ctx.recordPath);
+
+  expect(records.map((record) => record.env)).toStrictEqual([
+    {
+      ANTHROPIC_API_KEY: 'provider-test-key',
+      ANTHROPIC_BASE_URL: 'https://provider.example/anthropic',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'provider-model-2',
+      CLAUDE_CODE_MAX_OUTPUT_TOKENS: '2500',
+    },
+  ]);
+});
+
+test('it starts a new process with the key when a login review is followed by an API key review', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
+  });
+
+  await ctx.session.review(
+    { model: 'provider-model-2', endpoint: { kind: 'login' } },
+    { system: 'the judge policy', user: 'the first evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const second = await ctx.session.review(
+    {
+      model: 'provider-model-2',
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example/anthropic',
+        apiKey: 'provider-test-key',
+        maxTokens: 2500,
+      },
+    },
+    { system: 'the judge policy', user: 'the second evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const records = await readStubClaudeRecords(ctx.recordPath);
+
+  expect(second.warm).toBeFalse();
+
+  expect(records.map((record) => record.env['ANTHROPIC_API_KEY'])).toStrictEqual([
+    undefined,
+    'provider-test-key',
+  ]);
+});
+
+test('it starts a new process when a review names another endpoint', async () => {
+  const ctx = await setupTest({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
+  });
+
+  await ctx.session.review(
+    {
+      model: 'provider-model-2',
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example/anthropic',
+        apiKey: 'provider-test-key',
+        maxTokens: 2500,
+      },
+    },
+    { system: 'the judge policy', user: 'the first evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const second = await ctx.session.review(
+    {
+      model: 'provider-model-2',
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example/anthropic',
+        apiKey: 'provider-rotated-key',
+        maxTokens: 2500,
+      },
+    },
+    { system: 'the judge policy', user: 'the second evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const records = await readStubClaudeRecords(ctx.recordPath);
+
+  expect(second.warm).toBeFalse();
+
+  expect(records.map((record) => [record.env['ANTHROPIC_API_KEY'], record.review])).toStrictEqual([
+    ['provider-test-key', 1],
+    ['provider-rotated-key', 1],
+  ]);
+});
+
 test('it reports the fallback model that wrote the reply and starts a new process after a refusal fallback', async () => {
   const ctx = await setupTest({
     STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It posts the token."}',
@@ -182,13 +294,13 @@ test('it reports the fallback model that wrote the reply and starts a new proces
   const model = 'claude-sonnet-5-5';
 
   const first = await ctx.session.review(
-    model,
+    { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
   const second = await ctx.session.review(
-    model,
+    { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -219,7 +331,7 @@ test('it reports a fallback from the usage when the result holds no stop count',
   });
 
   const reply = await ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -248,7 +360,7 @@ test('it reports the model of the reply when background calls in the process wro
   });
 
   const reply = await ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -265,7 +377,7 @@ test('it reports the configured model when the turn printed no assistant message
   });
 
   const reply = await ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -284,7 +396,7 @@ test('it reports the model of the last top-level assistant message, past a later
   });
 
   const reply = await ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -302,7 +414,7 @@ test('it skips a top-level assistant message that carries an error', async () =>
   });
 
   const reply = await ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -317,7 +429,7 @@ test('it returns no model usage when the result holds no usage map', async () =>
   });
 
   const reply = await ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -331,7 +443,7 @@ test('it returns the text of a tagged reply as the judge wrote it', async () => 
   });
 
   const reply = await ctx.session.review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -347,7 +459,7 @@ test('it rejects a review whose reply passes the output cap', async () => {
 
   await expect(
     ctx.session.review(
-      'claude-sonnet-5-5',
+      { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.timeout(10_000),
     ),
@@ -362,7 +474,7 @@ test('it rejects a turn that ends in an error', async () => {
 
   await expect(
     ctx.session.review(
-      'claude-sonnet-5-5',
+      { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.timeout(10_000),
     ),
@@ -378,7 +490,7 @@ test('it rejects a review whose process exits, and starts a new process for the 
   const model = 'claude-sonnet-5-5';
 
   const first = ctx.session.review(
-    model,
+    { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -386,7 +498,7 @@ test('it rejects a review whose process exits, and starts a new process for the 
   await expect(first).toReject();
 
   const second = ctx.session.review(
-    model,
+    { model, endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -407,7 +519,7 @@ test('it rejects an aborted review with an abort error', async () => {
   const controller = new AbortController();
 
   const review = ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     controller.signal,
   );
@@ -424,7 +536,7 @@ test('it rejects a queued review at its own deadline while an earlier review sti
   });
 
   const first = ctx.session.review(
-    'claude-sonnet-5-5',
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -433,7 +545,7 @@ test('it rejects a queued review at its own deadline while an earlier review sti
 
   const [queued] = await Promise.allSettled([
     ctx.session.review(
-      'claude-sonnet-5-5',
+      { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the second evidence' },
       AbortSignal.timeout(100),
     ),
@@ -455,7 +567,7 @@ test('it rejects a review before it starts a process when the signal has already
 
   expect(
     ctx.session.review(
-      'claude-sonnet-5-5',
+      { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.abort(),
     ),
@@ -467,7 +579,7 @@ test('it rejects a review when no claude is on the PATH', () => {
 
   expect(
     session.review(
-      'claude-sonnet-5-5',
+      { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.timeout(10_000),
     ),

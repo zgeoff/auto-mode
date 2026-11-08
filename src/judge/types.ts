@@ -26,9 +26,23 @@ export interface JudgeUsage {
   readonly modelUsage: Readonly<Record<string, unknown>>;
 }
 
+type JudgeEndpoint =
+  | { readonly kind: 'login' }
+  | {
+      readonly kind: 'api-key';
+      readonly baseURL: string;
+      readonly apiKey: string;
+      readonly maxTokens: number;
+    };
+
+export interface JudgeTarget {
+  readonly model: string;
+  readonly endpoint: JudgeEndpoint;
+}
+
 export interface JudgeSession {
   readonly review: (
-    model: string,
+    target: Readonly<JudgeTarget>,
     request: Readonly<ModelRequest>,
     signal: Readonly<AbortSignal>,
   ) => Promise<JudgeMessageReply>;

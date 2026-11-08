@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
+import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
 import { waitFor } from '../../test-utils/wait-for.ts';
 import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
@@ -57,13 +58,13 @@ test('it answers each review on its socket from one warm judge process', async (
   });
 
   await client.review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
   const second = await client.review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -85,6 +86,56 @@ test('it answers each review on its socket from one warm judge process', async (
   });
 
   expect(new Set(pids).size).toBe(1);
+});
+
+test('it reviews on the API and key that the review names', async () => {
+  const ctx = await setupTest();
+
+  const recordPath = join(ctx.directory, 'calls.jsonl');
+
+  const env = {
+    PATH: ctx.binDir,
+    STUB_CLAUDE_RECORD: recordPath,
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It deletes the branch."}',
+  };
+
+  const server = await startJudgeServer({ socketPath: ctx.socketPath, env, idleMs: 60_000 });
+
+  invariant(server);
+
+  onTestFinished(() => {
+    server.stop();
+  });
+
+  await makeJudgeServerSession({
+    socketPath: ctx.socketPath,
+    command: [process.execPath],
+    env,
+    timeoutMs: 10_000,
+  }).review(
+    {
+      model: 'provider-model-2',
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example/anthropic',
+        apiKey: 'provider-test-key',
+        maxTokens: 2500,
+      },
+    },
+    { system: 'the judge policy', user: 'the evidence' },
+    AbortSignal.timeout(10_000),
+  );
+
+  const records = await readStubClaudeRecords(recordPath);
+
+  expect(records.map((record) => record.env)).toStrictEqual([
+    {
+      ANTHROPIC_API_KEY: 'provider-test-key',
+      ANTHROPIC_BASE_URL: 'https://provider.example/anthropic',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'provider-model-2',
+      CLAUDE_CODE_MAX_OUTPUT_TOKENS: '2500',
+    },
+  ]);
 });
 
 test('it keeps its socket and its directory private to the user', async () => {
@@ -137,6 +188,63 @@ test('it answers a request that is not a review with a failure', async () => {
   });
 });
 
+test.each([
+  ['no endpoint', {}],
+  [
+    'an API key endpoint with an empty key',
+    {
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example',
+        apiKey: '',
+        maxTokens: 2500,
+      },
+    },
+  ],
+  [
+    'an API key endpoint with no output cap',
+    {
+      endpoint: {
+        kind: 'api-key',
+        baseURL: 'https://provider.example',
+        apiKey: 'provider-test-key',
+      },
+    },
+  ],
+  [
+    'a login endpoint that carries a key',
+    { endpoint: { kind: 'login', apiKey: 'provider-test-key' } },
+  ],
+])('it answers a review with %s as malformed', async (_case, fields) => {
+  const ctx = await setupTest();
+
+  const server = await startJudgeServer({
+    socketPath: ctx.socketPath,
+    env: { PATH: ctx.binDir },
+    idleMs: 60_000,
+  });
+
+  invariant(server);
+
+  onTestFinished(() => {
+    server.stop();
+  });
+
+  const socket = connect(ctx.socketPath);
+
+  socket.write(
+    `${JSON.stringify({ model: 'claude-haiku-5-5', timeoutMs: 10_000, system: 'the judge policy', user: 'the evidence', ...fields })}\n`,
+  );
+
+  const answer = await text(socket);
+
+  expect(JSON.parse(answer)).toStrictEqual({
+    kind: 'failure',
+    aborted: false,
+    message: 'malformed request',
+  });
+});
+
 test('it fails a review that outlasts its timeout as aborted', async () => {
   const ctx = await setupTest();
 
@@ -157,7 +265,7 @@ test('it fails a review that outlasts its timeout as aborted', async () => {
   const socket = connect(ctx.socketPath);
 
   socket.write(
-    `${JSON.stringify({ model: 'claude-haiku-5-5', timeoutMs: 200, system: 'the judge policy', user: 'the evidence' })}\n`,
+    `${JSON.stringify({ model: 'claude-haiku-5-5', endpoint: { kind: 'login' }, timeoutMs: 200, system: 'the judge policy', user: 'the evidence' })}\n`,
   );
 
   const answer = await text(socket);
@@ -188,7 +296,7 @@ test('it stops the judge process of a review whose client goes away', async () =
   const socket = connect(ctx.socketPath);
 
   socket.write(
-    `${JSON.stringify({ model: 'claude-haiku-5-5', timeoutMs: 60_000, system: 'the judge policy', user: 'the evidence' })}\n`,
+    `${JSON.stringify({ model: 'claude-haiku-5-5', endpoint: { kind: 'login' }, timeoutMs: 60_000, system: 'the judge policy', user: 'the evidence' })}\n`,
   );
 
   const recorded = await waitFor(
@@ -259,7 +367,7 @@ test('it answers a review that connects while the server starts', async () => {
     env,
     timeoutMs: 10_000,
   }).review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -316,7 +424,7 @@ test('it replaces a socket file that no server answers on', async () => {
     env,
     timeoutMs: 10_000,
   }).review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the evidence' },
     AbortSignal.timeout(10_000),
   );

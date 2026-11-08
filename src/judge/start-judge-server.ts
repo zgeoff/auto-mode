@@ -175,7 +175,7 @@ async function runReview(socket: Socket, session: JudgeSession): Promise<void> {
 
   try {
     const reply = await session.review(
-      request.data.model,
+      { model: request.data.model, endpoint: request.data.endpoint },
       { system: request.data.system, user: request.data.user },
       signal,
     );

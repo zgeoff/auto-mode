@@ -97,6 +97,8 @@ for await (const line of createInterface({ input: process.stdin })) {
         env: {
           ANTHROPIC_API_KEY: process.env['ANTHROPIC_API_KEY'],
           ANTHROPIC_BASE_URL: process.env['ANTHROPIC_BASE_URL'],
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: process.env['ANTHROPIC_DEFAULT_HAIKU_MODEL'],
+          CLAUDE_CODE_MAX_OUTPUT_TOKENS: process.env['CLAUDE_CODE_MAX_OUTPUT_TOKENS'],
           CLAUDE_CODE_USE_BEDROCK: process.env['CLAUDE_CODE_USE_BEDROCK'],
         },
       })}\n`,

@@ -48,13 +48,13 @@ test('it starts the judge server when none answers, and a later review reaches t
   };
 
   await makeJudgeServerSession(target).review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the first evidence' },
     AbortSignal.timeout(10_000),
   );
 
   const second = await makeJudgeServerSession(target).review(
-    'claude-haiku-5-5',
+    { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
     { system: 'the judge policy', user: 'the second evidence' },
     AbortSignal.timeout(10_000),
   );
@@ -89,7 +89,7 @@ test('it rejects with an AbortError when the server reports an aborted review', 
       env,
       timeoutMs: 200,
     }).review(
-      'claude-haiku-5-5',
+      { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.timeout(10_000),
     ),
@@ -120,7 +120,7 @@ test('it rejects with the server’s message when the review fails', async () =>
       env,
       timeoutMs: 10_000,
     }).review(
-      'claude-haiku-5-5',
+      { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.timeout(10_000),
     ),
@@ -137,7 +137,7 @@ test('it stops waiting for a server that never starts when the caller aborts', a
       env: { PATH: ctx.binDir },
       timeoutMs: 10_000,
     }).review(
-      'claude-haiku-5-5',
+      { model: 'claude-haiku-5-5', endpoint: { kind: 'login' } },
       { system: 'the judge policy', user: 'the evidence' },
       AbortSignal.timeout(200),
     ),
