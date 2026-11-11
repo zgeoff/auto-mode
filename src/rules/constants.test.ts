@@ -6,7 +6,7 @@ import {
   REGENERABLE_DIRS,
   SHELL_TOOLS,
   UNSAFE_OPTIONS,
-} from './local-allowlists.ts';
+} from './constants.ts';
 
 test('#READ_ONLY_TOOLS names no shell-carrying tool', () => {
   expect([...READ_ONLY_TOOLS]).not.toIncludeAnyMembers([...SHELL_TOOLS]);
