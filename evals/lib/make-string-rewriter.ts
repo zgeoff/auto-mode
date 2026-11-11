@@ -1,5 +1,4 @@
 import { buildSecretFreeText } from 'auto-mode/eval';
-import { derivePlaceholder } from './derive-placeholder.ts';
 import {
   EMAIL,
   HOME_PATH,
@@ -8,8 +7,9 @@ import {
   SHARED_USERS,
   URL_AUTHORITY,
   WINDOWS_HOME,
-} from './identifier-patterns.ts';
-import type { Groups, IdentifierClass } from './identifier-patterns.ts';
+} from './constants.ts';
+import type { Groups, IdentifierClass } from './constants.ts';
+import { derivePlaceholder } from './derive-placeholder.ts';
 
 export type Rewriter = (text: string) => string;
 

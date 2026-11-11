@@ -14,8 +14,8 @@ import {
   SHELL_TOOLS,
   UNSAFE_GIT_OPTIONS,
   UNSAFE_OPTIONS,
-} from './local-allowlists.ts';
-import type { UnsafeOptions } from './local-allowlists.ts';
+} from './constants.ts';
+import type { UnsafeOptions } from './constants.ts';
 
 export type LocalVerdict =
   | { readonly kind: 'allow'; readonly exception: string }

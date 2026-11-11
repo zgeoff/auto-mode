@@ -1,3 +1,4 @@
+// oxlint-disable zgeoff/file-named-for-export -- the testing skill names this file mocks/node.ts
 import { FetchInterceptor } from '@mswjs/interceptors/fetch/web';
 import { HttpNetworkFrame, InterceptorSource, defineNetwork } from 'msw/experimental';
 import { handlers } from './handlers.ts';

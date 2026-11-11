@@ -13,8 +13,8 @@ import {
   SHARED_USERS,
   URL_AUTHORITY,
   WINDOWS_HOME,
-} from './identifier-patterns.ts';
-import type { Groups, IdentifierClass } from './identifier-patterns.ts';
+} from './constants.ts';
+import type { Groups, IdentifierClass } from './constants.ts';
 
 const STRUCTURAL_NAMES = new Set([
   'main',
