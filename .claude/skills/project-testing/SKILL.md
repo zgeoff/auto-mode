@@ -13,10 +13,10 @@ metadata:
 
 ## Facts
 
-| Fact       | Where                                                                                                                                                                                                    |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lanes      | [`rig.config.ts`](../../../rig.config.ts), which declares none                                                                                                                                           |
-| Test utils | [`test-utils/`](../../../test-utils/); [`mods/auto-mode/hooks/test-utils/`](../../../mods/auto-mode/hooks/test-utils/) for the mod checks; [`evals/lib/`](../../../evals/lib/) for the evaluation suites |
+| Fact          | Where                                                                                                                                                                                                    |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Test commands | [`rig.config.ts`](../../../rig.config.ts), which adds none to `bun run test`                                                                                                                             |
+| Test utils    | [`test-utils/`](../../../test-utils/); [`mods/auto-mode/hooks/test-utils/`](../../../mods/auto-mode/hooks/test-utils/) for the mod checks; [`evals/lib/`](../../../evals/lib/) for the evaluation suites |
 
 ## Departures
 
