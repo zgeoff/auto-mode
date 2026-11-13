@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v4.0.0...auto-mode-v4.0.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** update @hono/node-server to fix advisories ([#482](https://github.com/zgeoff/auto-mode/issues/482)) ([ad6a11d](https://github.com/zgeoff/auto-mode/commit/ad6a11d31842e593145979809bf9aabf20aa25b1))
+
 ## [4.0.0](https://github.com/zgeoff/auto-mode/compare/auto-mode-v3.1.6...auto-mode-v4.0.0) (2026-11-08)
 
 
