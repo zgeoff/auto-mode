@@ -10,6 +10,8 @@
         "src/**/*.test.ts",
         "src/**/*.bench.ts",
         "e2e/**/*.test.ts",
+        "evals/*/*.test.ts",
+        "evals/*/run-*-eval.ts",
         "src/test-utils/run-stub-*.ts",
         "scripts/*.ts",
         "mods/auto-mode/hooks/register.ts",
@@ -19,6 +21,7 @@
       "project": [
         "src/**/*.ts",
         "e2e/**/*.ts",
+        "evals/**/*.ts",
         "scripts/*.ts",
         "mods/auto-mode/hooks/**",
         "mods/auto-mode/contract/**"
@@ -29,10 +32,6 @@
         "@zgeoff/diet",
         "claude-code"
       ]
-    },
-    "evals": {
-      "entry": ["**/*.test.ts", "runners/*.ts"],
-      "project": ["**/*.ts"]
     }
   }
 }

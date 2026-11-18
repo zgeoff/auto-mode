@@ -1,22 +1,23 @@
 # Evaluation
 
 Evaluation answers one question about each change to how auto-mode decides: does it still allow no
-catastrophic action, and what does it cost ordinary work? The evals package holds the tooling, the
-experiments and the committed corpora, and a private results repository holds every run. Evidence
-comes in two kinds that never mix. Classifier evidence sends fixed cases through one or more stages
-and measures what a stage decides about an action it has never seen. Product evidence reads the
-action log of real sessions, because a deny changes what the agent does next, and no replayed case
-can show recovery or a human escalation. [Run an evaluation](../runbooks/run-an-evaluation.md) gives
-the steps.
+catastrophic action, and what does it cost ordinary work? The `evals/` folders hold the committed
+corpora, `src/measure/` holds the tooling and the experiments, and a private results repository
+holds every run. Evidence comes in two kinds that never mix. Classifier evidence sends fixed cases
+through one or more stages and measures what a stage decides about an action it has never seen.
+Product evidence reads the action log of real sessions, because a deny changes what the agent does
+next, and no replayed case can show recovery or a human escalation.
+[Run an evaluation](../runbooks/run-an-evaluation.md) gives the steps.
 
 ## The package boundary
 
-The evals package is a private workspace package beside the published one. It reaches auto-mode only
-through the package's own exports: the public API, and an unpublished subpath for the internals an
-evaluation needs. Both resolve to the source tree under an export condition that the test command,
-the evaluation scripts and the evals type-check config set, so an evaluation runs the code as it
-stands in the checkout. The core never imports the evals package, and the evals package reuses the
-root test helpers by path.
+The evaluation code lives beside the classifier in the one package. `src/measure/` holds the
+measurement code and the experiments, `evals/<name>/` holds one evaluation each, and none of it
+ships: the build bundles only what the entry points import. The evaluation code reaches the
+classifier through the package's own exports: the public API, and an unpublished subpath for the
+internals an evaluation needs. Both resolve to the source tree under an export condition that the
+test command, the evaluation scripts and the type-check config set, so an evaluation runs the code
+as it stands in the checkout. The core never imports `src/measure/` or `evals/`.
 
 ## Experiments
 
@@ -69,11 +70,12 @@ numbers.
 
 ## Corpora
 
-A corpus is a folder of cases under the evals package, with a labels file beside the cases rather
-than inside them, because a recorded run hashes the case files' bytes. Every case carries a severity
-(catastrophic, tolerable or safe), a consent label (none, asked or near-miss), and a source
-(recorded or synthetic), and a catastrophic case also names the harm it does. The label loader
-rejects a labels file that misses a case of its corpus or labels a case the corpus does not hold.
+A corpus is a folder `evals/<name>/` that holds its cases in `corpus.json`, with a labels file
+beside the cases rather than inside them, because a recorded run hashes the case files' bytes. Every
+case carries a severity (catastrophic, tolerable or safe), a consent label (none, asked or
+near-miss), and a source (recorded or synthetic), and a catastrophic case also names the harm it
+does. The label loader rejects a labels file that misses a case of its corpus or labels a case the
+corpus does not hold.
 
 The held-out catastrophic set lives only in the results repository, and the catastrophic-allows
 experiment reads it from the results clone when the clone holds it. A model that never saw the rules
@@ -89,7 +91,7 @@ The anonymise command turns a capture into a candidate corpus, written outside e
 refuses to write one that a gitleaks scan does not pass. The command never copies a message a person
 typed: each one becomes a placeholder, and so does a run of its words that a deny reason or a tool
 input quotes. A person then writes invented text with the same meaning in place of each message,
-reads every case, and copies the reviewed files into the corpora, because no pattern removes a
+reads every case, and copies the reviewed files into `evals/<name>/`, because no pattern removes a
 person's or a company's name from free text, and git history is permanent.
 
 ## Results

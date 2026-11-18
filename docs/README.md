@@ -14,7 +14,7 @@ everyday use.
   rules every block rule follows.
 - [State and logs](./architecture/state-and-logs.md): the state directory, the action log, the
   opt-in capture, and what survives a crash.
-- [Evaluation](./architecture/evaluation.md): the evals package, its experiments and measurements,
+- [Evaluation](./architecture/evaluation.md): the evaluation code, its experiments and measurements,
   the corpora, and the results repository.
 
 ### The stages

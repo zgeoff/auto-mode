@@ -1,75 +1,57 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { existsSync } from 'node:fs';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import invariant from 'tiny-invariant';
+import { join, relative } from 'node:path';
+import { resolveProgram } from '@zgeoff/rig/e2e';
+import { run } from '@zgeoff/testing/process';
 import * as z from 'zod';
+import { buildIsolatedEnv } from '../src/test-utils/build-isolated-env.ts';
+import { getProgramArtifact } from '../src/test-utils/get-program-artifact.ts';
+import { readNodePath } from '../src/test-utils/read-node-path.ts';
 
-async function setupTest(): Promise<{
-  readonly node: string;
-  readonly packageDir: string;
-  readonly files: readonly string[];
-  readonly env: Readonly<Record<string, string | undefined>>;
-}> {
-  const root = join(import.meta.dirname, '..');
-
-  invariant(
-    existsSync(join(root, 'dist', 'cli.js')),
-    'dist/cli.js is missing: run `bun run build` before this suite',
-  );
-
+async function setupTest() {
+  const program = await resolveProgram('auto-mode');
+  const node = await readNodePath();
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-e2e-pack-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
   const directory = await realpath(created);
 
-  // A version manager's node shim reads its config under the user's HOME, which
-  // the children do not get, so they run the binaries the shim resolves to.
-  const resolved = await Bun.$`node -p process.execPath`.quiet().text();
-
-  const node = resolved.trim();
-
   // The release job packs with bun pm pack, so the suite tests that tarball. The package's
-  // prepare script links the evals package and installs git hooks, which a pack of the built
-  // artifact does not need.
-  const packed =
-    await Bun.$`${process.execPath} pm pack --ignore-scripts --quiet --destination ${directory}`
-      .cwd(root)
-      .quiet()
-      .text();
+  // prepare script installs git hooks, which a pack of the built artifact does not need.
+  const packed = await run([process.execPath], {
+    args: ['pm', 'pack', '--ignore-scripts', '--quiet', '--destination', directory],
+    cwd: program.cwd,
+  });
 
-  const tarball = packed.trim();
+  const tarball = packed.stdout.trim();
 
-  const listing = await Bun.$`tar -tzf ${tarball}`.quiet().text();
+  const listing = await run(['tar'], { args: ['-tzf', tarball] });
 
-  await Bun.$`tar -xzf ${tarball} -C ${directory}`.quiet();
+  await run(['tar'], { args: ['-xzf', tarball, '-C', directory] });
 
   return {
     node,
+    artifact: relative(program.cwd, getProgramArtifact(program)),
     packageDir: join(directory, 'package'),
-    files: listing
+    files: listing.stdout
       .split('\n')
       .filter((entry) => entry !== '')
       .map((entry) => entry.replace(/^package\//u, '')),
-    env: { PATH: process.env['PATH'], HOME: directory },
+    env: buildIsolatedEnv(process.env, { PATH: process.env['PATH'], HOME: directory }),
   };
 }
 
 test('it prints the mod directory of the installed package under node', async () => {
   const ctx = await setupTest();
 
-  const result = await Bun.$`${ctx.node} ${join(ctx.packageDir, 'dist', 'cli.js')} mod-path`
-    .env(ctx.env)
-    .quiet()
-    .nothrow();
+  const result = await run([ctx.node, join(ctx.packageDir, ctx.artifact)], {
+    args: ['mod-path'],
+    env: ctx.env,
+  });
 
-  expect({
-    exitCode: result.exitCode,
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
-  }).toStrictEqual({
+  expect(result).toStrictEqual({
     exitCode: 0,
     stdout: `${join(ctx.packageDir, 'mods', 'auto-mode')}\n`,
     stderr: '',
@@ -79,14 +61,29 @@ test('it prints the mod directory of the installed package under node', async ()
 test('it ships a package in which a gitleaks scan with the default rules finds no leak', async () => {
   const ctx = await setupTest();
 
-  const result =
-    await Bun.$`gitleaks dir --no-banner --redact --log-level error --exit-code 1 --ignore-gitleaks-allow --gitleaks-ignore-path ${ctx.packageDir} --report-format json --report-path - ${ctx.packageDir}`
-      .env(ctx.env)
-      .quiet()
-      .nothrow();
+  const result = await run(['gitleaks'], {
+    args: [
+      'dir',
+      '--no-banner',
+      '--redact',
+      '--log-level',
+      'error',
+      '--exit-code',
+      '1',
+      '--ignore-gitleaks-allow',
+      '--gitleaks-ignore-path',
+      ctx.packageDir,
+      '--report-format',
+      'json',
+      '--report-path',
+      '-',
+      ctx.packageDir,
+    ],
+    env: ctx.env,
+  });
 
   const finding = z.object({ RuleID: z.string(), File: z.string(), StartLine: z.number() });
-  const findings = z.array(finding).parse(JSON.parse(result.stdout.toString()));
+  const findings = z.array(finding).parse(JSON.parse(result.stdout));
 
   expect({
     exitCode: result.exitCode,

@@ -1,19 +1,20 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "bun", "@zgeoff/bun-test-extended"]
+    "types": ["node", "bun", "@zgeoff/bun-test-extended"],
+    "customConditions": ["auto-mode-eval"]
   },
   "include": [
     "src/**/*.ts",
     "e2e/**/*.ts",
+    "evals/**/*.ts",
     "mods/auto-mode/hooks/**/*.ts",
     "mods/auto-mode/contract/**/*.ts",
     "scripts/**/*.ts",
-    "test-setup.ts",
     "rig.config.ts",
     "release-please-config.test.ts",
     "*.config.ts",
     "*.config.js"
   ],
-  "exclude": ["node_modules", "dist", ".worktrees", "evals"]
+  "exclude": ["node_modules", "dist", ".worktrees"]
 }

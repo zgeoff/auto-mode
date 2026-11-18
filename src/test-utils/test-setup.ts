@@ -1,0 +1,36 @@
+import { afterAll, afterEach, beforeAll } from 'bun:test';
+import { faker } from '@faker-js/faker';
+import { decisionAnswers } from './mocks/decision-answers.ts';
+import { server } from './mocks/node.ts';
+
+// A git hook and a launcher export these. This clears them for in-process reads
+// and node:child_process children only: a Bun.spawn or Bun.$ child still gets
+// the startup environment.
+for (const name of [
+  'AUTO_MODE_SCOPE_FILE',
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_COMMON_DIR',
+  'GIT_INDEX_FILE',
+  'GIT_PREFIX',
+]) {
+  delete process.env[name];
+}
+
+// A fixed seed and reference date make a failing run's faker values reproduce,
+// dates included, since faker otherwise dates from the wall clock.
+faker.seed(142);
+faker.setDefaultRefDate(new Date('2026-01-01T00:00:00Z'));
+
+beforeAll(() => {
+  server.enable();
+});
+
+afterEach(() => {
+  server.resetHandlers();
+  decisionAnswers.clear();
+});
+
+afterAll(() => {
+  server.disable();
+});

@@ -1,6 +1,6 @@
 # Run an evaluation
 
-`bun run eval` runs one experiment from `evals/experiments/` and writes the run to the private
+`bun run eval` runs one experiment from `src/measure/experiments/` and writes the run to the private
 results repository. [Evaluation](../architecture/evaluation.md) explains what each measurement
 means; this runbook covers the steps.
 
@@ -175,13 +175,13 @@ output of this command may enter a repository, and only after a person has read 
    words that any other string in the case copies from one of those messages becomes a placeholder
    too, as when a deny reason quotes the user.
 
-2. The command writes `cases.json` and `labels.todo.json` to a private temp directory and scans it
+2. The command writes `corpus.json` and `labels.todo.json` to a private temp directory and scans it
    with `gitleaks dir` and its default rules; `gitleaks` must be on `PATH`. A finding, or a scan
    that cannot run, deletes the temp directory and writes nothing. Only a passing scan copies the
    files to `--out`.
 3. `--out` must not exist, its parent must, and it must sit outside every git work tree: the command
-   refuses `evals/corpora/` too, because no pattern removes a person's or a company's name from the
-   prompts the cases carry.
+   refuses `evals/` too, because no pattern removes a person's or a company's name from the prompts
+   the cases carry.
 4. Every case is `source: recorded`. `labels.todo.json` lists the case keys with that label alone,
    because a case's severity, harm and consent need a reader. Label each one and save the file as
    `labels.json` in the [labels format](../architecture/evaluation.md#corpora).
@@ -192,8 +192,8 @@ output of this command may enter a repository, and only after a person has read 
 6. Read every case. Remove or rewrite any name, project or detail the placeholders missed; they
    cover the forms above and the bundled secret rules, not every way a prompt can name a person or a
    project.
-7. Only then copy the reviewed `cases.json` and `labels.json` into `evals/corpora/<corpus>/` and
-   commit them.
+7. Only then copy the reviewed `corpus.json` and `labels.json` into `evals/<corpus>/` and commit
+   them.
 
 ## Commit the run
 
