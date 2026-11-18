@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v4.0.1...auto-mode-v4.0.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **judge:** stop the judge process as soon as its session stops ([#496](https://github.com/zgeoff/auto-mode/issues/496)) ([958666d](https://github.com/zgeoff/auto-mode/commit/958666d76a369810306f3c52fd812f038908db9c))
+
 ## [4.0.1](https://github.com/zgeoff/auto-mode/compare/auto-mode-v4.0.0...auto-mode-v4.0.1) (2026-11-13)
 
 
