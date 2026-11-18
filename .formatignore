@@ -5,6 +5,7 @@
 # nested checkouts and agent scratch
 .worktrees/**
 .claude/**
+.agents/**
 .reviews/**
 
 # verbatim model input — see .oxfmtrc.json

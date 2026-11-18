@@ -60,7 +60,7 @@
     "lint:actionlint": "actionlint",
     "lint:fix": "oxlint --fix",
     "lint:full": "oxlint --type-aware --type-check --report-unused-disable-directives-severity error",
-    "lint:shellcheck": "shellcheck scripts/*.sh .claude/skills/docs-writing/scripts/*.sh",
+    "lint:shellcheck": "shellcheck scripts/*.sh .agents/skills/docs-writing/scripts/*.sh",
     "lint:shfmt": "shfmt -d scripts/*.sh",
     "prepare": "bash scripts/link-evals-package.sh && (command -v git > /dev/null 2>&1 && lefthook install --force || true)",
     "publint": "publint",

@@ -35,6 +35,7 @@ pre-commit:
         - 'coverage/**'
         - '.worktrees/**'
         - '.claude/**'
+        - '.agents/**'
         - '.reviews/**'
         - 'policy/**'
       run: node_modules/.bin/format-codemod --quiet {staged_files}
