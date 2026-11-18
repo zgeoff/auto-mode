@@ -155,6 +155,7 @@
   },
   "ignorePatterns": [
     ".claude/**",
+    ".agents/**",
     ".reviews/**",
     ".worktrees/**",
     // generated from the Betterleaks rule set, whose patterns are JSON strings;
