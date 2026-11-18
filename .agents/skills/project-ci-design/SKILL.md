@@ -30,4 +30,4 @@ None.
   `gh variable get BUN_CHECK_SCRIPTS -R zgeoff/auto-mode`.
 - When a test runs a tool that the runner image lacks, turn on the matching `setup-*` input of
   `bun-checks.yml` in both callers, as `setup-gitleaks` is for the gitleaks scan in
-  `e2e/package-install.test.ts`.
+  `e2e/build-package-install.test.ts`.

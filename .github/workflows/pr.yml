@@ -25,5 +25,5 @@ jobs:
       scripts: ${{ vars.BUN_CHECK_SCRIPTS }}
       node-version: ${{ vars.NODE_VERSION }}
       timeout-minutes: ${{ fromJSON(vars.BUN_CHECK_TIMEOUT_MINUTES || '20') }}
-      # e2e/package-install.test.ts scans the packed package with gitleaks
+      # e2e/build-package-install.test.ts scans the packed package with gitleaks
       setup-gitleaks: true
