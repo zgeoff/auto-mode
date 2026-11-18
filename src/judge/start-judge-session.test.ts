@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
 import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
+import { waitFor } from '../../test-utils/wait-for.ts';
 import { startJudgeSession } from './start-judge-session.ts';
 import type { JudgeSession } from './types.ts';
 
@@ -566,6 +567,50 @@ test('it rejects an aborted review with an abort error', async () => {
   controller.abort();
 
   expect(review).rejects.toMatchObject({ name: 'AbortError' });
+});
+
+test('it stops the judge process when a review aborts mid-turn', async () => {
+  const ctx = await setupTest();
+
+  const session = ctx.startSession({
+    STUB_CLAUDE_REPLY: '{"verdict":"confirm","basis":null,"reason":"It force-pushes."}',
+    STUB_CLAUDE_DELAY_MS: '60000',
+  });
+
+  const controller = new AbortController();
+
+  const review = session.review(
+    { model: 'claude-sonnet-5-5', endpoint: { kind: 'login' } },
+    { system: 'the judge policy', user: 'the evidence' },
+    controller.signal,
+  );
+
+  const [record] = await waitFor(
+    () => readStubClaudeRecords(ctx.recordPath).catch(() => []),
+    (records) => records.length > 0,
+  );
+
+  invariant(record);
+
+  controller.abort();
+
+  expect(review).rejects.toMatchObject({ name: 'AbortError' });
+
+  const alive = await waitFor(
+    () => {
+      try {
+        process.kill(record.pid, 0);
+
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    (running) => !running,
+    { timeoutMs: 1000 },
+  );
+
+  expect(alive).toBeFalse();
 });
 
 test('it rejects a queued review at its own deadline while an earlier review still runs', async () => {

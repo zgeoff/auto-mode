@@ -10,6 +10,7 @@ import { match } from 'ts-pattern';
 import * as z from 'zod';
 import { resolveExecutable } from '../process/resolve-executable.ts';
 import { startCappedProcess } from '../process/start-capped-process.ts';
+import type { CappedProcess } from '../process/start-capped-process.ts';
 import type { JudgeMessageReply, JudgeSession, JudgeTarget, ModelRequest } from './types.ts';
 
 interface Turn {
@@ -131,6 +132,7 @@ function startLiveProcess(
   const executable = resolveExecutable('claude', env['PATH']);
   let waiter: TurnWaiter | null = null;
   let closed = false;
+  let child: CappedProcess | null = null;
 
   if (executable === null) {
     throw new Error('claude is not on the PATH');
@@ -149,13 +151,16 @@ function startLiveProcess(
       pathToClaudeCodeExecutable: executable,
       cwd: tmpdir(),
       env: buildChildEnv(env, target),
-      spawnClaudeCodeProcess: (spawned) =>
-        startCappedProcess(spawned.command, spawned.args, {
+      spawnClaudeCodeProcess: (spawned) => {
+        child = startCappedProcess(spawned.command, spawned.args, {
           maxLineBytes: MAX_LINE_BYTES,
           cwd: spawned.cwd,
           env: spawned.env,
           signal: spawned.signal,
-        }),
+        });
+
+        return child;
+      },
     },
   });
 
@@ -168,6 +173,10 @@ function startLiveProcess(
 
     input.close();
     stream.close();
+
+    // The SDK signals the child only after a grace period on a timer it does not
+    // keep alive, so a host that exits first leaves the child running.
+    child?.kill('SIGTERM');
     waiter?.reject(new Error('the judge process closed'));
     waiter = null;
   };
