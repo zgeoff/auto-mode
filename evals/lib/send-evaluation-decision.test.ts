@@ -1,11 +1,11 @@
 import { expect, mock, test } from 'bun:test';
 import { DecisionRequestError } from 'auto-mode/eval';
 import { HttpResponse, delay, http } from 'msw';
-import { DECISION_URL } from '../../mocks/handlers.ts';
-import { server } from '../../mocks/node.ts';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
-import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { buildMockDecisionRequest } from '../../src/test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionRule } from '../../src/test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockProviderConfig } from '../../src/test-utils/factories/build-mock-provider-config.ts';
+import { DECISION_URL } from '../../src/test-utils/mocks/handlers.ts';
+import { server } from '../../src/test-utils/mocks/node.ts';
 import { sendEvaluationDecision } from './send-evaluation-decision.ts';
 
 test('it returns the answers Jev gives to the request', async () => {

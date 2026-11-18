@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
-import { buildMockRepositoryContext } from '../../test-utils/factories/build-mock-repository-context.ts';
+import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
+import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockDecisionRequest } from '../test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionResult } from '../test-utils/factories/build-mock-decision-result.ts';
+import { buildMockDecisionRule } from '../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockRepositoryContext } from '../test-utils/factories/build-mock-repository-context.ts';
 import { buildJevOutcome } from './build-jev-outcome.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 

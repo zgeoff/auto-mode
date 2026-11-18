@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockDecisionRule } from '../../src/test-utils/factories/build-mock-decision-rule.ts';
 import { pickCategoricalVerdict } from './pick-categorical-verdict.ts';
 
 test('it allows a confident none', () => {

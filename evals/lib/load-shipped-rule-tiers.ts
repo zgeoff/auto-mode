@@ -1,7 +1,7 @@
 import { buildDecisionRequest, loadPolicy } from 'auto-mode/eval';
 import type { DecisionRule } from 'auto-mode/eval';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
+import { buildMockActionRequest } from '../../src/test-utils/factories/build-mock-action-request.ts';
+import { buildMockClaudeRules } from '../../src/test-utils/factories/build-mock-claude-rules.ts';
 
 export async function loadShippedRuleTiers(): Promise<
   Readonly<Record<string, DecisionRule['tier']>>

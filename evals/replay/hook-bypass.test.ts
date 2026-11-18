@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { buildDecisionRequest, classifyLocally, loadPolicy } from 'auto-mode/eval';
-import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
+import { buildMockClaudeRules } from '../../src/test-utils/factories/build-mock-claude-rules.ts';
 import { checkCwdContainment } from '../lib/check-cwd-containment.ts';
 import { classifyRecordedEdit } from '../lib/classify-recorded-edit.ts';
 import { loadDecisionRulesCases } from '../lib/load-decision-rules-cases.ts';

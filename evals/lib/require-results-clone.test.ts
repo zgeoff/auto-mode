@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { runGit } from '../../test-utils/run-git.ts';
+import { runGit } from '../../src/test-utils/run-git.ts';
 import { requireResultsClone } from './require-results-clone.ts';
 
 async function setupTest() {

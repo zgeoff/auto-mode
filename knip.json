@@ -10,9 +10,7 @@
         "src/**/*.test.ts",
         "src/**/*.bench.ts",
         "e2e/**/*.test.ts",
-        "test-utils/**/*.test.ts",
-        "test-utils/run-stub-*.ts",
-        "mocks/**/*.test.ts",
+        "src/test-utils/run-stub-*.ts",
         "scripts/*.ts",
         "mods/auto-mode/hooks/register.ts",
         "mods/auto-mode/hooks/**/*.claude-check.ts",
@@ -21,8 +19,6 @@
       "project": [
         "src/**/*.ts",
         "e2e/**/*.ts",
-        "test-utils/**/*.ts",
-        "mocks/**/*.ts",
         "scripts/*.ts",
         "mods/auto-mode/hooks/**",
         "mods/auto-mode/contract/**"

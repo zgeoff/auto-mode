@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
 import { resolveDenialStatePath } from './resolve-denial-state-path.ts';
 
 // The expected name is the first 32 hex digits of `printf 'session-1\0' | sha256sum`.

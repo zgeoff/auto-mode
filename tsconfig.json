@@ -6,8 +6,6 @@
   "include": [
     "src/**/*.ts",
     "e2e/**/*.ts",
-    "test-utils/**/*.ts",
-    "mocks/**/*.ts",
     "mods/auto-mode/hooks/**/*.ts",
     "mods/auto-mode/contract/**/*.ts",
     "scripts/**/*.ts",

@@ -7,8 +7,8 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { loadProcessState } from '../../test-utils/load-process-state.ts';
-import { waitFor } from '../../test-utils/wait-for.ts';
+import { loadProcessState } from '../test-utils/load-process-state.ts';
+import { waitFor } from '../test-utils/wait-for.ts';
 import { runCapped } from './run-capped.ts';
 
 async function setupTest() {
@@ -168,7 +168,7 @@ test('it reports a child that cannot start', async () => {
 test('it kills the child and the processes it started when the signal aborts', async () => {
   const ctx = await setupTest();
 
-  const helper = join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-key-helper.ts');
+  const helper = join(import.meta.dir, '..', 'test-utils', 'run-stub-key-helper.ts');
 
   const controller = new AbortController();
 

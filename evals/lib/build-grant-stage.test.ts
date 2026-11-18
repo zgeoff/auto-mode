@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'bun:test';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
+import { buildMockActionRequest } from '../../src/test-utils/factories/build-mock-action-request.ts';
 import { buildGrantStage } from './build-grant-stage.ts';
 import { buildMockMeasurementCase } from './factories/build-mock-measurement-case.ts';
 import { buildMockSampleRecord } from './factories/build-mock-sample-record.ts';

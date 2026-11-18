@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
+import { buildMockClaudeRules } from '../test-utils/factories/build-mock-claude-rules.ts';
 import { buildSizedDecisionInput } from './build-sized-decision-input.ts';
 
 test('it keeps a request that fits with its task context whole', () => {

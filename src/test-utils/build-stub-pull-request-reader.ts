@@ -1,0 +1,29 @@
+import type { PullRequestFacts } from '../scope/read-pull-request.ts';
+
+export interface StubPullRequest extends PullRequestFacts {
+  readonly repository: string;
+  readonly number: number;
+}
+
+export interface StubPullRequestReader {
+  readonly readPullRequest: (
+    repository: string,
+    number: number,
+  ) => Promise<PullRequestFacts | null>;
+}
+
+export function buildStubPullRequestReader(
+  pulls: readonly StubPullRequest[],
+): StubPullRequestReader {
+  return {
+    readPullRequest: (repository, number) => {
+      const pull = pulls.find(
+        (entry) => entry.repository === repository && entry.number === number,
+      );
+
+      const facts = pull === undefined ? null : { head: pull.head, createdAt: pull.createdAt };
+
+      return Promise.resolve(facts);
+    },
+  };
+}

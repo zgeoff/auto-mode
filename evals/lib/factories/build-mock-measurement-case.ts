@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
-import { buildMockActionRequest } from '../../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockRepositoryContext } from '../../../test-utils/factories/build-mock-repository-context.ts';
+import { buildMockActionRequest } from '../../../src/test-utils/factories/build-mock-action-request.ts';
+import { buildMockRepositoryContext } from '../../../src/test-utils/factories/build-mock-repository-context.ts';
 import type { MeasurementCase } from '../load-measurement-sets.ts';
 
 export function buildMockMeasurementCase(

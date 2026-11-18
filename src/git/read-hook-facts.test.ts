@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildCountingHookFactsFiles } from '../../test-utils/build-counting-hook-facts-files.ts';
+import { buildCountingHookFactsFiles } from '../test-utils/build-counting-hook-facts-files.ts';
 import { nodeHookFactsFiles } from './node-hook-facts-files.ts';
 import { readHookFacts } from './read-hook-facts.ts';
 

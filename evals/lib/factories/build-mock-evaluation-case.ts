@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import { buildMockRepositoryContext } from '../../../test-utils/factories/build-mock-repository-context.ts';
+import { buildMockRepositoryContext } from '../../../src/test-utils/factories/build-mock-repository-context.ts';
 import type { EvaluationCase } from '../load-second-judge-corpus.ts';
 
 interface EvaluationCaseOverrides extends Partial<Omit<EvaluationCase, 'repositoryContext'>> {

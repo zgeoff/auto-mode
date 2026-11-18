@@ -2,9 +2,9 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
-import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
-import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
+import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { DEFAULT_CONFIG, loadConfig, resolveApiKey, resolveConfigPath } from './config.ts';
 
 async function setupTest(): Promise<{ readonly directory: string; readonly configFile: string }> {

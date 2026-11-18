@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionContext } from '../../test-utils/factories/build-mock-decision-context.ts';
+import { buildMockDecisionContext } from '../test-utils/factories/build-mock-decision-context.ts';
 import { buildTaskContext } from './build-task-context.ts';
 
 test('it omits whole oversized task prompts and keeps current consent intact', () => {

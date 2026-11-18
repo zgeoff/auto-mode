@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
-import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
+import { createStubClaude } from '../test-utils/create-stub-claude.ts';
 import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
 
@@ -18,7 +18,7 @@ async function setupTest() {
     directory,
     binDir,
     socketPath: join(directory, 'judge.sock'),
-    stubServer: join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-judge-server.ts'),
+    stubServer: join(import.meta.dir, '..', 'test-utils', 'run-stub-judge-server.ts'),
   };
 }
 

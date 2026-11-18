@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
+import { buildMockConfig } from '../../src/test-utils/factories/build-mock-config.ts';
 import { assertShippedJevConfig } from './assert-shipped-jev-config.ts';
 
 test('it accepts the shipped Jev policy', () => {

@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'bun:test';
 import { HttpResponse, http } from 'msw';
 import invariant from 'tiny-invariant';
-import { server } from '../../mocks/node.ts';
+import { server } from '../../src/test-utils/mocks/node.ts';
 import { makeRecordingFetch } from './make-recording-fetch.ts';
 import type { ResponseCopy } from './make-recording-fetch.ts';
 

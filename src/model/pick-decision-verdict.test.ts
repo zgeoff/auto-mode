@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockDecisionRequest } from '../test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionResult } from '../test-utils/factories/build-mock-decision-result.ts';
+import { buildMockDecisionRule } from '../test-utils/factories/build-mock-decision-rule.ts';
 import { pickDecisionVerdict } from './pick-decision-verdict.ts';
 
 test('it allows when every block probability is below the threshold', () => {

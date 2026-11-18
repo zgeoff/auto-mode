@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
 import { resolveClaudeConfigPath } from './resolve-claude-config-path.ts';
 
 test.each([

@@ -31,6 +31,7 @@ beside it.
 
 ```text
 src/               the classifier, a folder per stage or concern; only process/ spawns a child
+  test-utils/      shared test helpers, factories and the decision API mock, each with its own tests
 mods/auto-mode/    the Claude Code mod, shipped as raw TypeScript
   contract/        the request and verdict shapes the mod and the CLI share; no dependencies
   hooks/           the hooks modules and their *.claude-check.ts checks
@@ -41,8 +42,6 @@ evals/             private package: imports auto-mode by package name, auto-mode
 fixtures/          files Claude Code wrote: mod requests from a live session, and the
                    claude-json.json and mcp-json.json that the MCP server read parses
 e2e/               whole-program suites; the cli-* suites spawn the built dist/cli.js under node
-mocks/             the MSW handler for the decision API
-test-utils/        shared test helpers and factories, each with its own tests
 scripts/           the repo scripts behind the root package.json
 docs/
   architecture/    what is built
@@ -61,7 +60,7 @@ Evaluation reports live in the private zgeoff/auto-mode-evals repository, not he
 
 - The `zgeoff/import-zones` lint rule enforces the module boundaries, and
   [`.oxlintrc.json`](.oxlintrc.json) holds its zones. Every file under `src/` belongs to a zone, so
-  a new `src/` folder joins one in the same PR that adds it.
+  a new `src/` folder joins one, and the `core` folder list, in the same PR that adds it.
 - Never add an `oxlint-disable-next-line zgeoff/import-zones` comment to make an import pass. Change
   the import, or change the zones in a PR that reviews the boundary.
 - A hooks module imports only its own plugin's files, by relative path, and `claude-code`. Claude

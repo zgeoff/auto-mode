@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { readFixture } from '../test-utils/read-fixture.ts';
-import { runGit } from '../test-utils/run-git.ts';
+import { readFixture } from '../src/test-utils/read-fixture.ts';
+import { runGit } from '../src/test-utils/run-git.ts';
 
 async function setupTest(): Promise<{
   readonly node: string;

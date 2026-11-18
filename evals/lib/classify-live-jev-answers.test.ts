@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockDecisionAnswer } from '../../src/test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockDecisionRequest } from '../../src/test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionResult } from '../../src/test-utils/factories/build-mock-decision-result.ts';
+import { buildMockDecisionRule } from '../../src/test-utils/factories/build-mock-decision-rule.ts';
 import { classifyLiveJevAnswers } from './classify-live-jev-answers.ts';
 
 test('it classifies a certain allow on every rule as an allow', () => {

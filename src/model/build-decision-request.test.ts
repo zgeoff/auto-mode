@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
 import invariant from 'tiny-invariant';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
-import { buildMockRepositoryContext } from '../../test-utils/factories/build-mock-repository-context.ts';
 import { loadPolicy } from '../policy/load-policy.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockClaudeRules } from '../test-utils/factories/build-mock-claude-rules.ts';
+import { buildMockRepositoryContext } from '../test-utils/factories/build-mock-repository-context.ts';
 import { buildDecisionRequest } from './build-decision-request.ts';
 
 test('it builds the request state, the rules and a question for each rule', () => {

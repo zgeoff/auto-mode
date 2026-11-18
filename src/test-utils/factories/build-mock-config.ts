@@ -1,0 +1,33 @@
+import type { Config } from '../../config/config.ts';
+import { buildMockProviderConfig } from './build-mock-provider-config.ts';
+
+type ProviderOverrides = Parameters<typeof buildMockProviderConfig>[0];
+
+interface ConfigOverrides extends Partial<Omit<Config, 'provider' | 'judge' | 'denialBudget'>> {
+  readonly provider?: ProviderOverrides;
+  readonly judge?: ProviderOverrides | null;
+  readonly denialBudget?: Partial<NonNullable<Config['denialBudget']>>;
+}
+
+export function buildMockConfig(overrides: ConfigOverrides = {}): Config {
+  const { provider, judge, denialBudget, scopeSources, ...rest } = overrides;
+
+  return {
+    classifierPath: undefined,
+    rulesPath: undefined,
+    onFailure: 'defer',
+    claudeSettingsPath: null,
+    blockThreshold: 0.2,
+    warnings: [],
+    ...rest,
+    provider: buildMockProviderConfig(provider),
+    judge: judge === undefined || judge === null ? null : buildMockProviderConfig(judge),
+    denialBudget: { consecutive: 3, perSession: 20, ...denialBudget },
+    scopeSources: {
+      cwd: { kind: 'cwd' },
+      session: { kind: 'session' },
+      launcher: { kind: 'launcher' },
+      ...scopeSources,
+    },
+  };
+}

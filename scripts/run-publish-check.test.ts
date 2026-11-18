@@ -2,8 +2,8 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildStubProgram } from '../test-utils/build-stub-program.ts';
-import { runGit } from '../test-utils/run-git.ts';
+import { buildStubProgram } from '../src/test-utils/build-stub-program.ts';
+import { runGit } from '../src/test-utils/run-git.ts';
 import { runPublishCheck } from './run-publish-check.ts';
 
 async function setupTest(): Promise<{ readonly directory: string; readonly script: string }> {

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
+import { buildMockOwnedScope } from '../test-utils/factories/build-mock-owned-scope.ts';
 import { classifyReplyCall } from './classify-reply-call.ts';
 
 test('it allows a message to a reply-channel recipient', async () => {

@@ -2,7 +2,7 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../../test-utils/run-git.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { loadCheckoutFacts } from './load-checkout-facts.ts';
 import { readCheckout } from './read-checkout.ts';
 

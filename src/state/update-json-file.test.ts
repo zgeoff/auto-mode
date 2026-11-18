@@ -14,7 +14,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as z from 'zod';
-import { buildStubLockClock } from '../../test-utils/build-stub-lock-clock.ts';
+import { buildStubLockClock } from '../test-utils/build-stub-lock-clock.ts';
 import { loadJSONFile } from './load-json-file.ts';
 import { updateJSONFile } from './update-json-file.ts';
 
@@ -214,7 +214,7 @@ test('it lets one process at a time take over a stale lock that two judge stale 
     Bun.spawn(
       [
         process.execPath,
-        join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-lock-contender.ts'),
+        join(import.meta.dir, '..', 'test-utils', 'run-stub-lock-contender.ts'),
         ctx.path,
         logPath,
         label,

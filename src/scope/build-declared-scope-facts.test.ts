@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildStubRepositoryMembership } from '../../test-utils/build-stub-repository-membership.ts';
+import { buildStubRepositoryMembership } from '../test-utils/build-stub-repository-membership.ts';
 import { buildDeclaredScopeFacts } from './build-declared-scope-facts.ts';
 
 test('it owns every declared checkout and the branches that live in the action repository', () => {

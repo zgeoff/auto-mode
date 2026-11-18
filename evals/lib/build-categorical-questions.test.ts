@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockDecisionRequest } from '../../src/test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionRule } from '../../src/test-utils/factories/build-mock-decision-rule.ts';
 import { buildCategoricalQuestions } from './build-categorical-questions.ts';
 
 test('it asks one choice question with an option per rule, then none and unclear', () => {

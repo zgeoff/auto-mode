@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 import type { DecisionRequest } from 'auto-mode/eval';
 import invariant from 'tiny-invariant';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
+import { buildMockDecisionAnswer } from '../../src/test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockDecisionResult } from '../../src/test-utils/factories/build-mock-decision-result.ts';
 import { buildJevStage } from './build-jev-stage.ts';
 import { buildMockJevContributor } from './factories/build-mock-jev-contributor.ts';
 import { buildMockJevRecord } from './factories/build-mock-jev-record.ts';

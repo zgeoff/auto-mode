@@ -7,9 +7,9 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
-import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
-import { waitFor } from '../../test-utils/wait-for.ts';
+import { createStubClaude } from '../test-utils/create-stub-claude.ts';
+import { readStubClaudeRecords } from '../test-utils/read-stub-claude-records.ts';
+import { waitFor } from '../test-utils/wait-for.ts';
 import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
 

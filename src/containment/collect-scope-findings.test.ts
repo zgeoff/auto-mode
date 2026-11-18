@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
+import { buildMockOwnedScope } from '../test-utils/factories/build-mock-owned-scope.ts';
 import { collectScopeFindings } from './collect-scope-findings.ts';
 
 test.each([

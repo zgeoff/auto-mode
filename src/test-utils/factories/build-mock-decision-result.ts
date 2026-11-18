@@ -1,0 +1,13 @@
+import { faker } from '@faker-js/faker';
+import type { DecisionResult } from '../../model/types.ts';
+import { buildMockDecisionAnswer } from './build-mock-decision-answer.ts';
+
+export function buildMockDecisionResult(overrides: Partial<DecisionResult> = {}): DecisionResult {
+  return {
+    model: faker.lorem.slug(2),
+    answers: { rule_0: buildMockDecisionAnswer({ choice: 'allow', confidence: 1 }) },
+    inputTokens: faker.number.int({ min: 1, max: 10_000 }),
+    requestBytes: faker.number.int({ min: 1, max: 100_000 }),
+    ...overrides,
+  };
+}

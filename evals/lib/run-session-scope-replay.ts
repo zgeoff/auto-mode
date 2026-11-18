@@ -7,7 +7,7 @@ import {
   updateSessionScope,
 } from 'auto-mode/eval';
 import type { ContainmentDeny } from 'auto-mode/eval';
-import { buildStubCheckoutReader } from '../../test-utils/build-stub-checkout-reader.ts';
+import { buildStubCheckoutReader } from '../../src/test-utils/build-stub-checkout-reader.ts';
 import { buildStubSessionScope } from './build-stub-session-scope.ts';
 import type { TaskScopeSessions } from './corpora/task-scope-sessions-schema.ts';
 import type { DecisionRulesCase } from './load-decision-rules-cases.ts';

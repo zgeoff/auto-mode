@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockScopeFacts } from '../../test-utils/factories/build-mock-scope-facts.ts';
+import { buildMockScopeFacts } from '../test-utils/factories/build-mock-scope-facts.ts';
 import { mergeScopeFacts } from './merge-scope-facts.ts';
 
 test('it joins the facts of every source in source order', () => {

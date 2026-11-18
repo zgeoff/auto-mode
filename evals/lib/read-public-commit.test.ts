@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../../test-utils/run-git.ts';
+import { runGit } from '../../src/test-utils/run-git.ts';
 import { readPublicCommit } from './read-public-commit.ts';
 
 async function setupTest() {

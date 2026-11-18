@@ -2,13 +2,13 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
-import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
-import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
-import { runGit } from '../test-utils/run-git.ts';
 import { recordScope } from './record-scope.ts';
 import { loadSessionScope } from './scope/load-session-scope.ts';
 import { resolveSessionScopePath } from './scope/resolve-session-scope-path.ts';
+import { buildMockConfig } from './test-utils/factories/build-mock-config.ts';
+import { buildMockRuntime } from './test-utils/factories/build-mock-runtime.ts';
+import { buildMockScopeRecordRequest } from './test-utils/factories/build-mock-scope-record-request.ts';
+import { runGit } from './test-utils/run-git.ts';
 
 async function setupTest(): Promise<{ readonly directory: string; readonly repo: string }> {
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-record-scope-'));

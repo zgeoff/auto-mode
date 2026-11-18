@@ -2,11 +2,11 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildStubEditFileReader } from '../../test-utils/build-stub-edit-file-reader.ts';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
-import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
-import { runGit } from '../../test-utils/run-git.ts';
+import { buildStubEditFileReader } from '../test-utils/build-stub-edit-file-reader.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockOwnedScope } from '../test-utils/factories/build-mock-owned-scope.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { tryClassifyEdit } from './try-classify-edit.ts';
 
 async function setupTest() {

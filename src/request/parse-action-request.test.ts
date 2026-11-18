@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { readFixture } from '../../test-utils/read-fixture.ts';
+import { readFixture } from '../test-utils/read-fixture.ts';
 import { parseActionRequest } from './parse-action-request.ts';
 
 // Recorded from the mod in a live Claude Code session.

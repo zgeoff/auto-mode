@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
+import { buildMockOwnedScope } from '../test-utils/factories/build-mock-owned-scope.ts';
 import { buildTaskScopeSummary } from './build-task-scope-summary.ts';
 
 test('it keeps the owned worktrees, branches and pull requests and leaves out the rest of the scope', () => {

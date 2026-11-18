@@ -9,8 +9,8 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-request.ts';
-import { runGit } from '../test-utils/run-git.ts';
+import { buildMockModRequest } from './test-utils/factories/build-mock-mod-request.ts';
+import { runGit } from './test-utils/run-git.ts';
 
 async function setupTest() {
   const cli = join(import.meta.dirname, '..', 'dist', 'cli.js');
@@ -65,7 +65,7 @@ async function setupTest() {
     cli,
     directory,
     repo,
-    keyCommand: `"${process.execPath}" "${join(import.meta.dirname, '..', 'test-utils', 'run-stub-key-helper.ts')}" "${socketPath}"`,
+    keyCommand: `"${process.execPath}" "${join(import.meta.dirname, 'test-utils', 'run-stub-key-helper.ts')}" "${socketPath}"`,
     helperReport: report.promise,
     env: {
       // the CLI starts git for the task scope, which it finds through PATH

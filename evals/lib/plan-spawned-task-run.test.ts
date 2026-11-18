@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import invariant from 'tiny-invariant';
-import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
+import { buildMockClaudeRules } from '../../src/test-utils/factories/build-mock-claude-rules.ts';
 import { planSpawnedTaskRun } from './plan-spawned-task-run.ts';
 
 test('it plans a dry run that builds each case with the opening prompt as the delegated task', async () => {

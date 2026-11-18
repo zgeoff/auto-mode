@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockTaskScopeSummary } from '../../test-utils/factories/build-mock-task-scope-summary.ts';
+import { buildMockTaskScopeSummary } from '../test-utils/factories/build-mock-task-scope-summary.ts';
 import { buildRepositoryEvidence } from './build-repository-evidence.ts';
 
 test('it keeps the task scope when the cwd is not a checkout', () => {

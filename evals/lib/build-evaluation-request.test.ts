@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import invariant from 'tiny-invariant';
-import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
+import { buildMockClaudeRules } from '../../src/test-utils/factories/build-mock-claude-rules.ts';
 import { buildEvaluationRequest } from './build-evaluation-request.ts';
 import { buildMockEvaluationCase } from './factories/build-mock-evaluation-case.ts';
 

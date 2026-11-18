@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
 import { resolveCaptureDir } from './resolve-capture-dir.ts';
 
 test('it keeps captures under the auto-mode state directory when no dir is configured', () => {

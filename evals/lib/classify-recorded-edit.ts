@@ -1,8 +1,8 @@
 import { resolve } from 'node:path';
 import { tryClassifyEdit } from 'auto-mode/eval';
 import type { EditClassification } from 'auto-mode/eval';
-import { buildStubEditFileReader } from '../../test-utils/build-stub-edit-file-reader.ts';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
+import { buildStubEditFileReader } from '../../src/test-utils/build-stub-edit-file-reader.ts';
+import { buildMockHostEnvironment } from '../../src/test-utils/factories/build-mock-host-environment.ts';
 import type { RecordedCall } from './check-cwd-containment.ts';
 import type { RecordedRepository } from './read-cwd-task-scope.ts';
 import { readCwdTaskScope } from './read-cwd-task-scope.ts';

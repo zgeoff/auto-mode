@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import invariant from 'tiny-invariant';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionRequest } from '../../src/test-utils/factories/build-mock-decision-request.ts';
 import { toControlHash } from './to-control-hash.ts';
 
 test('it hashes two requests that differ only in the direct user message the same', () => {

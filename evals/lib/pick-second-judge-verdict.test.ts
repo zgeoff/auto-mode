@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
-import { buildMockRecordedDecisionAnswer } from '../../test-utils/factories/build-mock-recorded-decision-answer.ts';
-import { buildMockRecordedDecisionResult } from '../../test-utils/factories/build-mock-recorded-decision-result.ts';
+import { buildMockDecisionRequest } from '../../src/test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionRule } from '../../src/test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockRecordedDecisionAnswer } from '../../src/test-utils/factories/build-mock-recorded-decision-answer.ts';
+import { buildMockRecordedDecisionResult } from '../../src/test-utils/factories/build-mock-recorded-decision-result.ts';
 import { pickSecondJudgeVerdict } from './pick-second-judge-verdict.ts';
 
 test('it keeps a confident allow away from the second judge', () => {

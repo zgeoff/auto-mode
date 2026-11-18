@@ -2,9 +2,9 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
-import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
-import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
+import { createStubClaude } from '../test-utils/create-stub-claude.ts';
+import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
+import { readStubClaudeRecords } from '../test-utils/read-stub-claude-records.ts';
 import { sendJudgeMessage } from './send-judge-message.ts';
 import { startJudgeSession } from './start-judge-session.ts';
 

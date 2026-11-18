@@ -13,10 +13,10 @@ metadata:
 
 ## Facts
 
-| Fact          | Where                                                                                                                                                                                                    |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Test commands | [`rig.config.ts`](../../../rig.config.ts), which adds none to `bun run test`                                                                                                                             |
-| Test utils    | [`test-utils/`](../../../test-utils/); [`mods/auto-mode/hooks/test-utils/`](../../../mods/auto-mode/hooks/test-utils/) for the mod checks; [`evals/lib/`](../../../evals/lib/) for the evaluation suites |
+| Fact          | Where                                                                                                                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Test commands | [`rig.config.ts`](../../../rig.config.ts), which adds none to `bun run test`                                                                                                                                 |
+| Test utils    | [`test-utils/`](../../../src/test-utils/); [`mods/auto-mode/hooks/test-utils/`](../../../mods/auto-mode/hooks/test-utils/) for the mod checks; [`evals/lib/`](../../../evals/lib/) for the evaluation suites |
 
 ## Departures
 
@@ -47,9 +47,9 @@ scratch paths are the folders every task may write. Every function below them ta
 [`HostEnvironment`](../../../src/config/types.ts): `{ env, home, scratchPaths? }`.
 
 - Build one with
-  [`buildMockHostEnvironment`](../../../test-utils/factories/build-mock-host-environment.ts). Its
-  `env` is empty and its `home` doesn't exist, so pass the test's temp folder as `home`, and name
-  each variable the case needs in `env`.
+  [`buildMockHostEnvironment`](../../../src/test-utils/factories/build-mock-host-environment.ts).
+  Its `env` is empty and its `home` doesn't exist, so pass the test's temp folder as `home`, and
+  name each variable the case needs in `env`.
 - When your test expects a write under `/tmp` to be denied as outside the task's scope, pass
   `scratchPaths: []`. A `HostEnvironment` without `scratchPaths` gets `/tmp` and the `/dev` streams,
   and the scope check finds no out-of-scope write there. With or without `scratchPaths`, the scope
@@ -62,10 +62,10 @@ scratch paths are the folders every task may write. Every function below them ta
 
 - Run the CLI in-process through [`runCLI`](../../../src/run-cli.ts), as
   [`run-cli.test.ts`](../../../src/run-cli.test.ts) does. Pass
-  [`buildStubOutput`](../../../test-utils/build-stub-output.ts) for stdout and stderr, and read what
-  the CLI wrote with its `read()`. Pass
-  [`buildStubStopSignals`](../../../test-utils/build-stub-stop-signals.ts) for SIGTERM and SIGINT;
-  its `stop()` calls each callback still subscribed.
+  [`buildStubOutput`](../../../src/test-utils/build-stub-output.ts) for stdout and stderr, and read
+  what the CLI wrote with its `read()`. Pass
+  [`buildStubStopSignals`](../../../src/test-utils/build-stub-stop-signals.ts) for SIGTERM and
+  SIGINT; its `stop()` calls each callback still subscribed.
 - To test the built CLI, spawn `dist/cli.js` under node 24 with an `env` that holds `PATH`, plus
   `HOME` and the XDG folders set to the temp folder, as the `cli-*.test.ts` files in
   [`e2e/`](../../../e2e/) do. Run `bun run build` before a bare `bun test e2e/<file>`, or it runs
@@ -75,16 +75,16 @@ scratch paths are the folders every task may write. Every function below them ta
   needs your real `HOME`, which the child doesn't get.
 - To send a stop signal to a spawned CLI, copy [`cli.test.ts`](../../../src/cli.test.ts). Set the
   API key command in the CLI's config to
-  [`run-stub-key-helper.ts`](../../../test-utils/run-stub-key-helper.ts). The CLI then blocks on the
-  helper and sends no request. Send the signal once the helper connects to the socket path that the
-  test passes it.
+  [`run-stub-key-helper.ts`](../../../src/test-utils/run-stub-key-helper.ts). The CLI then blocks on
+  the helper and sends no request. Send the signal once the helper connects to the socket path that
+  the test passes it.
 
 ## Git
 
-- Run git through [`runGit`](../../../test-utils/run-git.ts). It gives git only `PATH`, a `HOME` in
-  the temp folder, no global or system config and a fixed identity, so a pre-push hook's `GIT_DIR`
-  and your signing config never reach it.
-- Pass [`run-stub-gh.ts`](../../../test-utils/run-stub-gh.ts) to
+- Run git through [`runGit`](../../../src/test-utils/run-git.ts). It gives git only `PATH`, a `HOME`
+  in the temp folder, no global or system config and a fixed identity, so a pre-push hook's
+  `GIT_DIR` and your signing config never reach it.
+- Pass [`run-stub-gh.ts`](../../../src/test-utils/run-stub-gh.ts) to
   [`readPullRequest`](../../../src/scope/read-pull-request.ts) as its gh command, as
   `read-pull-request.test.ts` does. Give the stub, as its first argument, a JSON file of the pull
   requests that `gh pr view` returns.
@@ -94,36 +94,36 @@ scratch paths are the folders every task may write. Every function below them ta
 - Pass `now` and `timeout` through the `runtime` field of the
   [`EvaluationOptions`](../../../src/config/types.ts) that `classifyAction` and `classifyWithJudge`
   take. Each builds its deadlines from them. Build the runtime with
-  [`buildMockRuntime`](../../../test-utils/factories/build-mock-runtime.ts).
+  [`buildMockRuntime`](../../../src/test-utils/factories/build-mock-runtime.ts).
 - When you call the decision client or a judge session directly, pass an `AbortSignal`, such as
   `AbortSignal.timeout(10_000)`. Each takes its deadline only from that signal.
-- Pass [`buildStubLockClock`](../../../test-utils/build-stub-lock-clock.ts) as the `LockClock` that
-  [`updateJSONFile`](../../../src/state/update-json-file.ts) and the state writers take. With
+- Pass [`buildStubLockClock`](../../../src/test-utils/build-stub-lock-clock.ts) as the `LockClock`
+  that [`updateJSONFile`](../../../src/state/update-json-file.ts) and the state writers take. With
   `advancesOnWait`, its `now()` moves forward by each delay passed to `wait()`.
 - To check that the API key reader stops its command and the command's child on cancellation or at
   the deadline, use `run-stub-key-helper.ts` as the command, as
   [`read-api-key-from-command.test.ts`](../../../src/config/read-api-key-from-command.test.ts) does.
   It reports its own process ID and its child's. Read each process's state with
-  [`loadProcessState`](../../../test-utils/load-process-state.ts), which reads `/proc` and so runs
-  on Linux only.
+  [`loadProcessState`](../../../src/test-utils/load-process-state.ts), which reads `/proc` and so
+  runs on Linux only.
 
 ## HTTP
 
-[`handlers.ts`](../../../mocks/handlers.ts) answers `DECISION_URL`, the decision API that a provider
-with `protocol: 'system-one'` calls. The provider that `buildMockProviderConfig` returns already
-points there.
+[`handlers.ts`](../../../src/test-utils/mocks/handlers.ts) answers `DECISION_URL`, the decision API
+that a provider with `protocol: 'system-one'` calls. The provider that `buildMockProviderConfig`
+returns already points there.
 
-- Seed a decision answer in [`decisionAnswers`](../../../mocks/decision-answers.ts), keyed by
-  question ID, such as `rule_0`. A question with no seeded answer gets `allow` at confidence 1. The
-  preload clears every seeded answer after each test.
+- Seed a decision answer in [`decisionAnswers`](../../../src/test-utils/mocks/decision-answers.ts),
+  keyed by question ID, such as `rule_0`. A question with no seeded answer gets `allow` at
+  confidence 1. The preload clears every seeded answer after each test.
 - Assert the exact request body in the decision client's own tests. The mock decision API rejects a
   request only where the real API does. It never checks what a non-null `state` holds, or any field
   of a question except `type`.
 - Build a `system-one` provider at the mock decision host with
-  [`buildMockProviderConfig`](../../../test-utils/factories/build-mock-provider-config.ts).
+  [`buildMockProviderConfig`](../../../src/test-utils/factories/build-mock-provider-config.ts).
 - To capture a request, pass `server.use` a handler that records the request and returns nothing.
-  Use the MSW server in [`mocks/node.ts`](../../../mocks/node.ts). Read the body from
-  `request.clone()`, so the default handler can still read it.
+  Use the MSW server in [`src/test-utils/mocks/node.ts`](../../../src/test-utils/mocks/node.ts).
+  Read the body from `request.clone()`, so the default handler can still read it.
 - In a capture test, also assert the answer the default handler gives. A handler that returns
   nothing hands the request on. If no later handler answers, MSW sends the request to the real
   network, and the test still passes.
@@ -134,9 +134,9 @@ points there.
 
 Every judge review runs in a `claude` process that the Agent SDK starts, and MSW can't reach a
 spawned process. Stand in for `claude` with
-[`run-stub-claude.ts`](../../../test-utils/run-stub-claude.ts).
+[`run-stub-claude.ts`](../../../src/test-utils/run-stub-claude.ts).
 
-- In `setupTest`, call [`createStubClaude`](../../../test-utils/create-stub-claude.ts) with the
+- In `setupTest`, call [`createStubClaude`](../../../src/test-utils/create-stub-claude.ts) with the
   test's temp folder, and return the `bin` folder it gives back, as
   [`classify-with-judge.test.ts`](../../../src/judge/classify-with-judge.test.ts) does.
 - In each test, pass only that `bin` folder as `PATH`: in the `env` you give `startJudgeSession`, or
@@ -144,14 +144,14 @@ spawned process. Stand in for `claude` with
 - Set the stub's reply with the `STUB_CLAUDE_*` variables that `run-stub-claude.ts` reads. Put them
   in the same `env` as `PATH`.
 - To check what a review sent, set `STUB_CLAUDE_RECORD` to a file in the temp tree. Read that file
-  with [`readStubClaudeRecords`](../../../test-utils/read-stub-claude-records.ts), which returns one
-  record per review. Search `run-stub-claude.ts` for `appendFileSync` to see each field a record
+  with [`readStubClaudeRecords`](../../../src/test-utils/read-stub-claude-records.ts), which returns
+  one record per review. Search `run-stub-claude.ts` for `appendFileSync` to see each field a record
   holds.
 
 ## Recorded inputs
 
 - Read a mod request recorded in a live Claude Code session, a `mod-request-*.json` file in
-  [`fixtures/`](../../../fixtures/), with [`readFixture`](../../../test-utils/read-fixture.ts).
+  [`fixtures/`](../../../fixtures/), with [`readFixture`](../../../src/test-utils/read-fixture.ts).
 - Never run an evaluation runner in a test. The `run-*-evaluation.ts` runners in
   [`evals/runners/`](../../../evals/runners/) send real model requests. The replay suites read the
   recorded answers in the `recorded/` folder of [`evals/corpora/`](../../../evals/corpora/).

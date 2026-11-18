@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
 import { HttpResponse, http } from 'msw';
-import { DECISION_URL } from '../../mocks/handlers.ts';
-import { server } from '../../mocks/node.ts';
-import { buildMockDecisionQuestion } from '../../test-utils/factories/build-mock-decision-question.ts';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { buildMockDecisionQuestion } from '../../src/test-utils/factories/build-mock-decision-question.ts';
+import { buildMockDecisionRequest } from '../../src/test-utils/factories/build-mock-decision-request.ts';
+import { buildMockProviderConfig } from '../../src/test-utils/factories/build-mock-provider-config.ts';
+import { DECISION_URL } from '../../src/test-utils/mocks/handlers.ts';
+import { server } from '../../src/test-utils/mocks/node.ts';
 import { sendShapeRequest } from './send-shape-request.ts';
 
 test('it returns the model, the input tokens and the answers Jev gives', async () => {

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockRepositoryContext } from '../../test-utils/factories/build-mock-repository-context.ts';
+import { buildMockActionRequest } from '../../src/test-utils/factories/build-mock-action-request.ts';
+import { buildMockRepositoryContext } from '../../src/test-utils/factories/build-mock-repository-context.ts';
 import { buildContainmentStage } from './build-containment-stage.ts';
 import { buildMockMeasurementCase } from './factories/build-mock-measurement-case.ts';
 import { buildMockStageContext } from './factories/build-mock-stage-context.ts';

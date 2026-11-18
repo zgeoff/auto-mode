@@ -13,7 +13,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../../test-utils/run-git.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { tryWriteRequestCapture } from './try-write-request-capture.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {

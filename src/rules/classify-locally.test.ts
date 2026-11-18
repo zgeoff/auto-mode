@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
 import { classifyLocally } from './classify-locally.ts';
 
 test('it allows a read-only tool by name without reading a command', () => {

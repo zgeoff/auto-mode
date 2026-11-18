@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll } from 'bun:test';
 import { faker } from '@faker-js/faker';
-import { decisionAnswers } from './mocks/decision-answers.ts';
-import { server } from './mocks/node.ts';
+import { decisionAnswers } from './src/test-utils/mocks/decision-answers.ts';
+import { server } from './src/test-utils/mocks/node.ts';
 
 // A git hook and a launcher export these. This clears them for in-process reads
 // and node:child_process children only: a Bun.spawn or Bun.$ child still gets

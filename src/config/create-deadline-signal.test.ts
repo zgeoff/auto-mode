@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
-import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
+import { buildStubTimeout } from '../test-utils/build-stub-timeout.ts';
+import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { createDeadlineSignal } from './create-deadline-signal.ts';
 
 test.each([

@@ -2,8 +2,8 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
-import { readFixture } from '../../test-utils/read-fixture.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
+import { readFixture } from '../test-utils/read-fixture.ts';
 import { loadMCPServers } from './load-mcp-servers.ts';
 
 async function setupTest() {

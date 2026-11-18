@@ -2,12 +2,12 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { buildStubLockClock } from '../../test-utils/build-stub-lock-clock.ts';
-import { buildStubPullRequestReader } from '../../test-utils/build-stub-pull-request-reader.ts';
-import { buildStubScopeEventVerifier } from '../../test-utils/build-stub-scope-event-verifier.ts';
-import { buildMockScopeRecordRequest } from '../../test-utils/factories/build-mock-scope-record-request.ts';
-import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
-import { runGit } from '../../test-utils/run-git.ts';
+import { buildStubLockClock } from '../test-utils/build-stub-lock-clock.ts';
+import { buildStubPullRequestReader } from '../test-utils/build-stub-pull-request-reader.ts';
+import { buildStubScopeEventVerifier } from '../test-utils/build-stub-scope-event-verifier.ts';
+import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
+import { buildMockSessionScope } from '../test-utils/factories/build-mock-session-scope.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { updateSessionScope } from './update-session-scope.ts';
 

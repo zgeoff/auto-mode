@@ -7,10 +7,10 @@ import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
-import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
-import { loadProcessState } from '../../test-utils/load-process-state.ts';
-import { waitFor } from '../../test-utils/wait-for.ts';
+import { buildStubTimeout } from '../test-utils/build-stub-timeout.ts';
+import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
+import { loadProcessState } from '../test-utils/load-process-state.ts';
+import { waitFor } from '../test-utils/wait-for.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 
 async function setupTest() {
@@ -41,7 +41,7 @@ async function setupTest() {
 test('it stops a key helper and its child on cancellation', async () => {
   const ctx = await setupTest();
 
-  const helper = join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-key-helper.ts');
+  const helper = join(import.meta.dir, '..', 'test-utils', 'run-stub-key-helper.ts');
 
   const controller = new AbortController();
 

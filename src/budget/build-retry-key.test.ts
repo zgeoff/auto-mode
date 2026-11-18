@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
 import { buildRetryKey } from './build-retry-key.ts';
 
 test('it keys the same action the same way whatever its key order', () => {
