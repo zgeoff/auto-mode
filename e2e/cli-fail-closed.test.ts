@@ -1,25 +1,18 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import invariant from 'tiny-invariant';
-import * as z from 'zod';
-import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-request.ts';
-import { runGit } from '../test-utils/run-git.ts';
+import { dirname, join, relative } from 'node:path';
+import { resolveProgram } from '@zgeoff/rig/e2e';
+import { run } from '@zgeoff/testing/process';
+import { buildIsolatedEnv } from '../src/test-utils/build-isolated-env.ts';
+import { buildMockModRequest } from '../src/test-utils/factories/build-mock-mod-request.ts';
+import { getProgramArtifact } from '../src/test-utils/get-program-artifact.ts';
+import { readNodePath } from '../src/test-utils/read-node-path.ts';
+import { runGit } from '../src/test-utils/run-git.ts';
 
-async function setupTest(): Promise<{
-  readonly node: string;
-  readonly root: string;
-  readonly directory: string;
-  readonly repo: string;
-  readonly env: Readonly<Record<string, string | undefined>>;
-}> {
-  const root = join(import.meta.dirname, '..');
-  const cli = join(root, 'dist', 'cli.js');
-
-  invariant(existsSync(cli), `${cli} is missing: run \`bun run build\` before this suite`);
-
+async function setupTest() {
+  const program = await resolveProgram('auto-mode');
+  const node = await readNodePath();
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-e2e-cli-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
@@ -32,39 +25,22 @@ async function setupTest(): Promise<{
   // would otherwise reach.
   runGit(directory, ['init', '-q', '-b', 'main', repo]);
 
-  // A version manager's node shim reads its config under the user's HOME, which
-  // the child does not get, so the child runs the binary the shim resolves to.
-  const resolved: unknown =
-    await Bun.$`node -p ${'JSON.stringify({ node: process.execPath, version: process.versions.node })'}`
-      .quiet()
-      .json();
-
-  const runtime = z.object({ node: z.string(), version: z.string() }).parse(resolved);
-
-  invariant(
-    runtime.version.startsWith('24.'),
-    `node 24 runs this suite, not node ${runtime.version}`,
-  );
+  const artifact = relative(program.cwd, getProgramArtifact(program));
 
   return {
-    node: runtime.node,
-    root,
+    node,
+    root: program.cwd,
+    artifact,
     directory,
     repo,
-
-    env: {
+    env: buildIsolatedEnv(process.env, {
       PATH: process.env['PATH'],
-
       HOME: directory,
-
       XDG_CONFIG_HOME: directory,
-
       XDG_STATE_HOME: directory,
-
       AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
-
       CLAUDE_CONFIG_DIR: directory,
-    },
+    }),
   };
 }
 
@@ -73,7 +49,10 @@ test('it keeps a fail-closed denial under node when the safer-path guidance is m
 
   const copy = join(ctx.directory, 'package');
 
-  await cp(join(ctx.root, 'dist'), join(copy, 'dist'), { recursive: true });
+  await cp(join(ctx.root, dirname(ctx.artifact)), join(copy, dirname(ctx.artifact)), {
+    recursive: true,
+  });
+
   await cp(join(ctx.root, 'policy'), join(copy, 'policy'), { recursive: true });
   await rm(join(copy, 'policy', 'denial.md'));
   await mkdir(join(ctx.directory, 'auto-mode'));
@@ -93,17 +72,14 @@ test('it keeps a fail-closed denial under node when the safer-path guidance is m
     toolInput: { file_path: join(ctx.repo, 'file.ts') },
   });
 
-  const result =
-    await Bun.$`${ctx.node} ${join(copy, 'dist', 'cli.js')} run < ${Response.json(payload)}`
-      .env(ctx.env)
-      .quiet()
-      .nothrow();
+  const result = await run([ctx.node, join(copy, ctx.artifact)], {
+    args: ['run'],
+    cwd: ctx.root,
+    env: ctx.env,
+    input: JSON.stringify(payload),
+  });
 
-  expect({
-    exitCode: result.exitCode,
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
-  }).toStrictEqual({
+  expect(result).toStrictEqual({
     exitCode: 0,
     stdout: JSON.stringify({
       decision: 'deny',

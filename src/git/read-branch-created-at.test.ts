@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { runGit } from '../../test-utils/run-git.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { readBranchCreatedAt } from './read-branch-created-at.ts';
 
 async function setupTest() {

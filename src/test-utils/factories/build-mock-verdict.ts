@@ -1,0 +1,14 @@
+import { faker } from '@faker-js/faker';
+import type { Verdict } from '../../request/types.ts';
+
+type DenyVerdict = Extract<Verdict, { kind: 'deny' }>;
+
+type VerdictOverrides = Partial<DenyVerdict> | { readonly kind: 'allow' };
+
+export function buildMockVerdict(overrides: VerdictOverrides = {}): Verdict {
+  if (overrides.kind === 'allow') {
+    return { kind: 'allow' };
+  }
+
+  return { kind: 'deny', rule: faker.lorem.words(2), reason: faker.lorem.sentence(), ...overrides };
+}

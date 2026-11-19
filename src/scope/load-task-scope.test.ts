@@ -2,10 +2,10 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
-import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
-import { runGit } from '../../test-utils/run-git.ts';
 import { readTextFile } from '../config/read-text-file.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockSessionScope } from '../test-utils/factories/build-mock-session-scope.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { loadTaskScope } from './load-task-scope.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {

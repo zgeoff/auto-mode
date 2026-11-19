@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
+import { buildMockSessionScope } from '../test-utils/factories/build-mock-session-scope.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { writeSessionScope } from './write-session-scope.ts';
 

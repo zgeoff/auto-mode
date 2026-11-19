@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
+import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
 import { buildJevOnlyConfig } from './build-jev-only-config.ts';
 
 test.each([

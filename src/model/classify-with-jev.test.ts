@@ -5,16 +5,16 @@ import { join } from 'node:path';
 import { HttpResponse, delay, http } from 'msw';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { decisionAnswers } from '../../mocks/decision-answers.ts';
-import { DECISION_URL } from '../../mocks/handlers.ts';
-import { server } from '../../mocks/node.ts';
-import { buildStubTimeout } from '../../test-utils/build-stub-timeout.ts';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockConfig } from '../../test-utils/factories/build-mock-config.ts';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
-import { buildMockTaskScopeSummary } from '../../test-utils/factories/build-mock-task-scope-summary.ts';
-import { runGit } from '../../test-utils/run-git.ts';
+import { buildStubTimeout } from '../test-utils/build-stub-timeout.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockConfig } from '../test-utils/factories/build-mock-config.ts';
+import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
+import { buildMockTaskScopeSummary } from '../test-utils/factories/build-mock-task-scope-summary.ts';
+import { decisionAnswers } from '../test-utils/mocks/decision-answers.ts';
+import { DECISION_URL } from '../test-utils/mocks/handlers.ts';
+import { server } from '../test-utils/mocks/node.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
 
 async function setupTest() {

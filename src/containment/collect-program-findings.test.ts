@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
+import { buildMockOwnedScope } from '../test-utils/factories/build-mock-owned-scope.ts';
 import { collectProgramFindings } from './collect-program-findings.ts';
 
 test('it finds nothing in a program the table does not list', () => {

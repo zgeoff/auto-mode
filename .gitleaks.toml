@@ -13,7 +13,7 @@ paths = ['''\.test\.ts$''']
 [[allowlists]]
 targetRules = ["generic-api-key"]
 description = "fixtures are recorded mod requests and corpora with placeholder values"
-paths = ['''^fixtures/''', '''^evals/corpora/''']
+paths = ['''^fixtures/''', '''^evals/''']
 
 [[allowlists]]
 targetRules = ["sourcegraph-access-token"]

@@ -6,26 +6,26 @@ import { join } from 'node:path';
 import { HttpResponse, http } from 'msw';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
-import { decisionAnswers } from '../mocks/decision-answers.ts';
-import { DECISION_URL } from '../mocks/handlers.ts';
-import { server } from '../mocks/node.ts';
-import type { StubOutput } from '../test-utils/build-stub-output.ts';
-import { buildStubOutput } from '../test-utils/build-stub-output.ts';
-import type { StubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
-import { buildStubStopSignals } from '../test-utils/build-stub-stop-signals.ts';
-import { createStubClaude } from '../test-utils/create-stub-claude.ts';
-import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockModRequest } from '../test-utils/factories/build-mock-mod-request.ts';
-import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
-import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
-import { readStubClaudeRecords } from '../test-utils/read-stub-claude-records.ts';
-import { runGit } from '../test-utils/run-git.ts';
 import type { HostEnvironment } from './config/types.ts';
 import { loadPolicy } from './policy/load-policy.ts';
 import { runCLI } from './run-cli.ts';
 import { loadSessionScope } from './scope/load-session-scope.ts';
 import { resolveSessionScopePath } from './scope/resolve-session-scope-path.ts';
 import { resolveXDGDir } from './state/resolve-xdg-dir.ts';
+import type { StubOutput } from './test-utils/build-stub-output.ts';
+import { buildStubOutput } from './test-utils/build-stub-output.ts';
+import type { StubStopSignals } from './test-utils/build-stub-stop-signals.ts';
+import { buildStubStopSignals } from './test-utils/build-stub-stop-signals.ts';
+import { createStubClaude } from './test-utils/create-stub-claude.ts';
+import { buildMockDecisionAnswer } from './test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockModRequest } from './test-utils/factories/build-mock-mod-request.ts';
+import { buildMockRuntime } from './test-utils/factories/build-mock-runtime.ts';
+import { buildMockScopeRecordRequest } from './test-utils/factories/build-mock-scope-record-request.ts';
+import { decisionAnswers } from './test-utils/mocks/decision-answers.ts';
+import { DECISION_URL } from './test-utils/mocks/handlers.ts';
+import { server } from './test-utils/mocks/node.ts';
+import { readStubClaudeRecords } from './test-utils/read-stub-claude-records.ts';
+import { runGit } from './test-utils/run-git.ts';
 
 async function setupTest(): Promise<{
   readonly directory: string;
@@ -1766,7 +1766,7 @@ test('it reviews a Jev deny through the judge server on a Messages API judge’s
     }),
     judgeServerCommand: [
       process.execPath,
-      join(import.meta.dir, '..', 'test-utils', 'run-stub-judge-server.ts'),
+      join(import.meta.dir, 'test-utils', 'run-stub-judge-server.ts'),
     ],
     subscribeToStopSignals: ctx.stopSignals.subscribeToStopSignals,
   });

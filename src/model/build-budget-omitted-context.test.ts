@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionContext } from '../../test-utils/factories/build-mock-decision-context.ts';
+import { buildMockDecisionContext } from '../test-utils/factories/build-mock-decision-context.ts';
 import { buildBudgetOmittedContext } from './build-budget-omitted-context.ts';
 
 test('it drops the task and records the budget as the reason', () => {

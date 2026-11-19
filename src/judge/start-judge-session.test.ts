@@ -3,9 +3,9 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import invariant from 'tiny-invariant';
-import { createStubClaude } from '../../test-utils/create-stub-claude.ts';
-import { readStubClaudeRecords } from '../../test-utils/read-stub-claude-records.ts';
-import { waitFor } from '../../test-utils/wait-for.ts';
+import { createStubClaude } from '../test-utils/create-stub-claude.ts';
+import { readStubClaudeRecords } from '../test-utils/read-stub-claude-records.ts';
+import { waitFor } from '../test-utils/wait-for.ts';
 import { startJudgeSession } from './start-judge-session.ts';
 import type { JudgeSession } from './types.ts';
 

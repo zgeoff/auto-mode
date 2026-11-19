@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'bun:test';
-import { buildStubCheckoutReader } from '../../test-utils/build-stub-checkout-reader.ts';
+import { buildStubCheckoutReader } from '../test-utils/build-stub-checkout-reader.ts';
 import { makeOnceCheckoutReader } from './make-once-checkout-reader.ts';
 
 test('it looks a directory up once and answers every later lookup from the first', async () => {

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockEditAction } from '../../test-utils/factories/build-mock-edit-action.ts';
+import { buildMockEditAction } from '../test-utils/factories/build-mock-edit-action.ts';
 import { classifyEdit } from './classify-edit.ts';
 
 test('it bypasses an Edit into an in-scope worktree', () => {

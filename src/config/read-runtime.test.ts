@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { DECISION_URL } from '../../mocks/handlers.ts';
+import { DECISION_URL } from '../test-utils/mocks/handlers.ts';
 import { readRuntime } from './read-runtime.ts';
 
 test('it reads the process environment and home, with /tmp and the standard streams as scratch space', () => {

@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../../test-utils/run-git.ts';
+import { runGit } from '../test-utils/run-git.ts';
 import { readEnclosingWorkTree } from './read-enclosing-work-tree.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {

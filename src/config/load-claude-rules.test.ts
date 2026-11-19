@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
 import { loadClaudeRules } from './load-claude-rules.ts';
 
 async function setupTest(): Promise<{ readonly directory: string; readonly path: string }> {

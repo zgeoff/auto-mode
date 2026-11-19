@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockProviderConfig } from '../../test-utils/factories/build-mock-provider-config.ts';
+import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
 import { pickClassifierLane } from './pick-classifier-lane.ts';
 
 test.each([

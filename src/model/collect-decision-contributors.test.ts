@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockDecisionRequest } from '../test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionResult } from '../test-utils/factories/build-mock-decision-result.ts';
+import { buildMockDecisionRule } from '../test-utils/factories/build-mock-decision-rule.ts';
 import { collectDecisionContributors } from './collect-decision-contributors.ts';
 
 test('it records every rule at or above the threshold, highest block probability first', () => {

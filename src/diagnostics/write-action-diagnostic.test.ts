@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { faker } from '@faker-js/faker';
 import * as z from 'zod';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockHostEnvironment } from '../../test-utils/factories/build-mock-host-environment.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
 import { writeActionDiagnostic } from './write-action-diagnostic.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {

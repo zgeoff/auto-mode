@@ -12,7 +12,7 @@ async function setupTest() {
   return {
     directory,
     statePath: join(directory, 'pull-requests.json'),
-    stubPath: join(import.meta.dir, '..', '..', 'test-utils', 'run-stub-gh.ts'),
+    stubPath: join(import.meta.dir, '..', 'test-utils', 'run-stub-gh.ts'),
   };
 }
 

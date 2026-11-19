@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { $ } from 'bun';
-import { runGit } from '../test-utils/run-git.ts';
+import { runGit } from '../src/test-utils/run-git.ts';
 
 async function setupTest(): Promise<{ readonly gitDirectory: string }> {
   const directory = await mkdtemp(join(tmpdir(), 'check-artifact-'));

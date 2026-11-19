@@ -3,9 +3,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
-import { buildStubOutput } from '../test-utils/build-stub-output.ts';
-import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
-import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
+import { buildStubOutput } from './test-utils/build-stub-output.ts';
+import { buildMockActionRequest } from './test-utils/factories/build-mock-action-request.ts';
+import { buildMockHostEnvironment } from './test-utils/factories/build-mock-host-environment.ts';
 import { writeActionFailure } from './write-action-failure.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {

@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { buildMockDecisionAnswer } from '../../test-utils/factories/build-mock-decision-answer.ts';
-import { buildMockDecisionRequest } from '../../test-utils/factories/build-mock-decision-request.ts';
-import { buildMockDecisionResult } from '../../test-utils/factories/build-mock-decision-result.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
+import { buildMockDecisionAnswer } from '../test-utils/factories/build-mock-decision-answer.ts';
+import { buildMockDecisionRequest } from '../test-utils/factories/build-mock-decision-request.ts';
+import { buildMockDecisionResult } from '../test-utils/factories/build-mock-decision-result.ts';
+import { buildMockDecisionRule } from '../test-utils/factories/build-mock-decision-rule.ts';
 import { findReviewedRule } from './find-reviewed-rule.ts';
 
 test('it reviews a blocking hard rule ranked below a soft rule', () => {

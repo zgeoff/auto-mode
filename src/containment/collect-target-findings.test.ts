@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
+import { buildMockOwnedScope } from '../test-utils/factories/build-mock-owned-scope.ts';
 import { collectTargetFindings } from './collect-target-findings.ts';
 
 test('it finds a relative target outside the task scope by its resolved path', () => {

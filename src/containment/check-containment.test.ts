@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockOwnedScope } from '../../test-utils/factories/build-mock-owned-scope.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockOwnedScope } from '../test-utils/factories/build-mock-owned-scope.ts';
 import { checkContainment } from './check-containment.ts';
 
 test('it finds no deny for a write inside the owned worktree', () => {

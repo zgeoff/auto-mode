@@ -2,8 +2,8 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockRuntime } from '../../test-utils/factories/build-mock-runtime.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { resolveOpeningPrompt } from './resolve-opening-prompt.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {

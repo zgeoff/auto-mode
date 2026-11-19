@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
-import { buildMockDecisionRule } from '../../test-utils/factories/build-mock-decision-rule.ts';
 import { buildDecisionRequest } from '../model/build-decision-request.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockClaudeRules } from '../test-utils/factories/build-mock-claude-rules.ts';
+import { buildMockDecisionRule } from '../test-utils/factories/build-mock-decision-rule.ts';
 import { buildDenyReason } from './build-deny-reason.ts';
 
 test('it renders a matched reason from the template of a shipped rule', () => {

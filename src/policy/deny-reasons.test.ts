@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { buildMockActionRequest } from '../../test-utils/factories/build-mock-action-request.ts';
-import { buildMockClaudeRules } from '../../test-utils/factories/build-mock-claude-rules.ts';
 import { buildDecisionRequest } from '../model/build-decision-request.ts';
+import { buildMockActionRequest } from '../test-utils/factories/build-mock-action-request.ts';
+import { buildMockClaudeRules } from '../test-utils/factories/build-mock-claude-rules.ts';
 import { DENY_REASONS } from './deny-reasons.ts';
 
 test('it files each template under the tier of its shipped rule', () => {

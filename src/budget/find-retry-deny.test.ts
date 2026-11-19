@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockDenialState } from '../../test-utils/factories/build-mock-denial-state.ts';
+import { buildMockDenialState } from '../test-utils/factories/build-mock-denial-state.ts';
 import { findRetryDeny } from './find-retry-deny.ts';
 
 test('it denies a retry of the action just denied with the same rule and reason', () => {

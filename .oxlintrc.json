@@ -15,7 +15,11 @@
       "error",
       {
         "zones": {
-          "core": ["src/**"],
+          // src/measure and src/test-utils are tooling, so they sit outside core
+          "core": [
+            "src/*.ts",
+            "src/{budget,bypass,capture,config,containment,diagnostics,eval,git,judge,model,policy,process,request,rules,scope,secrets,shell,state}/**"
+          ],
           "mods": ["mods/**"],
           "orchestrator": [
             "src/classify-action.ts",
@@ -38,7 +42,7 @@
           // the request and verdict shapes the mod and the CLI share
           "contract": ["mods/auto-mode/contract/**"],
           "mod": ["mods/auto-mode/**"],
-          "tooling": ["{evals,scripts,test-utils,mocks,fixtures}/**"]
+          "tooling": ["{evals,scripts,fixtures}/**", "src/measure/**", "src/test-utils/**"]
         },
         // the eval condition maps each export to source, which is what the zones judge
         "conditions": ["auto-mode-eval"],

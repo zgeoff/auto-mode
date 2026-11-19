@@ -20,8 +20,9 @@ minimumReleaseAgeExcludes = [
   "@zgeoff/oxlint-config",
   "@zgeoff/rig",
   "@zgeoff/std",
+  "@zgeoff/testing",
 ]
 
 [test]
 # registers the jest-extended matchers, then the shared setup and resets for `bun test`
-preload = ["@zgeoff/bun-test-extended", "./test-setup.ts"]
+preload = ["@zgeoff/bun-test-extended", "./src/test-utils/test-setup.ts"]

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildMockSessionScope } from '../../test-utils/factories/build-mock-session-scope.ts';
+import { buildMockSessionScope } from '../test-utils/factories/build-mock-session-scope.ts';
 import { mergeSessionScope } from './merge-session-scope.ts';
 
 test('it joins the scope of every record in record order', () => {

@@ -1,70 +1,42 @@
 import { expect, onTestFinished, test } from 'bun:test';
-import { existsSync } from 'node:fs';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import invariant from 'tiny-invariant';
-import * as z from 'zod';
+import { resolveProgram } from '@zgeoff/rig/e2e';
+import { run } from '@zgeoff/testing/process';
+import { buildIsolatedEnv } from '../src/test-utils/build-isolated-env.ts';
+import { buildNodeCommand } from '../src/test-utils/build-node-command.ts';
+import { readNodePath } from '../src/test-utils/read-node-path.ts';
 
-async function setupTest(): Promise<{
-  readonly node: string;
-  readonly cli: string;
-  readonly env: Readonly<Record<string, string | undefined>>;
-}> {
-  const root = join(import.meta.dirname, '..');
-  const cli = join(root, 'dist', 'cli.js');
-
-  invariant(existsSync(cli), `${cli} is missing: run \`bun run build\` before this suite`);
-
+async function setupTest() {
+  const program = await resolveProgram('auto-mode');
+  const node = await readNodePath();
   const created = await mkdtemp(join(tmpdir(), 'auto-mode-e2e-cli-'));
 
   onTestFinished(() => rm(created, { recursive: true, force: true }));
 
   const directory = await realpath(created);
 
-  // A version manager's node shim reads its config under the user's HOME, which
-  // the child does not get, so the child runs the binary the shim resolves to.
-  const resolved: unknown =
-    await Bun.$`node -p ${'JSON.stringify({ node: process.execPath, version: process.versions.node })'}`
-      .quiet()
-      .json();
-
-  const runtime = z.object({ node: z.string(), version: z.string() }).parse(resolved);
-
-  invariant(
-    runtime.version.startsWith('24.'),
-    `node 24 runs this suite, not node ${runtime.version}`,
-  );
-
   return {
-    node: runtime.node,
-    cli,
+    command: buildNodeCommand(program, node),
+    cwd: program.cwd,
 
-    env: {
+    env: buildIsolatedEnv(process.env, {
       PATH: process.env['PATH'],
-
       HOME: directory,
-
       XDG_CONFIG_HOME: directory,
-
       XDG_STATE_HOME: directory,
-
       AUTO_MODE_DIAGNOSTICS_PATH: join(directory, 'actions.jsonl'),
-
       CLAUDE_CONFIG_DIR: directory,
-    },
+    }),
   };
 }
 
 test('it prints usage under node when asked for help', async () => {
   const ctx = await setupTest();
-  const result = await Bun.$`${ctx.node} ${ctx.cli} --help`.env(ctx.env).quiet().nothrow();
+  const result = await run(ctx.command, { args: ['--help'], cwd: ctx.cwd, env: ctx.env });
 
-  expect({
-    exitCode: result.exitCode,
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
-  }).toStrictEqual({
+  expect(result).toStrictEqual({
     exitCode: 0,
     stdout: `auto-mode — a permission classifier for the auto-mode Claude Code mod
 
@@ -89,13 +61,9 @@ Options:
 
 test('it exits 2 under node on a command it does not know', async () => {
   const ctx = await setupTest();
-  const result = await Bun.$`${ctx.node} ${ctx.cli} frobnicate`.env(ctx.env).quiet().nothrow();
+  const result = await run(ctx.command, { args: ['frobnicate'], cwd: ctx.cwd, env: ctx.env });
 
-  expect({
-    exitCode: result.exitCode,
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
-  }).toStrictEqual({
+  expect(result).toStrictEqual({
     exitCode: 2,
     stdout: '',
     stderr: `auto-mode: unknown command 'frobnicate'
@@ -129,13 +97,9 @@ test.each([
   ],
 ])('it exits 2 under node with usage and no stack trace on %s', async (_label, argv, message) => {
   const ctx = await setupTest();
-  const result = await Bun.$`${ctx.node} ${ctx.cli} ${argv}`.env(ctx.env).quiet().nothrow();
+  const result = await run(ctx.command, { args: argv, cwd: ctx.cwd, env: ctx.env });
 
-  expect({
-    exitCode: result.exitCode,
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
-  }).toStrictEqual({
+  expect(result).toStrictEqual({
     exitCode: 2,
     stdout: '',
     stderr: `auto-mode: ${message}
