@@ -18,13 +18,13 @@ permissions:
   contents: read
 
 jobs:
-  # Keyed by ref, so a push to main never cancels the checks of a publish run
-  # dispatched at a release tag. A newer dispatch at the same tag cancels the
-  # older one's checks and publishes in its place.
+  # Keyed by commit and never cancelled, so every push to main is tested. A
+  # publish run dispatched at a release tag shares the tagged commit's sha, so
+  # its checks wait for that commit's push run rather than cancel it.
   checks:
     concurrency:
-      group: checks-${{ github.ref }}
-      cancel-in-progress: true
+      group: checks-${{ github.sha }}
+      cancel-in-progress: false
     permissions:
       contents: read
     uses: zgeoff/tools/.github/workflows/bun-checks.yml@b9c00c644272e09623f397a444108df8b74f6deb # main
@@ -66,9 +66,8 @@ jobs:
   # npm provenance records the run's own commit as the package's source, and
   # the release tag lands on a commit after this run's, so a push run never
   # publishes: it dispatches a publish run at the oldest release tag newer
-  # than npm's latest. It needs no checks job, so a newer push that cancels this
-  # run's checks loses no release, and it waits for the release job so that
-  # the tag the release job makes is there to read.
+  # than npm's latest. It needs no checks job, and it waits for the release job
+  # so that the tag the release job makes is there to read.
   release-dispatch:
     needs: release
     if: ${{ !cancelled() && github.event_name == 'push' }}
