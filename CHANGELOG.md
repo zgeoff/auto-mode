@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.3](https://github.com/zgeoff/auto-mode/compare/auto-mode-v4.0.2...auto-mode-v4.0.3) (2026-11-19)
+
+
+### Bug Fixes
+
+* **deps:** drop the duplicate std entry in bun.lock ([#515](https://github.com/zgeoff/auto-mode/issues/515)) ([2dcefce](https://github.com/zgeoff/auto-mode/commit/2dcefcea204bc8aa0284685de352a404d2cd5318))
+
 ## [4.0.2](https://github.com/zgeoff/auto-mode/compare/auto-mode-v4.0.1...auto-mode-v4.0.2) (2026-11-18)
 
 
