@@ -127,9 +127,11 @@ returns already points there.
   of a question except `type`.
 - Build a `system-one` provider at the mock decision host with
   [`buildMockProviderConfig`](../../../src/test-utils/factories/build-mock-provider-config.ts).
-- To capture a request, pass `server.use` a handler that records the request and returns nothing.
-  Use the MSW server in `createTestNetwork` from `@zgeoff/testing/fetch`. Read the body from
-  `request.clone()`, so the default handler can still read it.
+- To capture a request, pass `network.use` a handler that records the request and returns nothing.
+  Use the test network in
+  [`src/test-utils/mocks/network.ts`](../../../src/test-utils/mocks/network.ts), which
+  `createTestNetwork` from `@zgeoff/testing/fetch` builds. Read the body from `request.clone()`, so
+  the default handler can still read it.
 - In a capture test, also assert the answer the default handler gives. A handler that returns
   nothing hands the request on. If no later handler answers, MSW sends the request to the real
   network, and the test still passes.
