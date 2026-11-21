@@ -1,7 +1,6 @@
-import { afterAll, afterEach, beforeAll } from 'bun:test';
+import { afterEach } from 'bun:test';
 import { faker } from '@faker-js/faker';
 import { decisionAnswers } from './mocks/decision-answers.ts';
-import { server } from './mocks/node.ts';
 
 // A git hook and a launcher export these. This clears them for in-process reads
 // and node:child_process children only: a Bun.spawn or Bun.$ child still gets
@@ -22,15 +21,6 @@ for (const name of [
 faker.seed(142);
 faker.setDefaultRefDate(new Date('2026-01-01T00:00:00Z'));
 
-beforeAll(() => {
-  server.enable();
-});
-
 afterEach(() => {
-  server.resetHandlers();
   decisionAnswers.clear();
-});
-
-afterAll(() => {
-  server.disable();
 });

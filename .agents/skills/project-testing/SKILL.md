@@ -87,9 +87,9 @@ scratch paths are the folders every task may write. Every function below them ta
 
 ## Git
 
-- Run git through [`runGit`](../../../src/test-utils/run-git.ts). It gives git only `PATH`, a `HOME`
-  in the temp folder, no global or system config and a fixed identity, so a pre-push hook's
-  `GIT_DIR` and your signing config never reach it.
+- Run git through `runGit` from `@zgeoff/testing/git`. It gives git only `PATH`, a `HOME` in the
+  temp folder, no global or system config and a fixed identity, so a pre-push hook's `GIT_DIR` and
+  your signing config never reach it.
 - Pass [`run-stub-gh.ts`](../../../src/test-utils/run-stub-gh.ts) to
   [`readPullRequest`](../../../src/scope/read-pull-request.ts) as its gh command, as
   `read-pull-request.test.ts` does. Give the stub, as its first argument, a JSON file of the pull
@@ -128,8 +128,9 @@ returns already points there.
 - Build a `system-one` provider at the mock decision host with
   [`buildMockProviderConfig`](../../../src/test-utils/factories/build-mock-provider-config.ts).
 - To capture a request, pass `server.use` a handler that records the request and returns nothing.
-  Use the MSW server in [`src/test-utils/mocks/node.ts`](../../../src/test-utils/mocks/node.ts).
-  Read the body from `request.clone()`, so the default handler can still read it.
+  Use the network that [`src/test-utils/mocks/network.ts`](../../../src/test-utils/mocks/network.ts)
+  builds with `createTestNetwork` from `@zgeoff/testing/fetch`. Read the body from
+  `request.clone()`, so the default handler can still read it.
 - In a capture test, also assert the answer the default handler gives. A handler that returns
   nothing hands the request on. If no later handler answers, MSW sends the request to the real
   network, and the test still passes.

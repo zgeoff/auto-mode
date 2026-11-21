@@ -8,7 +8,7 @@ import { buildMockDecisionRequest } from '../test-utils/factories/build-mock-dec
 import { buildMockDecisionRule } from '../test-utils/factories/build-mock-decision-rule.ts';
 import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
 import { DECISION_URL } from '../test-utils/mocks/handlers.ts';
-import { server } from '../test-utils/mocks/node.ts';
+import { network } from '../test-utils/mocks/network.ts';
 import { defineExperiment } from './define-experiment.ts';
 import type { StageOutcome } from './define-experiment.ts';
 import { loadCaseKeys } from './load-case-keys.ts';
@@ -679,7 +679,7 @@ test('it refuses a run limited to a case the experiment lacks', async () => {
 test('it records a failed request as not scorable with its reason', async () => {
   const ctx = await setupTest();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () =>
       HttpResponse.json({ type: 'error', error: { type: 'api_error' } }, { status: 500 }),
     ),

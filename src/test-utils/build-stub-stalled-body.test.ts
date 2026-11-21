@@ -1,7 +1,7 @@
 import { expect, mock, onTestFinished, test } from 'bun:test';
 import { HttpResponse, http } from 'msw';
 import { buildStubStalledBody } from './build-stub-stalled-body.ts';
-import { server } from './mocks/node.ts';
+import { network } from './mocks/network.ts';
 
 test('it sends the first chunk on the first read', async () => {
   const reader = buildStubStalledBody(
@@ -54,7 +54,7 @@ test('it fails a stalled read with the abort reason of its signal', async () => 
 test('it lets fetch resolve through MSW and fails the body parse when the request aborts', async () => {
   const controller = new AbortController();
 
-  server.use(
+  network.use(
     http.get(
       'https://stub.test/body',
       (info) =>

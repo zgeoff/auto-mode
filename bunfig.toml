@@ -24,5 +24,10 @@ minimumReleaseAgeExcludes = [
 ]
 
 [test]
-# registers the jest-extended matchers, then the shared setup and resets for `bun test`
-preload = ["@zgeoff/bun-test-extended", "./src/test-utils/test-setup.ts"]
+# registers the jest-extended matchers, restores env vars, starts the fetch network, then the shared setup for `bun test`
+preload = [
+  "@zgeoff/bun-test-extended",
+  "@zgeoff/testing/preload",
+  "./src/test-utils/mocks/network.ts",
+  "./src/test-utils/test-setup.ts",
+]

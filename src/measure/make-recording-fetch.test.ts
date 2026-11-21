@@ -1,12 +1,12 @@
 import { expect, mock, test } from 'bun:test';
 import { HttpResponse, http } from 'msw';
 import invariant from 'tiny-invariant';
-import { server } from '../test-utils/mocks/node.ts';
+import { network } from '../test-utils/mocks/network.ts';
 import { makeRecordingFetch } from './make-recording-fetch.ts';
 import type { ResponseCopy } from './make-recording-fetch.ts';
 
 test('it keeps a readable copy of each response after the original is read', async () => {
-  server.use(http.post('https://recording.test/send', () => HttpResponse.json({ ok: true })));
+  network.use(http.post('https://recording.test/send', () => HttpResponse.json({ ok: true })));
 
   const responses: ResponseCopy[] = [];
   const sendFetch = makeRecordingFetch(fetch, { redirect: 'error', responses });
@@ -28,7 +28,7 @@ test('it keeps a readable copy of each response after the original is read', asy
 test('it reports each attempt before it goes out', async () => {
   const sent = mock();
 
-  server.use(http.post('https://recording.test/send', () => HttpResponse.json({ ok: true })));
+  network.use(http.post('https://recording.test/send', () => HttpResponse.json({ ok: true })));
 
   const sendFetch = makeRecordingFetch(fetch, {
     redirect: 'error',
@@ -46,7 +46,7 @@ test('it reports each attempt before it goes out', async () => {
 test('it sends nothing when the attempt report refuses the attempt', () => {
   const reached = mock();
 
-  server.use(
+  network.use(
     http.post('https://recording.test/send', () => {
       reached();
 
@@ -73,7 +73,7 @@ test('it sends nothing when the attempt report refuses the attempt', () => {
 test('it returns a redirect unfollowed when redirects are manual', async () => {
   const followed = mock();
 
-  server.use(
+  network.use(
     http.post(
       'https://recording.test/send',
       () =>
@@ -95,7 +95,7 @@ test('it returns a redirect unfollowed when redirects are manual', async () => {
 });
 
 test('it fails a redirect when redirects are errors', () => {
-  server.use(
+  network.use(
     http.post(
       'https://recording.test/send',
       () =>
