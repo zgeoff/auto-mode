@@ -23,8 +23,9 @@ The check follows a shell command segment by segment, one segment per simple com
 command in a compound command's body, and tracks `cd`, so `cd ../other && rm -rf build` resolves
 `build` against the other directory. A `cd` inside a pipeline runs in a subshell, so a pipe anywhere
 in the command, outside quotes, leaves the directory unknown from that point. A `cd` inside a
-subshell holds until the subshell ends. A `cd` inside the body of an `if`, a loop, a `case` or a
-function holds only inside that body, because the body may not run.
+subshell holds until the subshell ends. The body of an `if`, a loop, a `case` or a function may not
+run, so after a `cd` inside it the check resolves each path against every directory the shell may be
+in.
 
 The check reads the command through the same syntax tree, built by the unbash parser, that the local
 rules, the session scope and the evaluation anonymiser read, so all four agree on where a word, a

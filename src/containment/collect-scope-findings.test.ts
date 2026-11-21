@@ -1430,3 +1430,18 @@ test('it resolves a path after a compound body against the directory before that
     { kind: 'path', target: '/home/dev/src/app/.worktrees/other/build', grant: { kind: 'path' } },
   ]);
 });
+
+test('it finds a path after a compound body against the directory that body may leave', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'if true; then :; cd ../other; fi; rm -rf build' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/build', grant: { kind: 'path' } },
+  ]);
+});

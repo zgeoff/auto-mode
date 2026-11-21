@@ -19,7 +19,7 @@ export function collectHookBypasses(
   cwd: string,
   facts: HookFacts | null,
 ): readonly string[] {
-  const exported = new Map<string, string>();
+  const exported = new Map<string, string[]>();
 
   const bypasses: string[] = [];
   let segmentFacts = facts;
@@ -43,7 +43,7 @@ const DIRECTORY_CHANGES: ReadonlySet<string> = new Set(['cd', 'pushd', 'popd']);
 
 function collectSegmentBypasses(
   segment: ShellSegment,
-  exported: Map<string, string>,
+  exported: Map<string, string[]>,
   cwd: string,
   facts: HookFacts | null,
 ): readonly string[] | 'moved' {
@@ -58,29 +58,25 @@ function collectSegmentBypasses(
     return 'moved';
   }
 
+  // A subshell's change to a variable ends with it, and a compound command's
+  // body may not run, so such a change adds a value the variable may hold.
+  const isScoped = segment.scopes.length > 0;
+
   if (programName === 'export' && prefix.length === 0) {
     for (const arg of args.filter((word) => /^\w+=/u.test(word))) {
-      exported.set(arg.slice(0, arg.indexOf('=')), arg);
+      exported.set(arg.slice(0, arg.indexOf('=')), buildExportedValues(exported, arg, isScoped));
     }
 
     return [];
   }
 
-  // A subshell's change to a variable ends with it, and a compound command's
-  // body may not run, so neither change removes a bypass.
-  const isScoped = segment.scopes.length > 0;
-
   // A bare assignment changes a variable the shell already exports.
   if (program.length === 0) {
-    if (isScoped) {
-      return [];
-    }
-
     for (const word of prefix.filter((entry) => /^\w+=/u.test(entry))) {
       const variable = word.slice(0, word.indexOf('='));
 
       if (exported.has(variable)) {
-        exported.set(variable, word);
+        exported.set(variable, buildExportedValues(exported, word, isScoped));
       }
     }
 
@@ -88,23 +84,20 @@ function collectSegmentBypasses(
   }
 
   if (programName === 'unset' && prefix.length === 0) {
-    if (isScoped) {
-      return [];
-    }
-
-    for (const arg of args) {
+    for (const arg of isScoped ? [] : args) {
       exported.delete(arg);
     }
 
     return [];
   }
 
-  const reaching = buildReachingVariables(prefix, exported);
-  const checkoutFacts = hasCheckoutOverride(reaching) ? null : facts;
+  const reachings = buildExportStates(exported).map((state) =>
+    buildReachingVariables(prefix, state),
+  );
 
   if (programName === 'gh') {
     return args[0] === 'stack' && GH_STACK_WRITES.has(args[1] ?? '')
-      ? collectHookSwitches(reaching, [], checkoutFacts)
+      ? collectEverySwitch(reachings, [], facts)
       : [];
   }
 
@@ -127,7 +120,7 @@ function collectSegmentBypasses(
   const isSameCheckout =
     git.directory === cwd && !globals.some((arg) => /^--(?:git-dir|work-tree)(?:=|$)/u.test(arg));
 
-  const gitFacts = isSameCheckout ? checkoutFacts : null;
+  const gitFacts = isSameCheckout ? facts : null;
 
   const option =
     writing === null
@@ -146,7 +139,36 @@ function collectSegmentBypasses(
 
   const config = hasSplitGlobal ? null : git.config;
 
-  return [...collectHookSwitches(reaching, config, gitFacts), ...(option === null ? [] : [option])];
+  return [...collectEverySwitch(reachings, config, gitFacts), ...(option === null ? [] : [option])];
+}
+
+function buildExportedValues(
+  exported: ReadonlyMap<string, readonly string[]>,
+  word: string,
+  isScoped: boolean,
+): string[] {
+  const kept = exported.get(word.slice(0, word.indexOf('='))) ?? [];
+  const values = isScoped ? kept : [];
+
+  return values.includes(word) ? [...values] : [...values, word];
+}
+
+// Each state picks one value per variable, so every value a variable may hold
+// reaches git in some state.
+function buildExportStates(
+  exported: ReadonlyMap<string, readonly string[]>,
+): ReadonlyMap<string, string>[] {
+  const counts = [...exported.values()].map((values) => values.length);
+  const size = Math.max(1, ...counts);
+
+  return Array.from({ length: size }, (_, index) => {
+    const entries = [...exported].map(([variable, values]): [string, string] => [
+      variable,
+      values[Math.min(index, values.length - 1)] ?? '',
+    ]);
+
+    return new Map(entries);
+  });
 }
 
 // The words before the program set and unset variables in order, over what an
@@ -172,6 +194,20 @@ function buildReachingVariables(
   }
 
   return reaching;
+}
+
+function collectEverySwitch(
+  reachings: readonly ReadonlyMap<string, string>[],
+  config: readonly GitConfigOption[] | null,
+  facts: HookFacts | null,
+): string[] {
+  const switches = reachings.flatMap((reaching) => {
+    const checkoutFacts = hasCheckoutOverride(reaching) ? null : facts;
+
+    return collectHookSwitches(reaching, config, checkoutFacts);
+  });
+
+  return reachings.length === 1 ? switches : [...new Set(switches)];
 }
 
 const CHECKOUT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];

@@ -75,6 +75,8 @@ test.each([
   ['export HUSKY=0; (unset HUSKY); git commit -m x', ['HUSKY=0']],
   ['export HUSKY=0; if false; then unset HUSKY; fi; git commit -m x', ['HUSKY=0']],
   ['export LEFTHOOK=0; (LEFTHOOK=1); git push', ['LEFTHOOK=0']],
+  ['export HUSKY=1; (true; HUSKY=0; git commit -m x)', ['HUSKY=0']],
+  ['export HUSKY=0; if false; then export HUSKY=1; fi; git commit -m x', ['HUSKY=0']],
 ])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
 });
