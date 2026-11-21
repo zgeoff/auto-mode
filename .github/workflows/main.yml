@@ -27,7 +27,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: read
-    uses: zgeoff/tools/.github/workflows/bun-checks.yml@5124a68465cdeeb155e71e0a804881731798e59e # main
+    uses: zgeoff/tools/.github/workflows/bun-checks.yml@b8a2b5b46b6685b7c9143c3f6345a54c2de31ddd # main
     with:
       scripts: ${{ vars.BUN_CHECK_SCRIPTS }}
       node-version: ${{ vars.NODE_VERSION }}
@@ -50,7 +50,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: zgeoff/tools/.github/workflows/release-please.yml@5124a68465cdeeb155e71e0a804881731798e59e # main
+    uses: zgeoff/tools/.github/workflows/release-please.yml@b8a2b5b46b6685b7c9143c3f6345a54c2de31ddd # main
     with:
       app-id: ${{ vars.RELEASE_APP_ID }}
       merge: true
