@@ -1415,3 +1415,18 @@ test('it finds nothing in a path after a subshell whose cd ended with it', () =>
 
   expect(findings).toStrictEqual([]);
 });
+
+test('it resolves a path after a compound body against the directory before that body', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: 'cd ../other; if false; then cd ../feature; fi; rm -rf build' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/build', grant: { kind: 'path' } },
+  ]);
+});

@@ -7,7 +7,8 @@ import { splitGitCommand } from '../shell/split-git-command.ts';
 import type { ScopeEvent } from './types.ts';
 
 // A command unbash cannot read whole may run other words than the tree shows,
-// so it creates nothing the session scope takes on.
+// and a compound command's body may never run, so neither creates anything
+// the session scope takes on.
 export function collectScopeEvents(command: string, cwd: string, home: string): ScopeEvent[] {
   const tree = parseShellCommand(command);
 
@@ -15,11 +16,12 @@ export function collectScopeEvents(command: string, cwd: string, home: string): 
     return [];
   }
 
-  return collectShellCommands(tree, cwd, home).flatMap((entry) => {
+  return collectShellCommands(tree, cwd, home).flatMap((entry, index) => {
     const [name, ...args] = entry.words;
     const directory = entry.directory;
+    const scopes = tree.segments[index]?.scopes ?? [];
 
-    if (directory === null) {
+    if (directory === null || scopes.some((scope) => scope.kind === 'conditional')) {
       return [];
     }
 

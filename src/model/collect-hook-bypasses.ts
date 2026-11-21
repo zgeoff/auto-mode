@@ -66,8 +66,16 @@ function collectSegmentBypasses(
     return [];
   }
 
+  // A subshell's change to a variable ends with it, and a compound command's
+  // body may not run, so neither change removes a bypass.
+  const isScoped = segment.scopes.length > 0;
+
   // A bare assignment changes a variable the shell already exports.
   if (program.length === 0) {
+    if (isScoped) {
+      return [];
+    }
+
     for (const word of prefix.filter((entry) => /^\w+=/u.test(entry))) {
       const variable = word.slice(0, word.indexOf('='));
 
@@ -80,6 +88,10 @@ function collectSegmentBypasses(
   }
 
   if (programName === 'unset' && prefix.length === 0) {
+    if (isScoped) {
+      return [];
+    }
+
     for (const arg of args) {
       exported.delete(arg);
     }

@@ -24,12 +24,12 @@ command in a compound command's body, and tracks `cd`, so `cd ../other && rm -rf
 `build` against the other directory. A `cd` inside a pipeline runs in a subshell, so a pipe anywhere
 in the command, outside quotes, leaves the directory unknown from that point. A `cd` inside a
 subshell holds until the subshell ends. A `cd` inside the body of an `if`, a loop, a `case` or a
-function leaves the directory unknown after that body, because the body may not run.
+function holds only inside that body, because the body may not run.
 
 The check reads the command through the same syntax tree, built by the unbash parser, that the local
 rules, the session scope and the evaluation anonymiser read, so all four agree on where a word, a
-segment and a redirection end. The session scope takes no worktree or branch from a command the
-parser reports an error in.
+segment and a redirection end. The session scope takes no worktree, branch or pull request from a
+command the parser reports an error in, or from a compound command's body, which may never run.
 
 A command substitution, and a heredoc that a shell reads as its script, run commands of their own,
 so the check reads each one from the directory of the segment that runs it. A shell reads a heredoc

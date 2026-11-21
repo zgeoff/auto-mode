@@ -11,17 +11,16 @@ export interface ShellCommand {
 interface ScopeDirectory {
   readonly scope: ShellScope | null;
   directory: string | null;
-  hasMoved: boolean;
 }
 
-// A `cd` in a subshell ends with it, and one in a compound command's body may
-// not run, so the directory after that body is unknown.
+// A `cd` in a subshell ends with it. One in a compound command's body may not
+// run, so the directory after that body stays the one before it.
 export function collectShellCommands(
   tree: ShellCommandTree,
   cwd: string | null,
   home: string,
 ): ShellCommand[] {
-  const stack: ScopeDirectory[] = [{ scope: null, directory: cwd, hasMoved: false }];
+  const stack: ScopeDirectory[] = [{ scope: null, directory: cwd }];
 
   return tree.segments.map((segment) => {
     let depth = 0;
@@ -33,18 +32,10 @@ export function collectShellCommands(
       depth += 1;
     }
 
-    while (stack.length > depth + 1) {
-      const left = stack.pop();
-      const parent = stack.at(-1);
-
-      if (left?.scope?.kind === 'conditional' && left.hasMoved && parent !== undefined) {
-        parent.directory = null;
-        parent.hasMoved = true;
-      }
-    }
+    stack.length = depth + 1;
 
     for (const scope of segment.scopes.slice(depth)) {
-      stack.push({ scope, directory: stack.at(-1)?.directory ?? null, hasMoved: false });
+      stack.push({ scope, directory: stack.at(-1)?.directory ?? null });
     }
 
     const current = stack.at(-1);
@@ -61,8 +52,6 @@ export function collectShellCommands(
       current.directory = tree.hasPipe
         ? null
         : resolveShellPath(current.directory, words[1] ?? home, home);
-
-      current.hasMoved = true;
     }
 
     return entry;

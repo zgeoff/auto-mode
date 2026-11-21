@@ -72,6 +72,9 @@ test.each([
   ['time git push --no-verify', ['--no-verify']],
   [String.raw`git commit --no-verif\y -m x`, ['--no-verify']],
   ["LEFTHOOK=$'0' git push", ['LEFTHOOK=0']],
+  ['export HUSKY=0; (unset HUSKY); git commit -m x', ['HUSKY=0']],
+  ['export HUSKY=0; if false; then unset HUSKY; fi; git commit -m x', ['HUSKY=0']],
+  ['export LEFTHOOK=0; (LEFTHOOK=1); git push', ['LEFTHOOK=0']],
 ])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
 });
