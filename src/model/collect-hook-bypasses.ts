@@ -153,22 +153,32 @@ function buildExportedValues(
   return values.includes(word) ? [...values] : [...values, word];
 }
 
-// Each state picks one value per variable, so every value a variable may hold
-// reaches git in some state.
+// Each state picks one value per variable, and the states cover every
+// combination, so each mix of values a variable may hold reaches git.
+const STATE_LIMIT = 1024;
+
 function buildExportStates(
   exported: ReadonlyMap<string, readonly string[]>,
 ): ReadonlyMap<string, string>[] {
-  const counts = [...exported.values()].map((values) => values.length);
-  const size = Math.max(1, ...counts);
+  let states: ReadonlyMap<string, string>[] = [new Map()];
 
-  return Array.from({ length: size }, (_, index) => {
-    const entries = [...exported].map(([variable, values]): [string, string] => [
-      variable,
-      values[Math.min(index, values.length - 1)] ?? '',
-    ]);
+  for (const [variable, values] of exported) {
+    const next: ReadonlyMap<string, string>[] = [];
 
-    return new Map(entries);
-  });
+    for (const state of states) {
+      for (const value of values) {
+        next.push(new Map(state).set(variable, value));
+      }
+    }
+
+    if (next.length > STATE_LIMIT) {
+      return [];
+    }
+
+    states = next;
+  }
+
+  return states;
 }
 
 // The words before the program set and unset variables in order, over what an
@@ -206,6 +216,11 @@ function collectEverySwitch(
 
     return collectHookSwitches(reaching, config, checkoutFacts);
   });
+
+  // Past the state limit the values are unknown, which counts as a bypass.
+  if (reachings.length === 0) {
+    return [HIDDEN_GIT_WORDS.variables];
+  }
 
   return reachings.length === 1 ? switches : [...new Set(switches)];
 }
