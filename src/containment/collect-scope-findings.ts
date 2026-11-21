@@ -4,8 +4,8 @@ import type { OwnedScope } from '../scope/types.ts';
 import { collectShellCommands } from '../shell/collect-shell-commands.ts';
 import type { ShellCommand } from '../shell/collect-shell-commands.ts';
 import { collectShellScripts } from '../shell/collect-shell-scripts.ts';
-import { splitShellCommand } from '../shell/split-shell-command.ts';
-import { splitShellTokens } from '../shell/split-shell-tokens.ts';
+import { parseShellCommand } from '../shell/parse-shell-command.ts';
+import type { ShellWord } from '../shell/types.ts';
 import { collectProgramFindings } from './collect-program-findings.ts';
 import type { ProgramContext } from './collect-program-findings.ts';
 import { collectTargetFindings } from './collect-target-findings.ts';
@@ -100,14 +100,14 @@ function collectCommandFindings(
   context: Readonly<ProgramContext>,
 ): ScopeFinding[] {
   const findings: ScopeFinding[] = [];
-  const entries = collectShellCommands(command, context.directory, context.scope.home);
-  const piped = collectPipedSegments(command);
-  const segments = splitShellCommand(command).segments;
-  const scripts = collectShellScripts(command);
+  const tree = parseShellCommand(command);
+  const entries = collectShellCommands(tree, context.directory, context.scope.home);
+  const piped = tree.segments.map((segment) => segment.isPiped);
+  const scripts = collectShellScripts(tree);
 
   for (const [index, entry] of entries.entries()) {
     const [name, ...args] = entry.words;
-    const fixed = findFixedXargsCommand(entry.words, segments[index]?.text ?? '');
+    const fixed = findFixedXargsCommand(entry.words, tree.segments[index]?.words ?? []);
 
     if (fixed !== null) {
       findings.push(
@@ -137,25 +137,6 @@ function collectCommandFindings(
   return findings;
 }
 
-function collectPipedSegments(command: string): boolean[] {
-  const piped: boolean[] = [];
-  let separator: string | null = null;
-  let isInSegment = false;
-
-  for (const token of splitShellTokens(command).tokens) {
-    if (token.kind === 'separator') {
-      separator = token.operator;
-      isInSegment = false;
-    } else if (!isInSegment && token.kind !== 'comment' && token.kind !== 'heredoc') {
-      piped.push(separator === '|');
-
-      isInSegment = true;
-    }
-  }
-
-  return piped;
-}
-
 const XARGS_FLAG = /^(?:-[0oprtx]+|--(?:null|no-run-if-empty|verbose|interactive|exit|open-tty))$/u;
 const XARGS_VALUE_OPTION = /^-[EPads]$/u;
 
@@ -173,14 +154,11 @@ const PLAIN_WORD = /^(?:[\w./:@%+=-]|\{\})+$/u;
 // written. `-n` or `-L` beside it appends names again, so either one rules it out.
 function findFixedXargsCommand(
   words: readonly string[],
-  text: string,
+  segmentWords: readonly ShellWord[],
 ): { readonly name: string; readonly args: readonly string[] } | null {
   if (
     words[0] !== 'xargs' ||
-    !splitShellTokens(text).tokens.every(
-      (token) =>
-        token.kind !== 'word' || (token.raw === token.value && PLAIN_WORD.test(token.value)),
-    )
+    !segmentWords.every((word) => word.raw === word.value && PLAIN_WORD.test(word.value))
   ) {
     return null;
   }

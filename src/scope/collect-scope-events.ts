@@ -1,12 +1,21 @@
 import { SCOPE_COMMANDS } from '../../mods/auto-mode/contract/scope-commands.ts';
 import { collectShellCommands } from '../shell/collect-shell-commands.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
+import { parseShellCommand } from '../shell/parse-shell-command.ts';
 import { resolveShellPath } from '../shell/resolve-shell-path.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
 import type { ScopeEvent } from './types.ts';
 
+// A command unbash cannot read whole may run other words than the tree shows,
+// so it creates nothing the session scope takes on.
 export function collectScopeEvents(command: string, cwd: string, home: string): ScopeEvent[] {
-  return collectShellCommands(command, cwd, home).flatMap((entry) => {
+  const tree = parseShellCommand(command);
+
+  if (tree.hasError) {
+    return [];
+  }
+
+  return collectShellCommands(tree, cwd, home).flatMap((entry) => {
     const [name, ...args] = entry.words;
     const directory = entry.directory;
 

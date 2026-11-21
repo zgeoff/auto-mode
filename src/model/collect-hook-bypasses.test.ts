@@ -67,6 +67,11 @@ test.each([
   ['git commit "-a$SHORT" -m wip', ['commit or push options']],
   ['git push "-$SHORT"', ['commit or push options']],
   ['git push --no-verify $FLAGS', ['--no-verify']],
+  ['if true; then LEFTHOOK=0 git push; fi', ['LEFTHOOK=0']],
+  ['{ git commit --no-verify -m x; }', ['--no-verify']],
+  ['time git push --no-verify', ['--no-verify']],
+  [String.raw`git commit --no-verif\y -m x`, ['--no-verify']],
+  ["LEFTHOOK=$'0' git push", ['LEFTHOOK=0']],
 ])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
 });

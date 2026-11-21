@@ -1,35 +1,32 @@
+import { match } from 'ts-pattern';
+import type { WordPart } from 'unbash';
+import type { ShellWord } from './types.ts';
+
 // The shell expands a variable or a substitution inside double quotes too, but
 // never inside single or ANSI-C quotes, and it keeps a double-quoted expansion
 // as one word.
-export function hasExpansion(raw: string, reach: 'unquoted' | 'any'): boolean {
-  let quote: 'single' | 'ansi' | 'double' | null = null;
+export function hasExpansion(word: ShellWord, reach: 'unquoted' | 'any'): boolean {
+  return word.parts.some((part) => isExpansionPart(part, reach));
+}
 
-  for (let index = 0; index < raw.length; index += 1) {
-    const char = raw.charAt(index);
-    const next = raw.charAt(index + 1);
-
-    if (quote === 'single' || quote === 'ansi') {
-      if (char === '\\' && quote === 'ansi') {
-        index += 1;
-      } else if (char === "'") {
-        quote = null;
-      }
-    } else if (char === '\\') {
-      index += 1;
-    } else if (char === '"') {
-      quote = quote === 'double' ? null : 'double';
-    } else if (quote === null && char === "'") {
-      quote = 'single';
-    } else if (quote === null && char === '$' && next === "'") {
-      quote = 'ansi';
-      index += 1;
-    } else if (
-      (quote === null || reach === 'any') &&
-      (char === '`' || (char === '$' && /[\w@*#?$!({-]/u.test(next)))
-    ) {
-      return true;
-    }
-  }
-
-  return false;
+function isExpansionPart(part: WordPart, reach: 'unquoted' | 'any'): boolean {
+  return match(part)
+    .with(
+      { type: 'SimpleExpansion' },
+      { type: 'ParameterExpansion' },
+      { type: 'CommandExpansion' },
+      { type: 'ArithmeticExpansion' },
+      { type: 'ProcessSubstitution' },
+      () => true,
+    )
+    .with(
+      { type: 'DoubleQuoted' },
+      { type: 'LocaleString' },
+      (quoted) => reach === 'any' && quoted.parts.some((child) => isExpansionPart(child, reach)),
+    )
+    .with({ type: 'Glob' }, { type: 'ExtendedGlob' }, { type: 'BraceExpansion' }, (pattern) =>
+      (pattern.parts ?? []).some((child) => isExpansionPart(child, reach)),
+    )
+    .with({ type: 'Literal' }, { type: 'SingleQuoted' }, { type: 'AnsiCQuoted' }, () => false)
+    .exhaustive();
 }

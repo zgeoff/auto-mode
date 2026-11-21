@@ -1,8 +1,7 @@
-import { splitShellTokens } from './split-shell-tokens.ts';
-import { toWordValues } from './to-word-values.ts';
+import type { ShellWord } from './types.ts';
 
-export function splitCommandWords(text: string): readonly string[] {
-  const words = splitShellTokens(text).tokens.flatMap((token) => toWordValues(token));
+export function splitCommandWords(segmentWords: readonly ShellWord[]): readonly string[] {
+  const words = segmentWords.map((word) => word.value);
   let index = 0;
 
   while (index < words.length) {

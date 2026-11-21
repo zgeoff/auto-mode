@@ -6,12 +6,11 @@ import type { HookFacts } from '../git/types.ts';
 import { hasExpansion } from '../shell/has-expansion.ts';
 import { hasUnquotedExpansion } from '../shell/has-unquoted-expansion.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
+import { parseShellCommand } from '../shell/parse-shell-command.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
 import type { GitConfigOption } from '../shell/split-git-command.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
-import { splitShellCommand } from '../shell/split-shell-command.ts';
-import { splitShellTokens } from '../shell/split-shell-tokens.ts';
-import { toWordValues } from '../shell/to-word-values.ts';
+import type { ShellSegment } from '../shell/types.ts';
 import { findNoVerifyOption } from './find-no-verify-option.ts';
 import { HIDDEN_GIT_WORDS } from './hidden-git-words.ts';
 
@@ -25,8 +24,8 @@ export function collectHookBypasses(
   const bypasses: string[] = [];
   let segmentFacts = facts;
 
-  for (const segment of splitShellCommand(command).segments) {
-    const found = collectSegmentBypasses(segment.text, exported, cwd, segmentFacts);
+  for (const segment of parseShellCommand(command).segments) {
+    const found = collectSegmentBypasses(segment, exported, cwd, segmentFacts);
 
     if (found === 'moved') {
       segmentFacts = null;
@@ -43,15 +42,14 @@ const GH_STACK_WRITES: ReadonlySet<string> = new Set(['add', 'push', 'submit', '
 const DIRECTORY_CHANGES: ReadonlySet<string> = new Set(['cd', 'pushd', 'popd']);
 
 function collectSegmentBypasses(
-  text: string,
+  segment: ShellSegment,
   exported: Map<string, string>,
   cwd: string,
   facts: HookFacts | null,
 ): readonly string[] | 'moved' {
-  const tokens = splitShellTokens(text).tokens;
-  const words = tokens.flatMap((token) => toWordValues(token));
-  const raws = tokens.flatMap((token) => (token.kind === 'word' ? [token.raw] : []));
-  const program = splitCommandWords(text);
+  const segmentWords = segment.words;
+  const words = segmentWords.map((word) => word.value);
+  const program = splitCommandWords(segmentWords);
   const [name = '', ...args] = program;
   const prefix = words.slice(0, words.length - program.length);
   const programName = name.slice(name.lastIndexOf('/') + 1);
@@ -106,8 +104,9 @@ function collectSegmentBypasses(
   const [subcommand = '', ...subArgs] = git.args;
   const writing = subcommand === 'commit' || subcommand === 'push' ? subcommand : null;
   const globals = args.slice(0, args.length - git.args.length);
+  const subcommandWord = segmentWords[prefix.length + globals.length + 1];
 
-  if (writing === null && !hasExpansion(raws[prefix.length + globals.length + 1] ?? '', 'any')) {
+  if (writing === null && (subcommandWord === undefined || !hasExpansion(subcommandWord, 'any'))) {
     return [];
   }
 
@@ -121,11 +120,15 @@ function collectSegmentBypasses(
   const option =
     writing === null
       ? HIDDEN_GIT_WORDS.subcommand
-      : findNoVerifyOption(subArgs, raws.slice(prefix.length + globals.length + 2), writing);
+      : findNoVerifyOption(
+          subArgs,
+          segmentWords.slice(prefix.length + globals.length + 2),
+          writing,
+        );
 
   // An unquoted expansion can split into several words, and so end git's
   // options early: a later `-c` then lands in the subcommand's arguments.
-  const hasSplitGlobal = raws
+  const hasSplitGlobal = segmentWords
     .slice(prefix.length + 1, prefix.length + 1 + globals.length)
     .some((raw) => hasUnquotedExpansion(raw));
 

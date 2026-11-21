@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
+import invariant from 'tiny-invariant';
 import { hasExpansion } from './has-expansion.ts';
+import { parseShellCommand } from './parse-shell-command.ts';
 
 test.each([
   ['an unquoted variable', '$BRANCH', 'unquoted', true],
@@ -16,5 +18,9 @@ test.each([
   ['a lone dollar sign', 'price=$', 'any', false],
   ['a plain word', 'feat/queue-filters', 'any', false],
 ] as const)('it reads %s with reach %s as an expansion: %p', (_label, raw, reach, expected) => {
-  expect(hasExpansion(raw, reach)).toBe(expected);
+  const [word] = parseShellCommand(raw).segments.flatMap((segment) => segment.words);
+
+  invariant(word !== undefined);
+
+  expect(hasExpansion(word, reach)).toBe(expected);
 });

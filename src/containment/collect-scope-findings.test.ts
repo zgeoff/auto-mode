@@ -1368,3 +1368,50 @@ test.each([
 
   expect(findings).toStrictEqual([]);
 });
+
+test.each([
+  ['an if body', 'if test -d ../other; then rm -rf ../other; fi'],
+  ['a brace group', '{ rm -rf ../other; }'],
+  ['a loop body', 'for dir in a b; do rm -rf ../other; done'],
+  ['a function body', 'clean() { rm -rf ../other; }; clean'],
+  ['a subshell', '(rm -rf ../other)'],
+  ['a timed command', 'time rm -rf ../other'],
+  ['a negated command', '! rm -rf ../other'],
+])('it finds a write inside %s', (_label, command) => {
+  const findings = collectScopeFindings(
+    { tool: 'Bash', cwd: '/home/dev/src/app/.worktrees/feature', input: { command } },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other', grant: { kind: 'path' } },
+  ]);
+});
+
+test('it resolves a path inside a subshell against the directory a cd there moved to', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: '(cd ../other && rm -rf build)' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([
+    { kind: 'path', target: '/home/dev/src/app/.worktrees/other/build', grant: { kind: 'path' } },
+  ]);
+});
+
+test('it finds nothing in a path after a subshell whose cd ended with it', () => {
+  const findings = collectScopeFindings(
+    {
+      tool: 'Bash',
+      cwd: '/home/dev/src/app/.worktrees/feature',
+      input: { command: '(cd ../other && ls); rm -rf build' },
+    },
+    buildMockOwnedScope({ worktrees: ['/home/dev/src/app/.worktrees/feature'] }),
+  );
+
+  expect(findings).toStrictEqual([]);
+});

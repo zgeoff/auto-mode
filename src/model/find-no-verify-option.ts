@@ -1,5 +1,6 @@
 import { hasExpansion } from '../shell/has-expansion.ts';
 import { hasSplitExpansion } from '../shell/has-split-expansion.ts';
+import type { ShellWord } from '../shell/types.ts';
 import { HIDDEN_GIT_WORDS } from './hidden-git-words.ts';
 
 const COMMIT_VALUED_LONG: ReadonlySet<string> = new Set([
@@ -29,7 +30,7 @@ const PUSH_VALUED_LONG: ReadonlySet<string> = new Set([
 // value.
 export function findNoVerifyOption(
   args: readonly string[],
-  raws: readonly string[],
+  words: readonly ShellWord[],
   subcommand: 'commit' | 'push',
 ): string | null {
   let found: string | null = null;
@@ -38,12 +39,15 @@ export function findNoVerifyOption(
 
   while (index < args.length && args[index] !== '--') {
     const arg = args[index] ?? '';
-    const raw = raws[index] ?? '';
+    const word = words[index];
     let takesNextWord = false;
 
     // The shell splits an unquoted expansion into words that git reads as
     // options, and an expansion at the start of an option word can be one.
-    if (hasSplitExpansion(raw) || (isExpandedOption(arg, subcommand) && hasExpansion(raw, 'any'))) {
+    if (
+      word !== undefined &&
+      (hasSplitExpansion(word) || (isExpandedOption(arg, subcommand) && hasExpansion(word, 'any')))
+    ) {
       isHidden = true;
     } else if (arg.startsWith('--')) {
       const [option = '', ...value] = arg.slice(2).split('=');
@@ -75,7 +79,9 @@ export function findNoVerifyOption(
 
     // A value word stays one word unless the shell splits it.
     if (takesNextWord) {
-      isHidden ||= hasSplitExpansion(raws[index + 1] ?? '');
+      const value = words[index + 1];
+
+      isHidden ||= value !== undefined && hasSplitExpansion(value);
       index += 1;
     }
 

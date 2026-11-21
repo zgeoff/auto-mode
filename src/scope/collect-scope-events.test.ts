@@ -63,3 +63,13 @@ test.each([
 ])('it collects nothing from %s', (_label, command) => {
   expect(collectScopeEvents(command, '/repo', '/home/dev')).toStrictEqual([]);
 });
+
+test('it collects nothing from a command the parser cannot read whole', () => {
+  expect(
+    collectScopeEvents(
+      "git worktree add .worktrees/fix -b fix && echo 'open",
+      '/repo',
+      '/home/dev',
+    ),
+  ).toStrictEqual([]);
+});

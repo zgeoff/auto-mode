@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
+import invariant from 'tiny-invariant';
 import { hasSplitExpansion } from './has-split-expansion.ts';
+import { parseShellCommand } from './parse-shell-command.ts';
 
 test.each([
   ['an unquoted variable', '$FLAGS', true],
@@ -27,5 +29,9 @@ test.each([
   ['an escaped dollar sign', String.raw`\$FLAGS`, false],
   ['a plain word', 'feat/queue-filters', false],
 ])('it reads %s as an expansion the shell splits: %p', (_label, raw, expected) => {
-  expect(hasSplitExpansion(raw)).toBe(expected);
+  const [word] = parseShellCommand(raw).segments.flatMap((segment) => segment.words);
+
+  invariant(word !== undefined);
+
+  expect(hasSplitExpansion(word)).toBe(expected);
 });

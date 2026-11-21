@@ -1,63 +1,46 @@
-export type ShellToken =
-  | {
-      readonly kind: 'word';
-      readonly value: string;
-      readonly raw: string;
-      readonly start: number;
-      readonly end: number;
-    }
-  | {
-      readonly kind: 'separator';
-      readonly operator: string;
-      readonly start: number;
-      readonly end: number;
-    }
-  | {
-      readonly kind: 'redirect';
-      readonly operator: string;
-      readonly target: string | null;
-      readonly start: number;
-      readonly end: number;
-    }
-  | {
-      readonly kind: 'comment';
-      readonly text: string;
-      readonly start: number;
-      readonly end: number;
-    }
-  | {
-      readonly kind: 'heredoc';
-      readonly body: string;
-      readonly isQuoted: boolean;
-      readonly opener: number;
-      readonly substitutions: readonly string[];
-      readonly start: number;
-      readonly end: number;
-    };
+import type { WordPart } from 'unbash';
 
-export interface WordParen {
-  readonly value: number;
-  readonly raw: number;
-}
-
-export interface ScannedWord {
+export interface ShellWord {
+  readonly raw: string;
   readonly value: string;
-  readonly raw: string;
-  readonly end: number;
-  readonly paren: WordParen | null;
-  readonly isUnterminated: boolean;
+  readonly parts: readonly WordPart[];
+  readonly hasError: boolean;
 }
 
-export interface ScannedRedirect {
-  readonly target: string | null;
-  readonly raw: string;
-  readonly end: number;
-  readonly isUnterminated: boolean;
-}
-
-export interface Heredoc {
-  readonly delimiter: string;
+interface ShellHeredoc {
+  readonly body: string;
   readonly isQuoted: boolean;
-  readonly stripsTabs: boolean;
-  readonly opener: number;
+  readonly substitutions: readonly string[];
+}
+
+export interface ShellRedirect {
+  readonly operator: string;
+  readonly descriptor: number | null;
+  readonly target: string | null;
+  readonly heredoc: ShellHeredoc | null;
+  readonly start: number;
+}
+
+export interface ShellScope {
+  readonly id: number;
+  readonly kind: 'subshell' | 'conditional';
+}
+
+export interface ShellSegment {
+  readonly text: string;
+  readonly start: number;
+  readonly end: number;
+  readonly words: readonly ShellWord[];
+  readonly redirects: readonly ShellRedirect[];
+  readonly substitutions: readonly string[];
+  readonly isPiped: boolean;
+  readonly scopes: readonly ShellScope[];
+}
+
+export interface ShellCommandTree {
+  readonly segments: readonly ShellSegment[];
+  readonly hasError: boolean;
+  readonly hasSubstitution: boolean;
+  readonly hasCompound: boolean;
+  readonly hasPipe: boolean;
 }
