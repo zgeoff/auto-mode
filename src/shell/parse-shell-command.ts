@@ -201,22 +201,32 @@ function buildWalk(
     hasCompound = true;
 
     match(node)
-      .with({ type: 'CompoundList' }, (list) => readList(list))
-      .with({ type: 'BraceGroup' }, (group) => readList(group.body))
-      .with({ type: 'Subshell' }, (subshell) =>
-        withScope('subshell', () => readList(subshell.body)),
-      )
-      .with({ type: 'Coproc' }, (coproc) =>
-        withScope('subshell', () => readCommandNode(coproc.body)),
-      )
+      .with({ type: 'CompoundList' }, (list) => {
+        readList(list);
+      })
+      .with({ type: 'BraceGroup' }, (group) => {
+        readList(group.body);
+      })
+      .with({ type: 'Subshell' }, (subshell) => {
+        withScope('subshell', () => {
+          readList(subshell.body);
+        });
+      })
+      .with({ type: 'Coproc' }, (coproc) => {
+        withScope('subshell', () => {
+          readCommandNode(coproc.body);
+        });
+      })
       .with({ type: 'Redirected' }, (redirected) => {
         readCommandNode(redirected.command);
         pushSegment(redirected, [], redirected.redirects, redirected.redirects);
       })
-      .with({ type: 'Function' }, (definition) =>
-        withScope('conditional', () => readCommandNode(definition.body)),
-      )
-      .with({ type: 'If' }, (branch) =>
+      .with({ type: 'Function' }, (definition) => {
+        withScope('conditional', () => {
+          readCommandNode(definition.body);
+        });
+      })
+      .with({ type: 'If' }, (branch) => {
         withScope('conditional', () => {
           readList(branch.clause);
           readList(branch.then);
@@ -229,17 +239,20 @@ function buildWalk(
           if (branch.else !== undefined) {
             readList(branch.else);
           }
-        }),
-      )
-      .with({ type: 'While' }, (loop) =>
+        });
+      })
+      .with({ type: 'While' }, (loop) => {
         withScope('conditional', () => {
           readList(loop.clause);
           readList(loop.body);
-        }),
-      )
+        });
+      })
       .with({ type: 'For' }, { type: 'Select' }, (loop) => {
         pushSegment(loop, [], [], loop.wordlist ?? []);
-        withScope('conditional', () => readList(loop.body));
+
+        withScope('conditional', () => {
+          readList(loop.body);
+        });
       })
       .with({ type: 'ArithmeticFor' }, (loop) => {
         const expressions = [loop.initialize, loop.test, loop.update].flatMap((expression) =>
@@ -247,7 +260,10 @@ function buildWalk(
         );
 
         pushSegment(loop, [], [], expressions);
-        withScope('conditional', () => readList(loop.body));
+
+        withScope('conditional', () => {
+          readList(loop.body);
+        });
       })
       .with({ type: 'Case' }, (branch) => {
         pushSegment(branch, [], [], [branch.word, ...branch.items.flatMap((item) => item.pattern)]);
@@ -258,9 +274,9 @@ function buildWalk(
           }
         });
       })
-      .with({ type: 'TestCommand' }, { type: 'ArithmeticCommand' }, (test) =>
-        pushSegment(test, [], [], [test]),
-      )
+      .with({ type: 'TestCommand' }, { type: 'ArithmeticCommand' }, (test) => {
+        pushSegment(test, [], [], [test]);
+      })
       .exhaustive();
   };
 
