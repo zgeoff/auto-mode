@@ -16,7 +16,7 @@
         "@zgeoff/agent-hooks": "0.2.14",
         "@zgeoff/bun-test-extended": "0.2.4",
         "@zgeoff/chex": "0.3.14",
-        "@zgeoff/diet": "0.2.3",
+        "@zgeoff/diet": "0.2.4",
         "@zgeoff/format-codemod": "0.3.6",
         "@zgeoff/oxlint-config": "0.10.5",
         "@zgeoff/rig": "0.2.6",
@@ -462,7 +462,7 @@
 
     "@zgeoff/chex": ["@zgeoff/chex@0.3.14", "", { "dependencies": { "@zgeoff/std": "0.4.4", "oxc-parser": "0.158.0", "ts-pattern": "5.9.2" }, "bin": { "chex": "src/cli.ts" } }, "sha512-3/6TzltFP9dwkpznlkqHLT+YuhIAP9RVdqIg9RtdhXTNAU1UuzfImksbuocryDjJNEst8Ms5NYHKgqBkmF5hMQ=="],
 
-    "@zgeoff/diet": ["@zgeoff/diet@0.2.3", "", { "bin": { "diet": "diet.sh" } }, "sha512-/UHiaa0sMLCNtvpr/puCJFRX9OpKJ020OF4STNyc1ncTVGAdPOeSt0TcTeVuU2fqDkl9pHeLgP7dW2MrXoc8Cg=="],
+    "@zgeoff/diet": ["@zgeoff/diet@0.2.4", "", { "bin": { "diet": "diet.sh" } }, "sha512-oDl09xwVR828YW72lQjwpwqsHwBcJ/zpIWuScMllO2tw7RVBerNOUuYx5Hk6A74TjeAjk0Jrh/g3jJWJ7E2OuA=="],
 
     "@zgeoff/format-codemod": ["@zgeoff/format-codemod@0.3.6", "", { "dependencies": { "gunshi": "1.0.0-rc.1", "oxc-parser": "0.158.0" }, "bin": { "format-codemod": "dist/cli.js" } }, "sha512-hoa6JerU9JHgikqumdtu23VE8wemOgkTr1zrwBFGnLyBns59bTt7Z3kkV6IBxc07CveYKtPT94IDTWFmFj5qHA=="],
 
@@ -1009,6 +1009,8 @@
     "zod-to-json-schema": ["zod-to-json-schema@3.25.2", "", { "peerDependencies": { "zod": "^3.25.28 || ^4" } }, "sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA=="],
 
     "@eslint-community/eslint-utils/eslint-visitor-keys": ["eslint-visitor-keys@3.4.3", "", {}, "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag=="],
+
+    "@zgeoff/rig/@zgeoff/diet": ["@zgeoff/diet@0.2.3", "", { "bin": { "diet": "diet.sh" } }, "sha512-/UHiaa0sMLCNtvpr/puCJFRX9OpKJ020OF4STNyc1ncTVGAdPOeSt0TcTeVuU2fqDkl9pHeLgP7dW2MrXoc8Cg=="],
 
     "body-parser/content-type": ["content-type@2.1.0", "", {}, "sha512-mj7UPXE0jaqaOsukNZRUEfEi2AcL7C/vwmwcHV0O97eO1E1pxBZuyjlZrx5seTaNBg1U6+o35wpa35Qfcc+7ag=="],
 
