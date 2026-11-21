@@ -67,6 +67,20 @@ test.each([
   ['git commit "-a$SHORT" -m wip', ['commit or push options']],
   ['git push "-$SHORT"', ['commit or push options']],
   ['git push --no-verify $FLAGS', ['--no-verify']],
+  ['if true; then LEFTHOOK=0 git push; fi', ['LEFTHOOK=0']],
+  ['{ git commit --no-verify -m x; }', ['--no-verify']],
+  ['time git push --no-verify', ['--no-verify']],
+  [String.raw`git commit --no-verif\y -m x`, ['--no-verify']],
+  ["LEFTHOOK=$'0' git push", ['LEFTHOOK=0']],
+  ['export HUSKY=0; (unset HUSKY); git commit -m x', ['HUSKY=0']],
+  ['export HUSKY=0; if false; then unset HUSKY; fi; git commit -m x', ['HUSKY=0']],
+  ['export LEFTHOOK=0; (LEFTHOOK=1); git push', ['LEFTHOOK=0']],
+  ['export HUSKY=1; (true; HUSKY=0; git commit -m x)', ['HUSKY=0']],
+  ['export HUSKY=0; if false; then export HUSKY=1; fi; git commit -m x', ['HUSKY=0']],
+  [
+    `export ${Array.from({ length: 11 }, (_, index) => `V${index}=a`).join(' ')}; if false; then export ${Array.from({ length: 11 }, (_, index) => `V${index}=b`).join(' ')}; fi; git commit -m x`,
+    ['hook variables'],
+  ],
 ])('it finds the hook bypass in %s', (command, expected) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual(expected);
 });
@@ -441,4 +455,23 @@ test.each([
   String.raw`git push origin \$BRANCH`,
 ])('it finds no hook bypass in %s', (command) => {
   expect(collectHookBypasses(command, '/srv/harbor', null)).toStrictEqual([]);
+});
+
+test('it finds the hooks path that one mix of conditional values sets', () => {
+  const facts = {
+    worktree: '/repo',
+    hooksDirectory: '/repo/.git/hooks',
+    defaultHooksDirectory: '/repo/.git/hooks',
+    lefthookConfig: null,
+    layerHooks: { system: null, global: null, repository: null },
+    configFileHooks: {},
+  };
+
+  expect(
+    collectHookBypasses(
+      'export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/repo/.git/hooks; if false; then GIT_CONFIG_COUNT=0; fi; if true; then true; export GIT_CONFIG_VALUE_0=/bad; fi; git commit -m x',
+      '/repo',
+      facts,
+    ),
+  ).toStrictEqual(['core.hooksPath']);
 });

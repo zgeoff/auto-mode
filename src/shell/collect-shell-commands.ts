@@ -1,32 +1,69 @@
 import { resolveShellPath } from './resolve-shell-path.ts';
 import { splitCommandWords } from './split-command-words.ts';
-import { splitShellCommand } from './split-shell-command.ts';
-import { splitShellTokens } from './split-shell-tokens.ts';
+import type { ShellCommandTree, ShellRedirect, ShellScope } from './types.ts';
 
 export interface ShellCommand {
   readonly words: readonly string[];
   readonly directory: string | null;
+  readonly directories: readonly (string | null)[];
   readonly writeTargets: readonly string[];
 }
 
+interface ScopeDirectories {
+  readonly scope: ShellScope | null;
+  directories: (string | null)[];
+}
+
+// A `cd` in a subshell ends with it. One in a compound command's body may not
+// run, so after that body the shell may be in any directory the body or the
+// skipped body leaves. `directory` is null unless only one is possible.
 export function collectShellCommands(
-  command: string,
+  tree: ShellCommandTree,
   cwd: string | null,
   home: string,
 ): ShellCommand[] {
-  const hasPipe = splitShellTokens(command).tokens.some(
-    (token) => token.kind === 'separator' && token.operator === '|',
-  );
+  const stack: ScopeDirectories[] = [{ scope: null, directories: [cwd] }];
 
-  let directory: string | null = cwd;
+  return tree.segments.map((segment) => {
+    let depth = 0;
 
-  return splitShellCommand(command).segments.map((segment) => {
-    const words = splitCommandWords(segment.text);
-    const entry = { words, directory, writeTargets: collectWriteTargets(segment.text) };
+    while (
+      depth < segment.scopes.length &&
+      stack[depth + 1]?.scope?.id === segment.scopes[depth]?.id
+    ) {
+      depth += 1;
+    }
+
+    while (stack.length > depth + 1) {
+      const left = stack.pop();
+      const parent = stack.at(-1);
+
+      if (left?.scope?.kind === 'conditional' && parent !== undefined) {
+        parent.directories = [...new Set([...parent.directories, ...left.directories])];
+      }
+    }
+
+    for (const scope of segment.scopes.slice(depth)) {
+      stack.push({ scope, directories: [...(stack.at(-1)?.directories ?? [null])] });
+    }
+
+    const current = stack.at(-1);
+    const directories = current?.directories ?? [null];
+    const words = splitCommandWords(segment.words);
+    const directory = directories.length === 1 ? (directories[0] ?? null) : null;
+
+    const entry = {
+      words,
+      directory,
+      directories,
+      writeTargets: collectWriteTargets(segment.redirects),
+    };
 
     // A `cd` inside a pipeline runs in a subshell.
-    if (words[0] === 'cd') {
-      directory = hasPipe ? null : resolveShellPath(directory, words[1] ?? home, home);
+    if (words[0] === 'cd' && current !== undefined) {
+      current.directories = [
+        ...new Set(directories.map((from) => resolveCD(from, words[1], tree.hasPipe, home))),
+      ];
     }
 
     return entry;
@@ -37,13 +74,19 @@ export function collectShellCommands(
 // redirection writes none either.
 const WRITE_REDIRECTS: ReadonlySet<string> = new Set(['>', '>>', '>|', '&>', '&>>']);
 
-function collectWriteTargets(text: string): string[] {
-  return splitShellTokens(text).tokens.flatMap((token) =>
-    token.kind === 'redirect' &&
-    token.target !== null &&
-    token.target !== '' &&
-    WRITE_REDIRECTS.has(token.operator.replace(/^\d+/u, ''))
-      ? [token.target]
+function collectWriteTargets(redirects: readonly ShellRedirect[]): string[] {
+  return redirects.flatMap((redirect) =>
+    redirect.target !== null && redirect.target !== '' && WRITE_REDIRECTS.has(redirect.operator)
+      ? [redirect.target]
       : [],
   );
+}
+
+function resolveCD(
+  from: string | null,
+  target: string | undefined,
+  isPiped: boolean,
+  home: string,
+): string | null {
+  return isPiped ? null : resolveShellPath(from, target ?? home, home);
 }

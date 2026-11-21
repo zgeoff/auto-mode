@@ -1,10 +1,10 @@
 import { isAbsolute, normalize, relative } from 'node:path';
 import invariant from 'tiny-invariant';
 import type { ActionRequest } from '../request/types.ts';
+import { parseShellCommand } from '../shell/parse-shell-command.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
-import { splitShellCommand } from '../shell/split-shell-command.ts';
-import { splitShellTokens } from '../shell/split-shell-tokens.ts';
+import type { ShellSegment, ShellWord } from '../shell/types.ts';
 import {
   READ_ONLY_COMMANDS,
   READ_ONLY_GIT_SUBCOMMANDS,
@@ -38,16 +38,18 @@ export function classifyLocally(payload: ActionRequest): LocalVerdict {
     return ESCALATE;
   }
 
-  const chain = splitShellCommand(command);
+  const tree = parseShellCommand(command);
 
-  if (chain.hasUnparsedConstruct || chain.segments.length === 0) {
+  // A compound command, such as a loop or a subshell, runs its commands in an
+  // order and a context the segments alone do not show.
+  if (tree.hasError || tree.hasSubstitution || tree.hasCompound || tree.segments.length === 0) {
     return ESCALATE;
   }
 
   let exception = 'Read-only actions';
 
-  for (const segment of chain.segments) {
-    const verdict = classifySegment(segment.text, payload.cwd);
+  for (const segment of tree.segments) {
+    const verdict = classifySegment(segment, payload.cwd);
 
     if (verdict === null) {
       return ESCALATE;
@@ -61,16 +63,16 @@ export function classifyLocally(payload: ActionRequest): LocalVerdict {
   return { kind: 'allow', exception };
 }
 
-function classifySegment(text: string, cwd: string): string | null {
+function classifySegment(segment: ShellSegment, cwd: string): string | null {
   // Bash opens a socket for `< /dev/tcp/host/port`.
-  if (splitShellTokens(text).tokens.some((token) => token.kind === 'redirect')) {
+  if (segment.redirects.length > 0) {
     return null;
   }
 
-  const words = splitWords(text);
+  const words = segment.words;
 
   // A leading assignment or a wrapper such as env or sudo changes what runs.
-  if (words.length === 0 || splitCommandWords(text).length !== words.length) {
+  if (words.length === 0 || splitCommandWords(words).length !== words.length) {
     return null;
   }
 
@@ -102,17 +104,6 @@ function classifySegment(text: string, cwd: string): string | null {
   }
 
   return null;
-}
-
-interface ShellWord {
-  readonly raw: string;
-  readonly value: string;
-}
-
-function splitWords(text: string): readonly ShellWord[] {
-  return splitShellTokens(text).tokens.flatMap((token) =>
-    token.kind === 'word' ? [{ raw: token.raw, value: token.value }] : [],
-  );
 }
 
 function hasShellExpansion(raw: string): boolean {

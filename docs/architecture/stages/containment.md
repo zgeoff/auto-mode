@@ -19,18 +19,26 @@ so does a relative path once the current directory is unknown. Those calls go on
 judges them from the policy instead. A missed target is therefore a call the classifier sees, never
 a call that runs unjudged.
 
-The check follows a shell command segment by segment and tracks `cd`, so
-`cd ../other && rm -rf build` resolves `build` against the other directory. A `cd` inside a pipeline
-runs in a subshell, so a pipe anywhere in the command, outside quotes, leaves the directory unknown
-from that point. The check reads the command with the same shell tokenizer the local rules, the
-session scope and the evaluation anonymiser use, so all four agree on where a word, a segment and a
-redirection end. A command substitution, and a heredoc that a shell reads as its script, run
-commands of their own, so the check reads each one from the directory of the segment that runs it. A
-shell reads a heredoc as its script only when it runs no `-c` string and the heredoc reaches the
-descriptor its script comes from: standard input, or the descriptor that a script path such as
-`/dev/fd/3` opens. The outer shell expands an unquoted heredoc before the inner shell reads it, and
-a substitution's output can be any script text. The check therefore reads the substitutions of such
-a body, and the body itself only when it holds none.
+The check follows a shell command segment by segment, one segment per simple command, including each
+command in a compound command's body, and tracks `cd`, so `cd ../other && rm -rf build` resolves
+`build` against the other directory. A `cd` inside a pipeline runs in a subshell, so a pipe anywhere
+in the command, outside quotes, leaves the directory unknown from that point. A `cd` inside a
+subshell holds until the subshell ends. The body of an `if`, a loop, a `case` or a function may not
+run, so after a `cd` inside it the check resolves each path against every directory the shell may be
+in.
+
+The check reads the command through the same syntax tree, built by the unbash parser, that the local
+rules, the session scope and the evaluation anonymiser read, so all four agree on where a word, a
+segment and a redirection end. The session scope takes no worktree, branch or pull request from a
+command the parser reports an error in, or from a compound command's body, which may never run.
+
+A command substitution, and a heredoc that a shell reads as its script, run commands of their own,
+so the check reads each one from the directory of the segment that runs it. A shell reads a heredoc
+as its script only when it runs no `-c` string and the heredoc reaches the descriptor its script
+comes from: standard input, or the descriptor that a script path such as `/dev/fd/3` opens. The
+outer shell expands an unquoted heredoc before the inner shell reads it, and a substitution's output
+can be any script text. The check therefore reads the substitutions of such a body, and the body
+itself only when it holds none.
 
 ## The program table
 

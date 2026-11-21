@@ -1,47 +1,41 @@
 import { basename } from 'node:path';
 import { splitCommandWords } from './split-command-words.ts';
-import { splitShellCommand } from './split-shell-command.ts';
-import type { ShellTokens } from './split-shell-tokens.ts';
-import { splitShellTokens } from './split-shell-tokens.ts';
+import type { ShellCommandTree, ShellRedirect } from './types.ts';
 
 export interface ShellScript {
   readonly text: string;
   readonly segment: number;
 }
 
-export function collectShellScripts(command: string): ShellScript[] {
-  const segments = splitShellCommand(command).segments;
-  const tokens = splitShellTokens(command).tokens;
+export function collectShellScripts(tree: ShellCommandTree): ShellScript[] {
+  const segments = tree.segments;
 
   return [
     ...segments.flatMap((range, segment) =>
-      splitShellTokens(range.text).substitutions.map((body) => ({ text: body, segment })),
+      range.substitutions.map((body) => ({ text: body, segment })),
     ),
-    ...tokens.flatMap((token) => {
-      if (token.kind !== 'heredoc') {
-        return [];
-      }
+    ...segments.flatMap((range, segment) =>
+      range.redirects.flatMap((redirect) => {
+        const heredoc = redirect.heredoc;
 
-      const segment = segments.findIndex(
-        (range) => range.start <= token.opener && token.opener < range.end,
-      );
+        if (heredoc === null) {
+          return [];
+        }
 
-      const range = segments[segment];
+        // The outer shell expands an unquoted body before the inner one reads
+        // it, and the output of a substitution can be any script text.
+        const descriptor = findScriptDescriptor(splitCommandWords(range.words));
 
-      // The outer shell expands an unquoted body before the inner one reads
-      // it, and the output of a substitution can be any script text.
-      const descriptor = range === undefined ? null : findScriptDescriptor(range.text);
+        const isScript =
+          descriptor !== null &&
+          findDescriptorSource(range.redirects, descriptor) === redirect.start &&
+          (heredoc.isQuoted || heredoc.substitutions.length === 0);
 
-      const isScript =
-        range !== undefined &&
-        descriptor !== null &&
-        findDescriptorSource(tokens, range.start, range.end, descriptor) === token.opener &&
-        (token.isQuoted || token.substitutions.length === 0);
+        const bodies = isScript ? [...heredoc.substitutions, heredoc.body] : heredoc.substitutions;
 
-      const bodies = isScript ? [...token.substitutions, token.body] : token.substitutions;
-
-      return bodies.map((body) => ({ text: body, segment }));
-    }),
+        return bodies.map((body) => ({ text: body, segment }));
+      }),
+    ),
   ];
 }
 
@@ -52,8 +46,8 @@ const VALUE_OPTIONS: ReadonlySet<string> = new Set(['--rcfile', '--init-file', '
 
 const VALUE_OPTION_GROUP = /^[-+][^-]*[oO]$/u;
 
-function findScriptDescriptor(segment: string): string | null {
-  const [program = '', ...args] = splitCommandWords(segment);
+function findScriptDescriptor(words: readonly string[]): number | null {
+  const [program = '', ...args] = words;
 
   if (!SHELLS.has(basename(program))) {
     return null;
@@ -72,11 +66,11 @@ function findScriptDescriptor(segment: string): string | null {
     if (arg === '--' || arg === '-') {
       const script = args[index + 1];
 
-      return readsInput || script === undefined ? '0' : findPathDescriptor(script);
+      return readsInput || script === undefined ? 0 : findPathDescriptor(script);
     }
 
     if (!/^[-+]/u.test(arg)) {
-      return readsInput ? '0' : findPathDescriptor(arg);
+      return readsInput ? 0 : findPathDescriptor(arg);
     }
 
     // With `-s` the arguments after the options are positional parameters, and
@@ -85,56 +79,43 @@ function findScriptDescriptor(segment: string): string | null {
     index += VALUE_OPTIONS.has(arg) || VALUE_OPTION_GROUP.test(arg) ? 2 : 1;
   }
 
-  return '0';
+  return 0;
 }
 
-const STANDARD_PATHS: ReadonlyMap<string, string> = new Map([
-  ['/dev/stdin', '0'],
-  ['/dev/stdout', '1'],
-  ['/dev/stderr', '2'],
+const STANDARD_PATHS: ReadonlyMap<string, number> = new Map([
+  ['/dev/stdin', 0],
+  ['/dev/stdout', 1],
+  ['/dev/stderr', 2],
 ]);
 
-function findPathDescriptor(path: string): string | null {
+function findPathDescriptor(path: string): number | null {
   const descriptor = /^\/(?:dev|proc\/self)\/fd\/(?<number>\d+)$/u.exec(path)?.groups?.['number'];
 
   if (descriptor !== undefined) {
-    return String(Number(descriptor));
+    return Number(descriptor);
   }
 
   return STANDARD_PATHS.get(path) ?? null;
 }
 
-// Redirections apply in order, `<&3` copies whatever descriptor 3 holds at that
-// point, and a process substitution is a word.
+// Redirections apply in order, and `<&3` copies whatever descriptor 3 holds at
+// that point.
 function findDescriptorSource(
-  tokens: ShellTokens['tokens'],
-  start: number,
-  end: number,
-  descriptor: string,
+  redirects: readonly ShellRedirect[],
+  descriptor: number,
 ): number | null {
-  const descriptors = new Map<string, number | null>();
+  const descriptors = new Map<number, number | null>();
 
-  for (const token of tokens) {
-    if (
-      token.kind !== 'redirect' ||
-      token.operator.endsWith('(') ||
-      token.start < start ||
-      token.start >= end
-    ) {
-      continue;
-    }
-
-    const number = /^\d*/u.exec(token.operator)?.[0] ?? '';
-    const operator = token.operator.slice(number.length);
-    const implied = operator.startsWith('<') ? '0' : '1';
-    const assigned = number === '' ? implied : String(Number(number));
-    const move = /^(?<source>\d+)(?<close>-?)$/u.exec(token.target ?? '')?.groups;
+  for (const redirect of redirects) {
+    const operator = redirect.operator;
+    const assigned = redirect.descriptor ?? (operator.startsWith('<') ? 0 : 1);
+    const move = /^(?<source>\d+)(?<close>-?)$/u.exec(redirect.target ?? '')?.groups;
 
     const path =
-      operator === '<' || operator === '<>' ? findPathDescriptor(token.target ?? '') : null;
+      operator === '<' || operator === '<>' ? findPathDescriptor(redirect.target ?? '') : null;
 
     if (operator.endsWith('&') && move !== undefined) {
-      const source = String(Number(move['source']));
+      const source = Number(move['source']);
 
       descriptors.set(assigned, descriptors.get(source) ?? null);
 
@@ -142,7 +123,7 @@ function findDescriptorSource(
         descriptors.delete(source);
       }
     } else if (path === null) {
-      descriptors.set(assigned, token.start);
+      descriptors.set(assigned, redirect.start);
     } else {
       descriptors.set(assigned, descriptors.get(path) ?? null);
     }

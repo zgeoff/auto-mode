@@ -102,6 +102,7 @@
     "tsdown": "0.23.4",
     "tsrs": "0.25.0-ts7.1.0-beta",
     "typescript": "7.1.0-dev.20261101.1",
+    "unbash": "6.0.4",
     "zod": "4.6.7"
   },
   "engines": {

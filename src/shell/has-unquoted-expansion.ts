@@ -1,33 +1,29 @@
-export function hasUnquotedExpansion(raw: string): boolean {
-  let quote: 'single' | 'ansi' | 'double' | null = null;
+import { match } from 'ts-pattern';
+import type { WordPart } from 'unbash';
+import type { ShellWord } from './types.ts';
 
-  for (let index = 0; index < raw.length; index += 1) {
-    const char = raw.charAt(index);
-    const next = raw.charAt(index + 1);
+// Inside double quotes, a substitution or a braced expansion can open quotes
+// of its own, so only a plain variable there stays one known word.
+export function hasUnquotedExpansion(word: ShellWord): boolean {
+  return word.parts.some((part) => isUnquotedExpansionPart(part));
+}
 
-    if (quote === 'single' || quote === 'ansi') {
-      if (char === '\\' && quote === 'ansi') {
-        index += 1;
-      } else if (char === "'") {
-        quote = null;
-      }
-    } else if (char === '\\') {
-      index += 1;
-    } else if (char === '`' || (char === '$' && (next === '(' || next === '{'))) {
-      // Inside double quotes, a substitution or a braced expansion can open
-      // quotes of its own.
-      return true;
-    } else if (char === '"') {
-      quote = quote === 'double' ? null : 'double';
-    } else if (quote === null && char === "'") {
-      quote = 'single';
-    } else if (quote === null && char === '$' && next === "'") {
-      quote = 'ansi';
-      index += 1;
-    } else if (quote === null && char === '$' && /[\w@*#?$!-]/u.test(next)) {
-      return true;
-    }
-  }
-
-  return false;
+function isUnquotedExpansionPart(part: WordPart): boolean {
+  return match(part)
+    .with(
+      { type: 'SimpleExpansion' },
+      { type: 'ParameterExpansion' },
+      { type: 'CommandExpansion' },
+      { type: 'ArithmeticExpansion' },
+      { type: 'ProcessSubstitution' },
+      () => true,
+    )
+    .with({ type: 'DoubleQuoted' }, { type: 'LocaleString' }, (quoted) =>
+      quoted.parts.some((child) => child.type !== 'Literal' && child.type !== 'SimpleExpansion'),
+    )
+    .with({ type: 'Glob' }, { type: 'ExtendedGlob' }, { type: 'BraceExpansion' }, (pattern) =>
+      (pattern.parts ?? []).some((child) => isUnquotedExpansionPart(child)),
+    )
+    .with({ type: 'Literal' }, { type: 'SingleQuoted' }, { type: 'AnsiCQuoted' }, () => false)
+    .exhaustive();
 }
