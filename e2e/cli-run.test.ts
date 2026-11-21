@@ -3,12 +3,12 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveProgram } from '@zgeoff/rig/e2e';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { run } from '@zgeoff/testing/process';
 import { buildIsolatedEnv } from '../src/test-utils/build-isolated-env.ts';
 import { buildNodeCommand } from '../src/test-utils/build-node-command.ts';
 import { readFixture } from '../src/test-utils/read-fixture.ts';
 import { readNodePath } from '../src/test-utils/read-node-path.ts';
-import { runGit } from '../src/test-utils/run-git.ts';
 
 async function setupTest() {
   const program = await resolveProgram('auto-mode');
@@ -23,7 +23,7 @@ async function setupTest() {
 
   // The host may hold a .git above the temp root, which a walk up from the cwd
   // would otherwise reach.
-  runGit(directory, ['init', '-q', '-b', 'main', repo]);
+  await runGit(directory, readGitEnv(directory), ['init', '-q', '-b', 'main', repo]);
 
   return {
     command: buildNodeCommand(program, node),

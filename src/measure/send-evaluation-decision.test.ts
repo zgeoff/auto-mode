@@ -5,7 +5,7 @@ import { buildMockDecisionRequest } from '../test-utils/factories/build-mock-dec
 import { buildMockDecisionRule } from '../test-utils/factories/build-mock-decision-rule.ts';
 import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
 import { DECISION_URL } from '../test-utils/mocks/handlers.ts';
-import { server } from '../test-utils/mocks/node.ts';
+import { network } from '../test-utils/mocks/network.ts';
 import { sendEvaluationDecision } from './send-evaluation-decision.ts';
 
 test('it returns the answers Jev gives to the request', async () => {
@@ -42,7 +42,7 @@ test('it sends the request through the fetch it is given', async () => {
 });
 
 test('it aborts a request that outlasts the provider timeout', () => {
-  server.use(
+  network.use(
     http.post(DECISION_URL, async () => {
       await delay('infinite');
 

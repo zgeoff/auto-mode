@@ -2,10 +2,10 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { waitFor } from '@zgeoff/testing';
 import invariant from 'tiny-invariant';
 import { createStubClaude } from '../test-utils/create-stub-claude.ts';
 import { readStubClaudeRecords } from '../test-utils/read-stub-claude-records.ts';
-import { waitFor } from '../test-utils/wait-for.ts';
 import { startJudgeSession } from './start-judge-session.ts';
 import type { JudgeSession } from './types.ts';
 
@@ -75,7 +75,7 @@ test('it answers a second review from the same process, after clearing the first
     AbortSignal.timeout(10_000),
   );
 
-  const records = await readStubClaudeRecords(ctx.recordPath);
+  const records = await readStubClaudeRecords(ctx.recordPath).catch(() => []);
 
   expect(second.warm).toBeTrue();
 
@@ -585,10 +585,15 @@ test('it stops the judge process when a review aborts mid-turn', async () => {
     controller.signal,
   );
 
-  const [record] = await waitFor(
-    () => readStubClaudeRecords(ctx.recordPath).catch(() => []),
-    (records) => records.length > 0,
-  );
+  const [record] = await waitFor(async () => {
+    const records = await readStubClaudeRecords(ctx.recordPath);
+
+    if (records.length === 0) {
+      throw new Error('the stub has recorded nothing');
+    }
+
+    return records;
+  });
 
   invariant(record);
 
@@ -600,13 +605,12 @@ test('it stops the judge process when a review aborts mid-turn', async () => {
     () => {
       try {
         process.kill(record.pid, 0);
-
-        return true;
       } catch {
         return false;
       }
+
+      throw new Error('the process still runs');
     },
-    (running) => !running,
     { timeoutMs: 1000 },
   );
 

@@ -5,12 +5,12 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
+import { waitFor } from '@zgeoff/testing';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { buildStubTimeout } from '../test-utils/build-stub-timeout.ts';
 import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { loadProcessState } from '../test-utils/load-process-state.ts';
-import { waitFor } from '../test-utils/wait-for.ts';
 import { readApiKeyFromCommand } from './read-api-key-from-command.ts';
 
 async function setupTest() {
@@ -69,20 +69,22 @@ test('it stops a key helper and its child on cancellation', async () => {
 
   // The kill returns before the kernel finishes it, so a process can still read
   // as running for a moment after the reader resolves.
-  const after = await waitFor(
-    async () => {
-      const [helperState, childState] = await Promise.all([
-        loadProcessState(pids.helper),
-        loadProcessState(pids.child),
-      ]);
+  const after = await waitFor(async () => {
+    const [helperState, childState] = await Promise.all([
+      loadProcessState(pids.helper),
+      loadProcessState(pids.child),
+    ]);
 
-      return { helper: helperState, child: childState };
-    },
-    (states) =>
-      [states.helper, states.child].every(
+    if (
+      ![helperState, childState].every(
         (state) => state === null || state.state === 'Z' || state.state === 'X',
-      ),
-  );
+      )
+    ) {
+      throw new Error('a process still runs');
+    }
+
+    return { helper: helperState, child: childState };
+  });
 
   expect(key).toBeNull();
 

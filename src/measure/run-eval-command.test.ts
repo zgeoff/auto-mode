@@ -2,9 +2,9 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { buildStubOutput } from '../test-utils/build-stub-output.ts';
 import { buildMockActionLogRecord } from '../test-utils/factories/build-mock-action-log-record.ts';
-import { runGit } from '../test-utils/run-git.ts';
 import { defineExperiment } from './define-experiment.ts';
 import { loadCaseKeys } from './load-case-keys.ts';
 import { runEvalCommand } from './run-eval-command.ts';
@@ -16,8 +16,14 @@ async function setupTest() {
 
   const resultsDir = await realpath(tempDir);
 
-  runGit(resultsDir, ['init', '-q', '-b', 'main']);
-  runGit(resultsDir, ['remote', 'add', 'origin', 'git@github.com:zgeoff/auto-mode-evals.git']);
+  await runGit(resultsDir, readGitEnv(resultsDir), ['init', '-q', '-b', 'main']);
+
+  await runGit(resultsDir, readGitEnv(resultsDir), [
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:zgeoff/auto-mode-evals.git',
+  ]);
 
   return {
     resultsDir,

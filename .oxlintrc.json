@@ -157,6 +157,14 @@
       }
     ]
   },
+  "overrides": [
+    {
+      // a mitata script that `bun run bench` runs, with a cold-load line and groups
+      // that a single `defineBench` budget does not express
+      "files": ["src/secrets/find-secret.bench.ts"],
+      "rules": { "zgeoff/bench-shape": "off" }
+    }
+  ],
   "ignorePatterns": [
     ".claude/**",
     ".agents/**",

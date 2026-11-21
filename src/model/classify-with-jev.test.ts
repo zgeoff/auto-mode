@@ -2,6 +2,7 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { HttpResponse, delay, http } from 'msw';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
@@ -13,8 +14,7 @@ import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts'
 import { buildMockTaskScopeSummary } from '../test-utils/factories/build-mock-task-scope-summary.ts';
 import { decisionAnswers } from '../test-utils/mocks/decision-answers.ts';
 import { DECISION_URL } from '../test-utils/mocks/handlers.ts';
-import { server } from '../test-utils/mocks/node.ts';
-import { runGit } from '../test-utils/run-git.ts';
+import { network } from '../test-utils/mocks/network.ts';
 import { classifyWithJev } from './classify-with-jev.ts';
 
 async function setupTest() {
@@ -24,7 +24,7 @@ async function setupTest() {
 
   // The host may hold a .git above the temp root, which a walk up from the cwd
   // would otherwise reach.
-  runGit(directory, ['init', '--quiet']);
+  await runGit(directory, readGitEnv(directory), ['init', '--quiet']);
 
   return { directory };
 }
@@ -32,7 +32,11 @@ async function setupTest() {
 test('it sends the configured rules and the direct user message without the settings environment', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'symbolic-ref',
+    'HEAD',
+    'refs/heads/main',
+  ]);
 
   const settings = join(ctx.directory, 'settings.json');
 
@@ -50,7 +54,7 @@ test('it sends the configured rules and the direct user message without the sett
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -237,7 +241,7 @@ test.each([
 ] as const)('it follows %s when the decision service fails', async (onFailure, verdict) => {
   const ctx = await setupTest();
 
-  server.use(http.post(DECISION_URL, () => HttpResponse.text('failure', { status: 529 })));
+  network.use(http.post(DECISION_URL, () => HttpResponse.text('failure', { status: 529 })));
 
   const startedAt = performance.now();
 
@@ -286,12 +290,16 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
   async (name) => {
     const ctx = await setupTest();
 
-    runGit(ctx.directory, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+    await runGit(ctx.directory, readGitEnv(ctx.directory), [
+      'symbolic-ref',
+      'HEAD',
+      'refs/heads/main',
+    ]);
 
     const clarification = `The ${name} finding is wrong: this is my disposable test fixture, not the active policy or an audit record.`;
     const received = mock<(body: unknown) => void>();
 
-    server.use(
+    network.use(
       http.post(DECISION_URL, async (info) => {
         const body: unknown = await info.request.clone().json();
 
@@ -493,7 +501,7 @@ test('it keeps a separate shipped hard block after the self-protection finding c
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -598,7 +606,11 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
   async (name) => {
     const ctx = await setupTest();
 
-    runGit(ctx.directory, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+    await runGit(ctx.directory, readGitEnv(ctx.directory), [
+      'symbolic-ref',
+      'HEAD',
+      'refs/heads/main',
+    ]);
 
     const rules = join(ctx.directory, 'rules.md');
 
@@ -618,7 +630,7 @@ test.each(['Policy Tampering', 'Audit Tampering'])(
 
     const received = mock<(body: unknown) => void>();
 
-    server.use(
+    network.use(
       http.post(DECISION_URL, async (info) => {
         const body: unknown = await info.request.clone().json();
 
@@ -740,7 +752,7 @@ test('it returns the configured denial when the deadline passes during the reque
   const timer = buildStubTimeout();
   const requestSent = Promise.withResolvers<void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async () => {
       requestSent.resolve();
 
@@ -867,7 +879,7 @@ test('it reports the task context of a request Jev answered', async () => {
 test('it reports no task context when the decision request fails', async () => {
   const ctx = await setupTest();
 
-  server.use(http.post(DECISION_URL, () => HttpResponse.text('failure', { status: 529 })));
+  network.use(http.post(DECISION_URL, () => HttpResponse.text('failure', { status: 529 })));
 
   const onTaskContext = mock<(context: unknown) => void>();
 
@@ -902,7 +914,7 @@ test('it sends a stale direct message to Jev as stale task context, never as cur
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -959,7 +971,11 @@ test('it sends a stale direct message to Jev as stale task context, never as cur
 test('it evaluates a subagent on its task context', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'symbolic-ref',
+    'HEAD',
+    'refs/heads/main',
+  ]);
 
   const rules = join(ctx.directory, 'rules.md');
 
@@ -988,7 +1004,7 @@ test('it evaluates a subagent on its task context', async () => {
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -1140,7 +1156,7 @@ test('it separates missing credentials from a classifier ask without calling the
 
   const requested = mock();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       requested();
     }),
@@ -1195,7 +1211,7 @@ test('it refuses a provider kind that only judges without calling any service', 
 
   const requested = mock();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       requested();
     }),
@@ -1228,12 +1244,21 @@ test('it refuses a provider kind that only judges without calling any service', 
 test('it sends checked branch evidence for a routine feature commit and allows it', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['symbolic-ref', 'HEAD', 'refs/heads/feature']);
-  runGit(ctx.directory, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'symbolic-ref',
+    'HEAD',
+    'refs/heads/feature',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'symbolic-ref',
+    'refs/remotes/origin/HEAD',
+    'refs/remotes/origin/main',
+  ]);
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -1440,8 +1465,17 @@ test.each<BranchEvidenceCase>([
     '## HARD BLOCK rules\n### Secret Persistence\nNever persist secrets\n## SOFT BLOCK rules\n### Default Branch Write\nRequire a feature branch',
   );
 
-  runGit(ctx.directory, ['symbolic-ref', 'HEAD', `refs/heads/${row.branch}`]);
-  runGit(ctx.directory, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'symbolic-ref',
+    'HEAD',
+    `refs/heads/${row.branch}`,
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'symbolic-ref',
+    'refs/remotes/origin/HEAD',
+    'refs/remotes/origin/main',
+  ]);
 
   decisionAnswers.set(
     row.questionID,
@@ -1454,7 +1488,7 @@ test.each<BranchEvidenceCase>([
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -1589,8 +1623,17 @@ test.each(['Write', 'Edit'])(
       '## HARD BLOCK rules\n### Data Exfiltration\nNever send secrets\n## SOFT BLOCK rules\n### History Rewrite\nRequire the branch',
     );
 
-    runGit(ctx.directory, ['symbolic-ref', 'HEAD', 'refs/heads/feature']);
-    runGit(ctx.directory, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+    await runGit(ctx.directory, readGitEnv(ctx.directory), [
+      'symbolic-ref',
+      'HEAD',
+      'refs/heads/feature',
+    ]);
+
+    await runGit(ctx.directory, readGitEnv(ctx.directory), [
+      'symbolic-ref',
+      'refs/remotes/origin/HEAD',
+      'refs/remotes/origin/main',
+    ]);
 
     decisionAnswers.set(
       'rule_0',
@@ -1603,7 +1646,7 @@ test.each(['Write', 'Edit'])(
 
     const received = mock<(body: unknown) => void>();
 
-    server.use(
+    network.use(
       http.post(DECISION_URL, async (info) => {
         const body: unknown = await info.request.clone().json();
 
@@ -1754,8 +1797,17 @@ test.each([
       '## HARD BLOCK rules\n### Data Exfiltration\nNever send secrets\n## SOFT BLOCK rules\n### History Rewrite\nRequire the branch',
     );
 
-    runGit(ctx.directory, ['symbolic-ref', 'HEAD', 'refs/heads/feature']);
-    runGit(ctx.directory, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+    await runGit(ctx.directory, readGitEnv(ctx.directory), [
+      'symbolic-ref',
+      'HEAD',
+      'refs/heads/feature',
+    ]);
+
+    await runGit(ctx.directory, readGitEnv(ctx.directory), [
+      'symbolic-ref',
+      'refs/remotes/origin/HEAD',
+      'refs/remotes/origin/main',
+    ]);
 
     decisionAnswers.set(
       'rule_0',
@@ -1768,7 +1820,7 @@ test.each([
 
     const received = mock<(body: unknown) => void>();
 
-    server.use(
+    network.use(
       http.post(DECISION_URL, async (info) => {
         const body: unknown = await info.request.clone().json();
 
@@ -2018,7 +2070,7 @@ test('it sends a 249-line test Edit within the request limit with the shipped po
 
   const sentBytes = mock<(bytes: number) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body = await info.request.clone().text();
 
@@ -2088,7 +2140,7 @@ test('it times out on the provider deadline with the real timer', async () => {
 
   const reached = mock();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async () => {
       reached();
 
@@ -2147,7 +2199,7 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
 
   const timer = buildStubTimeout();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async () => {
       timer.emitTimeout(1);
 
@@ -2205,12 +2257,22 @@ test('it starts the provider timer at the next whole millisecond for a fractiona
 test('it sends the checkout remotes and the task scope with a non-Git action', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['symbolic-ref', 'HEAD', 'refs/heads/feature']);
-  runGit(ctx.directory, ['remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'symbolic-ref',
+    'HEAD',
+    'refs/heads/feature',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -2393,7 +2455,7 @@ test('it sends Jev the configured MCP servers by name and host, with no credenti
   const received = mock<(mcpServers: unknown, body: string) => void>();
   const bodySchema = z.object({ state: z.object({ mcpServers: z.unknown() }) });
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body = await info.request.clone().text();
 
@@ -2457,7 +2519,7 @@ test('it returns the configured denial without a request when the deadline passe
   const requested = mock();
   const timer = buildStubTimeout();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       requested();
     }),
@@ -2522,7 +2584,7 @@ test('it returns the configured denial without a request when the caller cancell
 
   const controller = new AbortController();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       requested();
     }),

@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { runGit } from '../test-utils/run-git.ts';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { requireResultsClone } from './require-results-clone.ts';
 
 async function setupTest() {
@@ -12,7 +12,7 @@ async function setupTest() {
 
   const directory = await realpath(tempDir);
 
-  runGit(directory, ['init', '-q', '-b', 'main']);
+  await runGit(directory, readGitEnv(directory), ['init', '-q', '-b', 'main']);
 
   return { directory, publicRoot: resolve(import.meta.dirname, '../..') };
 }
@@ -28,7 +28,7 @@ test.each([
   async (_label, url) => {
     const ctx = await setupTest();
 
-    runGit(ctx.directory, ['remote', 'add', 'origin', url]);
+    await runGit(ctx.directory, readGitEnv(ctx.directory), ['remote', 'add', 'origin', url]);
 
     const clone = await requireResultsClone(ctx.directory, ctx.publicRoot);
 
@@ -42,7 +42,12 @@ test.each([
 test('it accepts a clone without that origin that holds the results README and manifest', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['remote', 'add', 'origin', '/srv/mirrors/evals']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'remote',
+    'add',
+    'origin',
+    '/srv/mirrors/evals',
+  ]);
 
   await writeFile(join(ctx.directory, 'README.md'), '# auto-mode-evals\n\nResults.\n');
   await writeFile(join(ctx.directory, 'MANIFEST.sha256'), '');
@@ -58,7 +63,7 @@ test('it accepts a clone without that origin that holds the results README and m
 test('it resolves a directory inside the clone to its real path and the clone root', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     'remote',
     'add',
     'origin',
@@ -79,7 +84,7 @@ test('it resolves a directory inside the clone to its real path and the clone ro
 test('it refuses a clone of another repository', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     'remote',
     'add',
     'origin',
@@ -118,7 +123,7 @@ test('it refuses a directory that does not exist', async () => {
 test('it refuses a directory inside the public repository whose name starts with two dots', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     'remote',
     'add',
     'origin',
@@ -143,7 +148,7 @@ test.each([
   async (_label, url) => {
     const ctx = await setupTest();
 
-    runGit(ctx.directory, ['remote', 'add', 'origin', url]);
+    await runGit(ctx.directory, readGitEnv(ctx.directory), ['remote', 'add', 'origin', url]);
 
     expect(requireResultsClone(ctx.directory, ctx.publicRoot)).rejects.toThrowWithMessage(
       Error,

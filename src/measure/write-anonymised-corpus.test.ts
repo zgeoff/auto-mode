@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../test-utils/run-git.ts';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { writeAnonymisedCorpus } from './write-anonymised-corpus.ts';
 
 async function setupTest(): Promise<{ readonly directory: string; readonly capture: string }> {
@@ -104,7 +104,13 @@ test('it writes the anonymised cases and a labels to-do list outside every check
 test('it refuses an out dir under evals of a repository, so unread cases stay out of git', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'public')]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '-q',
+    '-b',
+    'main',
+    join(ctx.directory, 'public'),
+  ]);
 
   await mkdir(join(ctx.directory, 'public', 'evals'), { recursive: true });
   await writeFile(ctx.capture, '');
@@ -126,7 +132,13 @@ test('it refuses an out dir under evals of a repository, so unread cases stay ou
 test('it refuses an out dir in any other git work tree', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'other')]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '-q',
+    '-b',
+    'main',
+    join(ctx.directory, 'other'),
+  ]);
 
   await writeFile(ctx.capture, '');
 
@@ -190,7 +202,13 @@ test('it writes nothing when the secret scan cannot run', async () => {
 test('it refuses to stage the corpus inside a git work tree', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'staging')]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '-q',
+    '-b',
+    'main',
+    join(ctx.directory, 'staging'),
+  ]);
 
   await writeFile(ctx.capture, '');
 

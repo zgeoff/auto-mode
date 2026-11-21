@@ -13,7 +13,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../test-utils/run-git.ts';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { tryWriteRequestCapture } from './try-write-request-capture.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {
@@ -53,7 +53,13 @@ test('it appends the record to the file for its day, readable by the owner alone
 test('it refuses a dir inside a git work tree and writes nothing', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'repo')]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '-q',
+    '-b',
+    'main',
+    join(ctx.directory, 'repo'),
+  ]);
 
   const outcome = await tryWriteRequestCapture(join(ctx.directory, 'repo', 'captures'), {
     schemaVersion: 1,
@@ -160,7 +166,12 @@ test('it narrows an existing capture dir and file that others can read to the ow
 test('it keeps the capture out of a bare repository whose work tree holds the dir', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '-q', '--bare', join(ctx.directory, 'dotfiles.git')]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '-q',
+    '--bare',
+    join(ctx.directory, 'dotfiles.git'),
+  ]);
 
   await tryWriteRequestCapture(join(ctx.directory, '.local', 'state', 'captures'), {
     schemaVersion: 1,
@@ -171,7 +182,7 @@ test('it keeps the capture out of a bare repository whose work tree holds the di
     escalation: false,
   });
 
-  const status = runGit(ctx.directory, [
+  const status = await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '--git-dir',
     join(ctx.directory, 'dotfiles.git'),
     '--work-tree',

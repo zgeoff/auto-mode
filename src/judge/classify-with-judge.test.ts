@@ -2,6 +2,7 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { waitFor } from '@zgeoff/testing';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { findPreset } from '../config/presets.ts';
@@ -12,7 +13,6 @@ import { buildMockDecisionRule } from '../test-utils/factories/build-mock-decisi
 import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
 import { buildMockRuntime } from '../test-utils/factories/build-mock-runtime.ts';
 import { readStubClaudeRecords } from '../test-utils/read-stub-claude-records.ts';
-import { waitFor } from '../test-utils/wait-for.ts';
 import { classifyWithJudge } from './classify-with-judge.ts';
 
 async function setupTest() {
@@ -571,8 +571,15 @@ test('it keeps the template deny and records a timeout when the judge outlasts i
   );
 
   await waitFor(
-    () => readFile(ctx.recordPath, 'utf8').catch(() => ''),
-    (text) => text !== '',
+    async () => {
+      const text = await readFile(ctx.recordPath, 'utf8');
+
+      if (text === '') {
+        throw new Error('the record is empty');
+      }
+
+      return text;
+    },
     { timeoutMs: 10_000 },
   );
 

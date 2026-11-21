@@ -2,12 +2,12 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { buildStubLockClock } from '../test-utils/build-stub-lock-clock.ts';
 import { buildStubPullRequestReader } from '../test-utils/build-stub-pull-request-reader.ts';
 import { buildStubScopeEventVerifier } from '../test-utils/build-stub-scope-event-verifier.ts';
 import { buildMockScopeRecordRequest } from '../test-utils/factories/build-mock-scope-record-request.ts';
 import { buildMockSessionScope } from '../test-utils/factories/build-mock-session-scope.ts';
-import { runGit } from '../test-utils/run-git.ts';
 import { loadSessionScope } from './load-session-scope.ts';
 import { updateSessionScope } from './update-session-scope.ts';
 
@@ -20,8 +20,8 @@ async function setupTest() {
 
   const repo = join(root, 'app');
 
-  runGit(root, ['init', '-q', '-b', 'main', repo]);
-  runGit(root, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  await runGit(root, readGitEnv(root), ['init', '-q', '-b', 'main', repo]);
+  await runGit(root, readGitEnv(root), ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
 
   return { root, repo };
 }
@@ -31,7 +31,15 @@ test('it records a worktree and its branch made during the call and writes them 
 
   const startedAt = Date.now();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    ctx.repo,
+    'worktree',
+    'add',
+    '.worktrees/x',
+    '-b',
+    'feat/x',
+  ]);
 
   const request = buildMockScopeRecordRequest({
     sessionID: 'session-1',
@@ -71,13 +79,22 @@ test('it ties a recorded branch to the repository the session made it in', async
 
   const other = join(ctx.root, 'other');
 
-  runGit(ctx.root, ['init', '-q', '-b', 'main', other]);
-  runGit(ctx.root, ['-C', other, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  await runGit(ctx.root, readGitEnv(ctx.root), ['init', '-q', '-b', 'main', other]);
+
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    other,
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
 
   const startedAt = Date.now();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'branch', 'shared']);
-  runGit(ctx.root, ['-C', other, 'branch', 'shared']);
+  await runGit(ctx.root, readGitEnv(ctx.root), ['-C', ctx.repo, 'branch', 'shared']);
+  await runGit(ctx.root, readGitEnv(ctx.root), ['-C', other, 'branch', 'shared']);
 
   const request = buildMockScopeRecordRequest({
     cwd: ctx.repo,
@@ -103,8 +120,17 @@ test('it ties a recorded branch to the repository the session made it in', async
 test('it records no worktree or branch that existed before the call started', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
-  runGit(ctx.root, ['-C', ctx.repo, 'branch', 'feat/y']);
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    ctx.repo,
+    'worktree',
+    'add',
+    '.worktrees/x',
+    '-b',
+    'feat/x',
+  ]);
+
+  await runGit(ctx.root, readGitEnv(ctx.root), ['-C', ctx.repo, 'branch', 'feat/y']);
 
   const scope = await updateSessionScope(
     buildMockScopeRecordRequest({
@@ -127,7 +153,15 @@ test('it records no worktree or branch that existed before the call started', as
 test('it records nothing when the command fails on a worktree made just before the call', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'worktree', 'add', '.worktrees/x', '-b', 'feat/x']);
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    ctx.repo,
+    'worktree',
+    'add',
+    '.worktrees/x',
+    '-b',
+    'feat/x',
+  ]);
 
   const link = await stat(join(ctx.repo, '.worktrees', 'x', '.git'));
 
@@ -153,7 +187,7 @@ test('it records nothing when the command fails on a worktree made just before t
 test('it records a branch reset by checkout -B as nothing, since it already existed', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'branch', 'feat/y']);
+  await runGit(ctx.root, readGitEnv(ctx.root), ['-C', ctx.repo, 'branch', 'feat/y']);
 
   const scope = await updateSessionScope(
     buildMockScopeRecordRequest({
@@ -176,7 +210,14 @@ test('it records a branch reset by checkout -B as nothing, since it already exis
 test('it records a PR the forge dates from the call, with the head branch it reports', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    ctx.repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
 
   const startedAt = Date.now();
 
@@ -213,7 +254,14 @@ test('it records a PR the forge dates from the call, with the head branch it rep
 test('it records no PR that already existed when gh pr create printed its address', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    ctx.repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
 
   const startedAt = Date.now();
 
@@ -247,7 +295,14 @@ test('it records no PR that already existed when gh pr create printed its addres
 test('it records no PR printed for another repository', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    ctx.repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
 
   const startedAt = Date.now();
 
@@ -275,7 +330,14 @@ test('it records no PR printed for another repository', async () => {
 test('it records no PR the forge does not know', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    ctx.repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
 
   const scope = await updateSessionScope(
     buildMockScopeRecordRequest({
@@ -303,7 +365,7 @@ test('it keeps every branch when calls of one session record at the same time', 
   const startedAt = Date.now();
 
   for (const name of names) {
-    runGit(ctx.root, ['-C', ctx.repo, 'branch', name]);
+    await runGit(ctx.root, readGitEnv(ctx.root), ['-C', ctx.repo, 'branch', name]);
   }
 
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
@@ -358,7 +420,7 @@ test('it keeps every branch when calls of one session record at the same time', 
 test('it records nothing for a call that claims to have started long ago', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'branch', 'feat/old']);
+  await runGit(ctx.root, readGitEnv(ctx.root), ['-C', ctx.repo, 'branch', 'feat/old']);
 
   const scope = await updateSessionScope(
     buildMockScopeRecordRequest({ cwd: ctx.repo, startedAt: 1, command: 'git branch feat/old' }),
@@ -377,7 +439,14 @@ test('it records nothing for a call that claims to have started long ago', async
 test('it records every PR one call created', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.root, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.root, readGitEnv(ctx.root), [
+    '-C',
+    ctx.repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
 
   const startedAt = Date.now();
 

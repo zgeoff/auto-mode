@@ -4,7 +4,7 @@ import { buildMockDecisionQuestion } from '../test-utils/factories/build-mock-de
 import { buildMockDecisionRequest } from '../test-utils/factories/build-mock-decision-request.ts';
 import { buildMockProviderConfig } from '../test-utils/factories/build-mock-provider-config.ts';
 import { DECISION_URL } from '../test-utils/mocks/handlers.ts';
-import { server } from '../test-utils/mocks/node.ts';
+import { network } from '../test-utils/mocks/network.ts';
 import { sendShapeRequest } from './send-shape-request.ts';
 
 test('it returns the model, the input tokens and the answers Jev gives', async () => {
@@ -30,7 +30,7 @@ test('it returns the model, the input tokens and the answers Jev gives', async (
 });
 
 test('it reports a redirect without following it', async () => {
-  server.use(
+  network.use(
     http.post(
       DECISION_URL,
       () => new HttpResponse(null, { status: 302, headers: { location: '/' } }),
@@ -47,7 +47,7 @@ test('it reports a redirect without following it', async () => {
 });
 
 test('it reports an error status by its code', async () => {
-  server.use(http.post(DECISION_URL, () => HttpResponse.json({}, { status: 503 })));
+  network.use(http.post(DECISION_URL, () => HttpResponse.json({}, { status: 503 })));
 
   const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
     state: buildMockDecisionRequest().state,
@@ -59,7 +59,7 @@ test('it reports an error status by its code', async () => {
 });
 
 test('it reports a network failure', async () => {
-  server.use(http.post(DECISION_URL, () => HttpResponse.error()));
+  network.use(http.post(DECISION_URL, () => HttpResponse.error()));
 
   const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
     state: buildMockDecisionRequest().state,
@@ -81,7 +81,7 @@ test('it reports an aborted request as a timeout', async () => {
 });
 
 test('it keeps the body of an answer it cannot read', async () => {
-  server.use(http.post(DECISION_URL, () => HttpResponse.json({ answers: 'none' })));
+  network.use(http.post(DECISION_URL, () => HttpResponse.json({ answers: 'none' })));
 
   const outcome = await sendShapeRequest(buildMockProviderConfig(), 'test-key', {
     state: buildMockDecisionRequest().state,

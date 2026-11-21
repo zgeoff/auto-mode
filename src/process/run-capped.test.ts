@@ -5,10 +5,10 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
+import { waitFor } from '@zgeoff/testing';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { loadProcessState } from '../test-utils/load-process-state.ts';
-import { waitFor } from '../test-utils/wait-for.ts';
 import { runCapped } from './run-capped.ts';
 
 async function setupTest() {
@@ -120,10 +120,15 @@ test('it settles at the abort when the child has exited and a process outside it
     { signal: controller.signal, maxOutputBytes: 1024 },
   );
 
-  const report = await waitFor(
-    () => readFile(pidPath, 'utf8').catch(() => ''),
-    (written) => written.endsWith('}\n'),
-  );
+  const report = await waitFor(async () => {
+    const written = await readFile(pidPath, 'utf8');
+
+    if (!written.endsWith('}\n')) {
+      throw new Error('the report is incomplete');
+    }
+
+    return written;
+  });
 
   const pids = z.object({ child: z.number(), escaped: z.number() }).parse(JSON.parse(report));
 
@@ -139,10 +144,11 @@ test('it settles at the abort when the child has exited and a process outside it
   });
 
   // The abort comes after the child is reaped, so only the escaped process holds stdout.
-  await waitFor(
-    () => loadProcessState(pids.child),
-    (state) => state === null,
-  );
+  await waitFor(async () => {
+    if ((await loadProcessState(pids.child)) !== null) {
+      throw new Error('the child still has a process entry');
+    }
+  });
 
   controller.abort();
 
@@ -195,10 +201,15 @@ test('it kills the child and the processes it started when the signal aborts', a
 
   // The kill returns before the kernel finishes it, so the child can still read
   // as running for a moment after the run settles.
-  const childAfter = await waitFor(
-    () => loadProcessState(pids.child),
-    (state) => state === null || state.state === 'Z' || state.state === 'X',
-  );
+  const childAfter = await waitFor(async () => {
+    const state = await loadProcessState(pids.child);
+
+    if (state !== null && state.state !== 'Z' && state.state !== 'X') {
+      throw new Error('the child still runs');
+    }
+
+    return state;
+  });
 
   expect(stopped.stopped).toBeTrue();
 

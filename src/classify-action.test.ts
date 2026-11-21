@@ -3,6 +3,7 @@ import { constants } from 'node:fs';
 import { mkdir, mkdtemp, open, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { http } from 'msw';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
@@ -16,9 +17,8 @@ import { buildMockDecisionAnswer } from './test-utils/factories/build-mock-decis
 import { buildMockRuntime } from './test-utils/factories/build-mock-runtime.ts';
 import { decisionAnswers } from './test-utils/mocks/decision-answers.ts';
 import { DECISION_URL } from './test-utils/mocks/handlers.ts';
-import { server } from './test-utils/mocks/node.ts';
+import { network } from './test-utils/mocks/network.ts';
 import { sendDecisionReply } from './test-utils/mocks/send-decision-reply.ts';
-import { runGit } from './test-utils/run-git.ts';
 
 async function setupTest(): Promise<{
   readonly directory: string;
@@ -33,7 +33,13 @@ async function setupTest(): Promise<{
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(directory, ['init', '-q', '-b', 'main', join(directory, 'repo')]);
+  await runGit(directory, readGitEnv(directory), [
+    'init',
+    '-q',
+    '-b',
+    'main',
+    join(directory, 'repo'),
+  ]);
 
   const binDir = await createStubClaude(directory);
 
@@ -182,7 +188,7 @@ test('it denies an unsure Jev allow that reaches the block threshold with the ru
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -302,7 +308,7 @@ test('it reads the Claude settings file once per action', async () => {
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -412,7 +418,7 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
 
   const received = mock();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -422,7 +428,7 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -440,7 +446,7 @@ test('it denies a write outside the task scope before a configured allow, Jev, o
     }),
   );
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, (info) => {
       received();
 
@@ -494,7 +500,7 @@ test('it denies a push to a configured protected branch that the task works on, 
 
   const received = mock();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -504,7 +510,7 @@ test('it denies a push to a configured protected branch that the task works on, 
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'remote',
@@ -513,7 +519,7 @@ test('it denies a push to a configured protected branch that the task works on, 
     'git@github.com:dev/app.git',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -524,7 +530,7 @@ test('it denies a push to a configured protected branch that the task works on, 
     'release/2.0',
   ]);
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, (info) => {
       received();
 
@@ -1152,7 +1158,7 @@ test('it denies a stored-password change the user only asked to check at the con
 
   const received = mock();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, (info) => {
       received();
 
@@ -1214,7 +1220,7 @@ test('it denies a stored-password change the user only asked to check at the con
 test('it passes a target it cannot resolve to the classifier', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -1224,7 +1230,7 @@ test('it passes a target it cannot resolve to the classifier', async () => {
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -1874,7 +1880,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
 
   const received = mock();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -1884,7 +1890,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -1895,7 +1901,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
     'feat/queue-columns',
   ]);
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, (info) => {
       received();
 
@@ -1985,7 +1991,7 @@ test('it keeps the containment deny with the judge’s reason when the judge con
 test('it denies the own-worktree cleanup that also removes another worktree the message never names, without asking the judge', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -1995,7 +2001,7 @@ test('it denies the own-worktree cleanup that also removes another worktree the 
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -2061,7 +2067,7 @@ test('it clears a containment finding the judge confirms the user asked for, and
 
   const received = mock();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, (info) => {
       received();
 
@@ -2491,7 +2497,7 @@ test('it sends Jev the opening prompt of a spawned session as the delegated task
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -2657,7 +2663,7 @@ test.each([
 ])('it denies %s without asking the judge', async (_label, command, message) => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -2667,7 +2673,7 @@ test.each([
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -2737,7 +2743,7 @@ test.each([
 ])('it sends the hook bypass %s to Jev under Policy Tampering', async (command, bypass) => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -2747,7 +2753,7 @@ test.each([
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -2760,7 +2766,7 @@ test.each([
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -2810,7 +2816,7 @@ test.each([
 test('it reads the global git config a push names to tell Jev it moves the hooks folder', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -2820,7 +2826,7 @@ test('it reads the global git config a push names to tell Jev it moves the hooks
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -2838,7 +2844,7 @@ test('it reads the global git config a push names to tell Jev it moves the hooks
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -2886,7 +2892,7 @@ test('it reads the global git config a push names to tell Jev it moves the hooks
 test('it reads the global git config a push names to send Jev no hook guidance when it keeps the hooks', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -2896,7 +2902,7 @@ test('it reads the global git config a push names to send Jev no hook guidance w
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -2914,7 +2920,7 @@ test('it reads the global git config a push names to send Jev no hook guidance w
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -2965,7 +2971,7 @@ test('it reads the global git config a push names to send Jev no hook guidance w
 test('it reads the checkout hooks to send Jev no hook guidance for a push that keeps them', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -2975,7 +2981,7 @@ test('it reads the checkout hooks to send Jev no hook guidance for a push that k
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -2990,7 +2996,7 @@ test('it reads the checkout hooks to send Jev no hook guidance for a push that k
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -3043,7 +3049,7 @@ test('it reads the checkout hooks to send Jev no hook guidance for a push that k
 test('it reads the system git config to send Jev no hook guidance for a push that keeps its hooks folder', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -3053,7 +3059,7 @@ test('it reads the system git config to send Jev no hook guidance for a push tha
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -3071,7 +3077,7 @@ test('it reads the system git config to send Jev no hook guidance for a push tha
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -3124,7 +3130,7 @@ test('it reads the system git config to send Jev no hook guidance for a push tha
 test('it reads the local lefthook config to tell Jev that an Edit of a bare value turns a skip on', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -3134,7 +3140,7 @@ test('it reads the local lefthook config to tell Jev that an Edit of a bare valu
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -3151,7 +3157,7 @@ test('it reads the local lefthook config to tell Jev that an Edit of a bare valu
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -3256,7 +3262,7 @@ test('it denies a write outside every path the launcher scope file owns in the c
     }),
   );
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       received();
     }),
@@ -3310,7 +3316,7 @@ test('it allows a message to a reply-channel recipient without asking Jev', asyn
     }),
   );
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       received();
     }),
@@ -3362,7 +3368,7 @@ test('it allows a message to the spawner when the opening prompt is the only use
     }),
   );
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       received();
     }),
@@ -3471,7 +3477,7 @@ test('it asks Jev about a message to a recipient that no reply channel lists', a
     }),
   );
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       received();
     }),
@@ -3520,7 +3526,7 @@ test('it asks Jev about a message to a reply-channel recipient that carries a se
     }),
   );
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       received();
     }),
@@ -3625,7 +3631,7 @@ test('it allows a message to the spawner past Outbound Communication when the us
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -3776,9 +3782,17 @@ test('it lets an edit into the workspace that only the scope file names skip Jev
   const repo = join(ctx.directory, 'repo');
   const scopeFilePath = join(ctx.directory, 'scope.json');
 
-  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     repo,
     'worktree',
@@ -3833,7 +3847,7 @@ test('it lets an edit into the workspace that only the scope file names skip Jev
 test('it sends a write of a skip setting into the local lefthook config to Jev under Policy Tampering', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'commit',
@@ -3843,7 +3857,7 @@ test('it sends a write of a skip setting into the local lefthook config to Jev u
     'init',
   ]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     join(ctx.directory, 'repo'),
     'worktree',
@@ -3856,7 +3870,7 @@ test('it sends a write of a skip setting into the local lefthook config to Jev u
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 

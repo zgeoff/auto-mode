@@ -4,7 +4,7 @@ import { HttpResponse, http } from 'msw';
 import { buildMockDecisionAnswer } from './factories/build-mock-decision-answer.ts';
 import { decisionAnswers } from './mocks/decision-answers.ts';
 import { DECISION_URL } from './mocks/handlers.ts';
-import { server } from './mocks/node.ts';
+import { network } from './mocks/network.ts';
 
 test('it clears every variable a git hook or a session launcher exports', () => {
   const names = [
@@ -35,7 +35,7 @@ test('it clears the seeded decision answers when the test ends', () => {
 });
 
 test('it drops a handler the test added when the test ends', () => {
-  server.use(http.post(DECISION_URL, () => HttpResponse.json({}, { status: 503 })));
+  network.use(http.post(DECISION_URL, () => HttpResponse.json({}, { status: 503 })));
 
   onTestFinished(async () => {
     const response = await fetch(DECISION_URL, { method: 'POST', body: '{}' });

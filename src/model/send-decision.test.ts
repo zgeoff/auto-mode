@@ -10,7 +10,7 @@ import { buildMockProviderConfig } from '../test-utils/factories/build-mock-prov
 import { buildMockRepositoryContext } from '../test-utils/factories/build-mock-repository-context.ts';
 import { decisionAnswers } from '../test-utils/mocks/decision-answers.ts';
 import { DECISION_URL } from '../test-utils/mocks/handlers.ts';
-import { server } from '../test-utils/mocks/node.ts';
+import { network } from '../test-utils/mocks/network.ts';
 import type { DecisionResponse } from './build-decision-response-schema.ts';
 import { DecisionRequestError } from './decision-request-error.ts';
 import { sendDecision } from './send-decision.ts';
@@ -19,7 +19,7 @@ test('it authenticates a structured decision request and reads typed probabiliti
   const received = mock<(authorization: string | null, body: unknown) => void>();
   const sentBytes = mock<(bytes: number) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const text = await info.request.clone().text();
 
@@ -119,7 +119,7 @@ test.each([
     },
   ],
 ])('it rejects an answer with %s as a malformed response', (_label, answer) => {
-  server.use(
+  network.use(
     http.post(DECISION_URL, () =>
       HttpResponse.json({
         model: 'jev-1.13.0',
@@ -151,7 +151,7 @@ test.each([
   ['no answer', []],
   ['an extra answer', ['rule_0', 'extra']],
 ] as const)('it rejects %s for one question as an incomplete answer set', (_label, answerIDs) => {
-  server.use(
+  network.use(
     http.post(DECISION_URL, () =>
       HttpResponse.json<DecisionResponse>({
         model: 'jev-1.13.0',
@@ -180,7 +180,7 @@ test.each([
 });
 
 test('it rejects an answer filed under a question it was not asked', () => {
-  server.use(
+  network.use(
     http.post(DECISION_URL, () =>
       HttpResponse.json<DecisionResponse>({
         model: 'jev-1.13.0',
@@ -246,7 +246,7 @@ test.each([
 test('it aborts a request when its signal fires and reports the request size', () => {
   const timer = new AbortController();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async () => {
       timer.abort();
 
@@ -273,7 +273,7 @@ test('it aborts a request when its signal fires and reports the request size', (
 test('it aborts a request when its signal fires while the response body is read', () => {
   const timer = new AbortController();
 
-  server.use(
+  network.use(
     http.post(
       DECISION_URL,
       (info) =>
@@ -301,7 +301,7 @@ test('it aborts a request when its signal fires while the response body is read'
 });
 
 test('it reports a failed connection as a network failure', () => {
-  server.use(http.post(DECISION_URL, () => HttpResponse.error()));
+  network.use(http.post(DECISION_URL, () => HttpResponse.error()));
 
   const response = sendDecision(buildMockProviderConfig(), 'test-key', buildMockDecisionRequest(), {
     fetch,
@@ -322,7 +322,7 @@ test('it reports a failed connection as a network failure', () => {
 test('it refuses oversized input before a request without truncating it', () => {
   const requested = mock();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       requested();
     }),
@@ -356,7 +356,7 @@ test('it refuses oversized input before a request without truncating it', () => 
 });
 
 test('it omits the response body from an HTTP error', () => {
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => HttpResponse.text('private request content', { status: 401 })),
   );
 
@@ -377,7 +377,7 @@ test('it omits the response body from an HTTP error', () => {
 });
 
 test('it discards a malformed JSON body instead of exposing credential fragments', () => {
-  server.use(http.post(DECISION_URL, () => HttpResponse.text('test-secret-prefix {')));
+  network.use(http.post(DECISION_URL, () => HttpResponse.text('test-secret-prefix {')));
 
   const response = sendDecision(
     buildMockProviderConfig(),
@@ -400,7 +400,7 @@ test('it discards a malformed JSON body instead of exposing credential fragments
 test('it removes optional tasks to keep a complete action near the request limit', async () => {
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -496,7 +496,7 @@ test('it removes optional tasks to keep a complete action near the request limit
 });
 
 test('it reads answers over the choice set its caller names', async () => {
-  server.use(
+  network.use(
     http.post(DECISION_URL, () =>
       HttpResponse.json({
         model: 'jev-1.13.0',
@@ -588,7 +588,7 @@ test('it sends the request through the fetch its caller supplies', async () => {
 test('it reports a request its timeout signal ends as aborted', () => {
   const timer = new AbortController();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async () => {
       timer.abort(new DOMException('The operation timed out.', 'TimeoutError'));
 

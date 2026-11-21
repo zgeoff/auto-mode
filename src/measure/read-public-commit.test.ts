@@ -2,22 +2,23 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../test-utils/run-git.ts';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { readPublicCommit } from './read-public-commit.ts';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), 'public-commit-'));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
-  runGit(directory, ['init', '-q', '-b', 'main']);
 
+  await runGit(directory, readGitEnv(directory), ['init', '-q', '-b', 'main']);
   await mkdir(join(directory, 'src'));
   await writeFile(join(directory, 'src/index.ts'), 'export {};\n');
+  await runGit(directory, readGitEnv(directory), ['add', '.']);
+  await runGit(directory, readGitEnv(directory), ['commit', '-q', '-m', 'init']);
 
-  runGit(directory, ['add', '.']);
-  runGit(directory, ['commit', '-q', '-m', 'init']);
+  const head = await runGit(directory, readGitEnv(directory), ['rev-parse', 'HEAD']);
 
-  return { directory, head: runGit(directory, ['rev-parse', 'HEAD']).trim() };
+  return { directory, head: head.trim() };
 }
 
 test('it reads the commit of a clean tree', async () => {

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { HttpResponse, http } from 'msw';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
@@ -23,9 +24,8 @@ import { buildMockRuntime } from './test-utils/factories/build-mock-runtime.ts';
 import { buildMockScopeRecordRequest } from './test-utils/factories/build-mock-scope-record-request.ts';
 import { decisionAnswers } from './test-utils/mocks/decision-answers.ts';
 import { DECISION_URL } from './test-utils/mocks/handlers.ts';
-import { server } from './test-utils/mocks/node.ts';
+import { network } from './test-utils/mocks/network.ts';
 import { readStubClaudeRecords } from './test-utils/read-stub-claude-records.ts';
-import { runGit } from './test-utils/run-git.ts';
 
 async function setupTest(): Promise<{
   readonly directory: string;
@@ -45,7 +45,7 @@ async function setupTest(): Promise<{
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(directory, ['init', '-q', '-b', 'main', repo]);
+  await runGit(directory, readGitEnv(directory), ['init', '-q', '-b', 'main', repo]);
 
   return {
     directory,
@@ -1408,11 +1408,28 @@ test("it leaves the session's denial streak alone when its subagent is denied in
 test('it records a finished Bash call without writing a verdict', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    ctx.repo,
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
 
   const startedAt = Date.now();
 
-  runGit(ctx.directory, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    ctx.repo,
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/x',
+    '-b',
+    'feat/x',
+  ]);
 
   const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
@@ -1468,12 +1485,37 @@ test('it ignores a record body that is not JSON', async () => {
 test('it keeps a branch the session created in its scope across runs', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
-  runGit(ctx.directory, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    ctx.repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    ctx.repo,
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
 
   const startedAt = Date.now();
 
-  runGit(ctx.directory, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    ctx.repo,
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/x',
+    '-b',
+    'feat/x',
+  ]);
 
   const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
@@ -1517,12 +1559,37 @@ test('it keeps a branch the session created in its scope across runs', async () 
 test("it keeps a branch one session created out of another session's scope", async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['-C', ctx.repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
-  runGit(ctx.directory, ['-C', ctx.repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    ctx.repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    ctx.repo,
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
 
   const startedAt = Date.now();
 
-  runGit(ctx.directory, ['-C', ctx.repo, 'worktree', 'add', '-q', '.worktrees/x', '-b', 'feat/x']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    ctx.repo,
+    'worktree',
+    'add',
+    '-q',
+    '.worktrees/x',
+    '-b',
+    'feat/x',
+  ]);
 
   const record = buildMockScopeRecordRequest({
     sessionID: 'cli-session',
@@ -1669,7 +1736,7 @@ test('it denies an action that Jev cannot clear, naming the rule and its reason'
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
@@ -1882,7 +1949,7 @@ test('it writes no verdict and notes the failure when Jev fails under a defer se
     }),
   );
 
-  server.use(http.post(DECISION_URL, () => HttpResponse.text('boom', { status: 500 })));
+  network.use(http.post(DECISION_URL, () => HttpResponse.text('boom', { status: 500 })));
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,
@@ -1921,7 +1988,7 @@ test('it denies the action when Jev fails under a deny setting', async () => {
     }),
   );
 
-  server.use(http.post(DECISION_URL, () => HttpResponse.text('boom', { status: 500 })));
+  network.use(http.post(DECISION_URL, () => HttpResponse.text('boom', { status: 500 })));
 
   const payload = buildMockModRequest({
     cwd: ctx.repo,
@@ -1993,7 +2060,7 @@ test('it cancels a Jev-only evaluation when a stop signal arrives during it', as
     }),
   );
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       ctx.stopSignals.stop();
 
@@ -2044,7 +2111,7 @@ test('it listens for stop signals during a Jev-only evaluation and stops listeni
 
   const evaluated = mock();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, () => {
       evaluated();
     }),
@@ -2244,7 +2311,7 @@ test('it sends Jev no direct user message for a child agent', async () => {
 
   const received = mock<(body: unknown) => void>();
 
-  server.use(
+  network.use(
     http.post(DECISION_URL, async (info) => {
       const body: unknown = await info.request.clone().json();
 
