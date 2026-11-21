@@ -2,10 +2,10 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { readTextFile } from '../config/read-text-file.ts';
 import { buildMockHostEnvironment } from '../test-utils/factories/build-mock-host-environment.ts';
 import { buildMockSessionScope } from '../test-utils/factories/build-mock-session-scope.ts';
-import { runGit } from '../test-utils/run-git.ts';
 import { loadTaskScope } from './load-task-scope.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {
@@ -23,12 +23,39 @@ test('it owns the linked worktree that holds the cwd, its branch, and the remote
   const repo = join(ctx.directory, 'app');
   const worktree = join(repo, '.worktrees', 'feature');
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
-  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
-  runGit(ctx.directory, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', repo]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'worktree',
+    'add',
+    '-q',
+    '-b',
+    'feature',
+    worktree,
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     repo,
     'symbolic-ref',
@@ -68,10 +95,18 @@ test('it owns the main checkout but not its default branch', async () => {
 
   const repo = join(ctx.directory, 'app');
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', repo]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     repo,
     'symbolic-ref',
@@ -109,8 +144,16 @@ test('it owns only the cwd when git directory overrides hide the checkout', asyn
 
   const repo = join(ctx.directory, 'app');
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', repo]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
 
   const scope = await loadTaskScope(
     {
@@ -146,10 +189,18 @@ test('it unites the sources and owns the PRs whose head branch and repository ar
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', repo]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     repo,
     'symbolic-ref',
@@ -212,9 +263,9 @@ test('it reads no session scope when the registry has no session source', async 
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', repo]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     repo,
     'symbolic-ref',
@@ -257,11 +308,30 @@ test('it owns the scope file that the host environment names, from the main chec
   const worktree = join(repo, '.worktrees', 'feature');
   const scopeFilePath = join(ctx.directory, 'scope.json');
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
-  runGit(ctx.directory, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', repo]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'worktree',
+    'add',
+    '-q',
+    '-b',
+    'feature',
+    worktree,
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     repo,
     'symbolic-ref',
@@ -318,10 +388,10 @@ test('it never owns a recorded branch of another repository', async () => {
   // The file name is the first 32 hex digits of `printf session-1 | sha256sum`.
   const path = join(stateDir, 'session-scope', '84097828fc31a8c8d29210df48901a85.json');
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', other]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', repo]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', other]);
 
-  runGit(ctx.directory, [
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
     '-C',
     repo,
     'symbolic-ref',

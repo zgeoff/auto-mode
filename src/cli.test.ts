@@ -7,10 +7,10 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { buildMockModRequest } from './test-utils/factories/build-mock-mod-request.ts';
-import { runGit } from './test-utils/run-git.ts';
 
 async function setupTest() {
   const cli = join(import.meta.dirname, '..', 'dist', 'cli.js');
@@ -27,7 +27,7 @@ async function setupTest() {
 
   // The checkout search walks up from the cwd and would stop at any .git
   // above the temp root, so the repo is a checkout of its own.
-  runGit(directory, ['init', '-q', '-b', 'main', repo]);
+  await runGit(directory, readGitEnv(directory), ['init', '-q', '-b', 'main', repo]);
 
   // A version manager's node shim reads its config under the user's HOME, which
   // the child does not get, so the child runs the binary the shim resolves to.

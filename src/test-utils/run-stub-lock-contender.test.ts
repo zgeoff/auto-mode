@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { waitFor } from './wait-for.ts';
+import { waitFor } from '@zgeoff/testing';
 
 async function setupTest() {
   const directory = await mkdtemp(join(tmpdir(), 'auto-mode-stub-lock-contender-'));
@@ -67,10 +67,15 @@ test('it waits at the barrier once it finds the lock held until every contender 
     contender.kill();
   });
 
-  const arrived = await waitFor(
-    () => readdir(ctx.barrierDir),
-    (entries) => entries.length > 0,
-  );
+  const arrived = await waitFor(async () => {
+    const entries = await readdir(ctx.barrierDir);
+
+    if (entries.length === 0) {
+      throw new Error('no contender has arrived');
+    }
+
+    return entries;
+  });
 
   const stateWhileWaiting = await readdir(dirname(ctx.statePath));
 

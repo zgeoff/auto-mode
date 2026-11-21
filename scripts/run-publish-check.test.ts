@@ -2,8 +2,8 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { buildStubProgram } from '../src/test-utils/build-stub-program.ts';
-import { runGit } from '../src/test-utils/run-git.ts';
 import { runPublishCheck } from './run-publish-check.ts';
 
 async function setupTest(): Promise<{ readonly directory: string; readonly script: string }> {
@@ -127,17 +127,14 @@ test('it writes publish=true and exits 0 at the tag of the oldest pending releas
   const work = join(ctx.directory, 'work');
   const bin = join(ctx.directory, 'bin');
 
-  runGit(ctx.directory, ['init', '--quiet', '--bare', origin]);
-  runGit(ctx.directory, ['init', '--quiet', work]);
-
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', '--bare', origin]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', work]);
   await writeFile(join(work, 'package.json'), '{"name":"widget","version":"2.4.0"}\n');
-
-  runGit(work, ['add', 'package.json']);
-  runGit(work, ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
-  runGit(work, ['tag', 'widget-v2.4.0']);
-  runGit(work, ['remote', 'add', 'origin', origin]);
-  runGit(work, ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
-
+  await runGit(work, readGitEnv(work), ['add', 'package.json']);
+  await runGit(work, readGitEnv(work), ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
+  await runGit(work, readGitEnv(work), ['tag', 'widget-v2.4.0']);
+  await runGit(work, readGitEnv(work), ['remote', 'add', 'origin', origin]);
+  await runGit(work, readGitEnv(work), ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
   await mkdir(bin);
 
   await writeFile(
@@ -178,17 +175,14 @@ test('it dispatches from a run that cannot publish and writes publish=false as a
   const work = join(ctx.directory, 'work');
   const bin = join(ctx.directory, 'bin');
 
-  runGit(ctx.directory, ['init', '--quiet', '--bare', origin]);
-  runGit(ctx.directory, ['init', '--quiet', work]);
-
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', '--bare', origin]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', work]);
   await writeFile(join(work, 'package.json'), '{"name":"widget","version":"2.4.0"}\n');
-
-  runGit(work, ['add', 'package.json']);
-  runGit(work, ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
-  runGit(work, ['tag', 'widget-v2.4.0']);
-  runGit(work, ['remote', 'add', 'origin', origin]);
-  runGit(work, ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
-
+  await runGit(work, readGitEnv(work), ['add', 'package.json']);
+  await runGit(work, readGitEnv(work), ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
+  await runGit(work, readGitEnv(work), ['tag', 'widget-v2.4.0']);
+  await runGit(work, readGitEnv(work), ['remote', 'add', 'origin', origin]);
+  await runGit(work, readGitEnv(work), ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
   await mkdir(bin);
 
   await writeFile(
@@ -232,17 +226,14 @@ test('it exits 1 and writes publish=false as a script when the dispatch fails', 
   const work = join(ctx.directory, 'work');
   const bin = join(ctx.directory, 'bin');
 
-  runGit(ctx.directory, ['init', '--quiet', '--bare', origin]);
-  runGit(ctx.directory, ['init', '--quiet', work]);
-
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', '--bare', origin]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', work]);
   await writeFile(join(work, 'package.json'), '{"name":"widget","version":"2.4.0"}\n');
-
-  runGit(work, ['add', 'package.json']);
-  runGit(work, ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
-  runGit(work, ['tag', 'widget-v2.4.0']);
-  runGit(work, ['remote', 'add', 'origin', origin]);
-  runGit(work, ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
-
+  await runGit(work, readGitEnv(work), ['add', 'package.json']);
+  await runGit(work, readGitEnv(work), ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
+  await runGit(work, readGitEnv(work), ['tag', 'widget-v2.4.0']);
+  await runGit(work, readGitEnv(work), ['remote', 'add', 'origin', origin]);
+  await runGit(work, readGitEnv(work), ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
   await mkdir(bin);
 
   await writeFile(
@@ -288,17 +279,14 @@ test('it writes publish=false and exits 0 as a script when every release tag is 
   const work = join(ctx.directory, 'work');
   const bin = join(ctx.directory, 'bin');
 
-  runGit(ctx.directory, ['init', '--quiet', '--bare', origin]);
-  runGit(ctx.directory, ['init', '--quiet', work]);
-
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', '--bare', origin]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', work]);
   await writeFile(join(work, 'package.json'), '{"name":"widget","version":"2.4.0"}\n');
-
-  runGit(work, ['add', 'package.json']);
-  runGit(work, ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
-  runGit(work, ['tag', 'widget-v2.4.0']);
-  runGit(work, ['remote', 'add', 'origin', origin]);
-  runGit(work, ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
-
+  await runGit(work, readGitEnv(work), ['add', 'package.json']);
+  await runGit(work, readGitEnv(work), ['commit', '--quiet', '-m', 'chore: release 2.4.0']);
+  await runGit(work, readGitEnv(work), ['tag', 'widget-v2.4.0']);
+  await runGit(work, readGitEnv(work), ['remote', 'add', 'origin', origin]);
+  await runGit(work, readGitEnv(work), ['push', '--quiet', 'origin', 'HEAD:main', '--tags']);
   await mkdir(bin);
 
   await writeFile(

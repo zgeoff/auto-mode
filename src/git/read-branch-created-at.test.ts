@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { runGit } from '../test-utils/run-git.ts';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { readBranchCreatedAt } from './read-branch-created-at.ts';
 
 async function setupTest() {
@@ -18,12 +18,23 @@ async function setupTest() {
 test('it reads when git created a branch from its reflog', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '--quiet', '--initial-branch=main']);
-  runGit(ctx.directory, ['commit', '--quiet', '--allow-empty', '--message', 'init']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '--quiet',
+    '--initial-branch=main',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'commit',
+    '--quiet',
+    '--allow-empty',
+    '--message',
+    'init',
+  ]);
 
   const before = Math.floor(Date.now() / 1000) * 1000;
 
-  runGit(ctx.directory, ['branch', 'feat/a']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['branch', 'feat/a']);
 
   const createdAt = await readBranchCreatedAt(ctx.commonDir, 'feat/a');
 

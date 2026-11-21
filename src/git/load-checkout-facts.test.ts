@@ -2,7 +2,7 @@ import { expect, mock, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../test-utils/run-git.ts';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { loadCheckoutFacts } from './load-checkout-facts.ts';
 import { readCheckout } from './read-checkout.ts';
 
@@ -20,10 +20,37 @@ test('it reads the checkout, its branches and its remotes from one walk', async 
   const repo = join(ctx.directory, 'app');
   const worktree = join(repo, '.worktrees', 'feature');
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', repo]);
-  runGit(ctx.directory, ['-C', repo, 'remote', 'add', 'origin', 'git@github.com:dev/app.git']);
-  runGit(ctx.directory, ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'init']);
-  runGit(ctx.directory, ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', worktree]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '-q', '-b', 'main', repo]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'remote',
+    'add',
+    'origin',
+    'git@github.com:dev/app.git',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    '-C',
+    repo,
+    'worktree',
+    'add',
+    '-q',
+    '-b',
+    'feature',
+    worktree,
+  ]);
 
   await mkdir(join(repo, '.git', 'refs', 'remotes', 'origin'), { recursive: true });
 

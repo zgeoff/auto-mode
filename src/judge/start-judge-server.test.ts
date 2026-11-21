@@ -5,11 +5,11 @@ import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
+import { waitFor } from '@zgeoff/testing';
 import invariant from 'tiny-invariant';
 import * as z from 'zod';
 import { createStubClaude } from '../test-utils/create-stub-claude.ts';
 import { readStubClaudeRecords } from '../test-utils/read-stub-claude-records.ts';
-import { waitFor } from '../test-utils/wait-for.ts';
 import { makeJudgeServerSession } from './make-judge-server-session.ts';
 import { startJudgeServer } from './start-judge-server.ts';
 
@@ -292,8 +292,15 @@ test('it stops the judge process of a review whose client goes away', async () =
   );
 
   const recorded = await waitFor(
-    () => (existsSync(recordPath) ? readFile(recordPath, 'utf8') : ''),
-    (content) => content.includes('\n'),
+    async () => {
+      const content = existsSync(recordPath) ? await readFile(recordPath, 'utf8') : '';
+
+      if (!content.includes('\n')) {
+        throw new Error('the record is incomplete');
+      }
+
+      return content;
+    },
     { timeoutMs: 10_000 },
   );
 
@@ -302,8 +309,13 @@ test('it stops the judge process of a review whose client goes away', async () =
   socket.destroy();
 
   const running = await waitFor(
-    () => existsSync(`/proc/${String(pid)}`),
-    (exists) => !exists,
+    () => {
+      if (existsSync(`/proc/${String(pid)}`)) {
+        throw new Error('the process still runs');
+      }
+
+      return false;
+    },
     { timeoutMs: 10_000 },
   );
 

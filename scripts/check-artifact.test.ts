@@ -2,14 +2,15 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { $ } from 'bun';
-import { runGit } from '../src/test-utils/run-git.ts';
 
 async function setupTest(): Promise<{ readonly gitDirectory: string }> {
   const directory = await mkdtemp(join(tmpdir(), 'check-artifact-'));
 
   onTestFinished(() => rm(directory, { recursive: true, force: true }));
-  runGit(directory, ['init', '--quiet']);
+
+  await runGit(directory, readGitEnv(directory), ['init', '--quiet']);
 
   return { gitDirectory: join(directory, '.git') };
 }

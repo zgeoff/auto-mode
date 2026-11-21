@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../test-utils/run-git.ts';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { readEnclosingWorkTree } from './read-enclosing-work-tree.ts';
 
 async function setupTest(): Promise<{ readonly directory: string }> {
@@ -23,7 +23,13 @@ test('it finds no work tree for a path outside every checkout', async () => {
 test('it finds the checkout that holds a path that does not exist yet', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'repo')]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '-q',
+    '-b',
+    'main',
+    join(ctx.directory, 'repo'),
+  ]);
 
   const workTree = await readEnclosingWorkTree(join(ctx.directory, 'repo', 'a', 'b'));
 
@@ -44,7 +50,13 @@ test('it finds a linked worktree by its .git file', async () => {
 test('it follows a link that points into a checkout', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '-q', '-b', 'main', join(ctx.directory, 'repo')]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '-q',
+    '-b',
+    'main',
+    join(ctx.directory, 'repo'),
+  ]);
 
   await symlink(join(ctx.directory, 'repo'), join(ctx.directory, 'link'));
 

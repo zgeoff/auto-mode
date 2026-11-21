@@ -2,7 +2,7 @@ import { expect, onTestFinished, test } from 'bun:test';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runGit } from '../test-utils/run-git.ts';
+import { readGitEnv, runGit } from '@zgeoff/testing/git';
 import { readCheckout } from './read-checkout.ts';
 
 async function setupTest() {
@@ -18,7 +18,7 @@ async function setupTest() {
 test('it finds the checkout whose .git directory sits in the start directory', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '--quiet', 'app']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', 'app']);
 
   const checkout = await readCheckout(join(ctx.directory, 'app'), {});
 
@@ -32,8 +32,7 @@ test('it finds the checkout whose .git directory sits in the start directory', a
 test('it walks up from a subdirectory to the checkout that holds it', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '--quiet', 'app']);
-
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', 'app']);
   await mkdir(join(ctx.directory, 'app', 'src', 'scope'), { recursive: true });
 
   const checkout = await readCheckout(join(ctx.directory, 'app', 'src', 'scope'), {});
@@ -48,8 +47,13 @@ test('it walks up from a subdirectory to the checkout that holds it', async () =
 test('it finds the nearest checkout when one repository sits inside another', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '--quiet', 'app']);
-  runGit(ctx.directory, ['init', '--quiet', join('app', 'vendor', 'lib')]);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', 'app']);
+
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '--quiet',
+    join('app', 'vendor', 'lib'),
+  ]);
 
   const checkout = await readCheckout(join(ctx.directory, 'app', 'vendor', 'lib'), {});
 
@@ -63,10 +67,22 @@ test('it finds the nearest checkout when one repository sits inside another', as
 test('it finds a linked worktree and the git directory it shares with the main checkout', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '--quiet', '--initial-branch=main', 'app']);
-  runGit(join(ctx.directory, 'app'), ['commit', '--quiet', '--allow-empty', '--message', 'init']);
+  await runGit(ctx.directory, readGitEnv(ctx.directory), [
+    'init',
+    '--quiet',
+    '--initial-branch=main',
+    'app',
+  ]);
 
-  runGit(join(ctx.directory, 'app'), [
+  await runGit(join(ctx.directory, 'app'), readGitEnv(join(ctx.directory, 'app')), [
+    'commit',
+    '--quiet',
+    '--allow-empty',
+    '--message',
+    'init',
+  ]);
+
+  await runGit(join(ctx.directory, 'app'), readGitEnv(join(ctx.directory, 'app')), [
     'worktree',
     'add',
     '--quiet',
@@ -103,8 +119,7 @@ test('it takes the git directory a relative .git link names as the shared one wh
 test('it finds no checkout when the nearest .git file names no git directory', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '--quiet', 'app']);
-
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', 'app']);
   await mkdir(join(ctx.directory, 'app', 'lib'));
   await writeFile(join(ctx.directory, 'app', 'lib', '.git'), 'not a link\n');
 
@@ -120,8 +135,7 @@ test('it finds no checkout when the walk reaches the root without a .git', () =>
 test('it finds no checkout above the stop directory', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '--quiet', 'app']);
-
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', 'app']);
   await mkdir(join(ctx.directory, 'app', 'notes', 'drafts'), { recursive: true });
 
   expect(
@@ -136,8 +150,7 @@ test('it finds no checkout above the stop directory', async () => {
 test('it finds a checkout in the stop directory itself', async () => {
   const ctx = await setupTest();
 
-  runGit(ctx.directory, ['init', '--quiet', 'app']);
-
+  await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', 'app']);
   await mkdir(join(ctx.directory, 'app', 'src'));
 
   const checkout = await readCheckout(
@@ -158,7 +171,7 @@ test.each([['GIT_DIR'], ['GIT_WORK_TREE'], ['GIT_COMMON_DIR']])(
   async (name) => {
     const ctx = await setupTest();
 
-    runGit(ctx.directory, ['init', '--quiet', 'app']);
+    await runGit(ctx.directory, readGitEnv(ctx.directory), ['init', '--quiet', 'app']);
 
     expect(
       readCheckout(join(ctx.directory, 'app'), { [name]: '/elsewhere/.git' }),
