@@ -20,7 +20,7 @@
         "@zgeoff/format-codemod": "0.3.6",
         "@zgeoff/oxlint-config": "0.10.5",
         "@zgeoff/rig": "0.2.6",
-        "@zgeoff/testing": "0.3.1",
+        "@zgeoff/testing": "0.3.2",
         "gunshi": "1.0.0-rc.1",
         "knip": "6.44.1",
         "lefthook": "2.2.2",
@@ -472,7 +472,7 @@
 
     "@zgeoff/std": ["@zgeoff/std@0.4.4", "", {}, "sha512-AlT4lgjyC0ZhLUxxG0Sg9pxQG/+MIziC7BA9k29QDNt/ubGvB1+RCpTr/LaYkjFxiZnKG42psa4f2cp5BHGyzQ=="],
 
-    "@zgeoff/testing": ["@zgeoff/testing@0.3.1", "", { "dependencies": { "bun-pty": "0.6.0" } }, "sha512-QpmnTW0GyU2Sw+3taXhNNw8c8dKD+EpirZ/7Bx9RxjTGz/2tEspAR7CHdafYPn5Bak/93tU0akxSOZ9HsJ0usA=="],
+    "@zgeoff/testing": ["@zgeoff/testing@0.3.2", "", { "dependencies": { "bun-pty": "0.6.0" } }, "sha512-Wmj766HmxzhF7Gu0EDNhcC7Evslz1UDEkr3YSZv35enGk2x9viXeH6ZYJFbGpggfOR1dIZEXBY/NFgnR1OL3wg=="],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 
