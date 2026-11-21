@@ -85,7 +85,7 @@
     "@zgeoff/chex": "0.4.3",
     "@zgeoff/diet": "0.3.0",
     "@zgeoff/format-codemod": "0.3.6",
-    "@zgeoff/oxlint-config": "0.11.1",
+    "@zgeoff/oxlint-config": "0.11.3",
     "@zgeoff/rig": "0.3.0",
     "@zgeoff/testing": "0.4.0",
     "gunshi": "1.0.0-rc.1",
