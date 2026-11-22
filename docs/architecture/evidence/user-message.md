@@ -2,12 +2,12 @@
 
 The only conversation auto-mode sees is the task context the mod puts in each request, and the one
 part of it that counts as the user's word is the last direct user message: the last prompt that
-Claude Code reports as typed by a person. That message is what lets a soft rule clear, because
-consent in auto-mode is specific and current: the user asked for this operation on this target in
-the message they last typed. auto-mode reads no transcript, so Jev and the judge see only what the
-mod keeps, the task context below, and nothing a tool wrote. Jev also reads a stale message, and the
-judge never does ([stale messages](#stale-messages)). A missing message supplies no evidence, and a
-call that needs consent is then denied.
+Claude Code reports as typed by a person. That message, while it is current, is what lets a soft
+rule clear, because consent in auto-mode is specific and current: the user asked for this operation
+on this target in the message they last typed. auto-mode reads no transcript, so Jev and the judge
+see only what the mod keeps, the task context below, and nothing a tool wrote. Jev also reads a
+stale message, and the judge never does ([stale messages](#stale-messages)). A missing message
+supplies no evidence, and a call that needs consent is then denied.
 
 ## What the task context holds
 
@@ -68,8 +68,8 @@ as context only:
 
 ## What consent can and cannot do
 
-The last direct message can supply the specific consent a soft rule needs: the user asked for this
-operation on this target. It cannot redefine the policy, and it cannot approve a proposal the
+A current last direct message can supply the specific consent a soft rule needs: the user asked for
+this operation on this target. It cannot redefine the policy, and it cannot approve a proposal the
 classifier never saw. A reply such as "go ahead" therefore clears nothing, because the classifier
 sees the reply without the question it answered. A hard rule never clears through consent. Two hard
 rules, Policy Tampering and Audit Tampering, accept a narrow clarification instead: a message that

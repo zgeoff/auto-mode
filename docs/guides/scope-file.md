@@ -20,7 +20,7 @@ The file is one JSON object. `format` and `version` are required, and every othe
 | `workspace`     | the checkout the launcher prepared: `path` and `branch`                               |
 | `worktrees`     | further checkouts the session owns, each with `path` and `branch`                     |
 | `branches`      | further branches the session owns, each with `name` and an optional `repo`            |
-| `pullRequests`  | pull requests the session owns, each with `repo`, `number`, `branch` and `url`        |
+| `pullRequests`  | pull requests the session owns, each with `repo`, `number`, `branch`, optional `url`  |
 | `replyChannels` | recipients the session may message as its own, each with `tool`, `field`, `recipient` |
 
 Every path is absolute. A checkout's `branch` is the branch checked out there, or `null` for a
