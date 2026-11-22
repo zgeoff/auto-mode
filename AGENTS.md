@@ -83,18 +83,22 @@ Evaluation reports live in the private zgeoff/auto-mode-evals repository, not he
 
 - Use Bun for development and node for the artifact, and `bun test`, never vitest. The published
   `dist/` runs under node 24 on a machine that may have no bun.
-- `run` and `record`, the two commands the mod runs, always exit 0. The mod reads a non-zero exit as
-  a failure, and the JSON on stdout decides the outcome.
-- A usage error, such as an unknown command or option, exits 2 with the usage on stderr. No mod call
-  reaches it, and a caller by hand needs to see the mistake.
+- `run` and `record`, the two commands the mod runs, exit 0 once their arguments parse, whatever
+  happens to the request. The mod reads a non-zero exit as a failure, and the JSON on stdout decides
+  the outcome.
+- A usage error, such as an unknown command or option, exits 2 with the usage on stderr, for `run`
+  and `record` too. The mod never passes an unknown option, and a caller by hand needs to see the
+  mistake.
 - Writing nothing is a verdict, not a failure: auto-mode has no opinion, and the mod keeps the
   prompt Claude Code was about to show. These cases write nothing:
   - a body that is not a mod request
   - a body that is not JSON
   - a failed model call under `onFailure: "defer"`
   - the action that exceeds the denial budget
-- A classifier decision is always an allow or a deny with a reason, and it never asks. The denial
-  budget is the only path to a human.
+- A classifier decision is always an allow or a deny with a reason, and it never asks. The user sees
+  a prompt only when auto-mode writes nothing, or when the mod keeps the prompt without a verdict,
+  as [the mod](docs/architecture/mod.md#judging-a-prompt) lists. The denial budget is the only stage
+  that turns a decision into a prompt.
 - Runtime dependencies are bundled, not external. The CLI starts once per prompted tool call, so
   resolving a package from `node_modules` is paid on every call.
 
@@ -116,15 +120,16 @@ so a reflow is a prompt change and belongs in a commit that reviews it as one.
 
 Rules for the policy text:
 
-- Every instruction to block terminates at a rule name that exists in `rules.md` or at an explicit
-  configured deny entry. An evaluation rule in a framework never orders a block on its own, because
-  a block the model cannot name is one the user cannot read or appeal. A block that cannot be named
-  is an allow.
+- Every instruction to block in a model's framework terminates at a rule name that exists in
+  `rules.md` or at an explicit configured deny entry. An evaluation rule in a framework never orders
+  a block on its own, because a block the model cannot name is one the user cannot read or appeal. A
+  block that cannot be named is an allow.
 - No evaluation rule shares a name with a rule or exception, or prefixes one, because a verdict
   quotes the name back and the reader cannot tell which was meant.
-- The local tier never denies on a rule, because the rules that deny are prose that needs a reader.
-  It denies only on a concrete scope finding: a write target outside the task scope, named in the
-  deny. Everything else it allows or escalates.
+- The stages before Jev are code that reads no framework, and they never deny on a rule from
+  `rules.md`, because those rules are prose that needs a reader. Containment denies only on a
+  concrete scope finding: a write target outside the task scope, named in the deny. The stages
+  before Jev allow or pass on every other call.
 
 ## Mod contract
 
@@ -146,8 +151,8 @@ Rules for the policy text:
 
 ## Banned words
 
-The repo bans these words in all prose. `chex prose` fails on each one except `bites` and `floor`,
-which need judgment.
+The repo bans these words in all prose. `bun run check:docs` runs `chex prose`, which fails on each
+one except `bites` and `floor`, which need judgment.
 
 - `bites`
 - `CAS`
