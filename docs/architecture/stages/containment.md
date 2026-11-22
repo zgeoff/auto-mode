@@ -170,8 +170,9 @@ Any other checkout nested inside an owned worktree counts as part of that worktr
 A branch is in scope when the task scope lists it, and the default branch and the configured
 protected branches never are. A push with no branch named pushes the current branch, which is known
 only for the call's own directory, so a push run with `git -C` elsewhere and no branch named yields
-no branch finding and goes to Jev. A remote is in scope when it is one of the checkout's own
-remotes, by name or by repository.
+no branch finding. Like every git write, it is still a path finding when that directory lies outside
+the scope, and it goes to Jev when the directory is in scope. A remote is in scope when it is one of
+the checkout's own remotes, by name or by repository.
 
 ## The user-named grant
 
