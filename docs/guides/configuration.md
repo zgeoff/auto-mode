@@ -2,7 +2,8 @@
 
 auto-mode reads `~/.config/auto-mode/config.json`, or `$XDG_CONFIG_HOME/auto-mode/config.json` when
 that variable is set. A missing file uses the shipped defaults. An unreadable or malformed file
-leaves the action without a verdict and writes a diagnostic.
+leaves the action without a verdict and writes a diagnostic. Read this guide to choose the
+classifier and the judge, to set what a task owns, to tune the decision, or to turn on the capture.
 
 ## The shape
 
@@ -77,9 +78,10 @@ provider, set `baseURL` to its API root. Only a Jev kind can classify, and auto-
 other kind in `decision.classifier`.
 
 Every judge runs Claude Code, the `claude` program on your `PATH`, through the Agent SDK, with no
-tools, settings, MCP servers or session file. The judge reaches only the API its entry names, never
-the provider your agent session uses ([the judge](../architecture/stages/judge.md)). Without
-`claude` on your `PATH`, every judge call fails, and each deny keeps its rule's fixed reason.
+tools, settings, MCP servers or session file. A Messages API judge reaches only the API its entry
+names, never the provider your agent session uses, and the `claude-code` judge reaches only what
+your Claude login reaches ([the judge](../architecture/stages/judge.md)). Without `claude` on your
+`PATH`, every judge call fails, and each deny keeps its rule's fixed reason.
 
 - The `claude-code` kind runs through your local Claude login, so it needs no API key.
 - A Messages API kind needs a key, from `apiKeyEnv` or `apiKeyCommand`. Without one, the judge call
@@ -124,7 +126,7 @@ entry's answer, and the containment check denies a write outside it.
 
 A file without `scopeSources` runs `cwd`, `session` and `launcher`. A file with the block runs
 exactly its entries, and warns when none of them is `cwd`, because the task then owns only what the
-other sources name.
+other sources name, and `/tmp`.
 
 - `cwd` owns the worktree that holds the action's directory, and its branch unless that is the
   default branch.
@@ -162,7 +164,7 @@ protection rule here yourself. The list applies in every repository.
 | Field            | Default       | Effect                                                            |
 | ---------------- | ------------- | ----------------------------------------------------------------- |
 | `classifier`     | `jev`         | The classifiers id that judges each escalated action              |
-| `judge`          | `claude-code` | The classifiers id that reviews each Jev deny; `null` for none    |
+| `judge`          | `claude-code` | The classifiers id that reviews denies; `null` for none           |
 | `judgeOverturns` | `any`         | Which judge overturns of a soft rule allow: `any` or `consent`    |
 | `blockThreshold` | `0.2`         | Deny when some rule's block probability reaches this value        |
 | `onFailure`      | `defer`       | Keep the manual approval, or deny, when the classifier fails      |
@@ -175,9 +177,10 @@ classifier must be a Jev kind, and the judge cannot be one, because Jev writes n
 
 ### Judge
 
-The judge reviews each deny Jev makes, with the prompt in `policy/judge.md` and the rules spliced
-in. It reads the denied rule, the action, the last direct user message and the repository facts, and
-answers confirm or overturn with a short reason.
+The judge reviews each deny Jev makes, and each containment deny whose every target the last direct
+user message names, with the prompt in `policy/judge.md` and the rules spliced in. It reads the
+denied rule, the action, the last direct user message and the repository facts, and answers confirm
+or overturn with a short reason.
 
 - A confirm keeps the deny, and the agent reads `The reviewer confirmed the <rule> deny:` followed
   by the judge's reason, cut to 600 characters, then the instruction every deny ends with.
@@ -193,21 +196,20 @@ answers confirm or overturn with a short reason.
 - A missing key, a timeout, a failed call or an unreadable reply keeps the deny with its fixed
   reason. The judge never turns a failure into an allow, whatever `onFailure` says.
 
-A retry of the action just denied never reaches the judge, and neither does a containment deny
-unless the last direct user message names every target. The judge's deadline is its entry's
+A retry of the action just denied never reaches the judge. The judge's deadline is its entry's
 `timeoutMs`, bounded by the time the mod leaves the CLI.
 
 ### Denial budget
 
 `denialBudget` takes `consecutive` and `perSession`, each a positive whole number, defaulting to 3
 and 20. A deny is the normal outcome of a refused action: the agent reads the reason and continues
-on another path. The budget is the only way the user is asked. Each deny states how many denials
-remain, and the last one tells the agent to stop and report what consent it needs. The action that
-would exceed either limit gets no verdict, so Claude Code shows its normal permission prompt, and
-both counts start again from zero. An allow resets the consecutive count. A retry of the action just
-denied is denied again without a classifier call and counts as a denial. A retry is the same tool,
-directory and input; a new Bash `description` or `timeout` does not make it new, while a new direct
-user message does, so new consent reaches the classifier.
+on another path. The budget is the only part of auto-mode that turns a deny into a prompt. Each deny
+states how many denials remain, and the last one tells the agent to stop and report what consent it
+needs. The action that would exceed either limit gets no verdict, so Claude Code shows its normal
+permission prompt, and both counts start again from zero. An allow resets the consecutive count. A
+retry of the action just denied is denied again without a classifier call and counts as a denial. A
+retry is the same tool, directory and input; a new Bash `description` or `timeout` does not make it
+new, while a new direct user message does, so new consent reaches the classifier.
 
 The counts live in `$XDG_STATE_HOME/auto-mode/denials/`, one file per session and subagent, so they
 survive a reload of the mod and a `--resume` of the session. Two tool calls checked at the same
