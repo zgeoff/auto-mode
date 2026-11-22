@@ -12,8 +12,8 @@ Every call the CLI judges passes through deterministic checks first, and only wh
 reaches Jev, a classifier from TypeSafe that answers typed questions over its decision API. A second
 model, the judge, reviews every deny Jev gives, unless the configuration turns the judge off. The
 denial budget acts at both ends of the path. Before any check, it answers a repeat of the action it
-just denied. After the judge, it counts the deny, and it is the only path from a deny to a human: an
-agent that keeps getting denied is eventually handed back to the user.
+just denied. After the judge, it counts the deny, and it is the only part of auto-mode that turns a
+deny into a prompt: an agent that keeps getting denied is eventually handed back to the user.
 
 ## The path of a prompted call
 

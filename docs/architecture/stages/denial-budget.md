@@ -1,13 +1,14 @@
 # The denial budget
 
-The denial budget is the only stage that turns a deny into a prompt for the user. The classifiers
-never ask the user anything: every stage answers allow or deny, and a denied agent is told to find a
-safer path. An agent that cannot find one would loop on denies forever, so the budget counts them,
-and once an agent has used its denials, the next deny becomes no verdict. The mod then keeps the
-prompt Claude Code was about to show, and the user decides that call. The budget also stops an agent
-from asking again until a model happens to allow: a repeat of the action just denied gets the same
-deny without any model call. The [overview](../overview.md) places the budget at both ends of the
-path, and [state and logs](../state-and-logs.md) covers the state directory that holds its files.
+The denial budget is the only part of auto-mode that turns a deny into a prompt for the user. Jev
+and the judge never ask the user anything: each answers allow or deny, and a denied agent is told to
+find a safer path. The budget runs at both ends of every judged call, apart from the stages between.
+An agent that cannot find one would loop on denies forever, so the budget counts them, and once an
+agent has used its denials, the next deny becomes no verdict. The mod then keeps the prompt Claude
+Code was about to show, and the user decides that call. The budget also stops an agent from asking
+again until a model happens to allow: a repeat of the action just denied gets the same deny without
+any model call. The [overview](../overview.md) places the budget at both ends of the path, and
+[state and logs](../state-and-logs.md) covers the state directory that holds its files.
 
 Every verdict passes through the budget before the CLI writes it, whichever stage gave it, so a
 containment deny counts the same as a Jev deny.

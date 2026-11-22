@@ -2,14 +2,14 @@
 
 Each CLI run ends with its call, so everything auto-mode remembers lives in files: the denial
 counts, the session scope and the action log in its state directory, and the opt-in capture in a
-folder there unless the configuration names another absolute directory. The judge server holds a
-warm judge process and no state that a decision reads, and it listens on a socket in the user's
-runtime directory, or under the state directory when the host sets none. Each CLI run reads what it
-needs, writes what changed, and exits. The files are private to the user, so the CLI creates them
-readable by the owner alone. The capture alone refuses a directory inside a git work tree, because
-its daily files are the only ones that hold whole requests, with the user's messages and any secret
-in them unredacted. The state directory sits under the XDG state home, and the
-[configuration guide](../guides/configuration.md) gives the paths.
+folder there unless the user sets another absolute directory in the configuration. The judge server
+holds a warm judge process and no state that a decision reads, and it listens on a socket in the
+user's runtime directory, or under the state directory when the host sets none. Each CLI run reads
+what it needs, writes what changed, and exits. The files are private to the user, so the CLI creates
+them readable by the owner alone. Of these files, the CLI keeps only the capture out of a git work
+tree, because its daily files are the only ones that hold whole requests, with the user's messages
+and any secret in them unredacted. The state directory sits under the XDG state home. For the paths,
+see the [configuration guide](../guides/configuration.md).
 
 ## The files
 
@@ -20,9 +20,9 @@ in them unredacted. The state directory sits under the XDG state home, and the
 | action log      | every judged call         | none: one shared file  | appended line             |
 | request capture | every judged call, opt-in | none: one file per day | appended line             |
 
-The CLI names each keyed file by a hash of the session identity, never the identity as written. The
-[denial budget](./stages/denial-budget.md) owns what its file holds, and
-[the task scope](./evidence/task-scope.md#what-the-session-created) owns the session scope file.
+The CLI names each keyed file by a hash of the session identity, never the identity as written. For
+what the denial counts file holds, see [denial budget](./stages/denial-budget.md), and for the
+session scope file, see [the task scope](./evidence/task-scope.md#what-the-session-created).
 
 ## The action log
 
@@ -32,25 +32,25 @@ denial counts, whether the call spent the budget, and each model stage's own dia
 status, the step where it failed, the request size, its latency and every rule that reached the
 threshold, and the judge's outcome and latency. It keys a call by hashes of its session, agent and
 tool-call identifiers, and it holds no message text, so the log records how auto-mode decided
-without holding the work it decided about. One exception: an end line that holds a judge review also
-holds the reviewed action, its tool, working directory and input, with every secret the secret rules
-find replaced, so a held deny can be tied to the command it held.
-[Action diagnostics](../guides/diagnostics.md) lists the fields, and the evaluation tooling turns
-the log into its live-use measurement ([evaluation](./evaluation.md)).
+without holding the work it decided about. The one exception is an end line that holds a judge
+review: it also holds the reviewed action, its tool, working directory and input, with every secret
+the secret rules find replaced, so a held deny can be tied to the command it held. For the fields,
+see [Action diagnostics](../guides/diagnostics.md). The evaluation tooling turns the log into its
+live-use measurement ([evaluation](./evaluation.md)).
 
 Two processes can append to the log at once without a lock, because each appends one whole line. A
 failed append writes a warning to stderr and never changes the verdict.
 
 ## The request capture
 
-The capture is off by default. When the configuration turns it on, every judged call appends its
-full request, with the verdict and the deciding stage, to a file per day. A capture holds real
-prompts, paths and commands, and possibly secrets, so the CLI refuses to write one inside a git work
-tree, checking the directory both as configured and as its links resolve, and refuses a relative
-directory. It creates the directory readable by the owner alone with a `.gitignore` that ignores
-everything, and appends without following a link. A refused or failed capture writes a note to
-stderr and never changes the verdict. A capture becomes a corpus only through the anonymising step
-and a person's review ([evaluation](./evaluation.md#corpora)).
+The capture is off by default. When the user turns it on in the configuration, every judged call
+appends its full request, with the verdict and the deciding stage, to a file per day. A capture
+holds real prompts, paths and commands, and possibly secrets, so the CLI refuses to write one inside
+a git work tree. It checks the directory both as configured and as its links resolve, and it also
+refuses a relative directory. It creates the directory readable by the owner alone with a
+`.gitignore` that ignores everything, and appends without following a link. A refused or failed
+capture writes a note to stderr and never changes the verdict. A capture becomes a corpus only
+through the anonymising step and a person's review ([evaluation](./evaluation.md#corpora)).
 
 ## What survives a crash
 

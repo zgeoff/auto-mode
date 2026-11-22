@@ -65,9 +65,9 @@ Code passes a deny reason to the agent as the tool's result, verbatim, and the a
 
 The request and verdict shapes, the scope record, the message origins and the scope commands live in
 the mod's contract folder as plain TypeScript with no dependencies. Claude Code refuses a package
-import in a hooks module, even of the mod's own package, so the mod imports only Claude Code's own
-module and, by relative path, its own plugin's files. The CLI imports the same contract files, and a
-type test fails when the CLI's schemas and the contract types disagree.
+import in a hooks module, its own package included, so the mod imports only Claude Code's own module
+and, by relative path, its own plugin's files. The CLI imports the same contract files, and a type
+test fails when the CLI's schemas and the contract types disagree.
 
 The mod never writes Claude Code's settings files, and it has one setting of its own: the command
 that runs the CLI, `auto-mode` on `PATH` by default.

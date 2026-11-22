@@ -29,16 +29,18 @@ The stage scans the call's input with the Betterleaks rule set that the edit byp
 any match sends the call to Jev, where Data Exfiltration judges it. It scans the input as JSON text,
 where a rule that needs a key beside its value can match, and every key and string as written, where
 a rule that spans lines, such as a private key block, can match. Input larger than the scan's size
-cap goes to Jev unscanned. The CLI loads the rule set only for a call that matches a reply channel.
+cap goes to Jev unscanned. The CLI loads the rule set only for a call that matches a reply channel,
+because loading it adds time to every CLI start.
 
 ## What the stage never does
 
 The stage never denies: a call it does not allow goes on to Jev. A reply channel grants no consent,
-so a rule that asks the user to name a target reads nothing from it. The stage does not run when the
-task scope did not load.
+so when Jev judges a matching call, a rule that asks the user to name a target reads nothing from
+the channel. The stage does not run when the task scope did not load.
 
 When the user's Claude settings hold block entries, the stage allows nothing, because only Jev reads
-those entries ([settings and repository facts](../evidence/settings-and-repository.md)). A matching
-call that passes the secret scan goes to Jev without the Outbound Communication question, so Jev
-judges it under every other rule and every configured entry. A replacement policy keeps every
-question, because its rules are the user's own.
+those entries ([settings and repository facts](../evidence/settings-and-repository.md)). In that
+case alone, a matching call that passes the secret scan goes to Jev without the shipped Outbound
+Communication question, so Jev judges it under every other rule and every configured entry. A rule
+list that replaces the shipped one, set by `policy.rulesPath`, keeps every question, because its
+rules are the user's own.
