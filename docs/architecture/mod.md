@@ -2,16 +2,19 @@
 
 The mod is a Claude Code plugin that sits in Claude Code's permission chain and turns a pending
 prompt into a call to the auto-mode CLI. It hooks the permission check, lets the rest of the chain
-decide first, and acts only when the chain's answer is to ask the user. An existing allow or deny is
-final, so auto-mode only ever answers prompts: it never overrides a permission the user configured,
-and a tool the user's settings allow or deny never reaches it. The mod also keeps, in memory, the
-session facts the CLI needs and cannot read itself, because auto-mode reads no transcript. The
-[overview](./overview.md) places the mod in the path of a prompted call, and
-[the user message](./evidence/user-message.md) owns what the task context means.
+decide first, and judges a call only when the chain's answer is to ask the user. An existing allow
+or deny is final, so auto-mode only ever answers prompts: it never overrides a permission the user
+configured, and a call the user's settings allow or deny is never judged. The mod also keeps, in
+memory, the session facts the CLI needs and cannot read itself, because auto-mode reads no
+transcript. Apart from judging, it reports what each finished Bash call created, whoever allowed the
+call, as [Recording scope](#recording-scope) says. The [overview](./overview.md) places the mod in
+the path of a prompted call, and [the user message](./evidence/user-message.md) owns what the task
+context means.
 
 ## What the mod keeps
 
-Claude Code loads the mod once per session as raw TypeScript, and the mod holds its state in memory:
+Claude Code loads the mod as raw TypeScript when a session starts, and again when the user reloads
+plugins mid-session. The mod holds its state in memory:
 
 - **The session identity,** from the session start and prompt events. Claude Code keeps the identity
   across a resume unless the session is forked, so the denial counts and the session scope, which
@@ -30,14 +33,16 @@ the session scope by that identity.
 ## Judging a prompt
 
 For a call the chain would prompt for, the mod builds the request and runs the CLI as a child
-process, in its Jev-only mode, with the request on stdin. The CLI stops each step of a run at its
-own time limit ([Jev](./stages/jev.md#failure), [the judge](./stages/judge.md#time-and-failure)),
-and the child's time limit is the sum of those limits over the longest run: Jev and two judge calls,
-each after its own key command. The contract holds the step limits, so the CLI and the mod read the
-same ones, and the Jev-only mode lowers a configured judge limit to the shared one. The mod passes
-the CLI a deadline just inside the child's limit, so the CLI can still write its verdict, or decide
-to write none, before the mod kills it. Claude Code's budget for the hook stands still while the
-subprocess runs, so a long Jev and judge exchange costs the session no hook time.
+process with the request on stdin. It passes `--jev-only`, which caps the Jev and judge time limits
+and is the only mode that accepts a deadline from the mod. The judge still runs in that mode. The
+CLI stops each step of a run at its own time limit ([Jev](./stages/jev.md#failure),
+[the judge](./stages/judge.md#time-and-failure)), and the child's time limit is the sum of those
+limits over the longest run: Jev and two judge calls, each after its own key command. The contract
+holds the step limits, so the CLI and the mod read the same ones, and `--jev-only` lowers a
+configured judge limit to the shared one. The mod passes the CLI a deadline just inside the child's
+limit, so the CLI can still write its verdict, or decide to write none, before the mod kills it.
+Claude Code's budget for the hook stands still while the subprocess runs, so a long Jev and judge
+exchange costs the session no hook time.
 
 The mod keeps the prompt without asking the CLI when the call is cancelled, when it has no session
 identity, when too little of the hook budget is left to run the CLI, when the call is one it is not

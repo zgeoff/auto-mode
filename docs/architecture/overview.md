@@ -11,8 +11,9 @@ judging of its own; [the product README](../../README.md) covers what auto-mode 
 Every call the CLI judges passes through deterministic checks first, and only what they leave open
 reaches Jev, a classifier from TypeSafe that answers typed questions over its decision API. A second
 model, the judge, reviews every deny Jev gives, unless the configuration turns the judge off. The
-denial budget sits after all of them and is the only path from a deny to a human: an agent that
-keeps getting denied is eventually handed back to the user.
+denial budget acts at both ends of the path. Before any check, it answers a repeat of the action it
+just denied. After the judge, it counts the deny, and it is the only path from a deny to a human: an
+agent that keeps getting denied is eventually handed back to the user.
 
 ## The path of a prompted call
 
@@ -26,17 +27,15 @@ flowchart TD
   L -->|"passes on"| C{"containment check"}
   C -->|"target outside the task scope"| N{"every target named by the user?"}
   N -->|no| B
-  N -->|yes| G2{"the judge"}
-  G2 -->|confirm| B
-  G2 -->|"overturn: finding cleared"| E
+  N -->|"yes: deny pending"| E
   C -->|"no finding"| E{"edit bypass"}
   E -->|"in-scope edit, no secret"| B
   E -->|"passes on"| RC{"reply channel"}
   RC -->|"message to an owned recipient, no secret"| B
   RC -->|"passes on"| J{"Jev"}
-  J -->|allow| B
-  J -->|deny| G{"the judge"}
-  G -->|"confirm, or overturn to allow"| B["denial budget"]
+  J -->|"allow, no deny pending"| B
+  J -->|"deny, or a deny pending"| G{"the judge"}
+  G -->|"confirm, or overturn every deny to allow"| B["denial budget"]
   B -->|"verdict on stdout"| M
   B -->|"budget spent: no verdict"| M
 ```
@@ -47,8 +46,9 @@ flowchart TD
 2. The denial budget checks first whether the call repeats the action it just denied. A repeat gets
    the same deny again, without asking any model, so a classifier that answers differently on each
    sample cannot be asked until it allows ([the denial budget](./stages/denial-budget.md)).
-3. The local rules allow read-only tools and read-only shell commands on sight, and pass every other
-   call on ([local rules](./stages/local-rules.md)).
+3. The local rules allow read-only tools and read-only shell commands on sight. They allow the
+   deletion of regenerable build output only after the containment check passes, and pass every
+   other call on ([local rules](./stages/local-rules.md)).
 4. The containment check reads the write targets it can resolve from the call and denies any that
    lies outside the task scope: the worktrees, paths, branches and pull requests the task owns
    ([containment](./stages/containment.md), [the task scope](./evidence/task-scope.md)). When the
@@ -69,9 +69,13 @@ flowchart TD
 9. The denial budget counts each deny. The deny that would pass the budget becomes no verdict, so
    that call reaches the user.
 
-The first stage that decides ends the path. One exception: a local allow for deleting regenerable
-build output waits until the containment check has passed, because it deletes files, while a
-read-only allow returns before the task scope even loads.
+The first stage that decides skips every later stage up to the denial budget, which every verdict
+passes through. That holds with two exceptions:
+
+- A local allow for deleting regenerable build output waits until the containment check has passed,
+  because it deletes files, while a read-only allow returns before the task scope even loads.
+- A containment deny on targets the user named stays pending while the call goes on, and the judge
+  reviews it after Jev, even when Jev allows.
 
 ## Topology
 
@@ -96,10 +100,10 @@ never the session. After a Bash call that can create a worktree, a branch or a p
 finishes, the mod starts the CLI a second time to record what the call made.
 
 The CLI is the published `auto-mode` package, built for node, and each run ends with the call it
-judges. It reaches Jev over HTTPS. It reaches the judge through a judge server: a detached CLI
-process, one per agent session, that holds a Claude Code process warm between prompted calls and
-ends after a stretch with no review. The first run that needs the judge starts the server, so only
-the first review of a session pays the start of Claude Code. Jev is the only classifier the
+judges or records. It reaches Jev over HTTPS. It reaches the judge through a judge server: a
+detached CLI process, one per agent session, that holds a Claude Code process warm between prompted
+calls and ends after a stretch with no review. The first run that needs the judge starts the server,
+so only the first review of a session pays the start of Claude Code. Jev is the only classifier the
 configuration accepts.
 
 ## Data
@@ -107,10 +111,10 @@ configuration accepts.
 auto-mode owns no database. Every file it writes lives in its state directory, and every file it
 reads elsewhere belongs to someone else:
 
-- **The configuration file** holds the choice of classifier, the judge, the scope sources, the
-  denial budget and the opt-in capture. A missing file means the shipped defaults
+- **The configuration file** holds the Jev settings, the judge, the scope sources, the denial budget
+  and the opt-in capture. A missing file means the shipped defaults
   ([configuration](../guides/configuration.md)).
-- **The policy** is the set of Markdown files under `policy/` that the classifiers read verbatim:
+- **The policy** is the set of Markdown files under `policy/` that Jev and the judge read verbatim:
   the rule list and one framework per model ([the policy](./policy.md)).
 - **The denial counts** keep one small file per session and subagent, so the budget survives a
   reload of the mod and a resumed session.
@@ -132,8 +136,9 @@ reads elsewhere belongs to someone else:
   one prompt.
 - **No verdict is an answer.** It means auto-mode has no opinion, and the mod keeps the prompt. A
   body that is not a request, a configuration the CLI cannot read, a classifier failure under the
-  default failure response, and the call that spends the denial budget all end in no verdict. The
-  classifiers themselves never ask: each answers allow or deny.
+  default failure response, and the call that spends the denial budget all end in no verdict. No
+  model ever asks the user: the CLI turns every answer from Jev or the judge into an allow or a
+  deny.
 - **A failure defers or denies.** When Jev cannot answer, the configured failure response either
   defers, which writes no verdict, or denies as `Classifier Unavailable`. The judge always fails
   closed: a judge that cannot answer keeps the deny.

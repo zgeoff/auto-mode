@@ -1,8 +1,8 @@
 # auto-mode documentation
 
 auto-mode answers the permission prompts Claude Code would show, through a Claude Code mod that runs
-the auto-mode CLI for each prompted call. The [root README](../README.md) covers install and
-everyday use.
+the auto-mode CLI for each prompted call. For install and everyday use, read the
+[root README](../README.md).
 
 ## Architecture
 

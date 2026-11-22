@@ -80,8 +80,9 @@ scratch paths are the folders every task may write. Every function below them ta
   source, `src/cli.ts`, and nothing builds `dist/`, so run `bun run build` first for a suite that
   copies or packs `dist/`.
 - Get the node binary from [`readNodePath`](../../../src/test-utils/read-node-path.ts), which runs
-  `node -p process.execPath` with the test's own `process.env` and returns the path it prints. Never
-  spawn the `node` on `PATH`: a version manager's `node` shim needs your real `HOME`, which the
+  `node -p process.execPath` with the test's own `process.env` and returns the path it prints. It is
+  the one child that gets the full environment, because it runs no code under test. Never spawn the
+  `node` on `PATH` for the CLI: a version manager's `node` shim needs your real `HOME`, which that
   child doesn't get.
 - To send a stop signal to a spawned CLI, copy [`cli.test.ts`](../../../src/cli.test.ts). Set the
   API key command in the CLI's config to

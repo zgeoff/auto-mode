@@ -32,10 +32,10 @@ missing file must not make the CLI exit without a verdict.
 
 ## The rules
 
-The rule list has three sections. A hard block rule never clears: no consent, configured allow entry
-or allow exception moves it, and only two hard rules, Policy Tampering and Audit Tampering, accept a
-narrow false-positive clarification from the user. The judge clears a hard deny only as a misread,
-and only when Jev itself chose allow with a low block probability
+The rule list has three sections. A hard block rule never clears on consent, a configured allow
+entry or an allow exception. Only two hard rules, Policy Tampering and Audit Tampering, accept a
+narrow false-positive clarification from the user. The judge can still overturn a hard deny, but
+only as a misread of the action, and only when Jev itself chose allow with a low block probability
 ([the judge](./stages/judge.md#confirm-or-overturn)). A soft block rule clears with specific consent
 in the user's last message, a configured allow entry, or a shipped allow exception. An allow
 exception, such as regenerable output or the current feature branch, clears soft rules only.
