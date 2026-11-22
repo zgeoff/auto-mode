@@ -105,7 +105,8 @@ rule can match what it does. auto-mode's local tier does not allow `gh`, so each
 auto-mode costs a model call. Give no bypass entry to a test, build, or lint script, because it
 would hide whatever the script runs.
 
-None of these entries clears a hard rule, and this guide recommends no entry that would.
+None of the decision entries clears a hard rule. The bypass entries skip the hard rules only for
+commands that no hard rule can match.
 
 ## Write exclusions as behaviour
 
