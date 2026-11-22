@@ -1,13 +1,15 @@
 # State and logs
 
-Each CLI run ends with its call, so everything auto-mode remembers lives in files in its state
-directory: the denial counts, the session scope, the action log and the opt-in capture. The judge
-server holds a warm judge process and no state that a decision reads, and it listens on a socket in
-the user's runtime directory, or under the state directory when the host sets none. Each CLI run
-reads what it needs, writes what changed, and exits. The files are private to the user, so the CLI
-creates them readable by the owner alone. The capture alone refuses a directory inside a git work
-tree, because it is the one file that holds the work itself. The state directory sits under the XDG
-state home, and the [configuration guide](../guides/configuration.md) gives the paths.
+Each CLI run ends with its call, so everything auto-mode remembers lives in files: the denial
+counts, the session scope and the action log in its state directory, and the opt-in capture in a
+folder there unless the configuration names another absolute directory. The judge server holds a
+warm judge process and no state that a decision reads, and it listens on a socket in the user's
+runtime directory, or under the state directory when the host sets none. Each CLI run reads what it
+needs, writes what changed, and exits. The files are private to the user, so the CLI creates them
+readable by the owner alone. The capture alone refuses a directory inside a git work tree, because
+it is the one file that holds whole requests, with the user's messages and any secret in them
+unredacted. The state directory sits under the XDG state home, and the
+[configuration guide](../guides/configuration.md) gives the paths.
 
 ## The files
 

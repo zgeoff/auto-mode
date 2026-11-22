@@ -3,14 +3,12 @@
 The mod is a Claude Code plugin that sits in Claude Code's permission chain and turns a pending
 prompt into a call to the auto-mode CLI. It hooks the permission check, lets the rest of the chain
 decide first, and judges a call only when the chain's answer is to ask the user. An existing allow
-or deny is final, so auto-mode only ever answers prompts: it never overrides a permission the user
-configured, and a call the user's settings allow or deny is never judged. The mod also keeps, in
-memory, the session facts the CLI needs and cannot read itself, because auto-mode reads no
-transcript. Apart from judging, it reports what a finished Bash call created when the command can
-create a worktree, a branch or a pull request, whoever allowed the call, as
-[Recording scope](#recording-scope) says. The [overview](./overview.md) places the mod in the path
-of a prompted call, and [the user message](./evidence/user-message.md) owns what the task context
-means.
+or deny is final, so auto-mode never overrides a permission the user configured. Because auto-mode
+reads no transcript, the mod also keeps in memory the session facts the CLI needs. Apart from
+judging, it reports what a finished Bash call created when the command can create a worktree, a
+branch or a pull request, whoever allowed the call, as [Recording scope](#recording-scope) says. For
+where the mod sits in the path of a prompted call, see the [overview](./overview.md). For what the
+task context means, see [the user message](./evidence/user-message.md).
 
 ## What the mod keeps
 
@@ -39,11 +37,11 @@ and is the only mode that accepts a deadline from the mod. The judge still runs 
 CLI stops each step of a run at its own time limit ([Jev](./stages/jev.md#failure),
 [the judge](./stages/judge.md#time-and-failure)), and the child's time limit is the sum of those
 limits over the longest run: Jev and two judge calls, each after its own key command. The contract
-holds the step limits, so the CLI and the mod read the same ones, and `--jev-only` lowers a
-configured judge limit to the shared one. The mod passes the CLI a deadline just inside the child's
-limit, so the CLI can still write its verdict, or decide to write none, before the mod kills it.
-Claude Code's budget for the hook stands still while the subprocess runs, so a long Jev and judge
-exchange costs the session no hook time.
+holds the step limits, so the CLI and the mod read the same ones. `--jev-only` lowers a configured
+judge limit to the shared one. The mod passes the CLI a deadline just inside the child's limit, so
+the CLI can still write its verdict, or decide to write none, before the mod kills it. Claude Code's
+budget for the hook stands still while the subprocess runs, so a long Jev and judge exchange costs
+the session no hook time.
 
 The mod keeps the prompt without asking the CLI when the call is cancelled, when it has no session
 identity, when too little of the hook budget is left to run the CLI, when the call is one it is not
@@ -53,9 +51,9 @@ times out or fails to start, and when the output is not a verdict.
 
 ## The contract
 
-The CLI and the mod ship together in one package, so the request and the verdict are strict on both
-sides, and a shape either side does not know keeps the prompt. The verdict is one JSON object, or
-nothing:
+The CLI and the mod ship together in one package, so both sides check the request and the verdict
+strictly. When either side meets a shape it does not know, the mod keeps the prompt. The verdict is
+one JSON object, or nothing:
 
 ```json
 { "decision": "deny", "reason": "[Rule Name] what the rule protects, and what clears it" }
@@ -67,18 +65,18 @@ Code passes a deny reason to the agent as the tool's result, verbatim, and the a
 
 The request and verdict shapes, the scope record, the message origins and the scope commands live in
 the mod's contract folder as plain TypeScript with no dependencies. Claude Code refuses a package
-import in a hooks module, its own package included, so the mod imports only its own plugin's files
-by relative path and Claude Code's own module. The CLI imports the same contract files, and a type
-test fails when the CLI's schemas and the contract types disagree.
+import in a hooks module, even of the mod's own package, so the mod imports only Claude Code's own
+module and, by relative path, its own plugin's files. The CLI imports the same contract files, and a
+type test fails when the CLI's schemas and the contract types disagree.
 
 The mod never writes Claude Code's settings files, and it has one setting of its own: the command
 that runs the CLI, `auto-mode` on `PATH` by default.
 
 ## Recording scope
 
-The mod also reports what a session creates. After a Bash call whose command matches one of the
-contract's scope commands finishes without a deny, it runs the CLI's record command with the
-command, its output and the time it started, under a short time limit of its own
-([the task scope](./evidence/task-scope.md#what-the-session-created)). A record that fails only
-writes a debug line, because a lost record costs the session the scope that call would have added,
-never the call itself.
+The mod also reports what a session creates. When a Bash call finishes without a deny and its
+command matches one of the contract's scope commands, the mod runs the CLI's record command. It
+passes the command, the command's output and the call's start time, under a short time limit of its
+own ([the task scope](./evidence/task-scope.md#what-the-session-created)). When a record fails, the
+mod only writes a debug line, because a lost record costs the session the scope that call would have
+added, never the call itself.

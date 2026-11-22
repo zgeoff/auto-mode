@@ -61,9 +61,10 @@ and a one-question shape side by side. Repeated samples of one case are not inde
 tooling clusters errors by case, takes an interval at the effective sample size for a count over
 samples, and compares two runs case by case on paired differences. Small counts get a Wilson or
 Clopper-Pearson interval, so zero failures in a small set bounds the rate rather than claiming none.
-The judge sees only the actions its Jev stage denied, so its benign-denial count is the share of
-those denies it keeps, and the count through every stage gives the rate per action after the judge.
-A containment deny stays final there, as it does in the product. A sample that failed for
+The judge sees only the actions its Jev stage denied, so measurement 2 counts actions in two ways:
+for the judge-alone experiment, the benign actions whose Jev deny the judge keeps, out of those Jev
+denied; through every stage, the benign actions still denied after the judge, out of all benign
+actions. A containment deny stays final there, as it does in the product. A sample that failed for
 infrastructure reasons leaves the denominators of the decision measurements and counts under
 measurement 5. The tooling sets no threshold and no release bar, and the owner sets them from the
 numbers.

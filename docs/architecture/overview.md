@@ -5,8 +5,8 @@ When Claude Code is about to ask the user about a tool call, the auto-mode mod r
 CLI once to judge that call, and the CLI writes back an allow, a deny with a reason, or no verdict
 at all. An allow lets the call run, and a deny reaches the agent as the tool's result, so the agent
 continues on another path. No verdict makes the mod keep the prompt Claude Code was about to show,
-so the user decides. The design aims at a model other than Claude driving Claude Code, which gets no
-judging of its own; [the product README](../../README.md) covers what auto-mode is for.
+so the user decides. The design targets Claude Code driven by a model other than Claude, a setup
+that gets no judging of its own; [the product README](../../README.md) covers what auto-mode is for.
 
 Every call the CLI judges passes through deterministic checks first, and only what they leave open
 reaches Jev, a classifier from TypeSafe that answers typed questions over its decision API. A second
@@ -70,10 +70,10 @@ flowchart TD
    that call reaches the user.
 
 The first stage that decides skips every later stage up to the denial budget, which every verdict
-passes through. That holds with two exceptions:
+passes through, with these exceptions:
 
 - A local allow for deleting regenerable build output waits until the containment check has passed,
-  because it deletes files, while a read-only allow returns before the task scope even loads.
+  because it deletes files, while a read-only allow returns before the task scope loads.
 - A containment deny on targets the user named stays pending while the call goes on, and the judge
   reviews it after Jev, even when Jev allows.
 
@@ -95,9 +95,9 @@ flowchart LR
 
 The mod runs inside Claude Code, which loads it as raw TypeScript from the plugin directory, and
 holds what it knows about the session in memory. It starts the CLI as a short-lived child process
-for every call it judges and kills it at its own time limit, so a hung classifier costs one prompt,
-never the session. After a Bash call that can create a worktree, a branch or a pull request
-finishes, the mod starts the CLI a second time to record what the call made.
+for every call it judges and kills it at its own time limit, so a hung classifier costs only one
+prompt. After a Bash call that can create a worktree, a branch or a pull request finishes, the mod
+starts the CLI a second time to record what the call made.
 
 The CLI is the published `auto-mode` package, built for node, and each run that judges or records a
 call ends with that call. It reaches Jev over HTTPS. It reaches the judge through a judge server: a
@@ -112,7 +112,7 @@ auto-mode owns no database. Every file it writes lives in its state directory, a
 reads elsewhere belongs to someone else:
 
 - **The configuration file** holds the Jev settings, the judge, the scope sources, the denial budget
-  and the opt-in capture. A missing file means the shipped defaults
+  and the opt-in capture. When the file is missing, auto-mode uses the shipped defaults
   ([configuration](../guides/configuration.md)).
 - **The policy** is the set of Markdown files under `policy/` that Jev and the judge read verbatim:
   the rule list and one framework per model ([the policy](./policy.md)).
@@ -120,8 +120,8 @@ reads elsewhere belongs to someone else:
   reload of the mod and a resumed session.
 - **The session scope** keeps one file per session listing what that session's own calls created,
   which the task scope reads back.
-- **The launcher scope file** is the file a program that starts the session writes in a format
-  auto-mode defines, listing what the session owns. auto-mode reads it and never writes it
+- **The launcher scope file** lists what the session owns. The program that starts the session
+  writes it, in a format auto-mode defines. auto-mode reads it and never writes it
   ([declaring a session's scope](../guides/scope-file.md)).
 - **The action log** appends one line per judged call, with the deciding stage and the counts, and
   the opt-in capture appends each full request ([state and logs](./state-and-logs.md)).
@@ -131,9 +131,9 @@ reads elsewhere belongs to someone else:
 
 ## Cross-cutting rules
 
-- **A run always exits zero.** The mod reads a non-zero exit as a broken CLI and keeps the prompt,
-  so the JSON on stdout alone decides the outcome, and a CLI that cannot start at all costs the user
-  one prompt.
+- **A run always exits zero.** The JSON on stdout alone decides the outcome. The mod reads a
+  non-zero exit as a broken CLI and keeps the prompt, so a CLI that cannot start at all costs the
+  user one prompt.
 - **No verdict is an answer.** It means auto-mode has no opinion, and the mod keeps the prompt. A
   body that is not a request, a configuration the CLI cannot read, a classifier failure under the
   default failure response, and the call that spends the denial budget all end in no verdict. No
