@@ -5,8 +5,8 @@ the configuration can turn it off, which leaves every Jev deny with its fixed re
 with probabilities and no explanation, and its threshold is set low on purpose, so some of its
 denies come from doubt rather than a match. The judge reads the denied rule, the call and the user's
 last message, and either confirms the deny with a reason written for this call, or overturns it to
-an allow when the user asked for exactly this or when the facts show that no rule covers the action.
-It is a generative model, Claude Code on a Claude model by default, with its own framework in the
+an allow when the user asked for exactly this or when the facts put the action outside the rule. It
+is a generative model, Claude Code on a Claude model by default, with its own framework in the
 [policy](../policy.md). The judge changes a deny into an allow on a soft rule, and on a hard rule
 only in the one narrow case that [Confirm or overturn](#confirm-or-overturn) names. It fails closed:
 whatever goes wrong, the deny stands. It also reviews a containment deny whose every target the user
@@ -57,15 +57,16 @@ basis. A reply that skips, adds or reorders a rule leaves every review unreadabl
 pin one rule's verdict on another. The recorded evaluation replies to a single deny hold one verdict
 in tags, and the CLI reads those too. The CLI turns each review into one of four outcomes:
 
-| Outcome    | When                                                                                      | The agent receives                     |
-| ---------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
-| confirmed  | the judge confirms                                                                        | the deny, with the judge's reason      |
-| overturned | the judge overturns a soft rule on a basis the configuration accepts                      | an allow                               |
-| held       | the judge overturns a hard rule it may not clear, or on a basis the configuration rejects | the deny, with the rule's fixed reason |
-| failed     | the judge times out, fails, or writes an unreadable reply                                 | the deny, with the rule's fixed reason |
+| Outcome    | When                                                                                 | The agent receives                     |
+| ---------- | ------------------------------------------------------------------------------------ | -------------------------------------- |
+| confirmed  | the judge confirms                                                                   | the deny, with the judge's reason      |
+| overturned | the judge overturns a deny it may clear, on a basis the configuration accepts        | an allow                               |
+| held       | the judge overturns a deny it may not clear, or on a basis the configuration rejects | the deny, with the rule's fixed reason |
+| failed     | the judge times out, fails, or writes an unreadable reply                            | the deny, with the rule's fixed reason |
 
-The judge overturns on one of two bases. Consent means that in the last message the user asked for
-this operation on this target. Misread means that the supplied facts put the action outside the rule
+The rest of this section sets which denies the judge may clear, and on which basis. The judge
+overturns on one of two bases. Consent means that in the last message the user asked for this
+operation on this target. Misread means that the supplied facts put the action outside the rule
 altogether. The configuration accepts both bases by default, and can accept consent alone, which
 holds every misread overturn. A hard rule never clears on consent, and a configured hard deny entry
 never clears at all: an overturn of either is held. A consent overturn of a review that had no last

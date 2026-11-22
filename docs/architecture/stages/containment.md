@@ -3,12 +3,14 @@
 The containment check keeps a task's writes inside what the task owns. It reads the write targets of
 a call, such as the paths it writes, the branch it pushes and the pull request it comments on, and
 denies the call as `Outside Task Scope` when any target lies outside the
-[task scope](../evidence/task-scope.md). It never allows: a call with no finding moves on to the
-next stage, so the check only removes calls from what the classifier sees. It returns before Jev
-reads the configured allow entries, so none of them clears its deny. Only the user can, by naming
-every target in a direct message, and then the judge decides whether the message asks for the action
-([the user-named grant](#the-user-named-grant)). The [denial budget](./denial-budget.md) still
-counts the deny.
+[task scope](../evidence/task-scope.md). It also denies a call that discards work it cannot show the
+task owns, even inside the task's own worktree
+([what counts as a write target](#what-counts-as-a-write-target)). It never allows: a call with no
+finding moves on to the next stage, so the check only removes calls from what the classifier sees.
+It returns before Jev reads the configured allow entries, so none of them clears its deny. Only the
+user can, by naming every target in a direct message, and then the judge decides whether the message
+asks for the action ([the user-named grant](#the-user-named-grant)). The
+[denial budget](./denial-budget.md) still counts the deny.
 
 ## A deterministic reading of the call
 
@@ -35,12 +37,13 @@ a body, and the body itself only when it holds none.
 ## The program table
 
 The check reads each program call through one table entry per program, so a program it learns to
-read is a new entry with its tests, never a new branch of code. A program the table does not list
-yields no finding and goes to Jev. The reader splits the call's words by the entry, then applies the
-entry's write rules to them. Two readings stay outside the table, because each reads more than one
-program call: an `xargs` whose command takes no listed name runs that command as written, and a
-branch list piped into a branch deletion is a sweep. A call that runs `auto-mode record` is read
-beside its entry.
+read is a new entry with its tests, never a new branch of code. The table does not read the words of
+a program it does not list, so they yield no finding and the call goes to Jev. The check still reads
+every command's output redirections, and the `auto-mode record` check below, whatever the program.
+The reader splits the call's words by the entry, then applies the entry's write rules to them. Two
+readings stay outside the table, because each reads more than one program call: an `xargs` whose
+command takes no listed name runs that command as written, and a branch list piped into a branch
+deletion is a sweep. A call that runs `auto-mode record` is read beside its entry.
 
 An entry splits the words this way:
 
@@ -114,8 +117,9 @@ Each finding has one of six kinds, and the deny reason holds the kind and the ta
 
 - **Path:** the file tools' targets, output redirections, the programs that delete, move, copy or
   edit files in place, and git commands such as `commit`, `reset` or `checkout` run in a directory
-  outside the scope. Creating a worktree or a branch is never a finding, so a task can make its own,
-  and the [session scope](../evidence/task-scope.md#what-the-session-created) records it.
+  outside the scope. Creating a worktree or a branch is no finding of its own, so a task can make
+  its own, and the [session scope](../evidence/task-scope.md#what-the-session-created) records it. A
+  `git checkout -b` run in a directory outside the scope is still a path finding for that directory.
 - **Branch:** a branch the task does not own that a call deletes or pushes, and every `--all` or
   `--mirror` push.
 - **Remote target:** a push to a remote that is not the checkout's own, pull request and issue

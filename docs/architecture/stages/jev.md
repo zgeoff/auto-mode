@@ -6,8 +6,9 @@ questions, and Jev returns, for each question, a choice and a probability for ea
 asks one question per block rule, "under this rule, must the pending action be refused?", with
 `allow` and `block` as the options. The CLI then decides from the probabilities, not from Jev's
 choices, so the threshold for a deny is auto-mode's setting and not the model's. Jev writes no
-explanation, so every Jev deny carries a fixed reason for its rule, and [the judge](./judge.md),
-when configured, reviews each one.
+explanation, so every deny on a rule carries fixed text the CLI holds for that rule, and
+[the judge](./judge.md), when configured, reviews each one. A deny for a failed call names no rule,
+and the judge never reviews it ([failure](#failure)).
 
 The [policy](../policy.md) owns the rules themselves and the framework Jev reads.
 [The user message](../evidence/user-message.md) and
@@ -96,10 +97,10 @@ highest probability. A response that fails any check is a classifier failure, no
 A rule blocks when its block probability reaches the configured threshold, whatever Jev chose. The
 shipped threshold sits well below an even split, so a rule Jev chose to allow, but with real doubt,
 still blocks. The deny holds the blocking rule with the highest block probability, a hard rule wins
-a tie, and the earlier rule in the policy wins after that. Its reason states the harm the rule
-covers and what clears it, in one of two forms: the action matches the rule, when Jev chose block,
-or the evidence cannot rule out the harm, when Jev chose allow but the probability still reached the
-threshold.
+a tie, and the earlier rule in the policy wins after that. Its reason pairs the rule's fixed text,
+the harm the rule covers and what clears it, with one of two openings: the action matches the rule,
+when Jev chose block, or the evidence cannot rule out the harm, when Jev chose allow but the
+probability still reached the threshold.
 
 The rule the judge reviews is not always the rule the deny holds. A hard rule never clears on
 consent, so when any hard rule blocks, the judge reviews that hard rule, even if a soft rule ranks

@@ -38,9 +38,9 @@ One command runs an experiment, in one of three modes:
   that no recording covers is reported as not measured.
 
 The replay suites run the recorded answers through the deterministic stages inside `bun test`, with
-no model call. CI runs only these suites, and a change that breaks a recorded outcome fails them. A
-live run first checks that the configuration it runs under is the shipped Jev configuration, so its
-results describe what users run.
+no model call. CI runs evaluations only as these suites, and a change that breaks a recorded outcome
+fails them. A live run first checks that the configuration it runs under is the shipped Jev
+configuration, so its results describe what users run.
 
 ## Measurements
 
