@@ -1,5 +1,8 @@
 # Action diagnostics
 
+Use these records to find out why auto-mode allowed or denied an action, which stage decided it, and
+what the judge's model calls did, without prompts or secrets in the file.
+
 Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/actions.jsonl` when the
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
@@ -11,9 +14,9 @@ field, a version 5 record also lacks the `grant` field, a version 4 record also 
 2 record also lacks the three budget fields below, and a version 1 record in an older file also
 carries `harness` and `event`.
 
-The records exclude prompts, configuration contents, credentials, provider responses, and exception
-text. They exclude commands and paths too, except in the `action` field of a record that holds a
-judge review. The one provider text they hold is the judge's reason for an overturn, in
+The records exclude prompts, configuration contents, credentials, exception text, and every provider
+response but one. They exclude commands and paths too, except in the `action` field of a record that
+holds a judge review. The one provider text they hold is the judge's reason for an overturn, in
 `overturnReason`. Configured and replacement rules use question identifiers; only shipped rules
 retain their public names. Session, agent and action identifiers use the first 16 hexadecimal
 characters of SHA-256. Hash a recorded tool-call identifier to find its `actionHash`. For a
@@ -47,7 +50,7 @@ overturn. auto-mode replaces each secret the secret rules find with `[secret]`, 
 reason's whitespace and cuts it to 600 characters. It is `null` when the judge did not overturn, or
 when a secret is still left after the replacement. `failureReason` names the step that failed:
 `credential`, `policy`, `request`, `timeout`, or `unreadable`; it is `null` when the judge answered.
-`rule` is a shipped rule's name, or the rule's source for a configured or replacement rule.
+`rule` is a shipped rule's name, or the word `configured` or `replacement` for any other rule.
 
 The rest of `judge` describes the model call. `model` is the configured judge model, and
 `answeringModel` is the model that wrote the reply, or `null` when no reply came back. It holds a
