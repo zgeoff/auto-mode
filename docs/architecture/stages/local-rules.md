@@ -23,11 +23,11 @@ line in the list:
 
 Some reporting programs take an option that runs another command, writes a file, or changes the
 machine: `find -exec` and `find -delete`, `fd -x`, `rg --pre`, `sort -o`, `uniq`'s second operand,
-`git log --output`, and `git diff --ext-diff`, which runs the external diff the git configuration
-names. A second table holds those options per program, and a command that uses one passes on. The
-rules read the arguments as getopt does, so an option inside a short cluster such as
+`git log --output`, and `git diff --ext-diff`, which runs the external diff set in the git
+configuration. A second table holds those options per program, and a command that uses one passes
+on. The rules read the arguments as getopt does, so an option inside a short cluster such as
 `sort -uo FILE`, or a long one cut to a prefix such as `--out=FILE`, counts as the option. The table
-also names each program's options that take a value, because such an option takes the rest of its
+also holds each program's options that take a value, because such an option takes the rest of its
 cluster: `sort -to` sets the field separator to `o` and writes nothing. A program whose effects live
 in an argument the rules cannot read, such as an `awk` program or a `yq -i` edit, is not on the list
 at all. `git tag` and `git ls-remote` are not on the subcommand list, because one writes a ref and
@@ -46,9 +46,9 @@ and judge each segment alone. A comment and a heredoc body belong to no segment,
 neither: a `#` that starts a word runs to the end of its line, and a heredoc body runs to the line
 that holds only its delimiter. A `<<` inside `(( … ))` shifts bits, so it opens no heredoc. They
 pass the whole command on when any part of it can hide an effect the segment text does not show: a
-command substitution, inside double quotes or bare, a backtick, a process substitution, an output
-redirection, or an unbalanced quote. A redirection makes a reporting command write a file, so
-`cat log > out` is a write even though `cat` is on the read-only list, and a segment with an input
+bare or double-quoted command substitution, a backtick, a process substitution, an output
+redirection, or an unbalanced quote. An output redirection makes a reporting command write a file:
+`cat log > out` is a write even though `cat` is on the read-only list. A segment with an input
 redirection passes on too, because Bash opens a socket for `cat < /dev/tcp/host/port`. A segment
 that starts with a `NAME=value` assignment or a wrapper such as `env`, `sudo`, `command` or
 `timeout` passes on too: the assignment can change what the program does, as `GIT_EXTERNAL_DIFF`

@@ -7,8 +7,8 @@ warm judge process and no state that a decision reads, and it listens on a socke
 runtime directory, or under the state directory when the host sets none. Each CLI run reads what it
 needs, writes what changed, and exits. The files are private to the user, so the CLI creates them
 readable by the owner alone. The capture alone refuses a directory inside a git work tree, because
-it is the one file that holds whole requests, with the user's messages and any secret in them
-unredacted. The state directory sits under the XDG state home, and the
+its daily files are the only ones that hold whole requests, with the user's messages and any secret
+in them unredacted. The state directory sits under the XDG state home, and the
 [configuration guide](../guides/configuration.md) gives the paths.
 
 ## The files

@@ -1,12 +1,13 @@
 # The denial budget
 
-The denial budget is the only path from a deny to a human. The classifiers never ask the user
-anything: every stage answers allow or deny, and a denied agent is told to find a safer path. An
-agent that cannot find one would loop on denies forever, so the budget counts them, and once an
-agent has used its denials, the next deny becomes no verdict. The mod then keeps the prompt Claude
-Code was about to show, and the user decides that call. The budget also stops an agent from asking
-again until a model happens to allow: a repeat of the action just denied gets the same deny without
-any model call.
+The denial budget is the only stage that turns a deny into a prompt for the user. The classifiers
+never ask the user anything: every stage answers allow or deny, and a denied agent is told to find a
+safer path. An agent that cannot find one would loop on denies forever, so the budget counts them,
+and once an agent has used its denials, the next deny becomes no verdict. The mod then keeps the
+prompt Claude Code was about to show, and the user decides that call. The budget also stops an agent
+from asking again until a model happens to allow: a repeat of the action just denied gets the same
+deny without any model call. The [overview](../overview.md) places the budget at both ends of the
+path, and [state and logs](../state-and-logs.md) covers the state directory that holds its files.
 
 Every verdict passes through the budget before the CLI writes it, whichever stage gave it, so a
 containment deny counts the same as a Jev deny.
@@ -14,10 +15,10 @@ containment deny counts the same as a Jev deny.
 ## Two counts and a remembered deny
 
 The budget keeps three things for each agent of a session, the main agent and every subagent alike:
-the consecutive count of denies, the session count, which counts that agent's denies across the
-whole session, and the last deny with the key of the action it denied. They live in one file per
-session and agent in the state directory, so they survive a reload of the mod and a resumed session,
-which keeps the same session identity.
+the consecutive count of denies, the session count, which counts that agent's denies, consecutive or
+not, since the budget last ran out, and the last deny with the key of the action it denied. They
+live in one file per session and agent in the state directory, so they survive a reload of the mod
+and a resumed session, which keeps the same session identity.
 
 | Verdict          | Consecutive count | Session count | Remembered deny | The CLI writes         |
 | ---------------- | ----------------- | ------------- | --------------- | ---------------------- |
