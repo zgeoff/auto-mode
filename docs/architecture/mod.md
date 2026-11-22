@@ -6,10 +6,11 @@ decide first, and judges a call only when the chain's answer is to ask the user.
 or deny is final, so auto-mode only ever answers prompts: it never overrides a permission the user
 configured, and a call the user's settings allow or deny is never judged. The mod also keeps, in
 memory, the session facts the CLI needs and cannot read itself, because auto-mode reads no
-transcript. Apart from judging, it reports what each finished Bash call created, whoever allowed the
-call, as [Recording scope](#recording-scope) says. The [overview](./overview.md) places the mod in
-the path of a prompted call, and [the user message](./evidence/user-message.md) owns what the task
-context means.
+transcript. Apart from judging, it reports what a finished Bash call created when the command can
+create a worktree, a branch or a pull request, whoever allowed the call, as
+[Recording scope](#recording-scope) says. The [overview](./overview.md) places the mod in the path
+of a prompted call, and [the user message](./evidence/user-message.md) owns what the task context
+means.
 
 ## What the mod keeps
 

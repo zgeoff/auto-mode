@@ -12,30 +12,33 @@ how a rule becomes a question.
 
 | File             | Read by     | Holds                                                            |
 | ---------------- | ----------- | ---------------------------------------------------------------- |
-| `rules.md`       | every model | the hard block rules, the soft block rules, the allow exceptions |
+| `rules.md`       | both models | the hard block rules, the soft block rules, the allow exceptions |
 | `decision.md`    | Jev         | the framework for typed questions                                |
 | `judge.md`       | the judge   | the framework for reviewing a deny                               |
 | `containment.md` | the judge   | the Outside Task Scope rule for reviewing a containment deny     |
 | `denial.md`      | the agent   | the instruction every deny reason ends with                      |
 
 Each framework holds a `<rules>` marker, and the policy loader replaces the first marker with the
-rule list, so one rule list serves every model. A framework with no marker fails to load, because
-the rules would have nowhere to go, and a failed load is a classifier failure. The configuration can
-replace the rule list or the framework with a file of its own. `auto-mode print-prompt` prints the
-assembled policy for the configured classifier.
+rule list, so Jev and the judge read one rule list. The Outside Task Scope rule in `containment.md`
+is not part of that list: the containment check gives that deny, and the judge reads the rule only
+to review it. A framework with no marker fails to load, because the rules would have nowhere to go,
+and a failed load is a classifier failure. The configuration can replace the rule list or the
+framework with a file of its own. `auto-mode print-prompt` prints the assembled policy for the
+configured classifier.
 
-The instruction in `denial.md` reaches the agent, not a classifier. It holds three instructions for
-the agent: never reach the same result another way, carry on along a safer path, and, when none
-exists, finish the rest of the task before telling the user what the blocked step needs. A deny
-still reaches the agent when that file cannot be read, only without the instruction, because a
-missing file must not make the CLI exit without a verdict.
+The instruction in `denial.md` reaches the agent, never Jev or the judge. It holds three
+instructions for the agent: never reach the same result another way, carry on along a safer path,
+and, when none exists, finish the rest of the task before telling the user what the blocked step
+needs. A deny still reaches the agent when that file cannot be read, only without the instruction,
+because a missing file must not make the CLI exit without a verdict.
 
 ## The rules
 
 The rule list has three sections. A hard block rule never clears on consent, a configured allow
 entry or an allow exception. Only two hard rules, Policy Tampering and Audit Tampering, accept a
-narrow false-positive clarification from the user. The judge can still overturn a hard deny, but
-only as a misread of the action, and only when Jev itself chose allow with a low block probability
+narrow false-positive clarification from the user, a statement that the match is wrong, which grants
+no consent. The judge can still overturn a hard deny, but only as a misread of the action, and only
+when Jev itself chose allow with a low block probability
 ([the judge](./stages/judge.md#confirm-or-overturn)). A soft block rule clears with specific consent
 in the user's last message, a configured allow entry, or a shipped allow exception. An allow
 exception, such as regenerable output or the current feature branch, clears soft rules only.

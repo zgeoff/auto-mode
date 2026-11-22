@@ -2,8 +2,8 @@
 
 auto-mode answers the permission prompts Claude Code would show while an agent works unattended.
 When Claude Code is about to ask the user about a tool call, the auto-mode mod runs the auto-mode
-CLI once for that call, and the CLI writes back an allow, a deny with a reason, or no verdict at
-all. An allow lets the call run, and a deny reaches the agent as the tool's result, so the agent
+CLI once to judge that call, and the CLI writes back an allow, a deny with a reason, or no verdict
+at all. An allow lets the call run, and a deny reaches the agent as the tool's result, so the agent
 continues on another path. No verdict makes the mod keep the prompt Claude Code was about to show,
 so the user decides. The design aims at a model other than Claude driving Claude Code, which gets no
 judging of its own; [the product README](../../README.md) covers what auto-mode is for.
@@ -27,7 +27,7 @@ flowchart TD
   L -->|"passes on"| C{"containment check"}
   C -->|"target outside the task scope"| N{"every target named by the user?"}
   N -->|no| B
-  N -->|"yes: deny pending"| E
+  N -->|"yes: deny pending, past the edit bypass and reply channel"| J
   C -->|"no finding"| E{"edit bypass"}
   E -->|"in-scope edit, no secret"| B
   E -->|"passes on"| RC{"reply channel"}
@@ -99,8 +99,8 @@ for every call it judges and kills it at its own time limit, so a hung classifie
 never the session. After a Bash call that can create a worktree, a branch or a pull request
 finishes, the mod starts the CLI a second time to record what the call made.
 
-The CLI is the published `auto-mode` package, built for node, and each run ends with the call it
-judges or records. It reaches Jev over HTTPS. It reaches the judge through a judge server: a
+The CLI is the published `auto-mode` package, built for node, and each run that judges or records a
+call ends with that call. It reaches Jev over HTTPS. It reaches the judge through a judge server: a
 detached CLI process, one per agent session, that holds a Claude Code process warm between prompted
 calls and ends after a stretch with no review. The first run that needs the judge starts the server,
 so only the first review of a session pays the start of Claude Code. Jev is the only classifier the
