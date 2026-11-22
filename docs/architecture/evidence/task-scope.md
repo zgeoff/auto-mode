@@ -5,7 +5,7 @@ it may push, the pull requests it may change, the checkout's own remotes, and th
 may message. The [containment check](../stages/containment.md) denies any write outside it that it
 can resolve from the call, the [edit bypass](../stages/edit-bypass.md) allows edits inside it, and
 Jev reads its summary as evidence. auto-mode builds the scope afresh for every call, as the union of
-the scope sources the configuration lists, and each source answers from the call's context and the
+the scope sources in the configuration, and each source answers from the call's context and the
 files it reads. No source can hand a task the default branch, as far as the checkout shows it, or a
 protected branch, so a push to one is always a finding
 ([the rules that join them](#the-rules-that-join-them)).
@@ -20,8 +20,9 @@ sources run, and the shipped default runs every one of these except the path glo
   outside a checkout, and its current branch.
 - **What the session created.** The worktrees, branches and pull requests this session's own calls
   made, kept in the state directory ([what the session created](#what-the-session-created)).
-- **Path globs.** Paths the configuration says every task owns, such as a shared scratch directory.
-  A glob that covers every worktree defeats the check, so the configuration warns about one.
+- **Path globs.** Paths that every task owns, set in the configuration, such as a shared scratch
+  directory. auto-mode warns about a glob that covers every worktree, because such a glob defeats
+  the check.
 - **The launcher scope file.** A program that starts the session writes a file in a format auto-mode
   defines, outside anything the agent can write, and names its path in the session's environment
   ([declaring a session's scope](../../guides/scope-file.md)). The file lists owned paths, a
@@ -37,7 +38,7 @@ current branch and its default branch. Every task also owns the system's scratch
 
 A branch name means nothing outside its repository, so the session and launcher sources count a
 branch only when it belongs to the same repository as the call's directory. The union then drops the
-default branch and every branch that matches a protected branch pattern the configuration lists,
+default branch and every branch that matches a protected branch pattern in the configuration,
 because a branch the forge protects belongs to the repository, never to one task. When the
 checkout's default branch is unknown, it drops the conventional names for one, such as `main` and
 `develop`, instead. A pull request stays in scope only while its head branch does and its repository
@@ -45,8 +46,8 @@ is one of the checkout's remotes, so dropping a branch drops its pull requests w
 
 The scope is read from files, never by running git or `gh`, so loading it costs no process. When
 loading it fails, the call has no scope: the containment check and the edit bypass both stand aside,
-and Jev judges the call with no scope summary. That is different from an empty scope, which a
-missing or unreadable session file gives, and which makes the containment check deny more.
+and Jev judges the call with no scope summary. A missing or unreadable session file gives an empty
+scope instead, and the containment check then denies more.
 
 ## What the session created
 
@@ -54,8 +55,8 @@ An agent that creates a worktree and a branch for its task must be able to write
 neither is its current directory until it moves there, and its launcher may not know about them. The
 session source closes that gap from what the session's own calls did.
 
-After a Bash call finishes without a deny, the mod checks its command against the scope commands the
-shared contract lists: `git worktree add`, `git checkout`, `git switch`, `git branch` and
+After a Bash call finishes without a deny, the mod checks its command against the scope commands in
+the shared contract: `git worktree add`, `git checkout`, `git switch`, `git branch` and
 `gh pr create`. On a match, it runs `auto-mode record` with the session identity, the directory, the
 call's start time, the command and the call's output. The CLI records only when the session source
 is configured. It reads the command text for claims, such as a worktree path or a new branch name,

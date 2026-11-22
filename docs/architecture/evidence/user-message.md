@@ -4,9 +4,10 @@ The only conversation auto-mode sees is the task context the mod puts in each re
 part of it that counts as the user's word is the last direct user message: the last prompt that
 Claude Code reports as typed by a person. That message is what lets a soft rule clear, because
 consent in auto-mode is specific and current: the user asked for this operation on this target in
-the message they last typed. auto-mode reads no transcript, so the classifiers see only what the mod
-keeps: the task context below and any stale message, and nothing a tool wrote. A missing message
-supplies no evidence, and a call that needs consent is then denied.
+the message they last typed. auto-mode reads no transcript, so Jev and the judge see only what the
+mod keeps, the task context below, and nothing a tool wrote. Jev also reads a stale message, and the
+judge never does ([stale messages](#stale-messages)). A missing message supplies no evidence, and a
+call that needs consent is then denied.
 
 ## What the task context holds
 
@@ -30,9 +31,10 @@ reports a command-line prompt with the same origin as a typed one. When the CLI 
 another session spawned this one, it treats the opening prompt as the delegated task, never as the
 last direct message or the original user task. The mod marks the opening prompt so the CLI can
 decide. The mod marks the first direct prompt after a start, a resume or a reload of the mod, on the
-last direct message and on the original task it captures from that prompt. The mark stays on the
-message when it goes stale, and on the original task after the user types a later message. A clear
-starts no new opening prompt, because a person clears a session from its own prompt.
+last direct message, and after a start also on the original task it captures from that prompt. The
+mark stays on the message when it goes stale, and on the original task after the user types a later
+message. A clear starts no new opening prompt, because a person clears a session from its own
+prompt.
 
 The CLI moves a marked prompt to the delegated task when the
 [launcher scope file](../../guides/scope-file.md) lists a reply channel, because a launcher lists

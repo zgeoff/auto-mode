@@ -3,7 +3,8 @@
 A program that starts Claude Code sessions, a launcher, can tell auto-mode what each session owns
 before the session makes its first call. The launcher writes one JSON file per session in the format
 this guide describes, and names the file in the session's environment as `AUTO_MODE_SCOPE_FILE`.
-auto-mode reads the file on every call it judges and adds what the file declares to the
+With the `launcher` scope source on, as it is in the shipped configuration, auto-mode reads the file
+on every call it judges and adds what the file declares to the
 [task scope](../architecture/evidence/task-scope.md). The format belongs to auto-mode, so a launcher
 needs no code from auto-mode and auto-mode needs none from the launcher.
 
@@ -66,10 +67,10 @@ consent ([the user message](../architecture/evidence/user-message.md)). List a r
 for a session that has a spawner.
 
 auto-mode reads the file and never writes it. A missing file, or no `AUTO_MODE_SCOPE_FILE`, adds
-nothing. A file that is not JSON, holds another version, or holds a field the format does not define
-adds nothing either, and auto-mode prints one line to stderr. The line names the field it refused
-when it can, such as `replyChannels.0.recipient` or a misspelt key, and otherwise names only the
-file.
+nothing. A file that is not JSON, holds another version, holds a field the format does not define,
+or holds a field value of the wrong shape adds nothing either, and auto-mode prints one line to
+stderr. The line names the field it refused when it can, such as `replyChannels.0.recipient` or a
+misspelt key, and otherwise names only the file.
 
 ## Writing the file from a launcher
 
