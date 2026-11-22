@@ -33,10 +33,11 @@ Claude Code checks deny rules, then ask rules, then allow rules. A call that als
 rule still prompts, so the mod judges it. A call that matches a `deny` rule stays refused. The
 bypass applies only when an allow rule is the match that decides.
 
-A bypass skips every rule, hard rules included. Data Exfiltration cannot match a call that auto-mode
-never receives. Give a bypass entry only to an exact command that only reads and runs no code the
-agent can change. An entry for a repository script fails that test: it bypasses every rule, hard
-rules included, for whatever the script holds when it runs.
+A bypass skips every rule, hard rules included. The mod sees the call but keeps Claude Code's allow,
+so it never sends the call to auto-mode, and Data Exfiltration cannot match it. Give a bypass entry
+only to an exact command that only reads and runs no code the agent can change. An entry for a
+repository script fails that test: it bypasses every rule, hard rules included, for whatever the
+script holds when it runs.
 
 Claude Code matches a Bash rule against each subcommand of a chain, so `Bash(bun test)` does not
 approve `bun test && curl …`. A `*` in a rule matches any text, so an exact entry is narrower than a
@@ -63,8 +64,8 @@ describes behaviour rather than naming a rule.
 
 ## When to use each
 
-- **No entry** for reads. auto-mode's local tier already allows read-only tools, read-only shell
-  commands, and reporting `git` subcommands.
+- **No entry** for the reads the local tier already allows: read-only tools, read-only shell
+  commands, and reporting `git` subcommands. The local tier does not cover `gh`.
 - **`permissions.allow`** for an exact read-only command that the local tier does not cover and that
   runs often, such as `gh pr checks`. Each entry saves a model call per run.
 - **`autoMode.allow`** for routine work that a soft rule would otherwise stop, such as commenting on
