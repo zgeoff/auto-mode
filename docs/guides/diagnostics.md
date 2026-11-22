@@ -14,16 +14,16 @@ field, a version 5 record also lacks the `grant` field, a version 4 record also 
 2 record also lacks the three budget fields below, and a version 1 record in an older file also
 carries `harness` and `event`.
 
-The records exclude prompts, configuration contents, credentials, exception text, and every provider
-response but one. They exclude commands and paths too, except in the `action` field of a record that
-holds a judge review. The one provider text they hold is the judge's reason for an overturn, in
-`overturnReason`. Configured and replacement rules use question identifiers; only shipped rules
-retain their public names. Session, agent and action identifiers use the first 16 hexadecimal
-characters of SHA-256. Hash a recorded tool-call identifier to find its `actionHash`. For a
-subagent, `agentHash` hashes the session identifier and the subagent identifier joined by a NUL
-character, so each subagent gets its own value. The main agent has no subagent identifier, and its
-`agentHash` equals its `sessionHash`, the key an earlier record holds, so a session that spans the
-change of version keeps one key for its main agent.
+The records exclude prompts, configuration contents, credentials, exception text, and the text of
+provider replies. They exclude commands and paths too, except in the `action` field of a record that
+holds a judge review. The one reply text they hold is the judge's reason for an overturn, in
+`overturnReason`. Only shipped rules keep their public names: `contributors` names any other rule by
+its question identifier, and `judge` by the word `configured` or `replacement`. Session, agent and
+action identifiers use the first 16 hexadecimal characters of SHA-256. Hash a recorded tool-call
+identifier to find its `actionHash`. For a subagent, `agentHash` hashes the session identifier and
+the subagent identifier joined by a NUL character, so each subagent gets its own value. The main
+agent has no subagent identifier, and its `agentHash` equals its `sessionHash`, the key an earlier
+record holds, so a session that spans the change of version keeps one key for its main agent.
 
 For Jev, `diagnostics.status` distinguishes `allow`, `deny`, `failure`, `timeout`, and `cancelled`.
 `stage` identifies credential resolution, evidence preparation, the request, or a validated

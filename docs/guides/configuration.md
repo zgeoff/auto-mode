@@ -60,7 +60,7 @@ entry without `kind` uses its own id as the kind. So `"jev": {}` is the shipped 
 | `messages`    | judge      | `https://api.anthropic.com`      | none; the entry must name it | none; name it       | 45 s     |
 
 `spark`, `claude`, `glm` and `messages` are the Messages API kinds, and each starts from 3,000
-output tokens. Every field below overrides the kind's default:
+output tokens. Every field below but `reasoning` overrides the kind's default:
 
 | Field           | Effect                                          |
 | --------------- | ----------------------------------------------- |
@@ -188,11 +188,12 @@ or overturn with a short reason.
   for this operation on this target. `misread`: the facts show that no rule covers the action. A
   consent overturn allows the action. A misread overturn allows it under the default `any`, and
   keeps the deny with its fixed reason when `judgeOverturns` is `consent`.
-- A hard rule and a configured hard deny entry never clear. The judge writes their reason only, and
-  an overturn of one keeps the deny with its fixed reason. One exception: when Jev chose allow for a
-  hard rule from the rule list, scored it at a block probability of 0.35 or less, and every other
-  rule that blocks is a soft rule from the rule list that Jev also chose to allow at 0.35 or less, a
-  misread overturn under `any` allows the action.
+- A hard rule and a configured hard deny entry never clear, but for the one exception at the end of
+  this item. The judge writes their reason only, and an overturn of one keeps the deny with its
+  fixed reason. One exception: when Jev chose allow for a hard rule from the rule list, scored it at
+  a block probability of 0.35 or less, and every other rule that blocks is a soft rule from the rule
+  list that Jev also chose to allow at 0.35 or less, a misread overturn under `any` allows the
+  action.
 - A missing key, a timeout, a failed call or an unreadable reply keeps the deny with its fixed
   reason. The judge never turns a failure into an allow, whatever `onFailure` says.
 

@@ -11,10 +11,11 @@ files:
 - [`policy/decision.md`](../../policy/decision.md) — the framework: how Jev judges the supplied
   evidence. `policy.frameworkPath` replaces it.
 
-The judge's framework, `policy/judge.md`, has no setting that replaces it, and it takes the same
-rule file. Each framework carries a `<rules>` marker on its own line, and at run time auto-mode
-replaces it with the whole of the rule file. `auto-mode print-prompt` writes the result, which
-excludes the imported user settings and proposed action.
+The judge, the model that reviews each Jev deny, reads `policy/judge.md` as its framework. That file
+has no setting that replaces it, and it takes the same rule file. Each framework carries a `<rules>`
+marker on its own line, and at run time auto-mode replaces it with the whole of the rule file.
+`auto-mode print-prompt` writes the result, which excludes the imported user settings and proposed
+action.
 
 Nothing under `policy/` addresses the reader of these docs. Guidance about editing lives here
 instead, so the model never receives instructions meant for a person.
@@ -78,8 +79,9 @@ Two hard rules are self-protection — Policy Tampering and Audit Tampering — 
 of text, so an innocent line can match by accident. Those two clear on one narrow path: you, having
 been shown what was flagged, say why the match is wrong. Agreeing to proceed is not that.
 
-**SOFT BLOCK** — blocks unless you authorised this exact action. These are real work that people do
-on purpose: force-pushing, publishing, dropping a table.
+**SOFT BLOCK** — blocks unless you authorised this exact action, a configured allow entry covers it,
+or a shipped exception does. These are real work that people do on purpose: force-pushing,
+publishing, dropping a table.
 
 ## User consent
 
@@ -159,6 +161,6 @@ mod recorded; edit its `toolName` and `toolInput`:
 auto-mode run --explain < fixtures/mod-request-write.json
 ```
 
-`--explain` writes which tier answered and which rule or exception it named. Test a rule change
-against a handful of commands whose correct verdicts you already know, including ones that should be
-allowed.
+`--explain` writes which stage answered, such as the local tier, Jev or the judge, and which rule or
+exception it named. Test a rule change against a handful of commands whose correct verdicts you
+already know, including ones that should be allowed.
