@@ -5,7 +5,7 @@ Claude Code settings hold two kinds of allow entry, and they do different jobs. 
 auto-mode entirely. An `autoMode.allow` entry is evidence auto-mode sends to Jev, which still judges
 the action.
 
-This guide labels each kind by what it does to auto-mode:
+Each kind takes its label from what it does to auto-mode:
 
 - **Bypass** — the action can run without auto-mode judging it, so no rule applies to it.
 - **Decision** — auto-mode judges the action, and the entry is one input to that judgement.
@@ -35,9 +35,8 @@ bypass applies only when an allow rule is the match that decides.
 
 A bypass skips every rule, hard rules included. The mod sees the call but keeps Claude Code's allow,
 so it never sends the call to auto-mode, and Data Exfiltration cannot match it. Give a bypass entry
-only to an exact command that only reads and runs no code the agent can change. An entry for a
-repository script fails that test: it bypasses every rule, hard rules included, for whatever the
-script holds when it runs.
+only to an exact command that only reads and runs no code the agent can change. Never give one to a
+repository script: the entry would bypass every rule for whatever the script holds when it runs.
 
 Claude Code matches a Bash rule against each subcommand of a chain, so `Bash(bun test)` does not
 approve `bun test && curl …`. A `*` in a rule matches any text, so an exact entry is narrower than a
@@ -56,21 +55,21 @@ the pending action. Jev still answers every block rule for that action:
    allow entry covers the action. The denial names that rule.
 
 An allow entry does not change the local tier. Read-only tools and commands still run without a
-model call. A `soft_deny` or `hard_deny` entry is different: while any exists, every action goes to
-Jev, reads included.
+model call. While any `soft_deny` or `hard_deny` entry exists, every action goes to Jev, reads
+included.
 
 Claude Code's built-in auto mode reads the same key, so one entry can serve both classifiers when it
 describes behaviour rather than naming a rule.
 
 ## When to use each
 
-- **No entry** for the reads the local tier already allows: read-only tools, read-only shell
+- Add **no entry** for the reads the local tier already allows: read-only tools, read-only shell
   commands, and reporting `git` subcommands. The local tier does not cover `gh`.
-- **`permissions.allow`** for an exact read-only command that the local tier does not cover and that
-  runs often, such as `gh pr checks`. Each entry saves a model call per run.
-- **`autoMode.allow`** for routine work that a soft rule would otherwise stop, such as commenting on
-  your own pull requests. The hard rules still check what the action sends.
-- **Neither** for an action that a hard rule covers. No entry makes Data Exfiltration, Secret
+- Add a **`permissions.allow`** entry for an exact read-only command that the local tier does not
+  cover and that runs often, such as `gh pr checks`. Each entry saves a model call per run.
+- Add an **`autoMode.allow`** entry for routine work that a soft rule would otherwise stop, such as
+  commenting on your own pull requests. The hard rules still check what the action sends.
+- Add **neither** for an action that a hard rule covers. No entry makes Data Exfiltration, Secret
   Persistence, Policy Tampering, Audit Tampering, or Destructive Payload safe. A bypass entry only
   hides the action from those rules.
 
@@ -103,8 +102,8 @@ to these settings or to the mod that runs auto-mode can match Policy Tampering.
 
 Each bypass entry is an exact command that only reads pull request or workflow state, so no hard
 rule can match what it does. auto-mode's local tier does not allow `gh`, so each run that reaches
-auto-mode costs a model call. The guide suggests no entry for a test, build, or lint script, because
-such an entry hides whatever the script runs.
+auto-mode costs a model call. Give no bypass entry to a test, build, or lint script, because it
+would hide whatever the script runs.
 
 None of these entries clears a hard rule, and this guide recommends no entry that would.
 
@@ -128,7 +127,7 @@ Prefer: Running bun run db:migrate against the local development database. This 
         printing, copying, or writing a credential, a token, or the contents of a key file.
 ```
 
-Keep an exclusion inside the allow entry it narrows. A separate `soft_deny` entry does not keep it:
-a configured allow entry can clear a configured `soft_deny` entry, so a broad allow entry can clear
-the restriction meant to narrow it. A `soft_deny` entry also sends every action to Jev, as described
-above.
+Keep an exclusion inside the allow entry it narrows. Don't move it to a separate `soft_deny` entry.
+A configured allow entry can clear a configured `soft_deny` entry, so the broad allow entry would
+clear the restriction meant to narrow it. A `soft_deny` entry also sends every action to Jev, as
+described above.
