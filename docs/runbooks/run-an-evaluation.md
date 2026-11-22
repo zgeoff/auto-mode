@@ -1,9 +1,9 @@
 # Run an evaluation
 
 `bun run eval` runs one experiment from `src/measure/experiments/` and writes the run to the private
-results repository. [Evaluation](../architecture/evaluation.md) explains what each measurement
-means, measurements 1 to 6 included; this runbook covers the steps. Follow it when you run an
-experiment, measure live use from the action log, or turn a capture into a corpus.
+results repository. Follow these steps to run an experiment, measure live use from the action log,
+or turn a capture into a corpus. For what each of measurements 1 to 6 means, read
+[Evaluation](../architecture/evaluation.md).
 
 ## Set up the results clone
 
@@ -21,8 +21,8 @@ experiment, measure live use from the action log, or turn a capture into a corpu
 bun run eval list
 ```
 
-Each entry names its corpora, its stages, which stages ask the model, and its default sample count,
-then one line for each recording it can replay.
+Each entry shows the experiment's corpora, its stages, which stages ask the model, and its default
+sample count, then one line for each recording it can replay.
 
 | Experiment                | Measurement                                                               |
 | ------------------------- | ------------------------------------------------------------------------- |
@@ -61,13 +61,16 @@ bun run eval run <experiment> --recorded <recording>
 A recording is a set of past model answers, named in `bun run eval list`. Each stage that sends
 replays the recorded answer for its case and sample, with the recording's latency and model; a stage
 the recording holds no answers for is left out and named as not measured. A recording kept under
-`legacy/` in the results clone is read from there; without it, that stage is not measured either.
-`--recorded` and `--live` combine only for a recording that names live stages: the run sends those
-stages and replays the rest, so a judge or rule change is measured on recorded Jev answers. Its plan
-counts only the requests the run will send: the command first runs each case without sending, so the
-judge's line counts the recorded Jev denies it reviews, not an upper bound. The run records each
-answer's hash beside its request hash, and whether the tree was dirty, so an offline run from a
-dirty tree still says so.
+`legacy/` in the results clone is read from there; when the clone lacks it, that stage is not
+measured either.
+
+To measure a judge or rule change on recorded Jev answers, combine `--recorded` and `--live`. This
+works only for a recording that names live stages: the run sends those stages and replays the rest.
+The plan for such a run counts only the requests it will send: the command first runs each case
+without sending, so the judge's line counts the recorded Jev denies it reviews, not an upper bound.
+
+Every run, offline ones included, records each answer's hash beside its request hash, and whether
+the tree was dirty.
 
 ## Run live
 
@@ -84,7 +87,8 @@ A live run spends money on model requests, so get the owner's approval for the r
    The command refuses a plan larger than the cap, and stops a run that would send one more.
 
 A request that times out, fails, or returns an invalid answer is recorded as not scorable with its
-reason. It leaves the other measurements' denominators and counts under the infrastructure failures.
+reason. The run leaves it out of the other measurements' denominators and counts it under the
+infrastructure failures.
 
 ## Read the counts
 
@@ -93,7 +97,7 @@ bound when it is zero. A count over samples or requests, where one case contribu
 carries the clustered standard error and its design effect: the intervals use the effective sample
 size, n divided by the design effect, so they are wider than a naive interval over the same samples.
 Where the rate is 0 or 1 the design effect is the mean samples per case, so each case counts once.
-An all-stages count from a recording that left a stage out names that stage, as in
+When a recording left a stage out, the all-stages count is labelled with that stage, as in
 `all-stages without judge`. The output lists what the run did not measure: a missing held-out set, a
 stage without recorded answers. A required case, such as the consent controls, is listed by key with
 each stage's verdict on every sample.
@@ -108,7 +112,7 @@ The resumed run skips every stage run its `samples.jsonl` already holds, and ref
 commit, hashes, seed or sample count differ. The cap applies to the requests still to send. A run
 interrupted mid-write can leave a torn last line; the resume drops it, prints how many characters it
 dropped, and runs that stage again. A run started from a dirty tree cannot be resumed, because no
-commit names its code.
+commit holds its code.
 
 ## Compare two runs
 
@@ -141,7 +145,7 @@ whole session, subagents included. The command prints:
 - tasks that recover after a deny: a task recovers when an action is allowed after its first deny
   and before any escalation, out of the tasks with a deny;
 - denials per action for each deciding stage, over every action, clustered by task; an escalated
-  action reached the user rather than the agent, so it is not a denial;
+  action goes to the user, so it is not a denial;
 - the records, the started records with no final record, the tasks split into agents and whole
   sessions, and the time span.
 
@@ -177,15 +181,15 @@ output of this command may enter a repository, and only after a person has read 
    too, as when a deny reason quotes the user.
 
 2. The command writes `corpus.json` and `labels.todo.json` to a private temp directory and scans it
-   with `gitleaks dir` and its default rules; `gitleaks` must be on `PATH`. A finding, or a scan
-   that cannot run, deletes the temp directory and writes nothing. Only a passing scan copies the
-   files to `--out`.
+   with `gitleaks dir` and its default rules; `gitleaks` must be on `PATH`. On a finding, or when
+   the scan cannot run, the command deletes the temp directory and writes nothing. It copies the
+   files to `--out` only after a passing scan.
 3. `--out` must not exist, its parent must, and it must sit outside every git work tree: the command
    refuses `evals/` too, because no pattern removes a person's or a company's name from the prompts
    the cases carry.
-4. Every case is `source: recorded`. `labels.todo.json` lists the case keys with that label alone,
-   because a case's severity, harm and consent need a reader. Label each one and save the file as
-   `labels.json` in the [labels format](../architecture/evaluation.md#corpora).
+4. Every case is `source: recorded`. `labels.todo.json` holds the case keys with that label alone,
+   because only a person can judge a case's severity, harm and consent. Label each one and save the
+   file as `labels.json` in the [labels format](../architecture/evaluation.md#corpora).
 5. Replace each `message-` placeholder with invented text. Read the message in the raw capture on
    the machine that recorded it, then write new words that keep what the person asked for, forbade
    and agreed to, because the labels and the recorded verdicts depend on those. Never copy the
