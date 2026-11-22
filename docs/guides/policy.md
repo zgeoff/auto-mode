@@ -1,21 +1,28 @@
 # Writing a policy
 
-The policy is prose rather than code, so it can be read, diffed, and replaced. It ships as two files
-and the selected framework combines with the rule file.
+Read this guide before you change the block rules or how Jev, the classifier that judges each
+escalated action, reads them, and before you run auto-mode outside an isolated environment.
 
-- [`policy/rules.md`](../../policy/rules.md) — what is blocked.
-- [`policy/decision.md`](../../policy/decision.md) — how Jev judges the supplied evidence.
+The policy is prose rather than code, so it can be read, diffed, and replaced. Jev's policy is two
+files:
 
-Each framework carries a `<rules>` marker on its own line, and at run time auto-mode replaces it
-with the whole of `rules.md`. `auto-mode print-prompt` writes the result, which excludes the
-imported user settings and proposed action.
+- [`policy/rules.md`](../../policy/rules.md) — the rule file: what is blocked. `policy.rulesPath`
+  replaces it.
+- [`policy/decision.md`](../../policy/decision.md) — the framework: how Jev judges the supplied
+  evidence. `policy.frameworkPath` replaces it.
+
+The judge's framework, `policy/judge.md`, has no setting that replaces it, and it takes the same
+rule file. Each framework carries a `<rules>` marker on its own line, and at run time auto-mode
+replaces it with the whole of the rule file. `auto-mode print-prompt` writes the result, which
+excludes the imported user settings and proposed action.
 
 Nothing under `policy/` addresses the reader of these docs. Guidance about editing lives here
 instead, so the model never receives instructions meant for a person.
 
 ## The default is allow
 
-Block an action only when you can name the rule it matches. Most actions match nothing.
+auto-mode blocks an action only when it can name a rule: one the action matches, or one the evidence
+cannot rule out. Most actions match nothing.
 
 The rest of the policy is built around that default. A classifier that blocks routine work gets
 switched off, and then it stops all of it.
@@ -35,7 +42,8 @@ is an accepted tolerable risk: the agent can redo its own work. Uncommitted Work
 holds it when the user or the task context says to keep the changes or that someone else made them.
 
 On a personal machine, that premise does not hold, and running auto-mode there accepts more risk.
-These actions run without a deny, and the last one runs without a deny anywhere:
+These actions run without a deny. The last one runs without a deny anywhere, unless the user or the
+task context says to keep the changes or that someone else made them:
 
 - A crontab entry, a systemd unit, a launch agent, or a shell startup file.
 - `sudo`, a sudoers entry, and a `chmod` or `chown` that widens access.
@@ -61,9 +69,10 @@ entry exists, every action goes to Jev, reads included, so each one costs a mode
 
 ## Two tiers of rule
 
-**HARD BLOCK** — blocks whenever it matches. Ordinary consent does not clear these, because they
-create a risk that is not visible from inside the session. Data Exfiltration is the clearest case:
-naming the destination does not make the send safe, because the contents are still unseen.
+**HARD BLOCK** — blocks whenever it matches, except on the one path below for two of these rules.
+Ordinary consent does not clear these, because they create a risk that is not visible from inside
+the session. Data Exfiltration is the clearest case: naming the destination does not make the send
+safe, because the contents are still unseen.
 
 Two hard rules are self-protection — Policy Tampering and Audit Tampering — and they match patterns
 of text, so an innocent line can match by accident. Those two clear on one narrow path: you, having
@@ -111,7 +120,7 @@ rule and is routine, so it is where a classifier most easily goes wrong in the e
 
 ## Changing the rules
 
-Copy the shipped file, edit it, and point at it:
+Copy `policy/rules.md`, edit the copy, and point `policy.rulesPath` at it:
 
 ```json
 { "policy": { "rulesPath": "/home/you/my-rules.md" } }
@@ -128,7 +137,9 @@ Your file replaces the shipped one whole. Three constraints:
 
 ## Changing how judgement works
 
-The selected framework holds the consent rules and evaluation instructions.
+Jev's framework holds the consent rules and evaluation instructions. Copy `policy/decision.md`, edit
+the copy, keep its `<rules>` line, and point `policy.frameworkPath` at it. auto-mode refuses a
+framework without that line.
 
 One constraint governs the whole file: an evaluation rule may never order a block on its own. It
 either changes how an action is read, or it routes to a named rule. If applying the evaluation rules
