@@ -14,7 +14,7 @@ This guide labels each kind by what it does to auto-mode:
 
 |                     | `permissions.allow`                       | `autoMode.allow`                                     |
 | ------------------- | ----------------------------------------- | ---------------------------------------------------- |
-| Read by             | Claude Code                               | auto-mode, with the Jev preset                       |
+| Read by             | Claude Code's permission check            | auto-mode's Jev, and Claude Code's own auto mode     |
 | Form                | A tool pattern, such as `Bash(bun test)`  | A sentence that describes the allowed behaviour      |
 | Kind                | Bypass                                    | Decision                                             |
 | Soft block rules    | Skipped when the entry bypasses auto-mode | A matching entry can clear one                       |
