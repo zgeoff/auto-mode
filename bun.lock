@@ -16,7 +16,7 @@
         "@zgeoff/agent-hooks": "0.3.0",
         "@zgeoff/bun-test-extended": "0.2.4",
         "@zgeoff/chex": "0.4.3",
-        "@zgeoff/diet": "0.3.0",
+        "@zgeoff/diet": "0.3.2",
         "@zgeoff/format-codemod": "0.3.6",
         "@zgeoff/oxlint-config": "0.11.1",
         "@zgeoff/rig": "0.3.0",
@@ -462,7 +462,7 @@
 
     "@zgeoff/chex": ["@zgeoff/chex@0.4.3", "", { "dependencies": { "@zgeoff/std": "0.4.5", "oxc-parser": "0.158.0", "ts-pattern": "5.9.2" }, "bin": { "chex": "src/cli.ts" } }, "sha512-0NIv+A8C1fR17T+dQcianMDCSwxN85n8E6SFt/+MKi7n2VFQkmJ2/sXYTAoMTcJvezEsvDqTpc6I1hf9QtCmNg=="],
 
-    "@zgeoff/diet": ["@zgeoff/diet@0.3.0", "", { "bin": { "diet": "diet.sh" } }, "sha512-CgvLXgWCMMjrWN1foqfoZV7aE3wTAE/Z8NW5Ttf64tfafw6EoE6dhVkBDGtwb3VyxcSpx/WtTOTih9lfWosDtQ=="],
+    "@zgeoff/diet": ["@zgeoff/diet@0.3.2", "", { "bin": { "diet": "diet.sh" } }, "sha512-WTr8W2oOHfGFSASJgy/8LFHmiW5vRu2jduhsM5ixsMi7gAiTcERG7JhdLcIwksuyGTmOVxlCf7cRP6crAPDOig=="],
 
     "@zgeoff/format-codemod": ["@zgeoff/format-codemod@0.3.6", "", { "dependencies": { "gunshi": "1.0.0-rc.1", "oxc-parser": "0.158.0" }, "bin": { "format-codemod": "dist/cli.js" } }, "sha512-hoa6JerU9JHgikqumdtu23VE8wemOgkTr1zrwBFGnLyBns59bTt7Z3kkV6IBxc07CveYKtPT94IDTWFmFj5qHA=="],
 
@@ -1010,7 +1010,7 @@
 
     "@eslint-community/eslint-utils/eslint-visitor-keys": ["eslint-visitor-keys@3.4.3", "", {}, "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag=="],
 
-    "@zgeoff/rig/@zgeoff/std": ["@zgeoff/std@0.4.5", "", {}, "sha512-Z2rD5v0OVXRZTa3Jh2I8zmx9znzvnAa/bC5Ai0NidPh+pfJGfDLmQIVZhshbGXPu/S/9SFdP/chDw+N5Pk/lzg=="],
+    "@zgeoff/rig/@zgeoff/diet": ["@zgeoff/diet@0.3.0", "", { "bin": { "diet": "diet.sh" } }, "sha512-CgvLXgWCMMjrWN1foqfoZV7aE3wTAE/Z8NW5Ttf64tfafw6EoE6dhVkBDGtwb3VyxcSpx/WtTOTih9lfWosDtQ=="],
 
     "body-parser/content-type": ["content-type@2.1.0", "", {}, "sha512-mj7UPXE0jaqaOsukNZRUEfEi2AcL7C/vwmwcHV0O97eO1E1pxBZuyjlZrx5seTaNBg1U6+o35wpa35Qfcc+7ag=="],
 
