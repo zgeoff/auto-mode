@@ -6,8 +6,8 @@ denies the call as `Outside Task Scope` when any target lies outside the
 [task scope](../evidence/task-scope.md). It also denies a call that discards work it cannot show the
 task owns, even inside the task's own worktree
 ([what counts as a write target](#what-counts-as-a-write-target)). It never allows: a call with no
-finding moves on to the next stage, so the check only removes calls from what the classifier sees.
-It returns before Jev reads the configured allow entries, so none of them clears its deny. Only the
+finding moves on to the next stage, and so does a call whose deny stays pending for the judge. It
+returns before Jev reads the configured allow entries, so none of them clears its deny. Only the
 user can, by naming every target in a direct message, and then the judge decides whether the message
 asks for the action ([the user-named grant](#the-user-named-grant)). The
 [denial budget](./denial-budget.md) still counts the deny.
@@ -215,4 +215,6 @@ confirmed deny carries the judge's reason; a held or failed review keeps the che
 
 The check needs the task scope, and the task scope is loaded fresh for every call. When loading it
 fails, the check and the edit bypass are both skipped, and Jev judges the call with no scope
-summary. A read-only local allow returns before the scope loads, so a read never meets the check.
+summary. A call the local rules allow as read-only returns before the scope loads, so it never meets
+the check. A read the local rules do not list, such as `gh api` with no method, still reaches the
+check, which finds no write target in it.
