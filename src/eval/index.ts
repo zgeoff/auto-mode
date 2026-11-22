@@ -54,7 +54,7 @@ export { EMPTY_SCOPE_FACTS, EMPTY_SESSION_SCOPE } from '../scope/types.ts';
 export { updateSessionScope } from '../scope/update-session-scope.ts';
 export { buildSecretFreeText } from '../secrets/build-secret-free-text.ts';
 export { collectShellScripts } from '../shell/collect-shell-scripts.ts';
+export { parseShellCommand } from '../shell/parse-shell-command.ts';
 export { splitCommandWords } from '../shell/split-command-words.ts';
 export { splitGitCommand } from '../shell/split-git-command.ts';
-export { splitShellCommand } from '../shell/split-shell-command.ts';
 export { resolveXDGDir } from '../state/resolve-xdg-dir.ts';

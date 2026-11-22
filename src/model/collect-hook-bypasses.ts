@@ -6,12 +6,11 @@ import type { HookFacts } from '../git/types.ts';
 import { hasExpansion } from '../shell/has-expansion.ts';
 import { hasUnquotedExpansion } from '../shell/has-unquoted-expansion.ts';
 import { isUnresolvedWord } from '../shell/is-unresolved-word.ts';
+import { parseShellCommand } from '../shell/parse-shell-command.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
 import type { GitConfigOption } from '../shell/split-git-command.ts';
 import { splitGitCommand } from '../shell/split-git-command.ts';
-import { splitShellCommand } from '../shell/split-shell-command.ts';
-import { splitShellTokens } from '../shell/split-shell-tokens.ts';
-import { toWordValues } from '../shell/to-word-values.ts';
+import type { ShellSegment } from '../shell/types.ts';
 import { findNoVerifyOption } from './find-no-verify-option.ts';
 import { HIDDEN_GIT_WORDS } from './hidden-git-words.ts';
 
@@ -20,13 +19,13 @@ export function collectHookBypasses(
   cwd: string,
   facts: HookFacts | null,
 ): readonly string[] {
-  const exported = new Map<string, string>();
+  const exported = new Map<string, string[]>();
 
   const bypasses: string[] = [];
   let segmentFacts = facts;
 
-  for (const segment of splitShellCommand(command).segments) {
-    const found = collectSegmentBypasses(segment.text, exported, cwd, segmentFacts);
+  for (const segment of parseShellCommand(command).segments) {
+    const found = collectSegmentBypasses(segment, exported, cwd, segmentFacts);
 
     if (found === 'moved') {
       segmentFacts = null;
@@ -43,15 +42,14 @@ const GH_STACK_WRITES: ReadonlySet<string> = new Set(['add', 'push', 'submit', '
 const DIRECTORY_CHANGES: ReadonlySet<string> = new Set(['cd', 'pushd', 'popd']);
 
 function collectSegmentBypasses(
-  text: string,
-  exported: Map<string, string>,
+  segment: ShellSegment,
+  exported: Map<string, string[]>,
   cwd: string,
   facts: HookFacts | null,
 ): readonly string[] | 'moved' {
-  const tokens = splitShellTokens(text).tokens;
-  const words = tokens.flatMap((token) => toWordValues(token));
-  const raws = tokens.flatMap((token) => (token.kind === 'word' ? [token.raw] : []));
-  const program = splitCommandWords(text);
+  const segmentWords = segment.words;
+  const words = segmentWords.map((word) => word.value);
+  const program = splitCommandWords(segmentWords);
   const [name = '', ...args] = program;
   const prefix = words.slice(0, words.length - program.length);
   const programName = name.slice(name.lastIndexOf('/') + 1);
@@ -60,9 +58,13 @@ function collectSegmentBypasses(
     return 'moved';
   }
 
+  // A subshell's change to a variable ends with it, and a compound command's
+  // body may not run, so such a change adds a value the variable may hold.
+  const isScoped = segment.scopes.length > 0;
+
   if (programName === 'export' && prefix.length === 0) {
     for (const arg of args.filter((word) => /^\w+=/u.test(word))) {
-      exported.set(arg.slice(0, arg.indexOf('=')), arg);
+      exported.set(arg.slice(0, arg.indexOf('=')), buildExportedValues(exported, arg, isScoped));
     }
 
     return [];
@@ -74,7 +76,7 @@ function collectSegmentBypasses(
       const variable = word.slice(0, word.indexOf('='));
 
       if (exported.has(variable)) {
-        exported.set(variable, word);
+        exported.set(variable, buildExportedValues(exported, word, isScoped));
       }
     }
 
@@ -82,19 +84,20 @@ function collectSegmentBypasses(
   }
 
   if (programName === 'unset' && prefix.length === 0) {
-    for (const arg of args) {
+    for (const arg of isScoped ? [] : args) {
       exported.delete(arg);
     }
 
     return [];
   }
 
-  const reaching = buildReachingVariables(prefix, exported);
-  const checkoutFacts = hasCheckoutOverride(reaching) ? null : facts;
+  const reachings = buildExportStates(exported).map((state) =>
+    buildReachingVariables(prefix, state),
+  );
 
   if (programName === 'gh') {
     return args[0] === 'stack' && GH_STACK_WRITES.has(args[1] ?? '')
-      ? collectHookSwitches(reaching, [], checkoutFacts)
+      ? collectEverySwitch(reachings, [], facts)
       : [];
   }
 
@@ -106,8 +109,9 @@ function collectSegmentBypasses(
   const [subcommand = '', ...subArgs] = git.args;
   const writing = subcommand === 'commit' || subcommand === 'push' ? subcommand : null;
   const globals = args.slice(0, args.length - git.args.length);
+  const subcommandWord = segmentWords[prefix.length + globals.length + 1];
 
-  if (writing === null && !hasExpansion(raws[prefix.length + globals.length + 1] ?? '', 'any')) {
+  if (writing === null && (subcommandWord === undefined || !hasExpansion(subcommandWord, 'any'))) {
     return [];
   }
 
@@ -116,22 +120,65 @@ function collectSegmentBypasses(
   const isSameCheckout =
     git.directory === cwd && !globals.some((arg) => /^--(?:git-dir|work-tree)(?:=|$)/u.test(arg));
 
-  const gitFacts = isSameCheckout ? checkoutFacts : null;
+  const gitFacts = isSameCheckout ? facts : null;
 
   const option =
     writing === null
       ? HIDDEN_GIT_WORDS.subcommand
-      : findNoVerifyOption(subArgs, raws.slice(prefix.length + globals.length + 2), writing);
+      : findNoVerifyOption(
+          subArgs,
+          segmentWords.slice(prefix.length + globals.length + 2),
+          writing,
+        );
 
   // An unquoted expansion can split into several words, and so end git's
   // options early: a later `-c` then lands in the subcommand's arguments.
-  const hasSplitGlobal = raws
+  const hasSplitGlobal = segmentWords
     .slice(prefix.length + 1, prefix.length + 1 + globals.length)
     .some((raw) => hasUnquotedExpansion(raw));
 
   const config = hasSplitGlobal ? null : git.config;
 
-  return [...collectHookSwitches(reaching, config, gitFacts), ...(option === null ? [] : [option])];
+  return [...collectEverySwitch(reachings, config, gitFacts), ...(option === null ? [] : [option])];
+}
+
+function buildExportedValues(
+  exported: ReadonlyMap<string, readonly string[]>,
+  word: string,
+  isScoped: boolean,
+): string[] {
+  const kept = exported.get(word.slice(0, word.indexOf('='))) ?? [];
+  const values = isScoped ? kept : [];
+
+  return values.includes(word) ? [...values] : [...values, word];
+}
+
+// Each state picks one value per variable, and the states cover every
+// combination, so each mix of values a variable may hold reaches git.
+const STATE_LIMIT = 1024;
+
+function buildExportStates(
+  exported: ReadonlyMap<string, readonly string[]>,
+): ReadonlyMap<string, string>[] {
+  let states: ReadonlyMap<string, string>[] = [new Map()];
+
+  for (const [variable, values] of exported) {
+    const next: ReadonlyMap<string, string>[] = [];
+
+    for (const state of states) {
+      for (const value of values) {
+        next.push(new Map(state).set(variable, value));
+      }
+    }
+
+    if (next.length > STATE_LIMIT) {
+      return [];
+    }
+
+    states = next;
+  }
+
+  return states;
 }
 
 // The words before the program set and unset variables in order, over what an
@@ -157,6 +204,25 @@ function buildReachingVariables(
   }
 
   return reaching;
+}
+
+function collectEverySwitch(
+  reachings: readonly ReadonlyMap<string, string>[],
+  config: readonly GitConfigOption[] | null,
+  facts: HookFacts | null,
+): string[] {
+  const switches = reachings.flatMap((reaching) => {
+    const checkoutFacts = hasCheckoutOverride(reaching) ? null : facts;
+
+    return collectHookSwitches(reaching, config, checkoutFacts);
+  });
+
+  // Past the state limit the values are unknown, which counts as a bypass.
+  if (reachings.length === 0) {
+    return [HIDDEN_GIT_WORDS.variables];
+  }
+
+  return reachings.length === 1 ? switches : [...new Set(switches)];
 }
 
 const CHECKOUT_OVERRIDES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR'];

@@ -1,8 +1,7 @@
 import type { ActionRequest } from '../request/types.ts';
+import { parseShellCommand } from '../shell/parse-shell-command.ts';
 import { splitCommandWords } from '../shell/split-command-words.ts';
-import { splitShellCommand } from '../shell/split-shell-command.ts';
-import { splitShellTokens } from '../shell/split-shell-tokens.ts';
-import { toWordValues } from '../shell/to-word-values.ts';
+import type { ShellSegment } from '../shell/types.ts';
 import { isLocalHookConfig } from './is-local-hook-config.ts';
 
 export function hasLocalHookSkip(
@@ -56,32 +55,32 @@ export function hasLocalHookSkip(
 const WRITE_REDIRECTS: ReadonlySet<string> = new Set(['>', '>>', '>|', '&>', '&>>']);
 
 function isShellSkipWrite(command: string): boolean {
-  const tokens = splitShellTokens(command).tokens;
-  const words = tokens.flatMap((token) => toWordValues(token));
+  const segments = parseShellCommand(command).segments;
+  const words = segments.flatMap((segment) => segment.words.map((word) => word.value));
+  const redirects = segments.flatMap((segment) => segment.redirects);
 
-  const redirects = tokens.some(
-    (token) =>
-      token.kind === 'redirect' &&
-      token.target !== null &&
-      WRITE_REDIRECTS.has(token.operator.replace(/^\d+/u, '')) &&
-      isLocalHookConfig(token.target),
+  const writes = redirects.some(
+    (redirect) =>
+      redirect.target !== null &&
+      WRITE_REDIRECTS.has(redirect.operator) &&
+      isLocalHookConfig(redirect.target),
   );
 
   const tees = words.includes('tee') && words.some((word) => isLocalHookConfig(word));
 
   const payload = [
-    ...splitShellCommand(command).segments.map((segment) => buildWrittenText(segment.text)),
-    ...tokens.flatMap((token) => (token.kind === 'heredoc' ? [token.body] : [])),
+    ...segments.map((segment) => buildWrittenText(segment)),
+    ...redirects.flatMap((redirect) => (redirect.heredoc === null ? [] : [redirect.heredoc.body])),
   ].join('\n');
 
-  return (redirects || tees) && collectSkipSettings(payload).length > 0;
+  return (writes || tees) && collectSkipSettings(payload).length > 0;
 }
 
 // printf fills its format from the words after it, and printf and `echo -e`
 // turn `\n` and `\t` into a newline and a tab.
-function buildWrittenText(text: string): string {
-  const [program = '', format, ...args] = splitCommandWords(text);
-  const words = splitShellTokens(text).tokens.flatMap((token) => toWordValues(token));
+function buildWrittenText(segment: ShellSegment): string {
+  const [program = '', format, ...args] = splitCommandWords(segment.words);
+  const words = segment.words.map((word) => word.value);
 
   const written =
     program.slice(program.lastIndexOf('/') + 1) === 'printf' && format !== undefined

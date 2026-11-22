@@ -1,29 +1,43 @@
 import { expect, test } from 'bun:test';
+import { parseShellCommand } from './parse-shell-command.ts';
 import { splitCommandWords } from './split-command-words.ts';
 
 test('it splits a segment into its program and arguments', () => {
-  expect(splitCommandWords('git  push origin\tmain')).toStrictEqual([
-    'git',
-    'push',
-    'origin',
-    'main',
-  ]);
+  expect(
+    splitCommandWords(
+      parseShellCommand('git  push origin\tmain').segments.flatMap((segment) => segment.words),
+    ),
+  ).toStrictEqual(['git', 'push', 'origin', 'main']);
 });
 
 test('it removes quotes and keeps the whitespace they hold', () => {
-  expect(splitCommandWords(`echo "a b" 'c d'`)).toStrictEqual(['echo', 'a b', 'c d']);
+  expect(
+    splitCommandWords(
+      parseShellCommand(`echo "a b" 'c d'`).segments.flatMap((segment) => segment.words),
+    ),
+  ).toStrictEqual(['echo', 'a b', 'c d']);
 });
 
 test('it joins quoted parts that touch into one word', () => {
-  expect(splitCommandWords(`echo 'it''s' "x"y`)).toStrictEqual(['echo', 'its', 'xy']);
+  expect(
+    splitCommandWords(
+      parseShellCommand(`echo 'it''s' "x"y`).segments.flatMap((segment) => segment.words),
+    ),
+  ).toStrictEqual(['echo', 'its', 'xy']);
 });
 
 test('it keeps an empty quoted argument as an empty word', () => {
-  expect(splitCommandWords('git commit -m ""')).toStrictEqual(['git', 'commit', '-m', '']);
+  expect(
+    splitCommandWords(
+      parseShellCommand('git commit -m ""').segments.flatMap((segment) => segment.words),
+    ),
+  ).toStrictEqual(['git', 'commit', '-m', '']);
 });
 
 test('it reads no words in an empty segment', () => {
-  expect(splitCommandWords('  ')).toStrictEqual([]);
+  expect(
+    splitCommandWords(parseShellCommand('  ').segments.flatMap((segment) => segment.words)),
+  ).toStrictEqual([]);
 });
 
 test.each([
@@ -34,11 +48,17 @@ test.each([
   ['timeout wrapper and its duration', 'timeout 5 git push', ['git', 'push']],
   ['stacked wrappers', 'sudo FOO=1 timeout 5s rm x', ['rm', 'x']],
 ])('it drops the leading %s', (_label, text, expected) => {
-  expect(splitCommandWords(text)).toStrictEqual(expected);
+  expect(
+    splitCommandWords(parseShellCommand(text).segments.flatMap((segment) => segment.words)),
+  ).toStrictEqual(expected);
 });
 
 test('it reads no words in a segment that only assigns variables', () => {
-  expect(splitCommandWords('FOO=1 BAR=2')).toStrictEqual([]);
+  expect(
+    splitCommandWords(
+      parseShellCommand('FOO=1 BAR=2').segments.flatMap((segment) => segment.words),
+    ),
+  ).toStrictEqual([]);
 });
 
 test.each([
@@ -49,5 +69,7 @@ test.each([
   ['a redirection attached to its target', 'cat <in.txt 2>>err.log file', ['cat', 'file']],
   ['a descriptor duplication', 'make 2>&1', ['make']],
 ])('it drops %s', (_label, text, expected) => {
-  expect(splitCommandWords(text)).toStrictEqual(expected);
+  expect(
+    splitCommandWords(parseShellCommand(text).segments.flatMap((segment) => segment.words)),
+  ).toStrictEqual(expected);
 });

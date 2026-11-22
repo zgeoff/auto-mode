@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
+import invariant from 'tiny-invariant';
 import { hasUnquotedExpansion } from './has-unquoted-expansion.ts';
+import { parseShellCommand } from './parse-shell-command.ts';
 
 test.each([
   ['an unquoted variable', '$KEY=/tmp/none', true],
@@ -17,5 +19,9 @@ test.each([
   ['a lone dollar sign', 'price=$', false],
   ['a plain word', 'core.hooksPath=/srv/harbor/.git/hooks', false],
 ])('it reads %s as an unquoted expansion: %p', (_label, raw, expected) => {
-  expect(hasUnquotedExpansion(raw)).toBe(expected);
+  const [word] = parseShellCommand(raw).segments.flatMap((segment) => segment.words);
+
+  invariant(word !== undefined);
+
+  expect(hasUnquotedExpansion(word)).toBe(expected);
 });

@@ -227,6 +227,8 @@ test.each([
   'diff <(ls) <(ls)',
   'echo "unbalanced',
   'echo "inner $(date)"',
+  'ls &&  && pwd',
+  'echo $(ls',
 ])('it escalates a command it cannot fully parse: %s', (command) => {
   const payload = buildMockActionRequest({
     toolName: 'Bash',
@@ -275,3 +277,24 @@ test.each([
 
   expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
 });
+
+test.each([
+  ['a subshell', '(ls)'],
+  ['a brace group', '{ ls; }'],
+  ['an if', 'if test -d src; then ls src; fi'],
+  ['a loop', 'for dir in src docs; do ls; done'],
+  ['a function', 'list() { ls; }'],
+  ['a negation', '! ls'],
+  ['a timed command', 'time ls'],
+])(
+  'it escalates %s, whose commands run in an order the segments do not show',
+  (_label, command) => {
+    const payload = buildMockActionRequest({
+      toolName: 'Bash',
+      cwd: '/repo',
+      toolInput: { command },
+    });
+
+    expect(classifyLocally(payload)).toStrictEqual({ kind: 'escalate' });
+  },
+);

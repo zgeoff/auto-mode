@@ -1,9 +1,9 @@
 import { basename } from 'node:path';
 import {
   collectShellScripts,
+  parseShellCommand,
   splitCommandWords,
   splitGitCommand,
-  splitShellCommand,
 } from 'auto-mode/eval';
 import type { CapturedAction } from './build-anonymised-corpus.ts';
 import {
@@ -345,13 +345,21 @@ const LINE_CONTINUATION = '\\\n';
 // A substitution or a shell's heredoc script runs its own commands, so each is
 // read on its own.
 function collectCommandBranches(command: string): Identifier[] {
-  const substituted = collectShellScripts(command).flatMap((script) =>
+  const tree = parseShellCommand(command);
+
+  const substituted = collectShellScripts(tree).flatMap((script) =>
     collectCommandBranches(script.text),
   );
 
-  const branches = splitShellCommand(command).segments.flatMap((segment) =>
-    collectSegmentBranches(toProgramWords(splitCommandWords(segment.text))),
-  );
+  // The anonymiser replaces each piece of a word as the command text writes
+  // it, and the shell removes a line continuation from the word's value.
+  const branches = tree.segments.flatMap((segment) => {
+    const written = segment.words.map((word) =>
+      word.raw.includes(LINE_CONTINUATION) ? { ...word, value: word.raw } : word,
+    );
+
+    return collectSegmentBranches(toProgramWords(splitCommandWords(written)));
+  });
 
   return [...substituted, ...branches].flatMap((branch) =>
     branch.value.split(LINE_CONTINUATION).map((value) => ({ value, kind: branch.kind })),
