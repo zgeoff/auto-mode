@@ -34,13 +34,13 @@ response. `keySource` and `keyResolved` show whether the environment or helper s
 request-stage failure does not prove that an HTTP request reached the provider.
 
 `failureReason` holds `request-too-large` when the serialized request exceeds 100,000 bytes and no
-call was made. It holds `aborted` when the call or the response read was aborted, and `status` shows
-whether the provider timeout, the evaluation deadline, or a cancellation aborted it. It holds
-`network` when the call did not complete, `http-status` for a non-success response, and
-`invalid-response` for a body that fails validation. It is `null` for other failures and for a
-completed decision. `requestBytes` holds the UTF-8 size of the serialized request body whenever the
-body was built, including for the failures above; it is `null` when a failure came before the body.
-It records a size only, never content.
+call was made. It holds `aborted` when the call or the response read was aborted, and `status` is
+then `timeout` when the provider timeout or the evaluation deadline aborted it, and `cancelled` for
+a cancellation. It holds `network` when the call did not complete, `http-status` for a non-success
+response, and `invalid-response` for a body that fails validation. It is `null` for other failures
+and for a completed decision. `requestBytes` holds the UTF-8 size of the serialized request body
+whenever the body was built, including for the failures above; it is `null` when a failure came
+before the body. It records a size only, never content.
 
 `contributors` records every rule whose block probability reached the threshold, highest first, with
 its choice, confidence, and `blockProbability`; the first one is the rule the deny names. An allow
