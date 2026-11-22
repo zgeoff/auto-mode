@@ -2,13 +2,13 @@
 
 The denial budget is the only part of auto-mode that turns a deny into a prompt for the user. Jev
 and the judge never ask the user anything: each answers allow or deny, and a denied agent is told to
-find a safer path. The budget runs at both ends of every judged call, apart from the stages between.
-An agent that cannot find one would loop on denies forever, so the budget counts them, and once an
-agent has used its denials, the next deny becomes no verdict. The mod then keeps the prompt Claude
-Code was about to show, and the user decides that call. The budget also stops an agent from asking
-again until a model happens to allow: a repeat of the action just denied gets the same deny without
-any model call. The [overview](../overview.md) places the budget at both ends of the path, and
-[state and logs](../state-and-logs.md) covers the state directory that holds its files.
+find a safer path. An agent that cannot find a safer path would loop on denies forever, so the
+budget counts them, and once an agent has used its denials, the next deny becomes no verdict. The
+mod then keeps the prompt Claude Code was about to show, and the user decides that call. The budget
+also stops an agent from asking again until a model happens to allow: a repeat of the action just
+denied gets the same deny without any model call. The [overview](../overview.md) places the budget
+at both ends of the path, and [state and logs](../state-and-logs.md) covers the state directory that
+holds its files.
 
 Every verdict passes through the budget before the CLI writes it, whichever stage gave it, so a
 containment deny counts the same as a Jev deny.
@@ -29,10 +29,11 @@ and a resumed session, which keeps the same session identity.
 | no verdict       | kept              | kept          | kept            | no verdict             |
 
 A deny spends the budget once either count has reached its configured limit, so the call that would
-pass a limit is the one the user sees. Both counts restart from zero at that point. The CLI never
-sees the user's answer to the prompt, but the next request for that agent can only arrive after the
-user answers, so the restart is safe. A call that ends in no verdict for any other reason, such as a
-classifier failure under the default failure response, leaves the budget as it was.
+pass a limit is the one the user sees. Both counts restart from zero at that point, because the CLI
+never sees the user's answer to the prompt and has no later moment to restart them. A call whose CLI
+writes no verdict for any other reason, such as a classifier failure under the default failure
+response, leaves the budget as it was. A CLI killed mid-run is the exception
+([crashes and races](#crashes-and-races)).
 
 Each deny reason ends with the number of denials left before auto-mode asks the user. The last deny
 before a limit instead tells the agent to stop and report what consent it needs.

@@ -26,7 +26,7 @@ then one line for each recording it can replay.
 | Experiment                | Measurement                                                               |
 | ------------------------- | ------------------------------------------------------------------------- |
 | `catastrophic-allows`     | 1: catastrophic cases allowed per stage and by harm, both Jev shapes      |
-| `consent`                 | 3: twins credited and near-misses held, with GEO-78 control-11 and -39    |
+| `consent`                 | 3: twins credited and near-misses held, with the two required controls    |
 | `judge-alone`             | 4: the judge on Jev denies: overturns, catastrophic overturns, failures   |
 | `infrastructure-failures` | 5: failed and unreadable requests per stage, the judge on each Jev deny   |
 | `containment-replay`      | 1 and 2 for the containment check over the recorded Jev answers           |
@@ -129,7 +129,7 @@ bun run eval live [--log <path>] [--since <iso-time>] [--results <dir>]
 it reads the path the CLI writes: `AUTO_MODE_DIAGNOSTICS_PATH`, or
 `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/actions.jsonl`. `--since`
 takes an ISO 8601 time with an offset, or a date, and leaves out the records written before it. It
-reads version 3, 4 and 5 records; it counts and skips records of any other version and lines that
+reads records of versions 3 to 9; it counts and skips records of any other version and lines that
 are not JSON, such as a torn append, and fails on a record of the wrong shape.
 
 A task is one agent's actions, so a subagent's actions count apart from the session that spawned it,
