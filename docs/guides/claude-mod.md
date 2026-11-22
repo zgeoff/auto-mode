@@ -7,10 +7,10 @@ you change what the mod sends the CLI.
 
 The mod calls `next(e)` first and keeps an existing allow or deny unchanged, including its reason
 and rule. It evaluates only ask decisions. Every classifier decision is an allow or a denial with a
-reason, so an uncertain decision reaches the agent as a denial. A missing executable, child timeout,
-invalid output, or absent session context preserves the original ask. A configured classifier
-failure under `onFailure: "deny"` can still return a named denial.
-[Configuration](./configuration.md) defines Jev, the judge, `decision.classifier` and `onFailure`.
+reason, so an uncertain decision reaches the agent as a denial. When the executable is missing, the
+child times out, the output is invalid, or the session context is absent, the mod keeps the original
+ask. Under `onFailure: "deny"`, a classifier failure can still return a named denial. See
+[Configuration](./configuration.md) for Jev, the judge, `decision.classifier` and `onFailure`.
 
 The mod evaluates main and subagent calls through the same permission check. Each check reads the
 current directory inside that call's host context. Agent delegation passes through the normal check
@@ -29,9 +29,9 @@ its spawn event. Jev receives these as separate task context beside the complete
 
 Task prompts describe purpose and never grant consent or clear a blocked rule. auto-mode reads no
 transcript; the mod's request is its only source of user evidence. A notification does not replace
-the last direct user message. Resume within the same process keeps a captured original task. Session
-resume or mod reload cannot recover its origin, so the original task remains explicitly unavailable,
-and the request carries no direct user message until the next prompt. A reload without session
+the last direct user message. Resume within the same process keeps a captured original task. After a
+session resume or a mod reload, the mod cannot recover the original task, so the request marks it
+unavailable and carries no direct user message until the next prompt. A reload without session
 context preserves manual approval until the next user prompt.
 
 ## The request and the verdict
@@ -85,12 +85,13 @@ or a pull request (`git worktree add`, `git checkout -b`, `git switch -c`, `git 
 writes nothing on stdout. It adds to the session's scope only what the call made: a worktree whose
 link file dates from after `startedAt`, a branch whose reflog starts with its creation and whose ref
 file dates from after `startedAt`, and a pull request that `gh pr view` dates from the call, with
-the head branch it reports. A branch counts only in the repository it was made in. Parallel records
-of one session take a lock file, so none loses another's additions. A record whose `startedAt` is
-more than 15 minutes old adds nothing. Only the mod records: an agent's own call to
-`auto-mode record`, through any runner, is a credential finding that the containment check denies.
-After any other Bash call, and after any denied call, the mod runs no record. The record body is
-strict, as the request is.
+the head branch it reports.
+
+A branch counts only in the repository it was made in. Parallel records of one session take a lock
+file, so none loses another's additions. A record whose `startedAt` is more than 15 minutes old adds
+nothing. Only the mod records: an agent's own call to `auto-mode record`, through any runner, is a
+credential finding that the containment check denies. After any other Bash call, and after any
+denied call, the mod runs no record. The record body is strict, as the request is.
 
 Each optional task prompt has a 4,096-byte limit. An oversized task is omitted whole. If the
 complete request exceeds 100,000 bytes, the client omits optional tasks before it refuses the
@@ -105,10 +106,12 @@ limits over its longest run: startup, three key commands, Jev, and two judge cal
 budget stands still while the child runs, so the limit is not taken from it. A shared deadline ends
 evaluation 500 ms before the outer limit. The key helper uses the remaining deadline, and Jev uses
 the time left after the helper, up to 5 seconds. The judge uses its configured `timeoutMs` up to
-that cap, bounded by the same deadline. A slow judge holds the tool call for that long, because
-auto-mode serves unattended work. Cancellation stops the owned key helper and its process group. The
-mod declines evaluation when fewer than 750 ms of the hook's own budget remain. It discards child
-stderr and does not copy invalid output into diagnostics.
+that cap, bounded by the same deadline.
+
+A slow judge holds the tool call for that long, because auto-mode serves unattended work.
+Cancellation stops the owned key helper and its process group. The mod declines evaluation when
+fewer than 750 ms of the hook's own budget remain. It discards child stderr and does not copy
+invalid output into diagnostics.
 
 ## Check the mod
 
@@ -144,15 +147,15 @@ from that Claude Code version.
    rmdir "$mod_bin_dir"
    ```
 
-Use an auto-mode executable from the same release as the mod; an older artifact preserves manual
-approval. The mod runs the command in its `auto-mode.command` plugin setting, `auto-mode` on `PATH`
-by default, which step 3 puts there. To test another artifact, set that setting to its executable
-name or absolute path, as one argument with no shell.
+Use an auto-mode executable from the same release as the mod; with an older artifact, the mod keeps
+manual approval. The mod runs the command in its `auto-mode.command` plugin setting, `auto-mode` on
+`PATH` by default, which step 3 puts there. To test another artifact, set that setting to its
+executable name or absolute path, as one argument with no shell.
 
 Test known allow, deny, uncertain, and failure cases before wider use. Keep the existing Claude
 permission settings. Remove any auto-mode hook entry from Claude's settings: the CLI reads only the
 mod's request and writes nothing for a hook payload. To stop the mod, exit the test session and
 start the next session without `--plugin-dir`.
 
-[Claude event semantics](https://code.claude.com/docs/en/plugins/mods/events#approve-or-refuse-a-tool-call-before-the-user-is-asked)
-describe the permission chain and the decisions that mods can change.
+For the permission chain and the decisions that mods can change, see
+[Claude event semantics](https://code.claude.com/docs/en/plugins/mods/events#approve-or-refuse-a-tool-call-before-the-user-is-asked).
