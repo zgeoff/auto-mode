@@ -5,9 +5,10 @@ it may push, the pull requests it may change, the checkout's own remotes, and th
 may message. The [containment check](../stages/containment.md) denies any write outside it that it
 can resolve from the call, the [edit bypass](../stages/edit-bypass.md) allows edits inside it, and
 Jev reads its summary as evidence. auto-mode builds the scope afresh for every call, as the union of
-the scope sources the configuration lists, and each source answers from the call's context alone. No
-source can hand a task the default branch or a protected branch, so a push to one is always a
-finding.
+the scope sources the configuration lists, and each source answers from the call's context and the
+files it reads. No source can hand a task the default branch, as far as the checkout shows it, or a
+protected branch, so a push to one is always a finding
+([the rules that join them](#the-rules-that-join-them)).
 
 ## The scope sources
 

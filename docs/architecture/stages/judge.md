@@ -1,16 +1,16 @@
 # The judge
 
 The judge is a second model that reviews every deny [Jev](./jev.md) gives. It is on by default, and
-the configuration can turn it off, which leaves every Jev deny with its fixed reason. Jev answers
-with probabilities and no explanation, and its threshold is set low on purpose, so some of its
-denies come from doubt rather than a match. The judge reads the denied rule, the call and the user's
-last message, and either confirms the deny with a reason written for this call, or overturns it to
-an allow when the user asked for exactly this or when the facts put the action outside the rule. It
-is a generative model, Claude Code on a Claude model by default, with its own framework in the
+when you turn it off in the configuration, every Jev deny keeps its fixed reason. Jev answers with
+probabilities and no explanation, and its threshold is set low on purpose, so some of its denies
+come from doubt rather than a match. The judge reads the denied rule, the call and the user's last
+message, and either confirms the deny with a reason written for this call, or overturns it to an
+allow when the user asked for exactly this or when the facts put the action outside the rule. It is
+a generative model, Claude Code on a Claude model by default, with its own framework in the
 [policy](../policy.md). The judge changes a deny into an allow on a soft rule, and on a hard rule
-only in the one narrow case that [Confirm or overturn](#confirm-or-overturn) names. It fails closed:
-whatever goes wrong, the deny stands. It also reviews a containment deny whose every target the user
-named ([a containment deny](#a-containment-deny)).
+only in the one narrow case described in [Confirm or overturn](#confirm-or-overturn). It fails
+closed: whatever goes wrong, the deny stands. It also reviews a containment deny whose every target
+the user named ([a containment deny](#a-containment-deny)).
 
 ## What the judge reads
 
@@ -31,7 +31,7 @@ on every review. Each review sends one user turn and then clears the conversatio
 evidence never reaches the next. The process takes one review at a time, and a review's deadline
 counts its wait for the reviews ahead of it. A change of model, framework, API or key starts a new
 process. Each CLI run ends when the prompted call it judges ends, so a judge server keeps the
-process alive between runs: the [overview](../overview.md#topology) covers the topology.
+process alive between runs. The [overview](../overview.md#topology) covers the topology.
 
 The judge reaches only the API its configuration names. The agent's own session can point Claude
 Code at another provider, such as a gateway to a non-Claude model, through `ANTHROPIC_*` variables
@@ -64,9 +64,8 @@ in tags, and the CLI reads those too. The CLI turns each review into one of four
 | held       | the judge overturns a deny it may not clear, or on a basis the configuration rejects | the deny, with the rule's fixed reason |
 | failed     | the judge times out, fails, or writes an unreadable reply                            | the deny, with the rule's fixed reason |
 
-The rest of this section sets which denies the judge may clear, and on which basis. The judge
-overturns on one of two bases. Consent means that in the last message the user asked for this
-operation on this target. Misread means that the supplied facts put the action outside the rule
+The judge overturns on one of two bases. Consent means that in the last message the user asked for
+this operation on this target. Misread means that the supplied facts put the action outside the rule
 altogether. The configuration accepts both bases by default, and can accept consent alone, which
 holds every misread overturn. A hard rule never clears on consent, and a configured hard deny entry
 never clears at all: an overturn of either is held. A consent overturn of a review that had no last
@@ -83,7 +82,7 @@ deny scored far above it.
 
 An allow passes the other blocking rules without a review of their own, so the framework lets the
 judge overturn the marked deny only when no rule in the list covers the action, a soft rule Jev
-doubted included. Three kinds of other blocking rule keep the hard deny final:
+doubted included. These other blocking rules keep the hard deny final:
 
 - a second hard rule, which a misread of the first never clears;
 - a configured entry, which the judge's rule list does not hold;
@@ -97,21 +96,21 @@ agent's context.
 
 ## Time and failure
 
-The judge has its own time limit, longer than Jev's because it writes, and it also honours the
-deadline the mod passes, whichever comes first. A missing API key, a policy that cannot load, a
+The judge stops at its own time limit or at the deadline the mod passes, whichever comes first. Its
+limit is longer than Jev's because it writes. A missing API key, a policy that cannot load, a
 timeout, a failed call and an unreadable reply all end in the failed outcome.
 
 ## A containment deny
 
 The judge also reviews a [containment](./containment.md) deny when the last direct user message
 names every target of it ([the user-named grant](./containment.md#the-user-named-grant)), in the
-same turn as any Jev deny of the call. That deny reads the Outside Task Scope rule from its own
-policy file in place of a rule from the rule list, and two more evidence fields: the check's
-finding, which names every target and what the task owns, and each target paired with the word of
-the message that names it. The rule tells the judge that a name alone is not consent, and that a
-target named as a source to read, a place to look or a reference is none.
+same turn as any Jev deny of the call. For that deny, the judge reads the Outside Task Scope rule
+from its own policy file in place of a rule from the rule list, and two more evidence fields: the
+check's finding, which names every target and what the task owns, and each target paired with the
+word of the message that names it. The rule tells the judge that a name alone is not consent, and
+that a target named as a source to read, a place to look or a reference is none.
 
-The review is a soft rule that only consent clears. A misread overturn is held whatever the
+This deny counts as a soft rule that only consent clears. A misread overturn is held whatever the
 configuration accepts, because the task scope is a fact the check read and the judge has no better
 reading of it. A held or failed review keeps the check's own reason, which names the targets, and a
 confirmed one carries the judge's reason behind the fixed prefix. The action log records the review
