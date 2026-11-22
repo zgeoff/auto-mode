@@ -2,7 +2,8 @@
 
 `bun run eval` runs one experiment from `src/measure/experiments/` and writes the run to the private
 results repository. [Evaluation](../architecture/evaluation.md) explains what each measurement
-means; this runbook covers the steps.
+means, measurements 1 to 6 included; this runbook covers the steps. Follow it when you run an
+experiment, measure live use from the action log, or turn a capture into a corpus.
 
 ## Set up the results clone
 
