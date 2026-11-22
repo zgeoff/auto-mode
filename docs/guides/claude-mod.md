@@ -109,10 +109,10 @@ stderr and does not copy invalid output into diagnostics.
 
 ## Check the mod
 
-Run the local gates with Claude Code 2.1.292 installed:
+Run the mod gate with Claude Code 2.1.292 installed. CI runs it too, inside `bun run check`, which
+is too heavy to run locally:
 
 ```bash
-bun run check
 bun run check:claude-mod
 ```
 
@@ -142,8 +142,9 @@ from that Claude Code version.
    ```
 
 Use an auto-mode executable from the same release as the mod; an older artifact preserves manual
-approval. The `auto-mode.command` plugin setting accepts an executable name or absolute path as one
-argument, without a shell. Point it at the reviewed artifact before the session test.
+approval. The mod runs the command in its `auto-mode.command` plugin setting, `auto-mode` on `PATH`
+by default, which step 3 puts there. To test another artifact, set that setting to its executable
+name or absolute path, as one argument with no shell.
 
 Test known allow, deny, uncertain, and failure cases before wider use. Keep the existing Claude
 permission settings. Remove any auto-mode hook entry from Claude's settings: the CLI reads only the
