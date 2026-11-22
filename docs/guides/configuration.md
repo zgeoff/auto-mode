@@ -1,9 +1,10 @@
 # Configuration
 
 auto-mode reads `~/.config/auto-mode/config.json`, or `$XDG_CONFIG_HOME/auto-mode/config.json` when
-that variable is set. A missing file uses the shipped defaults. An unreadable or malformed file
-leaves the action without a verdict and writes a diagnostic. Read this guide to choose the
-classifier and the judge, to set what a task owns, to tune the decision, or to turn on the capture.
+that variable is set. Without the file, auto-mode uses the shipped defaults. When the file is
+unreadable or malformed, auto-mode leaves the action without a verdict and writes a diagnostic. Edit
+the file to choose the classifier and the judge, to set what a task owns, to tune the decision, or
+to turn on the capture.
 
 ## The shape
 
@@ -38,11 +39,11 @@ classifier and the judge, to set what a task owns, to tune the decision, or to t
 }
 ```
 
-The file has five blocks and one list. `classifiers` and `scopeSources` are registries keyed by an
-id you choose. `protectedBranches` lists the branches no task owns. `decision` assigns roles by
-pointing at registry ids. `policy` selects the prompt files and the Claude settings to import.
-`capture` turns the request capture on. Every block is optional; an empty file `{}` runs Jev with
-the shipped policy, reviews each Jev deny with the `claude-code` judge, and captures nothing.
+`classifiers` and `scopeSources` are registries keyed by an id you choose. `protectedBranches` lists
+the branches no task owns. `decision` assigns roles by pointing at registry ids. `policy` selects
+the prompt files and the Claude settings to import. `capture` turns the request capture on. Every
+block is optional; an empty file `{}` runs Jev with the shipped policy, reviews each Jev deny with
+the `claude-code` judge, and captures nothing.
 
 ## Classifiers
 
@@ -93,9 +94,9 @@ your Claude login reaches ([the judge](../architecture/stages/judge.md)). Withou
 
 ### Credentials
 
-An entry names its key by reference only. The resolver tries `apiKeyEnv` first, then
-`apiKeyCommand`. A command that fails, prints no key, or exceeds 5 seconds produces a missing-key
-failure. Use a key command when the Claude Code process does not carry the key variable:
+Give each entry its key by reference only. auto-mode tries `apiKeyEnv` first, then `apiKeyCommand`.
+A command that fails, prints no key, or exceeds 5 seconds produces a missing-key failure. Use a key
+command when the Claude Code process does not carry the key variable:
 
 ```json
 {
@@ -124,7 +125,7 @@ entry's answer, and the containment check denies a write outside it.
 | `globs`    | `paths`, a non-empty list | Path globs that every task owns                |
 | `launcher` | none                      | What the launcher's scope file declares        |
 
-A file without `scopeSources` runs `cwd`, `session` and `launcher`. A file with the block runs
+Without `scopeSources`, auto-mode runs `cwd`, `session` and `launcher`. With the block, it runs
 exactly its entries, and warns when none of them is `cwd`, because the task then owns only what the
 other sources name, and `/tmp`.
 
@@ -136,7 +137,7 @@ other sources name, and `/tmp`.
   so the scope survives a reload of the mod and a `--resume` of the session. A subagent's worktree
   belongs to its session.
 - `globs` owns every path that matches one of `paths`; a leading `~/` is the home directory. A glob
-  that covers every worktree, such as `.worktrees/**`, defeats the containment check, and the file
+  that covers every worktree, such as `.worktrees/**`, defeats the containment check, and auto-mode
   warns about any glob that names `.worktrees`.
 - `launcher` owns what the scope file at `$AUTO_MODE_SCOPE_FILE` declares: its paths, its workspace
   and worktrees, their branches and the declared branches when they sit in the action's repository,
@@ -188,12 +189,11 @@ or overturn with a short reason.
   for this operation on this target. `misread`: the facts show that no rule covers the action. A
   consent overturn allows the action. A misread overturn allows it under the default `any`, and
   keeps the deny with its fixed reason when `judgeOverturns` is `consent`.
-- A hard rule and a configured hard deny entry never clear, but for the one exception at the end of
-  this item. The judge writes their reason only, and an overturn of one keeps the deny with its
-  fixed reason. One exception: when Jev chose allow for a hard rule from the rule list, scored it at
-  a block probability of 0.35 or less, and every other rule that blocks is a soft rule from the rule
-  list that Jev also chose to allow at 0.35 or less, a misread overturn under `any` allows the
-  action.
+- A hard rule and a configured hard deny entry never clear, except in the one case at the end of
+  this item. The judge writes only their reason, and an overturn of one keeps the deny with its
+  fixed reason. A misread overturn under `any` does allow the action when Jev chose allow for a hard
+  rule from the rule list and scored it at a block probability of 0.35 or less, and every other rule
+  that blocks is a soft rule from the rule list that Jev also chose to allow at 0.35 or less.
 - A missing key, a timeout, a failed call or an unreadable reply keeps the deny with its fixed
   reason. The judge never turns a failure into an allow, whatever `onFailure` says.
 
@@ -207,10 +207,11 @@ and 20. A deny is the normal outcome of a refused action: the agent reads the re
 on another path. The budget is the only part of auto-mode that turns a deny into a prompt. Each deny
 states how many denials remain, and the last one tells the agent to stop and report what consent it
 needs. The action that would exceed either limit gets no verdict, so Claude Code shows its normal
-permission prompt, and both counts start again from zero. An allow resets the consecutive count. A
-retry of the action just denied is denied again without a classifier call and counts as a denial. A
-retry is the same tool, directory and input; a new Bash `description` or `timeout` does not make it
-new, while a new direct user message does, so new consent reaches the classifier.
+permission prompt, and both counts start again from zero. An allow resets the consecutive count.
+
+A retry of the action just denied is denied again without a classifier call and counts as a denial.
+A retry is the same tool, directory and input; a new Bash `description` or `timeout` does not make
+it new, while a new direct user message does, so new consent reaches the classifier.
 
 The counts live in `$XDG_STATE_HOME/auto-mode/denials/`, one file per session and subagent, so they
 survive a reload of the mod and a `--resume` of the session. Two tool calls checked at the same
@@ -220,12 +221,14 @@ moment in one session can each read the same count, so the count can fall one sh
 { "decision": { "denialBudget": { "consecutive": 5, "perSession": 40 } } }
 ```
 
+### Block threshold
+
 `blockThreshold` accepts a value above `0` and up to `1`. Jev answers each rule with a block
 probability, and auto-mode allows unless one of them reaches the threshold. A lower value stops more
 actions; a higher one lets more through. The default of 0.2 comes from a replay of recorded and
 synthetic actions, not from a measured accuracy guarantee. A deny at the threshold is a valid
-result, not a service failure, so `onFailure` does not apply to it. The old `minConfidence` key is
-not accepted.
+result, so `onFailure` does not apply to it. auto-mode no longer accepts the old `minConfidence`
+key.
 
 ## Policy
 
@@ -260,7 +263,7 @@ exceptions in the configuration rather than an earlier conversational message.
 
 ## Capture
 
-The capture records real traffic for an evaluation corpus. It is off unless the file turns it on:
+Turn the capture on to record real traffic for an evaluation corpus. It is off by default:
 
 ```json
 { "capture": { "enabled": true } }
@@ -281,12 +284,12 @@ file to `0600`, and refuses to write through a link at the file's path.
 A capture holds whole prompts, commands and paths, so it never goes into git. The CLI resolves the
 directory through any link and refuses one inside a git work tree: it writes nothing and prints
 `auto-mode: capture skipped:` with the reason to stderr. A bare repository whose work tree is the
-home directory, such as a dotfiles repository, leaves no `.git` on that walk, so the CLI also keeps
-a `.gitignore` holding `*` in the directory; git honours it in any work tree, so `git add -A` skips
-the captures. `git add -f` still adds them, so never force-add under the capture directory. A
-capture that cannot be written prints `auto-mode: capture unavailable`. Neither changes the verdict
-or the exit code. A request the CLI does not judge, such as a body that is not a mod request, is not
-captured.
+home directory, such as a dotfiles repository, leaves no `.git` on that walk. For that case the CLI
+also keeps a `.gitignore` holding `*` in the directory, which git honours in any work tree, so
+`git add -A` skips the captures. `git add -f` still adds them, so never force-add under the capture
+directory. A capture that cannot be written prints `auto-mode: capture unavailable`. Neither changes
+the verdict or the exit code. A request the CLI does not judge, such as a body that is not a mod
+request, is not captured.
 
 To turn the capture off, set `enabled` to `false` or remove the block; the CLI then never touches
 the directory. Delete the files you no longer need: the CLI never prunes them.
@@ -298,7 +301,7 @@ capture into a corpus.
 Each block is strict: a key auto-mode does not know makes the file invalid, so a field in the wrong
 place is reported instead of ignored. That includes the top-level keys of earlier releases, such as
 `preset`, `provider` or `rulesPath`: the diagnostic names the key, and its value belongs in one of
-the five blocks above. Registry entries are parsed one at a time. A bad entry is left out with one
+the blocks above. Registry entries are parsed one at a time. A bad entry is left out with one
 diagnostic line naming it, and the other entries load:
 
 ```text
