@@ -10,6 +10,7 @@ and rule. It evaluates only ask decisions. Every classifier decision is an allow
 reason, so an uncertain decision reaches the agent as a denial. A missing executable, child timeout,
 invalid output, or absent session context preserves the original ask. A configured classifier
 failure under `onFailure: "deny"` can still return a named denial.
+[Configuration](./configuration.md) defines Jev, the judge, `decision.classifier` and `onFailure`.
 
 The mod evaluates main and subagent calls through the same permission check. Each check reads the
 current directory inside that call's host context. Agent delegation passes through the normal check
