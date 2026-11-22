@@ -7,8 +7,9 @@ asks one question per block rule, "under this rule, must the pending action be r
 `allow` and `block` as the options. The CLI then decides from the probabilities, not from Jev's
 choices, so the threshold for a deny is auto-mode's setting and not the model's. Jev writes no
 explanation, so every deny on a rule carries fixed text the CLI holds for that rule, and
-[the judge](./judge.md), when configured, reviews each one. A deny for a failed call names no rule,
-and the judge never reviews it ([failure](#failure)).
+[the judge](./judge.md), when configured, reviews each one. A deny for a failed call carries
+`Classifier Unavailable`, which belongs to no rule in the policy, and the judge never reviews it
+([failure](#failure)).
 
 The [policy](../policy.md) owns the rules themselves and the framework Jev reads.
 [The user message](../evidence/user-message.md) and

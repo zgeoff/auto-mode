@@ -5,15 +5,17 @@ When Claude Code is about to ask the user about a tool call, the auto-mode mod r
 CLI once to judge that call, and the CLI writes back an allow, a deny with a reason, or no verdict
 at all. An allow lets the call run, and a deny reaches the agent as the tool's result, so the agent
 continues on another path. No verdict makes the mod keep the prompt Claude Code was about to show,
-so the user decides. The design targets Claude Code driven by a model other than Claude, a setup
-that gets no judging of its own; [the product README](../../README.md) covers what auto-mode is for.
+so the user decides. auto-mode is built for Claude Code driven by a model other than Claude, a setup
+that gets no judging of its own. For what auto-mode is for, see
+[the product README](../../README.md).
 
 Every call the CLI judges passes through deterministic checks first, and only what they leave open
 reaches Jev, a classifier from TypeSafe that answers typed questions over its decision API. A second
-model, the judge, reviews every deny Jev gives, unless the configuration turns the judge off. The
-denial budget acts at both ends of the path. Before any check, it answers a repeat of the action it
-just denied. After the judge, it counts the deny, and it is the only part of auto-mode that turns a
-deny into a prompt: an agent that keeps getting denied is eventually handed back to the user.
+model, the judge, reviews every deny Jev gives, unless you turn the judge off in the configuration.
+The denial budget acts at both ends of the path. Before any check, it denies again a call that
+repeats the action it just denied. After the judge, it counts the deny, and it is the only part of
+auto-mode that turns a deny into a prompt: an agent that keeps getting denied is eventually handed
+back to the user.
 
 ## The path of a prompted call
 
