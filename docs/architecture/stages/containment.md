@@ -5,21 +5,21 @@ a call, such as the paths it writes, the branch it pushes and the pull request i
 denies the call as `Outside Task Scope` when any target lies outside the
 [task scope](../evidence/task-scope.md). It also denies a call that discards work it cannot show the
 task owns, even inside the task's own worktree
-([what counts as a write target](#what-counts-as-a-write-target)). It never allows: a call with no
-finding moves on to the next stage, and so does a call whose deny stays pending for the judge. It
-returns before Jev reads the configured allow entries, so none of them clears its deny. Only the
-user can, by naming every target in a direct message, and then the judge decides whether the message
-asks for the action ([the user-named grant](#the-user-named-grant)). The
+([what counts as a write target](#what-counts-as-a-write-target)). It never allows a call. A call
+with no finding moves on to the next stage, and so does a call whose deny stays pending for the
+judge. It returns before Jev reads the configured allow entries, so none of them clears its deny.
+Only the user can, by naming every target in a direct message, and then the judge decides whether
+the message asks for the action ([the user-named grant](#the-user-named-grant)). The
 [denial budget](./denial-budget.md) still counts the deny.
 
 ## A deterministic reading of the call
 
 The check reads the call's text and never the filesystem or the network, so it answers the same way
-for the same call. That choice sets its limit: it judges only targets it can resolve from the text.
-A path built from a variable, a command substitution or another user's home yields no finding, and
-so does a relative path once the current directory is unknown. Those calls go on to Jev, which
-judges them from the policy instead. A missed target is therefore a call the classifier sees, never
-a call that runs unjudged.
+for the same call. It judges only the targets it can resolve from the text. A path built from a
+variable, a command substitution or another user's home yields no finding, and so does a relative
+path once the current directory is unknown. Those calls go on to Jev, which judges them from the
+policy instead. A missed target is therefore a call the classifier sees, never a call that runs
+unjudged.
 
 The check follows a shell command segment by segment and tracks `cd`, so
 `cd ../other && rm -rf build` resolves `build` against the other directory. A `cd` inside a pipeline
@@ -97,23 +97,23 @@ rule gives a text of its own, quotes the first operand, or quotes the whole call
 
 ## Changing the reader
 
-A change to how the check reads a program call cites a form from real capture data: a command from a
-[request capture](../state-and-logs.md#the-request-capture), or from a corpus case whose source is
-recorded ([corpora](../evaluation.md#corpora)). The change adds that form, anonymised, as a test,
-and its pull request states where the form was seen. The rule covers a new table entry, a new
-option, flag or subcommand in an entry, and a change to the reader itself, and it covers a fix that
-removes a false finding as much as one that adds a missed finding.
+When you change how the check reads a program call, cite a form from real capture data: a command
+from a [request capture](../state-and-logs.md#the-request-capture), or from a corpus case whose
+source is recorded ([corpora](../evaluation.md#corpora)). Add that form, anonymised, as a test, and
+say in the pull request where the form was seen. The rule covers a new table entry, a new option,
+flag or subcommand in an entry, and a change to the reader itself, and it covers a fix that removes
+a false finding as much as one that adds a missed finding.
 
-A form that is only plausible stays unread. An unread form loses the check's deterministic deny and
+Leave a form that is only plausible unread. An unread form loses the check's deterministic deny and
 nothing else: the call goes on to Jev, which judges it from the policy, and the judge reviews the
 call only when Jev denies it. A call that Jev allows therefore runs with no second review, so an
 unread form rests on Jev's reading of the policy. A reading for a form no agent runs changes no real
-outcome, yet every later change to the reader must keep it working, so the reader grows only where
-real calls lead it.
+outcome, yet every later change to the reader must keep it working, so add a reading only for a form
+real calls use.
 
 ## What counts as a write target
 
-Each finding has one of six kinds, and the deny reason holds the kind and the target:
+Each finding has one of these kinds, and the deny reason holds the kind and the target:
 
 - **Path:** the file tools' targets, output redirections, the programs that delete, move, copy or
   edit files in place, and git commands such as `commit`, `reset` or `checkout` run in a directory
@@ -185,7 +185,7 @@ sufficient, because a name cannot tell a target to write from a source to read: 
 from the export-csv worktree" names the export-csv worktree, and a write into it still stays denied
 when the judge confirms.
 
-A message names a target in one of four ways:
+A message names each kind of target this way:
 
 - **A path** by the path itself, written in full or from `~`, by a directory above it inside the
   same worktree, or by the name of the worktree that holds it. A directory never names a worktree
