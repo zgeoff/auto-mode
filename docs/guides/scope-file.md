@@ -5,8 +5,8 @@ before the session makes its first call. The launcher writes one JSON file per s
 this guide describes, and names the file in the session's environment as `AUTO_MODE_SCOPE_FILE`.
 With the `launcher` scope source on, as it is in the shipped configuration, auto-mode reads the file
 on every call it judges and adds what the file declares to the
-[task scope](../architecture/evidence/task-scope.md). The format belongs to auto-mode, so a launcher
-needs no code from auto-mode and auto-mode needs none from the launcher.
+[task scope](../architecture/evidence/task-scope.md). auto-mode defines the format. A launcher needs
+no code from auto-mode to write the file, and auto-mode needs none from the launcher.
 
 ## The format
 
@@ -24,10 +24,11 @@ The file is one JSON object. `format` and `version` are required, and every othe
 | `replyChannels` | recipients the session may message as its own, each with `tool`, `field`, `recipient` |
 
 Every path is absolute. A checkout's `branch` is the branch checked out there, or `null` for a
-detached head. A branch's `repo` is the path of a checkout of the repository the branch lives in,
-and a branch without one belongs to the workspace's repository, so a file with no workspace gives
-every branch a `repo`. A pull request's `repo` is the `owner/name` slug, its `branch` is the head
-branch, and its optional `url` names the forge host, which is GitHub without one.
+detached head. A branch's `repo` is the path of a checkout of the repository the branch lives in. A
+branch without one belongs to the workspace's repository, so in a file with no workspace, give every
+branch a `repo`. A pull request's `repo` is the `owner/name` slug and its `branch` is the head
+branch. auto-mode takes the forge host from the optional `url`, and assumes GitHub when there is
+none.
 
 A reply channel names a tool, the field of the tool's input that holds the recipient, and the
 recipient, such as the agent that spawned the session. A call to that tool whose field holds exactly
@@ -57,20 +58,21 @@ back to the agent named `planner`:
   scope sources: a branch counts only in its own repository, and no file can hand a session the
   default branch or a protected branch.
 - **A reply-channel message** is allowed without asking Jev once a secret scan of the call's input
-  finds nothing ([the reply channel](../architecture/stages/reply-channel.md)). A message to any
-  other recipient, or through any other tool, is judged as outbound like every other message.
+  finds nothing ([the reply channel](../architecture/stages/reply-channel.md)). Jev judges a message
+  to any other recipient, or through any other tool, as outbound, like every other message.
 
-A reply channel grants no consent. It takes each message through that channel out of what Jev
-judges, and nothing a rule asks the user to name. auto-mode reads any reply channel as the mark of a
-session that another session spawned, so the session's opening prompt counts as task context and
-never as the user's consent ([the user message](../architecture/evidence/user-message.md)). List a
-reply channel only for a session that has a spawner.
+A reply channel grants no consent. It only takes the messages sent through it out of what Jev
+judges, and it never counts as the user naming something a rule asks the user to name. auto-mode
+reads any reply channel as the mark of a session that another session spawned, so the session's
+opening prompt counts as task context and never as the user's consent
+([the user message](../architecture/evidence/user-message.md)). List a reply channel only for a
+session that has a spawner.
 
-auto-mode reads the file and never writes it. A missing file, or no `AUTO_MODE_SCOPE_FILE`, adds
-nothing. A file that is not JSON, holds another version, holds a field the format does not define,
-or holds a field value of the wrong shape adds nothing either, and auto-mode prints one line to
-stderr. The line names the field it refused when it can, such as `replyChannels.0.recipient` or a
-misspelt key, and otherwise names only the file.
+auto-mode reads the file and never writes it. When `AUTO_MODE_SCOPE_FILE` is unset or the file is
+missing, auto-mode adds nothing. It also ignores a file that is not JSON, holds another version,
+holds a field the format does not define, or holds a field value of the wrong shape, and prints one
+line to stderr. The line names the field it refused when it can, such as `replyChannels.0.recipient`
+or a misspelt key, and otherwise names only the file.
 
 ## Writing the file from a launcher
 
@@ -84,6 +86,6 @@ misspelt key, and otherwise names only the file.
    next call it judges.
 5. Remove the file when the session ends.
 
-The `launcher` scope source reads the file, and the shipped configuration runs it. A configuration
-whose `scopeSources` block leaves out `launcher` ignores the file
+The `launcher` scope source reads the file, and the shipped configuration turns it on. When your
+configuration's `scopeSources` block leaves out `launcher`, auto-mode ignores the file
 ([scope sources](./configuration.md#scope-sources)).
