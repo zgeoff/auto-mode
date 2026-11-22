@@ -2,7 +2,8 @@
 
 The mod is how auto-mode runs in Claude Code. It judges a permission request before the dialog
 appears. It uses `tool.check` in Claude Code 2.1.292 and runs the auto-mode CLI from the same
-release as a child process.
+release as a child process. Read this guide to check the mod, to try it in a test session, or before
+you change what the mod sends the CLI.
 
 The mod calls `next(e)` first and keeps an existing allow or deny unchanged, including its reason
 and rule. It evaluates only ask decisions. Every classifier decision is an allow or a denial with a
@@ -37,7 +38,8 @@ context preserves manual approval until the next user prompt.
 Each request carries the session identity, the tool-call identifier, the current directory, the
 complete action, and the task context above. The mod reads `session_id` from `classic.SessionStart`
 and `classic.UserPromptSubmit`. Claude Code's `--resume` keeps the session ID unless
-`--fork-session` is passed. The mod keeps no other state across a reload.
+`--fork-session` is passed. The mod holds the session ID in memory only, so after a mod reload it
+has none until the next of those events, and each ask keeps its prompt until then.
 
 ```json
 {
@@ -58,9 +60,9 @@ and `classic.UserPromptSubmit`. Claude Code's `--resume` keeps the session ID un
 
 The CLI writes `{"decision":"allow"}`, `{"decision":"deny","reason":"[Rule Name] text"}`, or
 nothing. It writes nothing only for a body it cannot read or a classifier failure under
-`onFailure: "defer"`. Nothing keeps the prompt. `parse-decision.ts` alone maps that output to Claude
-Code's permission decision. The CLI and the mod ship together, so the CLI refuses a request in any
-other shape, and the mod keeps the prompt.
+`onFailure: "defer"`. When the CLI writes nothing, the mod keeps the prompt. `parse-decision.ts`
+alone maps that output to Claude Code's permission decision. The CLI and the mod ship together, so
+the CLI refuses a request in any other shape, and the mod keeps the prompt.
 
 ## The scope record
 
@@ -86,8 +88,8 @@ the head branch it reports. A branch counts only in the repository it was made i
 of one session take a lock file, so none loses another's additions. A record whose `startedAt` is
 more than 15 minutes old adds nothing. Only the mod records: an agent's own call to
 `auto-mode record`, through any runner, is a credential finding that the containment check denies.
-Any other Bash call and any denied call run no subprocess. The record body is strict, as the request
-is.
+After any other Bash call, and after any denied call, the mod runs no record. The record body is
+strict, as the request is.
 
 Each optional task prompt has a 4,096-byte limit. An oversized task is omitted whole. If the
 complete request exceeds 100,000 bytes, the client omits optional tasks before it refuses the
