@@ -179,9 +179,9 @@ classifier must be a Jev kind, and the judge cannot be one, because Jev writes n
 ### Judge
 
 The judge reviews each deny Jev makes, and each containment deny whose every target the last direct
-user message names, with the prompt in `policy/judge.md` and the rules spliced in. It reads the
-denied rule, the action, the last direct user message and the repository facts, and answers confirm
-or overturn with a short reason.
+user message names, unless a target is the default branch or a protected branch, with the prompt in
+`policy/judge.md` and the rules spliced in. It reads the denied rule, the action, the last direct
+user message and the repository facts, and answers confirm or overturn with a short reason.
 
 - A confirm keeps the deny, and the agent reads `The reviewer confirmed the <rule> deny:` followed
   by the judge's reason, cut to 600 characters, then the instruction every deny ends with.

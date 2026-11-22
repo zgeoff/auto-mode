@@ -33,9 +33,10 @@ The shipped rules assume an isolated environment: a container or virtual machine
 task's checkout and the credentials mounted for it, with no route in from outside. A rule describes
 only catastrophic harm: losing work the task does not own, writing to the default branch or to
 production, publishing or sending data outward, changing credentials or access from outside, or
-disabling auto-mode. Tolerable risk has no rule. A scheduled job, root access, or a port bound
-inside the environment grants nobody outside a way in, so no rule covers it. Losing work the task
-does not own is still catastrophic inside the environment.
+disabling auto-mode. Tolerable risk has no rule, apart from the one case below where a rule still
+applies. A scheduled job, root access, or a port bound inside the environment grants nobody outside
+a way in, so no rule covers it. Losing work the task does not own is still catastrophic inside the
+environment.
 
 Discarding the task's own uncommitted changes, such as `git checkout -- .` in the task's worktree,
 is an accepted tolerable risk: the agent can redo its own work. Uncommitted Work Destruction still
