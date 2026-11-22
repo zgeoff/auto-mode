@@ -6,36 +6,41 @@ what the judge's model calls did, without prompts or secrets in the file.
 Read `$XDG_STATE_HOME/auto-mode/actions.jsonl`, or `~/.local/state/auto-mode/actions.jsonl` when the
 variable is absent. Each recognized action has a `started` record and a final record with the same
 `invocationID`. New files use mode `0600`. Set `AUTO_MODE_DIAGNOSTICS_PATH` to another file, or to
-an empty string to disable the file. A failed diagnostic write does not change the verdict. Records
-carry `schemaVersion` 9. A version 8 record lacks the `taskEvidence` field, a version 7 record also
-lacks the `overturnReason` field of `judge` and `grant`, a version 6 record also lacks the `action`
-field, a version 5 record also lacks the `grant` field, a version 4 record also lacks the
-`agentHash` field, a version 3 record also lacks the `judge` field and the `judge` stage, a version
-2 record also lacks the three budget fields below, and a version 1 record in an older file also
-carries `harness` and `event`.
+an empty string to disable the file. A failed diagnostic write does not change the verdict.
+
+Records carry `schemaVersion` 9. A version 8 record lacks the `taskEvidence` field, a version 7
+record also lacks the `overturnReason` field of `judge` and `grant`, a version 6 record also lacks
+the `action` field, a version 5 record also lacks the `grant` field, a version 4 record also lacks
+the `agentHash` field, a version 3 record also lacks the `judge` field and the `judge` stage, a
+version 2 record also lacks the three budget fields below, and a version 1 record in an older file
+also carries `harness` and `event`.
 
 The records exclude prompts, configuration contents, credentials, exception text, and the text of
 provider replies. They exclude commands and paths too, except in the `action` field of a record that
 holds a judge review. The one reply text they hold is the judge's reason for an overturn, in
-`overturnReason`. Only shipped rules keep their public names: `contributors` names any other rule by
-its question identifier, and `judge` by the word `configured` or `replacement`. Session, agent and
-action identifiers use the first 16 hexadecimal characters of SHA-256. Hash a recorded tool-call
-identifier to find its `actionHash`. For a subagent, `agentHash` hashes the session identifier and
-the subagent identifier joined by a NUL character, so each subagent gets its own value. The main
-agent has no subagent identifier, and its `agentHash` equals its `sessionHash`, the key an earlier
-record holds, so a session that spans the change of version keeps one key for its main agent.
+`overturnReason`. Only shipped rules keep their public names: `contributors` records any other rule
+by its question identifier, and `judge` by the word `configured` or `replacement`.
+
+Session, agent and action identifiers use the first 16 hexadecimal characters of SHA-256. Hash a
+recorded tool-call identifier to find its `actionHash`. For a subagent, `agentHash` hashes the
+session identifier and the subagent identifier joined by a NUL character, so each subagent gets its
+own value. The main agent has no subagent identifier, and its `agentHash` equals its `sessionHash`,
+the key an earlier record holds, so a session that spans the change of version keeps one key for its
+main agent.
 
 For Jev, `diagnostics.status` distinguishes `allow`, `deny`, `failure`, `timeout`, and `cancelled`.
 `stage` identifies credential resolution, evidence preparation, the request, or a validated
 response. `keySource` and `keyResolved` show whether the environment or helper supplied a key. A
-request-stage failure does not prove that an HTTP request reached the provider. `failureReason`
-holds `request-too-large` when the serialized request exceeds 100,000 bytes and no call was made,
-`aborted` when the call or the response read was aborted, with `status` showing whether by the
-provider timeout, the evaluation deadline, or a cancellation, `network` when the call did not
-complete, `http-status` for a non-success response, and `invalid-response` for a body that fails
-validation. It is `null` for other failures and for a completed decision. `requestBytes` holds the
-UTF-8 size of the serialized request body whenever the body was built, including for the failures
-above; it is `null` when a failure came before the body. It records a size only, never content.
+request-stage failure does not prove that an HTTP request reached the provider.
+
+`failureReason` holds `request-too-large` when the serialized request exceeds 100,000 bytes and no
+call was made. It holds `aborted` when the call or the response read was aborted, and `status` shows
+whether the provider timeout, the evaluation deadline, or a cancellation aborted it. It holds
+`network` when the call did not complete, `http-status` for a non-success response, and
+`invalid-response` for a body that fails validation. It is `null` for other failures and for a
+completed decision. `requestBytes` holds the UTF-8 size of the serialized request body whenever the
+body was built, including for the failures above; it is `null` when a failure came before the body.
+It records a size only, never content.
 
 `contributors` records every rule whose block probability reached the threshold, highest first, with
 its choice, confidence, and `blockProbability`; the first one is the rule the deny names. An allow
@@ -73,15 +78,15 @@ working directory. `input` is the tool input as JSON, with each secret the secre
 replaced by `[secret]`, cut to its first 2000 characters. It is `null` when a secret is still left
 after the replacement. Hash the session identifier to find the session's `sessionHash`.
 
-`taskEvidence` records which parts of the task context the classifiers received, after the CLI
-resolved a spawned session's opening prompt and dropped any task over its size limits, and never
-their text. When Jev answers a request that dropped a task to fit, the final record holds what that
-request carried. `userMessage` is `current`, `stale`, or `null` when the request carried no last
-direct user message. `originalUserTask` holds the origin of the original user task, or `null` when
-the request carried none. `delegatedTask` is `true` when the request carried a delegated task. The
-field is `null` for a request with no task context.
+`taskEvidence` records which parts of the task context the classifiers received, but never their
+text. It reflects the context after the CLI resolved a spawned session's opening prompt and dropped
+any task over its size limits. When Jev answers a request that dropped a task to fit, the final
+record holds what that request carried. `userMessage` is `current`, `stale`, or `null` when the
+request carried no last direct user message. `originalUserTask` holds the origin of the original
+user task, or `null` when the request carried none. `delegatedTask` is `true` when the request
+carried a delegated task. The field is `null` for a request with no task context.
 
-Each final record also measures the task, so escalations can be counted per agent:
+Each final record also holds these fields, so you can count escalations per agent:
 
 | Field           | Values                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------- |
@@ -90,8 +95,8 @@ Each final record also measures the task, so escalations can be counted per agen
 | `escalation`    | `true` when the denial budget left this action to the user                                  |
 
 `local` is the deterministic tier, `containment` a deny for a write outside the task scope, `bypass`
-an allow by the edit bypass or the reply channel, and `jev` the classifier, and `judge` a Jev deny
-the judge confirmed, held or overturned, or one whose judge call failed. `retry` is a repeat of the
+an allow by the edit bypass or the reply channel, `jev` the classifier, and `judge` a Jev deny the
+judge confirmed, held or overturned, or one whose judge call failed. `retry` is a repeat of the
 action just denied, denied again without a classifier call. `budget` marks the action that exceeded
 the [denial budget](./configuration.md#denial-budget): auto-mode wrote no verdict, Claude Code
 showed its prompt, and `denials` restarts at zero. Denial counts outside these records live in
