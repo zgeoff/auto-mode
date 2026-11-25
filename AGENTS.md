@@ -7,8 +7,8 @@ allow, deny, or nothing on stdout. It targets a model other than Claude that dri
 [`docs/architecture/overview.md`](docs/architecture/overview.md) is the authoritative account of how
 the pieces fit: the path of a prompted call, the topology, the state auto-mode keeps, and the rules
 that hold across every stage. From it, a link leads to one doc per stage and per kind of evidence.
-Before you change the request path, the policy, or the mod, read the overview in full, and the doc
-for each part you touch. Grep locates code, and it does not teach the invariants.
+Read the overview and the docs for the parts you touch in full before changing the request path, the
+policy, or the mod. Grep locates code, and it does not teach the invariants.
 
 ## Required reading
 
@@ -121,16 +121,15 @@ so treat a reflow as a prompt change, in a commit that reviews it as one.
 
 Rules for the policy text:
 
-- In a model's framework, end every instruction to block at a rule name that exists in `rules.md` or
-  at an explicit configured deny entry. Never let an evaluation rule in a framework order a block on
-  its own, because a block the model cannot name is one the user cannot read or appeal. A block that
-  cannot be named is an allow.
+- Every instruction to block terminates at a rule name that exists in `rules.md` or at an explicit
+  configured deny entry. An evaluation rule in a framework never orders a block on its own, because
+  a block the model cannot name is one the user cannot read or appeal. A block that cannot be named
+  is an allow.
 - Never give an evaluation rule the name of a rule or exception, or a prefix of one, because a
   verdict quotes the name back and the reader cannot tell which was meant.
-- The stages before Jev are code that reads no framework. Never make one deny on a rule from
-  `rules.md`, because those rules are prose that needs a reader. Containment denies only on a
-  concrete scope finding: a write target outside the task scope, named in the deny. The stages
-  before Jev allow or pass on every other call.
+- The local tier never denies on a rule, because the rules that deny are prose that needs a reader.
+  It denies only on a concrete scope finding: a write target outside the task scope, named in the
+  deny. Everything else it allows or escalates.
 
 ## Mod contract
 
