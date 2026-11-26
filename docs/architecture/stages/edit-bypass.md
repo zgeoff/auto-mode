@@ -8,8 +8,8 @@ whose target lies in a worktree the task owns, unless the target is a file whose
 a guard, or a secret scan finds a secret in the new content. The scan skips the file types
 Betterleaks never scans, so a secret in one of those passes. Every case the bypass does not allow
 goes to Jev, never to a deny, so the bypass can only remove calls from what Jev sees. Shell writes
-always go to Jev, because the bypass judges a file the tool names and a shell command names none it
-can trust.
+always go to Jev, because the bypass judges the file path in the tool call, and a shell command
+holds no path it can trust.
 
 The bypass runs after the [containment check](./containment.md), so an edit whose target lies
 outside the task scope is already denied, and the bypass sees only edits that are inside the scope
@@ -31,7 +31,7 @@ agent, what runs later, or what holds credentials:
 - git metadata
 - agent configuration, such as `.claude/`, `AGENTS.md`, `CLAUDE.md` and `.mcp.json`, and settings
   files
-- hook files, which include any file that names a command to run later, such as `package.json` with
+- hook files, which include any file that holds a command to run later, such as `package.json` with
   its scripts, `bunfig.toml`, `.gitattributes` and `.vscode/tasks.json`
 - CI workflows
 - env files and credential files
@@ -45,24 +45,24 @@ The bypass scans the new content with the Betterleaks rule set, and any match se
 The rule set is Betterleaks' own, compiled from its rule file into a bundled TypeScript module by a
 script in the repo, because the CLI runs under node with bundled dependencies and cannot ship the
 Betterleaks binary. The build writes the same compiled rules to the package as
-`dist/secret-rules.json`, so a tool outside auto-mode scans with the rules auto-mode scans with.
-When a rule's pattern matches its own text, the script writes the first matched character as a
-one-character class, which matches the same strings, so a secret scan of the installed package finds
-no secret in the rule set. Rules that backtrack badly on hostile input run on a linear-time regex
-engine instead of V8's. The CLI loads the rule set only for a file edit that reaches the bypass, so
-every other call starts without it. The scan never sends a match to its provider to validate it,
-because validation would send the secret to a third party.
+`dist/secret-rules.json`, so a tool outside auto-mode can scan with the same rules. When a rule's
+pattern matches its own text, the script writes the first matched character as a one-character
+class, which matches the same strings, so a secret scan of the installed package finds no secret in
+the rule set. Rules that backtrack badly on hostile input run on a linear-time regex engine instead
+of V8's. The CLI loads the rule set only for a file edit that reaches the bypass, so every other
+call starts without it. The scan never sends a match to its provider to validate it, because
+validation would send the secret to a third party.
 
-The bypass scans a Write or NotebookEdit call as its whole new content, and an Edit call in the file
-it produces: the bypass reads the current file, applies the replacement, and scans the lines around
-each replaced span, because a rule can need the text around a value, such as the assignment a key
-sits in. An Edit whose old text is not in the file, or whose file cannot be read, goes to Jev.
-Content larger than the scan's size cap goes to Jev unscanned, rather than scanned in part. A path
-that Betterleaks itself never scans, such as an image or a `go.sum` file, passes the scan.
+For a Write or NotebookEdit call, the bypass scans the whole new content. For an Edit call, it reads
+the current file, applies the replacement, and scans the lines around each replaced span, because a
+rule can need the text around a value, such as the assignment a key sits in. An Edit whose old text
+is not in the file, or whose file cannot be read, goes to Jev. Content larger than the scan's size
+cap goes to Jev unscanned, rather than scanned in part. A path that Betterleaks itself never scans,
+such as an image or a `go.sum` file, passes the scan.
 
 ## When the bypass is off
 
-The bypass does not run in three cases, and each sends every edit to Jev:
+The bypass does not run in these cases, and each sends every edit to Jev:
 
 - **The user's Claude settings hold block entries.** Only Jev reads those entries
   ([settings and repository facts](../evidence/settings-and-repository.md)), so a bypassed edit

@@ -25,16 +25,18 @@ None.
 ## Running the suite
 
 - Run `bun run test`. It builds `dist/`, runs the unit tests through `rig unit`, the `@zgeoff/rig`
-  test runner, and then runs the `e2e/` tests through `bun run test:e2e`, which builds the
-  `auto-mode` program again and runs `rig e2e`. `bun run test:related <files>` builds `dist/` too,
-  then runs the tests beside the files you name through `rig related`.
+  test runner, and then runs the `e2e/` tests through `bun run test:e2e`. That script runs
+  `rig e2e`, which builds `dist/` again with the `auto-mode` program's `build` command in
+  [`rig.config.ts`](../../../rig.config.ts). `bun run test:related <files>` builds `dist/` too, then
+  runs the tests beside the files you name through `rig related`.
 - Keep `--no-env-file` and `--conditions=auto-mode-eval` in the `BUN_OPTIONS` variable that the
   `test` and `test:related` scripts in [`package.json`](../../../package.json) set. `rig related`
   passes no flags on to `bun test`, and Bun reads `BUN_OPTIONS` in every process that rig starts.
 - Pass both flags to a bare `bun test`, such as
   `bun --no-env-file test --conditions=auto-mode-eval evals/<path>`. Without `--no-env-file`, Bun
-  loads your `.env`, and a test sees your real API key. Without the condition, the `auto-mode`
-  import of an evaluation resolves to `dist/`, and its `auto-mode/eval` import doesn't resolve.
+  loads your `.env`, and a test sees your real API key. Without the condition, an `auto-mode`
+  package import resolves to `dist/` in place of `src/`, and an `auto-mode/eval` import doesn't
+  resolve at all.
 - Pass a `Bun.spawn` or `Bun.$` child an explicit `env` that holds only what it needs, such as
   `PATH` and a `HOME` in the temp folder. The preload,
   [`test-setup.ts`](../../../src/test-utils/test-setup.ts), deletes the `GIT_*` variables a git hook
@@ -73,11 +75,14 @@ scratch paths are the folders every task may write. Every function below them ta
   `@zgeoff/testing/process`. Give it an `env` from
   [`buildIsolatedEnv`](../../../src/test-utils/build-isolated-env.ts) that holds `PATH`, plus `HOME`
   and the XDG folders set to the temp folder, as the `cli-*.test.ts` files in
-  [`e2e/`](../../../e2e/) do. `bun run test:e2e` builds `dist/` first. A bare `bun test e2e/<file>`
-  runs the source, so build with `bun run build` before a suite that copies or packs `dist/`.
+  [`e2e/`](../../../e2e/) do. Under `bun run test:e2e`, `resolveProgram` gives the built
+  `dist/cli.js`. Under a bare `bun test` of an `e2e/` file, with both flags above, it gives the
+  source, `src/cli.ts`, and nothing builds `dist/`, so run `bun run build` first for a suite that
+  copies or packs `dist/`.
 - Get the node binary from [`readNodePath`](../../../src/test-utils/read-node-path.ts), which runs
-  `node -p process.execPath` with the test's own `process.env` and returns the path it prints. Never
-  spawn the `node` on `PATH`: a version manager's `node` shim needs your real `HOME`, which the
+  `node -p process.execPath` with the test's own `process.env` and returns the path it prints. It is
+  the one child that gets the full environment, because it runs no code under test. Never spawn the
+  `node` on `PATH` for the CLI: a version manager's `node` shim needs your real `HOME`, which that
   child doesn't get.
 - To send a stop signal to a spawned CLI, copy [`cli.test.ts`](../../../src/cli.test.ts). Set the
   API key command in the CLI's config to

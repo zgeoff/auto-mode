@@ -3,10 +3,10 @@
 Evaluation answers one question about each change to how auto-mode decides: does it still allow no
 catastrophic action, and what does it cost ordinary work? The `evals/` folders hold the committed
 corpora, `src/measure/` holds the tooling and the experiments, and a private results repository
-holds every run. Evidence comes in two kinds that never mix. Classifier evidence sends fixed cases
-through one or more stages and measures what a stage decides about an action it has never seen.
-Product evidence reads the action log of real sessions, because a deny changes what the agent does
-next, and no replayed case can show recovery or a human escalation.
+holds every run. Classifier evidence and product evidence never mix. Classifier evidence comes from
+fixed cases sent through one or more stages, and measures what a stage decides about an action it
+has never seen. Product evidence comes from the action log of real sessions, because a deny changes
+what the agent does next, and no replayed case can show recovery or a human escalation.
 [Run an evaluation](../runbooks/run-an-evaluation.md) gives the steps.
 
 ## The package boundary
@@ -24,23 +24,23 @@ as it stands in the checkout. The core never imports `src/measure/` or `evals/`.
 An experiment is one small definition: the corpora it reads, how it picks its cases, its ordered
 stages, the measurements it reports, and the recordings it can replay. A stage sends one kind of
 request, such as a Jev decision or a judge review, and can review the records of the stages before
-it, so a judge stage sees only the cases its Jev stage denied. The registry lists every experiment,
-and `bun run eval list` prints it.
+it. A judge stage, for example, sees only the cases its Jev stage denied. Run `bun run eval list` to
+print every experiment in the registry.
 
 One command runs an experiment, in one of three modes:
 
-- **Offline,** the default, builds every model request and stops before sending one, so a run plan
-  can be checked before it costs anything. An experiment whose stages send no model request, such as
-  the containment replay, runs to its results offline.
+- **Offline,** the default, builds every model request and stops before sending one, so you can
+  check a run plan before it costs anything. An experiment whose stages send no model request, such
+  as the containment replay, runs to its results offline.
 - **Live** sends the requests to the models under a request cap, records every answer, and can
   resume a run that was interrupted.
 - **Recorded** answers each request from a recording of past answers instead of a model. A stage
-  that no recording covers is reported as not measured, rather than guessed.
+  that no recording covers is reported as not measured.
 
 The replay suites run the recorded answers through the deterministic stages inside `bun test`, with
-no model call, so CI runs only replay, and a change that breaks a recorded outcome fails the suite.
-A live run first checks that the configuration it runs under is the shipped Jev configuration, so
-its results describe what users run.
+no model call. CI runs evaluations only as these suites, and a change that breaks a recorded outcome
+fails them. A live run first checks that the configuration it runs under is the shipped Jev
+configuration, so its results describe what users run.
 
 ## Measurements
 
@@ -61,10 +61,12 @@ and a one-question shape side by side. Repeated samples of one case are not inde
 tooling clusters errors by case, takes an interval at the effective sample size for a count over
 samples, and compares two runs case by case on paired differences. Small counts get a Wilson or
 Clopper-Pearson interval, so zero failures in a small set bounds the rate rather than claiming none.
-The judge sees only the actions its Jev stage denied, so its benign-denial count is the share of
-those denies it keeps, and the count through every stage gives the rate per action after the judge.
-A containment deny stays final there, as it does in the product. A sample that failed for
-infrastructure reasons leaves the denominators of the decision measurements and counts under
+Measurement 2 counts benign actions for each stage and through every stage. The judge-alone
+experiment runs the containment check, Jev and the judge. Its judge stage sees only the actions Jev
+denied, so the judge's own count is the benign actions whose deny it keeps, out of those Jev denied.
+The count through every stage is the benign actions still denied after the judge, out of all benign
+actions, and a containment deny stays final there, as it does in the product. A sample that failed
+for infrastructure reasons leaves the denominators of the decision measurements and counts under
 measurement 5. The tooling sets no threshold and no release bar, and the owner sets them from the
 numbers.
 
@@ -79,29 +81,29 @@ corpus does not hold.
 
 The held-out catastrophic set lives only in the results repository, and the catastrophic-allows
 experiment reads it from the results clone when the clone holds it. A model that never saw the rules
-or the containment check wrote the set, because every committed catastrophic case was in view while
-the rules were written, so only a set kept out of the rule author's reach tests them out of sample.
+or the containment check wrote the set. Every committed catastrophic case was in view while the
+rules were written, so only a set kept out of the rule author's reach tests the rules out of sample.
 The catastrophic-allows-held-out experiment runs the same stages on the held-out set alone. No
-recording holds Jev answers on the held-out set, so a live run that read the public corpora too
-would send every public case to Jev again.
+recording holds Jev answers on the held-out set, so it runs live, and a live run that read the
+public corpora too would send every public case to Jev again.
 
 Real traffic reaches a corpus only through review. The opt-in
 [request capture](./state-and-logs.md#the-request-capture) stays on the machine that recorded it.
 The anonymise command turns a capture into a candidate corpus, written outside every repository, and
 refuses to write one that a gitleaks scan does not pass. The command never copies a message a person
 typed: each one becomes a placeholder, and so does a run of its words that a deny reason or a tool
-input quotes. A person then writes invented text with the same meaning in place of each message,
-reads every case, and copies the reviewed files into `evals/<name>/`, because no pattern removes a
-person's or a company's name from free text, and git history is permanent.
+input quotes. Then write invented text with the same meaning in place of each message, read every
+case, and copy the reviewed files into `evals/<name>/`. Do this by hand, because no pattern removes
+a person's or a company's name from free text, and git history is permanent.
 
 ## Results
 
 Every run writes to a clone of the private results repository, never to this one, because results
 are large and change on every run. A run holds a summary with the frozen run configuration, the
-hashes of every input and the counts, plus one record per sample, and it names the public commit it
-ran against, so the two repositories stay linked. Each judge sample records the model that wrote its
-reply and whether the transport saw a safety fallback. A model alias resolves to a canonical model
-ID, so the summary counts the flagged replies rather than the names that differ from the stage's
-model. A fallback reply is scored, and only a run whose requests named another model has its answers
-left unscored. The evaluation scripts beside the experiments run the live evaluations that no
-experiment defines, such as the question-shape sweep and the relay-consent corpus.
+hashes of every input and the counts, plus one record per sample. It also records the public commit
+it ran against, so the two repositories stay linked. Each judge sample records the model that wrote
+its reply and whether the transport saw a safety fallback. A model alias resolves to a canonical
+model ID, so the summary counts the flagged replies rather than the names that differ from the
+stage's model. A fallback reply is scored, and only a run whose requests named another model has its
+answers left unscored. The evaluation scripts beside the experiments run the live evaluations that
+no experiment defines, such as the question-shape sweep and the relay-consent corpus.

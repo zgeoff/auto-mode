@@ -29,5 +29,5 @@ None.
   script runs on each pull request and each push to `main`. Read the current list with
   `gh variable get BUN_CHECK_SCRIPTS -R zgeoff/auto-mode`.
 - When a test runs a tool that the runner image lacks, turn on the matching `setup-*` input of
-  `bun-checks.yml` in both callers, as `setup-gitleaks` is for the gitleaks scan in
+  `bun-checks.yml` in both callers, such as `setup-gitleaks` for the gitleaks scan in
   `e2e/build-package-install.test.ts`.

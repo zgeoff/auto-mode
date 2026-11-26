@@ -2,17 +2,20 @@
 
 auto-mode answers the permission prompts Claude Code would show while an agent works unattended.
 When Claude Code is about to ask the user about a tool call, the auto-mode mod runs the auto-mode
-CLI once for that call, and the CLI writes back an allow, a deny with a reason, or no verdict at
-all. An allow lets the call run, and a deny reaches the agent as the tool's result, so the agent
+CLI once to judge that call, and the CLI writes back an allow, a deny with a reason, or no verdict
+at all. An allow lets the call run, and a deny reaches the agent as the tool's result, so the agent
 continues on another path. No verdict makes the mod keep the prompt Claude Code was about to show,
-so the user decides. The design aims at a model other than Claude driving Claude Code, which gets no
-judging of its own; [the product README](../../README.md) covers what auto-mode is for.
+so the user decides. auto-mode is built for Claude Code driven by a model other than Claude, a setup
+that gets no judging of its own. For what auto-mode is for, see
+[the product README](../../README.md).
 
 Every call the CLI judges passes through deterministic checks first, and only what they leave open
 reaches Jev, a classifier from TypeSafe that answers typed questions over its decision API. A second
-model, the judge, reviews every deny Jev gives, unless the configuration turns the judge off. The
-denial budget sits after all of them and is the only path from a deny to a human: an agent that
-keeps getting denied is eventually handed back to the user.
+model, the judge, reviews every deny Jev gives, unless you turn the judge off in the configuration.
+The denial budget acts at both ends of the path. Before any check, it denies again a call that
+repeats the action it just denied. After the judge, it counts the deny, and it is the only part of
+auto-mode that turns a deny into a prompt: an agent that keeps getting denied is eventually handed
+back to the user.
 
 ## The path of a prompted call
 
@@ -26,17 +29,15 @@ flowchart TD
   L -->|"passes on"| C{"containment check"}
   C -->|"target outside the task scope"| N{"every target named by the user?"}
   N -->|no| B
-  N -->|yes| G2{"the judge"}
-  G2 -->|confirm| B
-  G2 -->|"overturn: finding cleared"| E
+  N -->|"yes: deny pending, past the edit bypass and reply channel"| J
   C -->|"no finding"| E{"edit bypass"}
   E -->|"in-scope edit, no secret"| B
   E -->|"passes on"| RC{"reply channel"}
   RC -->|"message to an owned recipient, no secret"| B
   RC -->|"passes on"| J{"Jev"}
-  J -->|allow| B
-  J -->|deny| G{"the judge"}
-  G -->|"confirm, or overturn to allow"| B["denial budget"]
+  J -->|"allow, no deny pending"| B
+  J -->|"deny, or a deny pending"| G{"the judge"}
+  G -->|"confirm, or overturn every deny to allow"| B["denial budget"]
   B -->|"verdict on stdout"| M
   B -->|"budget spent: no verdict"| M
 ```
@@ -47,8 +48,9 @@ flowchart TD
 2. The denial budget checks first whether the call repeats the action it just denied. A repeat gets
    the same deny again, without asking any model, so a classifier that answers differently on each
    sample cannot be asked until it allows ([the denial budget](./stages/denial-budget.md)).
-3. The local rules allow read-only tools and read-only shell commands on sight, and pass every other
-   call on ([local rules](./stages/local-rules.md)).
+3. The local rules allow read-only tools and read-only shell commands on sight. They allow the
+   deletion of regenerable build output only after the containment check passes, and pass every
+   other call on ([local rules](./stages/local-rules.md)).
 4. The containment check reads the write targets it can resolve from the call and denies any that
    lies outside the task scope: the worktrees, paths, branches and pull requests the task owns
    ([containment](./stages/containment.md), [the task scope](./evidence/task-scope.md)). When the
@@ -69,9 +71,13 @@ flowchart TD
 9. The denial budget counts each deny. The deny that would pass the budget becomes no verdict, so
    that call reaches the user.
 
-The first stage that decides ends the path. One exception: a local allow for deleting regenerable
-build output waits until the containment check has passed, because it deletes files, while a
-read-only allow returns before the task scope even loads.
+The first stage that decides skips every later stage up to the denial budget, which every verdict
+passes through, with these exceptions:
+
+- A local allow for deleting regenerable build output waits until the containment check has passed,
+  because it deletes files, while a read-only allow returns before the task scope loads.
+- A containment deny on targets the user named stays pending while the call goes on, and the judge
+  reviews it after Jev, even when Jev allows.
 
 ## Topology
 
@@ -91,15 +97,15 @@ flowchart LR
 
 The mod runs inside Claude Code, which loads it as raw TypeScript from the plugin directory, and
 holds what it knows about the session in memory. It starts the CLI as a short-lived child process
-for every call it judges and kills it at its own time limit, so a hung classifier costs one prompt,
-never the session. After a Bash call that can create a worktree, a branch or a pull request
-finishes, the mod starts the CLI a second time to record what the call made.
+for every call it judges and kills it at its own time limit, so a hung classifier costs only one
+prompt. After a Bash call that can create a worktree, a branch or a pull request finishes, the mod
+starts the CLI a second time to record what the call made.
 
-The CLI is the published `auto-mode` package, built for node, and each run ends with the call it
-judges. It reaches Jev over HTTPS. It reaches the judge through a judge server: a detached CLI
-process, one per agent session, that holds a Claude Code process warm between prompted calls and
-ends after a stretch with no review. The first run that needs the judge starts the server, so only
-the first review of a session pays the start of Claude Code. Jev is the only classifier the
+The CLI is the published `auto-mode` package, built for node, and each run that judges or records a
+call ends with that call. It reaches Jev over HTTPS. It reaches the judge through a judge server: a
+detached CLI process, one per agent session, that holds a Claude Code process warm between prompted
+calls and ends after a stretch with no review. The first run that needs the judge starts the server,
+so only the first review of a session pays the start of Claude Code. Jev is the only classifier the
 configuration accepts.
 
 ## Data
@@ -107,17 +113,17 @@ configuration accepts.
 auto-mode owns no database. Every file it writes lives in its state directory, and every file it
 reads elsewhere belongs to someone else:
 
-- **The configuration file** holds the choice of classifier, the judge, the scope sources, the
-  denial budget and the opt-in capture. A missing file means the shipped defaults
+- **The configuration file** holds the Jev settings, the judge, the scope sources, the denial budget
+  and the opt-in capture. When the file is missing, auto-mode uses the shipped defaults
   ([configuration](../guides/configuration.md)).
-- **The policy** is the set of Markdown files under `policy/` that the classifiers read verbatim:
+- **The policy** is the set of Markdown files under `policy/` that Jev and the judge read verbatim:
   the rule list and one framework per model ([the policy](./policy.md)).
 - **The denial counts** keep one small file per session and subagent, so the budget survives a
   reload of the mod and a resumed session.
 - **The session scope** keeps one file per session listing what that session's own calls created,
   which the task scope reads back.
-- **The launcher scope file** is the file a program that starts the session writes in a format
-  auto-mode defines, listing what the session owns. auto-mode reads it and never writes it
+- **The launcher scope file** lists what the session owns. The program that starts the session
+  writes it, in a format auto-mode defines. auto-mode reads it and never writes it
   ([declaring a session's scope](../guides/scope-file.md)).
 - **The action log** appends one line per judged call, with the deciding stage and the counts, and
   the opt-in capture appends each full request ([state and logs](./state-and-logs.md)).
@@ -127,13 +133,14 @@ reads elsewhere belongs to someone else:
 
 ## Cross-cutting rules
 
-- **A run always exits zero.** The mod reads a non-zero exit as a broken CLI and keeps the prompt,
-  so the JSON on stdout alone decides the outcome, and a CLI that cannot start at all costs the user
-  one prompt.
+- **A run always exits zero.** The JSON on stdout alone decides the outcome. The mod reads a
+  non-zero exit as a broken CLI and keeps the prompt, so a CLI that cannot start at all costs the
+  user one prompt.
 - **No verdict is an answer.** It means auto-mode has no opinion, and the mod keeps the prompt. A
   body that is not a request, a configuration the CLI cannot read, a classifier failure under the
-  default failure response, and the call that spends the denial budget all end in no verdict. The
-  classifiers themselves never ask: each answers allow or deny.
+  default failure response, and the call that spends the denial budget all end in no verdict. No
+  model ever asks the user: the CLI turns every answer from Jev or the judge into an allow or a
+  deny.
 - **A failure defers or denies.** When Jev cannot answer, the configured failure response either
   defers, which writes no verdict, or denies as `Classifier Unavailable`. The judge always fails
   closed: a judge that cannot answer keeps the deny.

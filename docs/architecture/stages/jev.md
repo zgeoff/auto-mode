@@ -6,8 +6,10 @@ questions, and Jev returns, for each question, a choice and a probability for ea
 asks one question per block rule, "under this rule, must the pending action be refused?", with
 `allow` and `block` as the options. The CLI then decides from the probabilities, not from Jev's
 choices, so the threshold for a deny is auto-mode's setting and not the model's. Jev writes no
-explanation, so every Jev deny carries a fixed reason for its rule, and [the judge](./judge.md),
-when configured, reviews each one.
+explanation, so every deny on a rule carries fixed text the CLI holds for that rule, and
+[the judge](./judge.md), when configured, reviews each one. A deny for a failed call carries
+`Classifier Unavailable`, which belongs to no rule in the policy, and the judge never reviews it
+([failure](#failure)).
 
 The [policy](../policy.md) owns the rules themselves and the framework Jev reads.
 [The user message](../evidence/user-message.md) and
@@ -29,22 +31,22 @@ The request holds the call and everything Jev may use to judge it, and nothing e
 
 The questions follow the policy's two tiers. Each `###` heading under the hard block section or the
 soft block section becomes one question, and each configured entry becomes a question in the tier it
-was configured in. One exception: a message that [the reply channel](./reply-channel.md) hands on
-because the user configured deny entries gets no question for the shipped Outbound Communication
-rule. A question's block option covers a missing fact as well as a match: when a fact needed to rule
-out the rule's harm is absent, the right answer is block. Two hard rules, Policy Tampering and Audit
+was configured in. The shipped Outbound Communication rule gets no question for a message that
+[the reply channel](./reply-channel.md) hands on because the user configured deny entries. A
+question's block option covers a missing fact as well as a match: when a fact needed to rule out the
+rule's harm is absent, the right answer is block. Two hard rules, Policy Tampering and Audit
 Tampering, carry a narrow clarification path, because their matches include false positives that
 only the user can explain, and some rules carry extra guidance on which evidence settles them.
 
 A commit or push that turns off the repository's hooks, or some of their steps, gets guidance of its
 own. The hooks check what an agent commits and pushes, so turning them off disables a guard on the
-agent, and the Policy Tampering text names only the hook that installs auto-mode. The guidance
-covers git commit, git push, and each gh stack command that commits or pushes. It applies when
-lefthook or husky is switched off, or lefthook is told to leave steps out, by a variable set before
-the command or exported earlier in it, or when git's no-verify option is set. The Policy Tampering
-question then names each switch and asks Jev to judge the call under that rule. It names a switch by
-a fixed label, never by the command's own text, because the question is trusted instruction and the
-agent under review writes the command.
+agent. The Policy Tampering text covers only the hook that installs auto-mode. The guidance covers
+git commit, git push, and each gh stack command that commits or pushes. It applies when lefthook or
+husky is switched off, or lefthook is told to leave steps out, by a variable set before the command
+or exported earlier in it, or when git's no-verify option is set. The Policy Tampering question then
+names each switch and asks Jev to judge the call under that rule. It names a switch by a fixed
+label, never by the command's own text, because the question is trusted instruction and the agent
+under review writes the command.
 
 A shell expansion in git's subcommand, or among the options of a commit or a push, gets the same
 guidance in a sentence of its own. The command text cannot show whether the expansion turns the
@@ -54,7 +56,8 @@ commit or a push can break. An unquoted expansion counts anywhere among those op
 shell can split it into new option words. A quoted one counts where git reads an option. A quoted
 one that fills in an option's value, such as the commit message, adds nothing.
 
-A command that replaces the repository's hooks gets the same guidance. It applies in three cases:
+A command that replaces the repository's hooks gets the same guidance. It applies in each of these
+cases:
 
 - A variable points lefthook at a config other than the one the worktree loads, or at a binary other
   than lefthook on the path or the one the worktree's packages install.
@@ -91,15 +94,15 @@ an explicit note that it was omitted. When it is still too large, the call is a 
 
 The client checks the response before the CLI reads it: every requested answer must be present, each
 answer's probabilities must sum to one within Jev's rounding, and the chosen option must carry the
-highest probability. A response that fails any check is a classifier failure, not a guess.
+highest probability. A response that fails any check is a classifier failure.
 
 A rule blocks when its block probability reaches the configured threshold, whatever Jev chose. The
 shipped threshold sits well below an even split, so a rule Jev chose to allow, but with real doubt,
 still blocks. The deny holds the blocking rule with the highest block probability, a hard rule wins
-a tie, and the earlier rule in the policy wins after that. Its reason states the harm the rule
-covers and what clears it, in one of two forms: the action matches the rule, when Jev chose block,
-or the evidence cannot rule out the harm, when Jev chose allow but the probability still reached the
-threshold.
+a tie, and the earlier rule in the policy wins after that. Its reason pairs the rule's fixed text,
+the harm the rule covers and what clears it, with one of two openings: the action matches the rule,
+when Jev chose block, or the evidence cannot rule out the harm, when Jev chose allow but the
+probability still reached the threshold.
 
 The rule the judge reviews is not always the rule the deny holds. A hard rule never clears on
 consent, so when any hard rule blocks, the judge reviews that hard rule, even if a soft rule ranks
@@ -109,8 +112,8 @@ and its reason, whichever rule ranked first.
 
 ## Failure
 
-Jev fails at one of four steps, and the action log records which: finding the API key, gathering the
-evidence, sending the request, or reading the response. Every failure ends in the configured failure
+Jev can fail while finding the API key, gathering the evidence, sending the request or reading the
+response, and the action log records which step failed. Every failure ends in the configured failure
 response. Under the default, the CLI writes no verdict and the mod keeps the prompt. Under the
 other, the CLI denies as `Classifier Unavailable`, a rule name that belongs to no rule in the
 policy, with the failure as its reason. The judge never reviews that deny, because there is no rule

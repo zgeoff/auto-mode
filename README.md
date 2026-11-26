@@ -6,24 +6,28 @@
   </p>
 </div>
 
-**auto-mode** tries to mitigate the risk of unattended non-Claude agents inside Claude Code.
+**auto-mode** tries to mitigate the risk of leaving Claude Code unattended while its main agent runs
+on a model other than Claude.
 
-auto-mode runs as a Claude Code mod, and its operating model is loosely modelled on Anthropic's
-native auto mode. Instead of one model, it pairs a fast decision model (such as Jev) with a
-traditional classifier-judge model (such as Haiku) to cover the first one's shortcomings.
+auto-mode runs as a Claude Code mod, loosely modelled on Anthropic's native auto mode. It pairs a
+fast decision model, TypeSafe's Jev, with a judge model that reviews each Jev deny to cover Jev's
+shortcomings. Jev is the only decision model it accepts, and you pick the judge, such as Claude
+Sonnet through your Claude login or Haiku through an Anthropic API key.
 
 ## Install
 
-auto-mode needs node 24 or later, Claude Code, and a TypeSafe API key for Jev.
+auto-mode needs node 24 or later, Claude Code, and a TypeSafe API key for Jev. Read
+[the rules](./policy/rules.md) before you start a session with the mod.
 
 ```sh
 npm i -g auto-mode
+export TYPESAFE_API_KEY=<your TypeSafe API key>
 claude --plugin-dir "$(auto-mode mod-path)"
 ```
 
-Export your key as `TYPESAFE_API_KEY`, or point the configuration at a command that prints it.
-[Claude permission mod](./docs/guides/claude-mod.md) covers the mod and a trial session you can
-undo.
+In place of the variable, you can point the configuration at a command that prints the key. To set
+up the mod and try it in a session you can undo, read
+[Claude permission mod](./docs/guides/claude-mod.md).
 
 ## Features
 
@@ -47,16 +51,16 @@ undo.
 - **Action diagnostics** record how each call was decided, without the command or the prompt
   ([action diagnostics](./docs/guides/diagnostics.md)).
 
-Read [the rules](./policy/rules.md) before you enable the mod.
-[Writing a policy](./docs/guides/policy.md) covers how the rules clear and how to change them.
+To learn how the rules clear and how to change them, read
+[Writing a policy](./docs/guides/policy.md).
 
 ## Library
 
 You can call auto-mode's core APIs from your own code. `parseActionRequest` reads the request the
 mod sends the CLI ([the contract](./docs/architecture/mod.md#the-contract)), and `classifyAction`
 runs it through [the stages](./docs/architecture/overview.md#the-path-of-a-prompted-call) from the
-local rules to the judge. The two options in the example apply the denial budget and write the
-action log, as the CLI does.
+local rules to the judge. Pass the two options in the example to apply the denial budget and write
+the action log, as the CLI does.
 
 ```ts
 import { classifyAction, loadConfig, parseActionRequest } from 'auto-mode';
@@ -73,12 +77,11 @@ if (request !== null) {
 
 ## Configuration
 
-Read the [configuration](./docs/guides/configuration.md) guide, which covers every field and the
-credentials.
+For every field and the credentials, read the [configuration](./docs/guides/configuration.md) guide.
 
 ## Documentation
 
-[docs/](./docs/README.md) covers the architecture and the user guides.
+For the architecture and the user guides, read [docs/](./docs/README.md).
 
 ## Licence
 
