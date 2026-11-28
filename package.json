@@ -76,7 +76,7 @@
     "@commitlint/cli": "21.2.4",
     "@faker-js/faker": "10.6.0",
     "@mswjs/interceptors": "0.45.11",
-    "@stylistic/eslint-plugin": "5.10.0",
+    "@stylistic/eslint-plugin": "6.0.1",
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.4",
     "@types/node": "26.6.6",
